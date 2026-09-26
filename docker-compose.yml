@@ -1,0 +1,42 @@
+version: '3.9'
+
+# Local-first development infrastructure. Only the database is
+# containerized by default; the API and web apps run with npm on the
+# host during development (see README.md). An optional app profile is
+# provided for running the complete stack in containers if preferred.
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: care-platform-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: care_platform
+      MYSQL_USER: care_app
+      MYSQL_PASSWORD: care_app_password
+      MYSQL_ROOT_PASSWORD: root_password_change_me
+    ports:
+      - '3306:3306'
+    volumes:
+      - care_platform_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-proot_password_change_me']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Optional: lightweight DB admin UI at http://localhost:8080
+  adminer:
+    image: adminer:latest
+    container_name: care-platform-adminer
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    depends_on:
+      - mysql
+    profiles:
+      - tools
+
+volumes:
+  care_platform_mysql_data:
+    name: care_platform_mysql_data

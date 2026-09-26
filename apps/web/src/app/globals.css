@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-inter:
+    'Inter', ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-noto-si: 'Iskoola Pota', 'Noto Sans Sinhala', 'Nirmala UI', sans-serif;
+  --font-noto-ta: 'Nirmala UI', 'Noto Sans Tamil', 'Latha', sans-serif;
+}
+
+* {
+  border-color: theme('colors.border');
+}
+
+html,
+body {
+  background-color: theme('colors.paper');
+  color: theme('colors.ink');
+}
+
+body {
+  font-family: var(--font-inter);
+  font-feature-settings: 'tnum' 1;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid theme('colors.brand.DEFAULT');
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
