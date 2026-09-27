@@ -1,10 +1,75 @@
 import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/mysql2';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import * as mysql from 'mysql2/promise';
 import { randomUUID as uuid } from 'crypto';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import * as schema from './schema';
+
+/**
+ * Location reference data lives in seed-data/locations.csv rather than inline,
+ * because there are ~1800 of them. Regenerate that file from a database that
+ * already has the full list loaded:
+ *
+ *   npx ts-node src/database/scripts/export-locations.ts
+ */
+const LOCATIONS_CSV = resolve(__dirname, 'seed-data/locations.csv');
+
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char !== '"') {
+        current += char;
+      } else if (line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = false;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ',') {
+      fields.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  fields.push(current);
+  return fields;
+}
+
+function loadLocationRows(): { district: string; city: string; province: string }[] {
+  let raw: string;
+  try {
+    raw = readFileSync(LOCATIONS_CSV, 'utf8');
+  } catch {
+    throw new Error(
+      `Missing ${LOCATIONS_CSV}.\n` +
+        `Generate it with: npx ts-node src/database/scripts/export-locations.ts`,
+    );
+  }
+
+  const lines = raw.split(/\r?\n/).filter((line) => line.trim() !== '');
+  const header = parseCsvLine(lines.shift() ?? '').map((h) => h.trim().toLowerCase());
+  if (header.join(',') !== 'district,city,province') {
+    throw new Error(`Unexpected CSV header in ${LOCATIONS_CSV}: "${header.join(',')}"`);
+  }
+
+  return lines.map((line, index) => {
+    const [district, city, province] = parseCsvLine(line);
+    if (!district || !city || !province) {
+      throw new Error(`Malformed row ${index + 2} in ${LOCATIONS_CSV}: "${line}"`);
+    }
+    return { district, city, province };
+  });
+}
 
 async function main() {
   const connection = await mysql.createConnection(process.env.DATABASE_URL!);
@@ -47,28 +112,32 @@ async function main() {
     await db.insert(schema.languages).values({ id, name, code }).onDuplicateKeyUpdate({ set: { code } });
   }
 
-  console.log('Seeding Sri Lankan locations...');
-  const locationDefs = [
-    ['Colombo', 'Colombo', 'Western'],
-    ['Colombo', 'Dehiwala', 'Western'],
-    ['Gampaha', 'Negombo', 'Western'],
-    ['Gampaha', 'Ja-Ela', 'Western'],
-    ['Kandy', 'Kandy', 'Central'],
-    ['Kandy', 'Peradeniya', 'Central'],
-    ['Galle', 'Galle', 'Southern'],
-    ['Matara', 'Matara', 'Southern'],
-    ['Kurunegala', 'Kurunegala', 'North Western'],
-    ['Jaffna', 'Jaffna', 'Northern'],
-  ] as const;
-  const locationIds: Record<string, string> = {};
-  for (const [district, city, province] of locationDefs) {
-    const id = uuid();
-    locationIds[`${district}-${city}`] = id;
+  console.log('Seeding Sri Lankan locations from seed-data/locations.csv...');
+  const locationValues = loadLocationRows().map((row) => ({ id: uuid(), ...row }));
+
+  // Batched, so ~1800 rows don't become ~1800 sequential round trips.
+  for (let i = 0; i < locationValues.length; i += 500) {
     await db
       .insert(schema.locations)
-      .values({ id, district, city, province })
-      .onDuplicateKeyUpdate({ set: { province } });
+      .values(locationValues.slice(i, i + 500))
+      .onDuplicateKeyUpdate({ set: { province: sql`values(${schema.locations.province})` } });
   }
+
+  // Read the ids back rather than trusting the generated ones: on a re-seed the
+  // unique (district, city) key matches the existing row, so the row keeps its
+  // original id and the freshly generated one is never written.
+  const persistedLocations = await db
+    .select({
+      id: schema.locations.id,
+      district: schema.locations.district,
+      city: schema.locations.city,
+    })
+    .from(schema.locations);
+  const locationIds: Record<string, string> = {};
+  for (const row of persistedLocations) {
+    locationIds[`${row.district}-${row.city}`] = row.id;
+  }
+  console.log(`  ${persistedLocations.length} locations available.`);
 
   console.log('Seeding admin + staff users...');
   const adminPasswordHash = await bcrypt.hash('ChangeMe123!', 12);
@@ -325,9 +394,16 @@ async function main() {
       });
     }
 
+    const preferredLocationId = locationIds[c.location];
+    if (!preferredLocationId) {
+      throw new Error(
+        `Seed references location "${c.location}", which is missing from seed-data/locations.csv`,
+      );
+    }
+
     await db.insert(schema.preferredLocations).values({
       caregiverId: id,
-      locationId: locationIds[c.location],
+      locationId: preferredLocationId,
     });
 
     await db.insert(schema.availability).values({
