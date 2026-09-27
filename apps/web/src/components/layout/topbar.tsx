@@ -1,8 +1,10 @@
 'use client';
 
-import { LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { KeyRound, LogOut } from 'lucide-react';
 import { useTranslation, type Locale } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
+import { ChangePasswordModal } from '@/components/users/change-password-modal';
 
 const LOCALES: { value: Locale; label: string }[] = [
   { value: 'en', label: 'EN' },
@@ -13,6 +15,7 @@ const LOCALES: { value: Locale; label: string }[] = [
 export function Topbar() {
   const { locale, setLocale, t } = useTranslation();
   const { user, logout } = useAuth();
+  const [changingPassword, setChangingPassword] = useState(false);
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-white px-6">
@@ -39,6 +42,13 @@ export function Topbar() {
               <div className="text-xs text-ink/50">{user.role}</div>
             </div>
             <button
+              onClick={() => setChangingPassword(true)}
+              className="flex h-9 w-9 items-center justify-center rounded text-ink/60 hover:bg-paper hover:text-ink"
+              title={t('changePassword.title')}
+            >
+              <KeyRound size={16} />
+            </button>
+            <button
               onClick={logout}
               className="flex h-9 w-9 items-center justify-center rounded text-ink/60 hover:bg-paper hover:text-ink"
               title={t('nav.logout')}
@@ -48,6 +58,7 @@ export function Topbar() {
           </div>
         )}
       </div>
+      {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
     </header>
   );
 }

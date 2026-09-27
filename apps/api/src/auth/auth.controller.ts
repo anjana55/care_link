@@ -8,6 +8,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterCaregiverDto } from './dto/register-caregiver.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
 import { VerifyEmailDto, ResendVerificationDto } from './dto/verify-email.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
@@ -86,6 +87,15 @@ export class AuthController {
   async logout(@CurrentUser() user: AuthenticatedUser) {
     await this.authService.logout(user.userId);
     await this.auditService.record({ userId: user.userId, action: 'LOGOUT', entityType: 'User', entityId: user.userId });
+    return { success: true };
+  }
+
+  // Self-service, available to every authenticated role (no @Roles here) -
+  // deliberately separate from the ADMIN-only /users/:id/reset-password.
+  @Post('change-password')
+  async changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: AuthenticatedUser) {
+    await this.authService.changePassword(user.userId, dto.currentPassword, dto.newPassword);
+    await this.auditService.record({ userId: user.userId, action: 'CHANGE_PASSWORD', entityType: 'User', entityId: user.userId });
     return { success: true };
   }
 }

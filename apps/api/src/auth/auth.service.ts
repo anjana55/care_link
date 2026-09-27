@@ -288,6 +288,23 @@ export class AuthService {
     await this.db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, userId));
   }
 
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const [user] = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) {
+      throw new UnauthorizedException('Account not found');
+    }
+    const matches = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!matches) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+    // Revoke every other session - the caller's own follow-up login (or
+    // this request's still-valid access token) is unaffected, but any
+    // stolen/forgotten-about refresh token stops working immediately.
+    await this.db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, userId));
+  }
+
   private async buildPayload(user: { id: string; email: string; role: UserRole }): Promise<JwtPayload> {
     const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
     if (user.role === 'CAREGIVER') {

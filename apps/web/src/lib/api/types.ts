@@ -159,3 +159,17 @@ export interface Availability {
   expectedLeaveDays: number | null;
   preferredLeavePattern: string | null;
 }
+
+export type StaffRole = 'ADMIN' | 'STAFF' | 'VERIFIER';
+
+export interface StaffUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: StaffRole;
+  isActive: boolean;
+  emailVerifiedAt: string | null;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

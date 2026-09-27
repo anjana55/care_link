@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Sparkles, Languages, MapPin, ScrollText } from 'lucide-react';
+import { LayoutDashboard, Users, Sparkles, Languages, MapPin, ScrollText, ShieldCheck } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
+import { useAuth } from '@/lib/api/auth-context';
 import { cn } from '@/lib/utils';
 
 const ITEMS = [
@@ -15,9 +16,14 @@ const ITEMS = [
   { href: '/audit-log', key: 'nav.auditLog', icon: ScrollText },
 ];
 
+// Admin-only: rendered separately from ITEMS so it never shows for STAFF/VERIFIER.
+const ADMIN_ITEM = { href: '/users', key: 'nav.users', icon: ShieldCheck };
+
 export function Sidebar() {
   const pathname = usePathname();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const items = user?.role === 'ADMIN' ? [...ITEMS, ADMIN_ITEM] : ITEMS;
 
   return (
     <aside className="hidden w-60 shrink-0 border-r border-border bg-white md:flex md:flex-col">
@@ -26,7 +32,7 @@ export function Sidebar() {
         <span className="text-sm font-semibold text-ink">Care Platform</span>
       </div>
       <nav className="flex-1 space-y-0.5 p-3">
-        {ITEMS.map((item) => {
+        {items.map((item) => {
           const active = pathname?.startsWith(item.href);
           const Icon = item.icon;
           return (

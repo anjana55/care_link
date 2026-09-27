@@ -6,7 +6,8 @@
     "languages": "Languages",
     "locations": "Locations",
     "auditLog": "Audit log",
-    "logout": "Log out"
+    "logout": "Log out",
+    "users": "Users"
   },
   "login": {
     "title": "Sign in",
@@ -330,5 +331,59 @@
       "mentalHealth": "Enter mental health notes",
       "otherNotes": "Enter other notes"
     }
+  },
+  "users": {
+    "title": "Users",
+    "subtitle": "Manage staff, verifier and admin accounts.",
+    "addNew": "Add user",
+    "search": "Search users...",
+    "empty": "No users yet.",
+    "never": "Never",
+    "table": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "lastLogin": "Last login",
+      "actions": "Actions"
+    },
+    "role": {
+      "ADMIN": "Admin",
+      "STAFF": "Staff",
+      "VERIFIER": "Verifier"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "actions": {
+      "edit": "Edit",
+      "resetPassword": "Reset password",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "delete": "Delete"
+    },
+    "addTitle": "Add user",
+    "editTitle": "Edit user",
+    "resetPasswordTitle": "Reset password",
+    "resetPasswordBody": "Set a new password for this account. They'll need to sign in again with it.",
+    "deleteTitle": "Delete user",
+    "confirmDelete": "This permanently deletes the account and cannot be undone.",
+    "form": {
+      "fullName": "Full name",
+      "email": "Email",
+      "password": "Password",
+      "role": "Role",
+      "newPassword": "New password"
+    },
+    "you": "you"
+  },
+  "changePassword": {
+    "title": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "mismatch": "New password and confirmation don't match.",
+    "success": "Password changed."
   }
 }
