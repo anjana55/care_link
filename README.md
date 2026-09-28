@@ -72,14 +72,11 @@ npm run db:seed               # seed skills, languages, locations, users, sample
 npm run build
 npm run start:dev             # http://localhost:3001  (Swagger: /api/docs)
 
-# 3. Staff frontend (in a second terminal)
-# NB: apps/web sets basePath '/staff' in next.config.js, so the app is
-# served under /staff. The bare root (http://localhost:3000/) is a 404
-# by design - open the /staff URL instead.
+# 3. Frontend (in a second terminal)
 cd apps/web
 cp .env.local.example .env.local
 npm install
-npm run dev                   # http://localhost:3000/staff
+npm run dev                   # http://localhost:3000
 ```
 
 Seeded logins (password for all: `ChangeMe123!`):
