@@ -45,6 +45,11 @@ COPY --from=builder /repo/apps/api/package.json ./apps/api/package.json
 # so this path (matching apps/api/'s own layout) must be run from
 # /app/apps/api - see the CMD note in DEPLOYMENT.md's migration step.
 COPY --from=builder /repo/apps/api/src/database/migrations ./apps/api/src/database/migrations
+# seed-production.js (run the same way, see DEPLOYMENT.md's seed step)
+# reads locations.csv relative to __dirname instead - i.e. relative to
+# itself once compiled - so this copies to dist/src/database/seed-data,
+# not src/database/seed-data like the migrations above.
+COPY --from=builder /repo/apps/api/src/database/seed-data ./apps/api/dist/src/database/seed-data
 
 USER app
 EXPOSE 3001

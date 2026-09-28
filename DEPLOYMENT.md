@@ -5,12 +5,23 @@ before, never pointed a domain at a server before, and might not know
 what half these words mean. Every command is written out in full. Every
 command tells you what it does, and what you should see happen after you
 run it. If something on your screen doesn't match what's described here,
-skip to **Part 8 - Troubleshooting** and look for the exact error text.
+skip to **Part 17 - Troubleshooting** and look for the exact error text.
 
 Follow the parts **in order**. Don't skip ahead - Part 5 (the port-80
 fix) exists specifically because someone hit that exact error while
 following an earlier version of this guide, and doing it before you
 need it saves you the confusion later.
+
+---
+
+**Shortcut:** if you're comfortable with the command line and just want
+this running, `./setup.sh --domain=yourdomain.example` automates Parts
+8 through 12 below (filling in secrets, building, starting, migrating,
+and seeding). It's safe to re-run. Everything it can't safely automate
+- provisioning a server, DNS, HTTPS, backups - still needs the matching
+part of this guide. If anything about it is confusing or it fails
+partway through, the manual walkthrough below is exactly what it's
+running, part by part, so you can pick up from wherever it stopped.
 
 ---
 
@@ -27,7 +38,7 @@ need it saves you the confusion later.
 - [Part 8 - Fill in your secrets](#part-8---fill-in-your-secrets)
 - [Part 9 - Build the images](#part-9---build-the-images)
 - [Part 10 - Start everything](#part-10---start-everything)
-- [Part 11 - Run the database migrations](#part-11---run-the-database-migrations-one-time-step)
+- [Part 11 - Run migrations and seed reference data](#part-11---run-the-database-migrations-and-seed-reference-data-one-time-step)
 - [Part 12 - Check that it actually worked](#part-12---check-that-it-actually-worked)
 - [Part 13 - Add HTTPS (the padlock icon)](#part-13---add-https-the-padlock-icon)
 - [Part 14 - Everyday commands](#part-14---everyday-commands-cheat-sheet)
@@ -475,7 +486,9 @@ continue to Part 11 until all 5 rows say `Up`.
 
 ---
 
-## Part 11 - Run the database migrations (one-time step)
+## Part 11 - Run the database migrations and seed reference data (one-time step)
+
+### 11.1 Migrations
 
 The database starts out completely empty - this step creates all its
 tables. Run this exact command:
@@ -498,6 +511,49 @@ row says `Up`. Don't re-run the migration command until it does.
 You only need to run this once per fresh database. If you ever update
 the app later and it adds new database changes, Part 16 tells you when
 to run this again.
+
+### 11.2 Seed reference data and the first admin account
+
+Migrations only create empty tables - this step loads the data the app
+actually needs to be usable: the list of Sri Lankan districts/cities
+patients and caregivers pick from, the fixed list of skills and
+languages, and one initial admin account so you have a way to log in at
+all. Skipping this step is the most common reason a fresh deploy looks
+"broken" - locations don't show up anywhere, and there's no admin login
+yet.
+
+Pick an email and a strong password for that first admin account, then
+run:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec \
+  -w /app/apps/api \
+  -e INITIAL_ADMIN_EMAIL=you@yourdomain.example \
+  -e INITIAL_ADMIN_PASSWORD='choose-a-strong-password-here' \
+  api node dist/src/database/seed-production.js
+```
+
+You should see:
+```
+Seeding skills...
+Seeding languages...
+Seeding Sri Lankan locations from seed-data/locations.csv...
+  1847 locations available.
+Checking for an existing admin account...
+Creating initial admin account (you@yourdomain.example)...
+  Admin account created.
+Production seed complete.
+```
+
+Log in at `https://yourdomain.example/staff/login` with that email and
+password, and change the password immediately afterwards (top bar - key
+icon).
+
+This is also safe to run more than once: it never creates a second
+admin or touches an existing one's password, and re-loading the
+reference data just updates it in place. If you ever update
+locations.csv/skills/languages in a later release, re-running this
+command is how you pick up the change - see Part 16.
 
 ---
 
@@ -738,12 +794,18 @@ If you're not sure whether new database changes were included, it's
 always safe to run this command anyway - it silently does nothing if
 there's nothing new to apply.
 
+If you were told the update changed reference data (e.g. an updated
+locations.csv, or new skills/languages), also re-run the Part 11.2 seed
+command with the same `INITIAL_ADMIN_EMAIL`/`INITIAL_ADMIN_PASSWORD`
+values you used the first time - it's a no-op for the admin account at
+that point and only refreshes the reference data.
+
 ---
 
 ## Part 17 - Troubleshooting
 
 Find the error text you actually saw and read the matching entry. If
-nothing here matches exactly, scroll to **17.9 - Getting more help**.
+nothing here matches exactly, scroll to **17.10 - Getting more help**.
 
 ### 17.1 `cannot expose privileged port 80 ... permission denied`
 
@@ -853,7 +915,15 @@ both. Also confirm you're typing the domain correctly in your browser,
 including `https://` once you've done Part 13 (before that, use plain
 `http://`).
 
-### 17.9 Getting more help
+### 17.9 The site works and I can log in, but there are no locations / no admin login exists
+
+You skipped (or an older version of this guide didn't have) Part 11.2 -
+migrations create empty tables, but only the seed step in Part 11.2
+loads the actual location/skill/language list and creates the first
+admin account. Run that command now; it's safe even on a database
+that's been running for a while.
+
+### 17.10 Getting more help
 
 If you're still stuck, gather this information before asking for help -
 it's what anyone helping you will need first:
