@@ -55,6 +55,8 @@ export default function RegisterPage() {
 
   const {
     register,
+    control,
+    setValue,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<RegisterValues>({ resolver: zodResolver(registerSchema) });
@@ -147,7 +149,7 @@ export default function RegisterPage() {
           </div>
 
           <h2 className="mb-3 text-sm font-semibold text-ink">{t('register.personalSection')}</h2>
-          <PersonalInfoFields register={register} errors={errors} locations={locations ?? []} />
+          <PersonalInfoFields register={register} control={control} setValue={setValue} errors={errors} locations={locations ?? []} />
 
           <label className="mt-6 flex items-start gap-2 text-sm text-ink">
             <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand" {...register('consentAccepted')} />

@@ -320,7 +320,7 @@ export default function CaregiverProfilePage() {
         <TabsContent value="overview">
           {isEditing ? (
             <form onSubmit={onSave} className="space-y-5">
-              <PersonalInfoFields register={form.register} errors={form.formState.errors} locations={locations ?? []} />
+              <PersonalInfoFields register={form.register} control={form.control} setValue={form.setValue} errors={form.formState.errors} locations={locations ?? []} />
               <div className="flex justify-end border-t border-border pt-4">
                 <Button type="submit" disabled={updateCaregiver.isPending}>
                   {updateCaregiver.isPending ? t('common.loading') : t('common.save')}

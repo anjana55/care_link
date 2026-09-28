@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import type { FieldErrors, UseFormRegister } from 'react-hook-form';
+import { useMemo } from 'react';
+import { Controller, useWatch } from 'react-hook-form';
+import type { Control, FieldErrors, UseFormRegister, UseFormSetValue } from 'react-hook-form';
 import { Input, Label, FieldError, Select, Textarea } from '@/components/ui/input';
 import type { Location } from '@/lib/api/types';
 import type { PersonalInfoValues } from '@/lib/schemas/personal-info';
@@ -7,16 +8,27 @@ import { useTranslation } from '@/lib/i18n/provider';
 
 export function PersonalInfoFields<T extends PersonalInfoValues>({
   register,
+  control,
+  setValue,
   errors,
   locations,
 }: {
   register: UseFormRegister<T>;
+  control: Control<T>;
+  setValue: UseFormSetValue<T>;
   errors: FieldErrors<T>;
   locations?: Location[];
 }) {
   const { t } = useTranslation();
 
-  const [selectedDistrict, setSelectedDistrict] = useState<string>('');
+  // District and city are a dependent pair, so they can't stay uncontrolled
+  // like the rest of the form: the city options are derived from the selected
+  // district. Both are wired through Controller/useWatch rather than kept in
+  // local state, so the form stays the single source of truth. Mirroring the
+  // district in useState instead would leave the form value and the rendered
+  // value disagreeing - on the edit screen the caregiver's saved district
+  // arrives via form.reset() and the dropdown would still read blank.
+  const selectedDistrict = useWatch({ control, name: 'district' as any }) ?? '';
 
   const districts = useMemo(() => {
     const unique = new Set((locations ?? []).map((l) => l.district));
@@ -65,23 +77,57 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
 
       <div>
         <Label htmlFor="district">{t('personalInfo.fields.district')}</Label>
-        <Select id="district" {...register('district' as any)} value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); }}>
-          <option value="">{t('personalInfo.options.select')}</option>
-          {districts.map((d) => (
-            <option key={d} value={d}>{d}</option>
-          ))}
-        </Select>
+        <Controller
+          name={'district' as any}
+          control={control}
+          render={({ field }) => (
+            <Select
+              id="district"
+              ref={field.ref}
+              value={field.value ?? ''}
+              onChange={(e) => {
+                field.onChange(e);
+                // Cities are scoped to a district, so a city picked under the
+                // old district is no longer on the list. Clear it instead of
+                // submitting a city that doesn't belong to the district.
+                // Guarded so re-picking the same district (which is what
+                // happens when the edit screen loads a saved record) doesn't
+                // wipe the city that just came back from the server.
+                if (e.target.value !== field.value) {
+                  setValue('city' as any, '' as any);
+                }
+              }}
+            >
+              <option value="">{t('personalInfo.options.select')}</option>
+              {districts.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </Select>
+          )}
+        />
         <FieldError message={errors.district?.message as string | undefined} />
       </div>
 
       <div>
         <Label htmlFor="city">{t('personalInfo.fields.city')}</Label>
-        <Select id="city" {...register('city' as any)} disabled={!selectedDistrict}>
-          <option value="">{t('personalInfo.options.select')}</option>
-          {cities.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </Select>
+        <Controller
+          name={'city' as any}
+          control={control}
+          render={({ field }) => (
+            <Select
+              id="city"
+              ref={field.ref}
+              value={field.value ?? ''}
+              onChange={field.onChange}
+              disabled={!selectedDistrict}
+            >
+              <option value="">{t('personalInfo.options.select')}</option>
+              {cities.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </Select>
+          )}
+        />
         <FieldError message={errors.city?.message as string | undefined} />
       </div>
 

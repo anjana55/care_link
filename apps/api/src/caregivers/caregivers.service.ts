@@ -19,7 +19,7 @@ import { CreateCaregiverDto } from './dto/create-caregiver.dto';
 import { UpdateCaregiverDto } from './dto/update-caregiver.dto';
 import { CaregiverQueryDto } from './dto/caregiver-query.dto';
 import { maskIdentifier, maskPhone } from '../common/utils/masking.util';
-import { generateRegistrationNumber, assertUniqueContactFields } from './caregiver-creation.util';
+import { generateRegistrationNumber, assertUniqueContactFields, assertKnownLocationPair } from './caregiver-creation.util';
 
 /** A condition that always evaluates to false - used to short-circuit a
  * filter to "no results" without ever building an invalid `IN ()` clause. */
@@ -32,6 +32,7 @@ export class CaregiversService {
 
   async create(dto: CreateCaregiverDto) {
     await assertUniqueContactFields(this.db, dto);
+    await assertKnownLocationPair(this.db, dto);
     const id = uuid();
     // Generated at creation time, independent of `id`, so the public-search
     // API never has to expose (or derive from) the internal primary key.
@@ -270,8 +271,14 @@ export class CaregiversService {
   }
 
   async update(id: string, dto: UpdateCaregiverDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
     await assertUniqueContactFields(this.db, dto, id);
+    // dto is partial, so validate the pair that will actually be stored - a
+    // city-only edit is still checked against the district on the record.
+    await assertKnownLocationPair(this.db, {
+      district: dto.district ?? existing.district,
+      city: dto.city ?? existing.city,
+    });
 
     const updateData: Record<string, unknown> = { ...dto };
     if (dto.dateOfBirth) updateData.dateOfBirth = dto.dateOfBirth as unknown as Date;
