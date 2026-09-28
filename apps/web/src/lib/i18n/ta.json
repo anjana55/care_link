@@ -283,7 +283,7 @@
       "policeStation": "காவல் நிலையம்",
       "district": "மாவட்டம்",
       "city": "நகரம்",
-      "postalCode": "அஞ்சல் குறியீடு"
+      "postalCode": "அஞ்சல் குறியீட்டு எண்"
     },
     "validation": {
       "fullName": "முழுப் பெயர் தேவை",
