@@ -91,6 +91,11 @@ export class UsersService {
     }
 
     await this.db.update(users).set({ isActive }).where(eq(users.id, id));
+    if (!isActive) {
+      // Cut off sessions immediately; access tokens are also re-checked
+      // against isActive on every request (see JwtStrategy).
+      await this.db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, id));
+    }
     return this.findOne(id);
   }
 

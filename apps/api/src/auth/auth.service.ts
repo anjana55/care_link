@@ -270,6 +270,18 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token has been revoked or expired');
     }
 
+    // The account may have been deactivated, deleted, or had its role changed
+    // since this token was issued - never mint new tokens from stale claims.
+    const [account] = await this.db
+      .select({ email: users.email, role: users.role, isActive: users.isActive })
+      .from(users)
+      .where(eq(users.id, payload.sub))
+      .limit(1);
+    if (!account || !account.isActive) {
+      await this.db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, payload.sub));
+      throw new UnauthorizedException('Account is disabled or no longer exists');
+    }
+
     // Rotate: revoke the used token, issue a new pair.
     await this.db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.id, stored.id));
 
@@ -277,8 +289,8 @@ export class AuthService {
     // over from the token being rotated rather than re-queried.
     return this.issueTokens({
       sub: payload.sub,
-      email: payload.email,
-      role: payload.role,
+      email: account.email,
+      role: account.role,
       caregiverId: payload.caregiverId,
       patientId: payload.patientId,
     });

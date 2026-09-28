@@ -64,7 +64,7 @@ docker compose up -d
 
 # 2. Backend
 cd apps/api
-cp .env.example .env          # defaults already match docker-compose.yml
+cp .env.example .env          # defaults already match docker-compose.yml (a repo-root .env also works)
 npm install
 npm run db:generate           # generate SQL migrations from the Drizzle schema
 npm run db:migrate            # apply them to MySQL
@@ -72,11 +72,14 @@ npm run db:seed               # seed skills, languages, locations, users, sample
 npm run build
 npm run start:dev             # http://localhost:3001  (Swagger: /api/docs)
 
-# 3. Frontend (in a second terminal)
+# 3. Staff frontend (in a second terminal)
+# NB: apps/web sets basePath '/staff' in next.config.js, so the app is
+# served under /staff. The bare root (http://localhost:3000/) is a 404
+# by design - open the /staff URL instead.
 cd apps/web
 cp .env.local.example .env.local
 npm install
-npm run dev                   # http://localhost:3000
+npm run dev                   # http://localhost:3000/staff
 ```
 
 Seeded logins (password for all: `ChangeMe123!`):

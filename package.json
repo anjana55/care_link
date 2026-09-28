@@ -13,6 +13,9 @@
     "dev:public-web": "npm run dev -w @care-platform/public-web"
   },
   "overrides": {
-    "esbuild": "^0.25.4"
+    "esbuild": "^0.25.4",
+    "pm2": {
+      "js-yaml": "^4.3.2"
+    }
   }
 }

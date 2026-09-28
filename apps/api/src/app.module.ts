@@ -31,7 +31,10 @@ import { PublicSearchModule } from './public-search/public-search.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    // Same lookup order as the db:* scripts (src/database/load-env.ts): apps/api/.env,
+    // then a repo-root .env. Real environment variables (Docker, pm2) always win,
+    // and missing files are simply skipped.
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv, envFilePath: ['.env', '../../.env'] }),
     ThrottlerModule.forRoot({
       throttlers: [
         {

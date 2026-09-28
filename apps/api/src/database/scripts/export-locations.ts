@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import { requireDatabaseUrl } from '../load-env';
 import mysql from 'mysql2/promise';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -22,10 +22,7 @@ function csvField(value: string): string {
 }
 
 async function main() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL is not set - copy .env.example to .env first.');
-  }
-  const connection = await mysql.createConnection(process.env.DATABASE_URL);
+  const connection = await mysql.createConnection(requireDatabaseUrl());
 
   const [rows] = await connection.query<mysql.RowDataPacket[]>(
     'SELECT district, city, province FROM locations ORDER BY province, district, city',

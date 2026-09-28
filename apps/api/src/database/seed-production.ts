@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import { requireDatabaseUrl } from './load-env';
 import * as bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { eq } from 'drizzle-orm';
@@ -24,7 +24,7 @@ import { seedReferenceData } from './seed-reference-data';
  * both for you.
  */
 async function main() {
-  const connection = await mysql.createConnection(process.env.DATABASE_URL!);
+  const connection = await mysql.createConnection(requireDatabaseUrl());
   const db = drizzle(connection, { schema, mode: 'default' });
 
   await seedReferenceData(db);
