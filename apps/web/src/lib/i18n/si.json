@@ -222,7 +222,8 @@
     "remove": "ඉවත් කරන්න",
     "yes": "ඔව්",
     "no": "නැත",
-    "language": "භාෂාව"
+    "language": "භාෂාව",
+    "requiredField": "පිරිවිද යුතු ක්ෂෙතයයි"
   },
   "register": {
     "title": "සාත්තු සේවකයෙකු ලෙස ලියාපදිංචි වන්න",
@@ -240,7 +241,22 @@
     "successBody": "ඔබගේ විද්‍යුත් තැපැල් ලිපිනයට සත්‍යාපන සබැඳියක් යවා ඇත. එය ක්ලික් කර ඔබගේ ගිණුම සක්‍රීය කර පුරනය වන්න.",
     "devLinkLabel": "සංවර්ධන මාදිලිය - සත්‍යාපන සබැඳිය",
     "passwordMismatch": "මුරපද නොගැළපේ",
-    "consentRequired": "ඉදිරියට යාම සඳහා ඔබ එකඟතා ප්‍රකාශය පිළිගත යුතුය"
+    "consentRequired": "ඉදිරියට යාම සඳහා ඔබ එකඟතා ප්‍රකාශය පිළිගත යුතුය",
+    "validation": {
+      "email": {
+        "required": "ඊමේල් ලිපිනය අවශ්‍යයි",
+        "invalid": "වලංගු ඊමේල් ලිපිනයක් ඇතුළත් කරන්න"
+      },
+      "password": {
+        "required": "මුරපදය අවශ්‍යයි",
+        "invalid": "මුරපදය අක්ෂර 8ක් තරම් දිග විය යුතුය"
+      },
+      "confirmPassword": {
+        "required": "ඔබගේ මුරපදය තහවුරු කරන්න"
+      },
+      "passwordMismatch": "මුරපද අනුමාන නොවේ",
+      "consentRequired": "ඉදිරියට යාමට ඔබ අනුමැතිතා ප්‍රකාශය පිළිගන්න යුතුය"
+    }
   },
   "verifyEmail": {
     "verifying": "ඔබගේ විද්‍යුත් තැපෑල සත්‍යාපනය කරමින්...",
@@ -272,7 +288,7 @@
       "dateOfBirth": "උපන් දිනය",
       "gender": "ස්ත්‍රී පුරුෂ භාවය",
       "civilStatus": "විවාහක තත්ත්වය",
-      "heightCm": "උස (සෙ.මී.)",
+      "heightIn": "උස (අයින්)",
       "weightKg": "බර (කි.ග්‍රෑ.)",
       "primaryPhone": "ප්‍රධාන දුරකථන අංකය",
       "secondaryPhone": "ද්විතීයික දුරකථන අංකය",
@@ -286,16 +302,48 @@
       "postalCode": "තැපෑල අංකය"
     },
     "validation": {
-      "fullName": "සම්පූර්ණ නම අවශ්‍යයි",
-      "permanentAddress": "ලිපිනය අවශ්‍යයි",
-      "dateOfBirth": "උපන් දිනය අවශ්‍යයි",
-      "primaryPhone": "වලංගු දුරකථන අංකයක් අවශ්‍යයි",
-      "emergencyContactName": "අවශ්‍යයි",
-      "emergencyContactNumber": "අවශ්‍යයි",
-      "emergencyContactRelationship": "අවශ්‍යයි",
-      "district": "දිස්ත්‍රික්කය අවශ්‍යයි",
-      "city": "නගරය අවශ්‍යයි",
-      "postalCode": "තැපෑල අංකය අවශ්‍යයි"
+      "fullName": {
+        "required": "සම්පූර්ණ නම අවශ්‍යයි",
+        "invalid": "අක්ෂර 2ක් තරම් සම්පූර්ණ නමක් ඇතුළත් කරන්න"
+      },
+      "permanentAddress": {
+        "required": "ස්ථිර ලිපිනය අවශ්‍යයි",
+        "invalid": "අක්ෂර 5ක් තරම් ලිපිනයක් ඇතුළත් කරන්න"
+      },
+      "dateOfBirth": {
+        "required": "උපන් දිනය අවශ්‍යයි"
+      },
+      "gender": {
+        "required": "ස්ත්‍රී පුරුෂ භාවය අවශ්‍යයි"
+      },
+      "civilStatus": {
+        "required": "විවාහක තත්ත්වය අවශ්‍යයි"
+      },
+      "primaryPhone": {
+        "required": "ප්‍රධාන දුරකථන අංකය අවශ්‍යයි",
+        "invalid": "අංක 9ක් තරම් වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න"
+      },
+      "emergencyContactName": {
+        "required": "හදිසියකදී දැනුම්දියයුතු පුද්ගලයාගේ නම අවශ්‍යයි",
+        "invalid": "අක්ෂර 2ක් තරම් නමක් ඇතුළත් කරන්න"
+      },
+      "emergencyContactNumber": {
+        "required": "හදිසියකදී දැනුම්දියයුතු අංකය අවශ්‍යයි",
+        "invalid": "අංක 9ක් තරම් වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න"
+      },
+      "emergencyContactRelationship": {
+        "required": "මෙම අය සමඟ ඇති සම්බන්දතාවය අවශ්‍යයි",
+        "invalid": "ඔබට මෙම අය සමඟ ඇති සම්බන්දතාවය කෙටියෙන් විස්තර කරන්න"
+      },
+      "district": {
+        "required": "දිස්ත්‍රික්කය අවශ්‍යයි"
+      },
+      "city": {
+        "required": "නගරය අවශ්‍යයි"
+      },
+      "postalCode": {
+        "required": "තැපෑල අංකය අවශ්‍යයි"
+      }
     },
     "options": {
       "select": "තෝරන්න",

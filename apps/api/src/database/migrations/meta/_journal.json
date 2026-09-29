@@ -43,6 +43,13 @@
       "when": 1790403753585,
       "tag": "0005_add_patient_consent",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1790490153585,
+      "tag": "0006_rename_height_to_inches",
+      "breakpoints": true
     }
   ]
 }

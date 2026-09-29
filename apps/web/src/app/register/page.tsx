@@ -9,9 +9,9 @@ import { CheckCircle2 } from 'lucide-react';
 import { useTranslation, type Locale } from '@/lib/i18n/provider';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
-import { Input, Label, FieldError } from '@/components/ui/input';
+import { Input, Label, FieldError, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
-import { makePersonalInfoSchema } from '@/lib/schemas/personal-info';
+import { makePersonalInfoSchema, requiredFieldsOf } from '@/lib/schemas/personal-info';
 import { useLocations } from '@/lib/hooks/use-caregivers';
 import type { Location } from '@/lib/api/types';
 
@@ -30,9 +30,9 @@ export default function RegisterPage() {
   // Create localized Zod schema using the t function
   const personalInfoSchemaLocalized = makePersonalInfoSchema(t);
   const registerSchema = personalInfoSchemaLocalized.extend({
-    email: z.string().email(t('register.validation.email')),
-    password: z.string().min(8, t('register.validation.password')),
-    confirmPassword: z.string(),
+    email: z.string().trim().min(1, t('register.validation.email.required')).email(t('register.validation.email.invalid')),
+    password: z.string().min(1, t('register.validation.password.required')).min(8, t('register.validation.password.invalid')),
+    confirmPassword: z.string().min(1, t('register.validation.confirmPassword.required')),
     consentAccepted: z.boolean(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -46,6 +46,10 @@ export default function RegisterPage() {
 
   type RegisterValues = z.infer<typeof registerSchema>;
 
+  // Derived from the object schema, not registerSchema - the .refine() chain
+  // returns a ZodEffects that has no .shape to inspect.
+  const requiredFields = requiredFieldsOf(personalInfoSchemaLocalized);
+
   interface RegisterResponse {
     caregiverId: string;
     registrationNumber: string;
@@ -55,6 +59,8 @@ export default function RegisterPage() {
 
   const {
     register,
+    control,
+    setValue,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<RegisterValues>({ resolver: zodResolver(registerSchema) });
@@ -127,31 +133,41 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border border-border bg-white p-6">
+          <RequiredLegend label={t('common.requiredField')} />
           <h2 className="mb-3 text-sm font-semibold text-ink">{t('register.accountSection')}</h2>
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Label htmlFor="email">{t('register.email')}</Label>
+              <Label htmlFor="email" required>{t('register.email')}</Label>
               <Input id="email" type="email" {...register('email')} />
               <FieldError message={errors.email?.message as string | undefined} />
             </div>
             <div>
-              <Label htmlFor="password">{t('register.password')}</Label>
+              <Label htmlFor="password" required>{t('register.password')}</Label>
               <Input id="password" type="password" {...register('password')} />
               <FieldError message={errors.password?.message as string | undefined} />
             </div>
             <div>
-              <Label htmlFor="confirmPassword">{t('register.confirmPassword')}</Label>
+              <Label htmlFor="confirmPassword" required>{t('register.confirmPassword')}</Label>
               <Input id="confirmPassword" type="password" {...register('confirmPassword')} />
               <FieldError message={errors.confirmPassword?.message as string | undefined} />
             </div>
           </div>
 
           <h2 className="mb-3 text-sm font-semibold text-ink">{t('register.personalSection')}</h2>
-          <PersonalInfoFields register={register} errors={errors} locations={locations ?? []} />
+          <PersonalInfoFields
+            register={register}
+            control={control}
+            setValue={setValue}
+            errors={errors}
+            locations={locations ?? []}
+            requiredFields={requiredFields}
+          />
 
           <label className="mt-6 flex items-start gap-2 text-sm text-ink">
             <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand" {...register('consentAccepted')} />
-            <span>{t('register.consentLabel')}</span>
+            <span>
+              <span aria-hidden="true" className="text-danger">*</span> {t('register.consentLabel')}
+            </span>
           </label>
           <FieldError message={errors.consentAccepted?.message as string | undefined} />
 

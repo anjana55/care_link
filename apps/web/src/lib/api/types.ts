@@ -70,7 +70,7 @@ export interface CaregiverDetail {
   dateOfBirth: string;
   gender: string;
   civilStatus: string;
-  heightCm: number | null;
+  heightIn: number | null;
   weightKg: number | null;
   primaryPhone: string;
   secondaryPhone: string | null;

@@ -9,7 +9,7 @@ import { refreshTokens, users, caregivers, patients, emailVerificationTokens, ty
 import { JwtPayload } from './strategies/jwt.strategy';
 import { RegisterCaregiverDto } from './dto/register-caregiver.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
-import { generateRegistrationNumber, assertUniqueContactFields } from '../caregivers/caregiver-creation.util';
+import { generateRegistrationNumber, assertUniqueContactFields, assertKnownLocationPair } from '../caregivers/caregiver-creation.util';
 
 // Self-registering roles must verify their email before their first login;
 // staff/admin/verifier accounts are created by an already-authenticated admin
@@ -71,6 +71,7 @@ export class AuthService {
     const result = await this.db.transaction(async (tx) => {
       const txDb = tx as unknown as Database;
       await assertUniqueContactFields(txDb, caregiverFields);
+      await assertKnownLocationPair(txDb, caregiverFields);
 
       const userId = uuid();
       const passwordHash = await bcrypt.hash(password, 12);
@@ -98,7 +99,7 @@ export class AuthService {
         dateOfBirth: caregiverFields.dateOfBirth as unknown as Date,
         gender: caregiverFields.gender,
         civilStatus: caregiverFields.civilStatus,
-        heightCm: caregiverFields.heightCm ?? null,
+        heightIn: caregiverFields.heightIn ?? null,
         weightKg: caregiverFields.weightKg ?? null,
         primaryPhone: caregiverFields.primaryPhone,
         secondaryPhone: caregiverFields.secondaryPhone ?? null,
@@ -107,6 +108,9 @@ export class AuthService {
         emergencyContactRelationship: caregiverFields.emergencyContactRelationship,
         policeDivision: caregiverFields.policeDivision ?? null,
         policeStation: caregiverFields.policeStation ?? null,
+        district: caregiverFields.district ?? null,
+        city: caregiverFields.city ?? null,
+        postalCode: caregiverFields.postalCode ?? null,
         status: 'DRAFT',
         // Visible to staff immediately, same as a staff-entered DRAFT
         // record - self-registration doesn't hide anyone from the ops view.

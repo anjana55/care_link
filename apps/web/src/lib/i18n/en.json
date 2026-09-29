@@ -222,7 +222,8 @@
     "remove": "Remove",
     "yes": "Yes",
     "no": "No",
-    "language": "Language"
+    "language": "Language",
+    "requiredField": "Required field"
   },
   "register": {
     "title": "Register as a caregiver",
@@ -240,7 +241,22 @@
     "successBody": "We have sent a verification link to your email address. Click it to activate your account and sign in.",
     "devLinkLabel": "Development mode - verification link",
     "passwordMismatch": "Passwords do not match",
-    "consentRequired": "You must accept the consent statement to continue"
+    "consentRequired": "You must accept the consent statement to continue",
+    "validation": {
+      "email": {
+        "required": "Email is required",
+        "invalid": "Enter a valid email address"
+      },
+      "password": {
+        "required": "Password is required",
+        "invalid": "Password must be at least 8 characters"
+      },
+      "confirmPassword": {
+        "required": "Please confirm your password"
+      },
+      "passwordMismatch": "Passwords do not match",
+      "consentRequired": "You must accept the consent statement to continue"
+    }
   },
   "verifyEmail": {
     "verifying": "Verifying your email...",
@@ -272,7 +288,7 @@
       "dateOfBirth": "Date of birth",
       "gender": "Gender",
       "civilStatus": "Civil status",
-      "heightCm": "Height (cm)",
+      "heightIn": "Height (in)",
       "weightKg": "Weight (kg)",
       "primaryPhone": "Primary phone",
       "secondaryPhone": "Secondary phone",
@@ -286,16 +302,48 @@
       "postalCode": "Postal code"
     },
     "validation": {
-      "fullName": "Full name is required",
-      "permanentAddress": "Address is required",
-      "dateOfBirth": "Date of birth is required",
-      "primaryPhone": "A valid phone number is required",
-      "emergencyContactName": "Required",
-      "emergencyContactNumber": "Required",
-      "emergencyContactRelationship": "Required",
-      "district": "District is required",
-      "city": "City is required",
-      "postalCode": "Postal code is required"
+      "fullName": {
+        "required": "Full name is required",
+        "invalid": "Enter a full name of at least 2 characters"
+      },
+      "permanentAddress": {
+        "required": "Permanent address is required",
+        "invalid": "Enter an address of at least 5 characters"
+      },
+      "dateOfBirth": {
+        "required": "Date of birth is required"
+      },
+      "gender": {
+        "required": "Gender is required"
+      },
+      "civilStatus": {
+        "required": "Civil status is required"
+      },
+      "primaryPhone": {
+        "required": "Primary phone is required",
+        "invalid": "Enter a valid phone number with at least 9 digits"
+      },
+      "emergencyContactName": {
+        "required": "Emergency contact name is required",
+        "invalid": "Enter a name of at least 2 characters"
+      },
+      "emergencyContactNumber": {
+        "required": "Emergency contact number is required",
+        "invalid": "Enter a valid phone number with at least 9 digits"
+      },
+      "emergencyContactRelationship": {
+        "required": "Relationship to this contact is required",
+        "invalid": "Describe how you are related to this contact"
+      },
+      "district": {
+        "required": "District is required"
+      },
+      "city": {
+        "required": "City is required"
+      },
+      "postalCode": {
+        "required": "Postal code is required"
+      }
     },
     "options": {
       "select": "Select",

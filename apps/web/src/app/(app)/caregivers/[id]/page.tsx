@@ -40,9 +40,9 @@ import { StatusBadge, VerificationBadge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { allowedNextStatuses } from '@/lib/caregiver-status';
-import { Select } from '@/components/ui/input';
+import { Select, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
-import { makePersonalInfoSchema, type PersonalInfoValues } from '@/lib/schemas/personal-info';
+import { makePersonalInfoSchema, requiredFieldsOf, type PersonalInfoValues } from '@/lib/schemas/personal-info';
 import { Trash2 } from 'lucide-react';
 import { DocumentViewButton } from '@/components/caregivers/document-view-button';
 import { IconButton } from '@/components/ui/icon-button';
@@ -154,6 +154,7 @@ export default function CaregiverProfilePage() {
   });
 
   const personalInfoSchemaLocalized = makePersonalInfoSchema(t);
+  const requiredFields = requiredFieldsOf(personalInfoSchemaLocalized);
 
   const form = useForm<PersonalInfoValues>({
     resolver: zodResolver(personalInfoSchemaLocalized),
@@ -165,7 +166,7 @@ export default function CaregiverProfilePage() {
       dateOfBirth: '',
       gender: 'MALE',
       civilStatus: 'SINGLE',
-      heightCm: undefined,
+      heightIn: undefined,
       weightKg: undefined,
       primaryPhone: '',
       secondaryPhone: '',
@@ -199,7 +200,7 @@ export default function CaregiverProfilePage() {
         dateOfBirth: caregiver.dateOfBirth ? caregiver.dateOfBirth.slice(0, 10) : '',
         gender: caregiver.gender as any,
         civilStatus: caregiver.civilStatus as any,
-        heightCm: caregiver.heightCm ?? undefined,
+        heightIn: caregiver.heightIn ?? undefined,
         weightKg: caregiver.weightKg ?? undefined,
         primaryPhone: caregiver.primaryPhone ?? '',
         secondaryPhone: caregiver.secondaryPhone ?? '',
@@ -320,7 +321,15 @@ export default function CaregiverProfilePage() {
         <TabsContent value="overview">
           {isEditing ? (
             <form onSubmit={onSave} className="space-y-5">
-              <PersonalInfoFields register={form.register} errors={form.formState.errors} locations={locations ?? []} />
+              <RequiredLegend label={t('common.requiredField')} />
+              <PersonalInfoFields
+                register={form.register}
+                control={form.control}
+                setValue={form.setValue}
+                errors={form.formState.errors}
+                locations={locations ?? []}
+                requiredFields={requiredFields}
+              />
               <div className="flex justify-end border-t border-border pt-4">
                 <Button type="submit" disabled={updateCaregiver.isPending}>
                   {updateCaregiver.isPending ? t('common.loading') : t('common.save')}
@@ -335,7 +344,7 @@ export default function CaregiverProfilePage() {
                 <Field label="Date of birth" value={caregiver.dateOfBirth?.slice(0, 10)} />
                 <Field label="Gender" value={caregiver.gender} />
                 <Field label="Civil status" value={caregiver.civilStatus} />
-                <Field label="Height / weight" value={`${caregiver.heightCm ?? '—'} cm / ${caregiver.weightKg ?? '—'} kg`} />
+                <Field label="Height / weight" value={`${caregiver.heightIn ?? '—'} in / ${caregiver.weightKg ?? '—'} kg`} />
                 <Field label="Primary phone" value={caregiver.primaryPhone} />
                 <Field label="Secondary phone" value={caregiver.secondaryPhone} />
                 <Field label="Address" value={caregiver.permanentAddress} />

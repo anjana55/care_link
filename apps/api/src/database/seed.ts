@@ -215,7 +215,7 @@ async function main() {
       dateOfBirth: c.dateOfBirth as unknown as Date,
       gender: c.gender,
       civilStatus: c.civilStatus,
-      heightCm: 160,
+      heightIn: 63,
       weightKg: 60,
       primaryPhone: c.phone,
       emergencyContactName: 'Emergency Contact',

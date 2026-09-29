@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/input';
+import { Label, RequiredLegend } from '@/components/ui/input';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -44,12 +44,13 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={onSubmit} className="rounded-lg border border-border bg-white p-6">
+          <RequiredLegend label={t('common.requiredField')} />
           <div className="mb-4">
-            <Label htmlFor="email">{t('login.email')}</Label>
+            <Label htmlFor="email" required>{t('login.email')}</Label>
             <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="mb-5">
-            <Label htmlFor="password">{t('login.password')}</Label>
+            <Label htmlFor="password" required>{t('login.password')}</Label>
             <Input
               id="password"
               type="password"

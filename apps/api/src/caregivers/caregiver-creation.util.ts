@@ -1,7 +1,7 @@
-import { ConflictException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { BadRequestException, ConflictException } from '@nestjs/common';
+import { and, eq } from 'drizzle-orm';
 import type { Database } from '../database/database.module';
-import { caregivers } from '../database/schema';
+import { caregivers, locations } from '../database/schema';
 
 /**
  * Accepts either the top-level Database handle or a transaction handle from
@@ -64,4 +64,35 @@ export async function assertUniqueContactFields(
   }
 
   await Promise.all(checks);
+}
+
+/**
+ * A caregiver's district/city pair has to exist in the `locations` reference
+ * table. The city dropdown is derived from the selected district, so a city
+ * belonging to a *different* district is always either a client bug or a
+ * hand-rolled request - and storing one produces a record the district-scoped
+ * filters in public-search can never match. Reject it at the boundary instead.
+ *
+ * Only enforced when both are supplied: a district with no city (or vice versa)
+ * is still meaningful on its own, and is how the column is nullable on the row.
+ * Callers doing a partial update must pass the *effective* pair - the incoming
+ * value where present, otherwise what is already stored on the record.
+ */
+export async function assertKnownLocationPair(
+  db: Database,
+  fields: { district?: string | null; city?: string | null },
+): Promise<void> {
+  const district = fields.district?.trim();
+  const city = fields.city?.trim();
+  if (!district || !city) return;
+
+  const [row] = await db
+    .select({ id: locations.id })
+    .from(locations)
+    .where(and(eq(locations.district, district), eq(locations.city, city)))
+    .limit(1);
+
+  if (!row) {
+    throw new BadRequestException(`Unknown district/city combination: '${district}' / '${city}'`);
+  }
 }
