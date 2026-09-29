@@ -5,9 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useCreateCaregiver, useLocations } from '@/lib/hooks/use-caregivers';
 import { Button } from '@/components/ui/button';
+import { RequiredLegend } from '@/components/ui/input';
 import { ApiError } from '@/lib/api/client';
 import { useState } from 'react';
-import { makePersonalInfoSchema, type PersonalInfoValues } from '@/lib/schemas/personal-info';
+import { makePersonalInfoSchema, requiredFieldsOf, type PersonalInfoValues } from '@/lib/schemas/personal-info';
 import { PersonalInfoFields } from './personal-info-fields';
 
 export function PersonalInfoStep({ onCreated }: { onCreated: (caregiverId: string) => void }) {
@@ -20,6 +21,7 @@ export function PersonalInfoStep({ onCreated }: { onCreated: (caregiverId: strin
   const { data: locations } = useLocations();
 
   const personalInfoSchemaLocalized = makePersonalInfoSchema(t);
+  const requiredFields = requiredFieldsOf(personalInfoSchemaLocalized);
 
   const {
     register,
@@ -42,7 +44,15 @@ export function PersonalInfoStep({ onCreated }: { onCreated: (caregiverId: strin
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <PersonalInfoFields register={register} control={control} setValue={setValue} errors={errors} locations={locations ?? []} />
+      <RequiredLegend label={t('common.requiredField')} />
+      <PersonalInfoFields
+        register={register}
+        control={control}
+        setValue={setValue}
+        errors={errors}
+        locations={locations ?? []}
+        requiredFields={requiredFields}
+      />
 
       {serverError && <p className="text-sm text-danger">{serverError}</p>}
 

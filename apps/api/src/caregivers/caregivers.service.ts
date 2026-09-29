@@ -50,7 +50,7 @@ export class CaregiversService {
       dateOfBirth: dto.dateOfBirth as unknown as Date,
       gender: dto.gender,
       civilStatus: dto.civilStatus,
-      heightCm: dto.heightCm ?? null,
+      heightIn: dto.heightIn ?? null,
       weightKg: dto.weightKg ?? null,
       primaryPhone: dto.primaryPhone,
       secondaryPhone: dto.secondaryPhone ?? null,

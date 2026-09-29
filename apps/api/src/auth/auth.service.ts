@@ -99,7 +99,7 @@ export class AuthService {
         dateOfBirth: caregiverFields.dateOfBirth as unknown as Date,
         gender: caregiverFields.gender,
         civilStatus: caregiverFields.civilStatus,
-        heightCm: caregiverFields.heightCm ?? null,
+        heightIn: caregiverFields.heightIn ?? null,
         weightKg: caregiverFields.weightKg ?? null,
         primaryPhone: caregiverFields.primaryPhone,
         secondaryPhone: caregiverFields.secondaryPhone ?? null,

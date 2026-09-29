@@ -12,12 +12,15 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
   setValue,
   errors,
   locations,
+  requiredFields,
 }: {
   register: UseFormRegister<T>;
   control: Control<T>;
   setValue: UseFormSetValue<T>;
   errors: FieldErrors<T>;
   locations?: Location[];
+  /** Field names the schema enforces, from requiredFieldsOf(). */
+  requiredFields: ReadonlySet<string>;
 }) {
   const { t } = useTranslation();
 
@@ -64,19 +67,19 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
-        <Label htmlFor="fullName">{t('personalInfo.fields.fullName')}</Label>
+        <Label htmlFor="fullName" required={requiredFields.has('fullName')}>{t('personalInfo.fields.fullName')}</Label>
         <Input id="fullName" {...register('fullName' as any)} />
         <FieldError message={errors.fullName?.message as string | undefined} />
       </div>
 
       <div className="sm:col-span-2">
-        <Label htmlFor="permanentAddress">{t('personalInfo.fields.permanentAddress')}</Label>
+        <Label htmlFor="permanentAddress" required={requiredFields.has('permanentAddress')}>{t('personalInfo.fields.permanentAddress')}</Label>
         <Textarea id="permanentAddress" rows={2} {...register('permanentAddress' as any)} />
         <FieldError message={errors.permanentAddress?.message as string | undefined} />
       </div>
 
       <div>
-        <Label htmlFor="district">{t('personalInfo.fields.district')}</Label>
+        <Label htmlFor="district" required={requiredFields.has('district')}>{t('personalInfo.fields.district')}</Label>
         <Controller
           name={'district' as any}
           control={control}
@@ -109,7 +112,7 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
       </div>
 
       <div>
-        <Label htmlFor="city">{t('personalInfo.fields.city')}</Label>
+        <Label htmlFor="city" required={requiredFields.has('city')}>{t('personalInfo.fields.city')}</Label>
         <Controller
           name={'city' as any}
           control={control}
@@ -132,27 +135,27 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
       </div>
 
       <div>
-        <Label htmlFor="postalCode">{t('personalInfo.fields.postalCode')}</Label>
+        <Label htmlFor="postalCode" required={requiredFields.has('postalCode')}>{t('personalInfo.fields.postalCode')}</Label>
         <Input id="postalCode" type="text" {...register('postalCode' as any)} />
         <FieldError message={errors.postalCode?.message as string | undefined} />
       </div>
 
       <div>
-        <Label htmlFor="nic">{t('personalInfo.fields.nic')}</Label>
+        <Label htmlFor="nic" required={requiredFields.has('nic')}>{t('personalInfo.fields.nic')}</Label>
         <Input id="nic" {...register('nic' as any)} />
       </div>
       <div>
-        <Label htmlFor="passportNumber">{t('personalInfo.fields.passportNumber')}</Label>
+        <Label htmlFor="passportNumber" required={requiredFields.has('passportNumber')}>{t('personalInfo.fields.passportNumber')}</Label>
         <Input id="passportNumber" {...register('passportNumber' as any)} />
       </div>
 
       <div>
-        <Label htmlFor="dateOfBirth">{t('personalInfo.fields.dateOfBirth')}</Label>
+        <Label htmlFor="dateOfBirth" required={requiredFields.has('dateOfBirth')}>{t('personalInfo.fields.dateOfBirth')}</Label>
         <Input id="dateOfBirth" type="date" {...register('dateOfBirth' as any)} />
         <FieldError message={errors.dateOfBirth?.message as string | undefined} />
       </div>
       <div>
-        <Label htmlFor="gender">{t('personalInfo.fields.gender')}</Label>
+        <Label htmlFor="gender" required={requiredFields.has('gender')}>{t('personalInfo.fields.gender')}</Label>
         <Select id="gender" {...register('gender' as any)}>
           {genderOptions.map(opt => (
             <option key={opt.value} value={opt.value}>
@@ -164,7 +167,7 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
       </div>
 
       <div>
-        <Label htmlFor="civilStatus">{t('personalInfo.fields.civilStatus')}</Label>
+        <Label htmlFor="civilStatus" required={requiredFields.has('civilStatus')}>{t('personalInfo.fields.civilStatus')}</Label>
         <Select id="civilStatus" {...register('civilStatus' as any)}>
           {civilStatusOptions.map(opt => (
             <option key={opt.value} value={opt.value}>
@@ -174,49 +177,53 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
         </Select>
         <FieldError message={errors.civilStatus?.message as string | undefined} />
       </div>
-      <div />
 
       <div>
-        <Label htmlFor="heightCm">{t('personalInfo.fields.heightCm')}</Label>
-        <Input id="heightCm" type="number" {...register('heightCm' as any)} />
+        <Label htmlFor="heightIn" required={requiredFields.has('heightIn')}>{t('personalInfo.fields.heightIn')}</Label>
+        <Input id="heightIn" type="number" step="0.1" {...register('heightIn' as any)} />
       </div>
       <div>
-        <Label htmlFor="weightKg">{t('personalInfo.fields.weightKg')}</Label>
+        <Label htmlFor="weightKg" required={requiredFields.has('weightKg')}>{t('personalInfo.fields.weightKg')}</Label>
         <Input id="weightKg" type="number" {...register('weightKg' as any)} />
       </div>
 
       <div>
-        <Label htmlFor="primaryPhone">{t('personalInfo.fields.primaryPhone')}</Label>
+        <Label htmlFor="primaryPhone" required={requiredFields.has('primaryPhone')}>{t('personalInfo.fields.primaryPhone')}</Label>
         <Input id="primaryPhone" {...register('primaryPhone' as any)} />
       </div>
       <div>
-        <Label htmlFor="secondaryPhone">{t('personalInfo.fields.secondaryPhone')}</Label>
+        <Label htmlFor="secondaryPhone" required={requiredFields.has('secondaryPhone')}>{t('personalInfo.fields.secondaryPhone')}</Label>
         <Input id="secondaryPhone" {...register('secondaryPhone' as any)} />
       </div>
 
       <div>
-        <Label htmlFor="emergencyContactName">{t('personalInfo.fields.emergencyContactName')}</Label>
+        <Label htmlFor="emergencyContactName" required={requiredFields.has('emergencyContactName')}>{t('personalInfo.fields.emergencyContactName')}</Label>
         <Input id="emergencyContactName" {...register('emergencyContactName' as any)} />
         <FieldError message={errors.emergencyContactName?.message as string | undefined} />
       </div>
       <div>
-        <Label htmlFor="emergencyContactNumber">{t('personalInfo.fields.emergencyContactNumber')}</Label>
+        <Label htmlFor="emergencyContactNumber" required={requiredFields.has('emergencyContactNumber')}>{t('personalInfo.fields.emergencyContactNumber')}</Label>
         <Input id="emergencyContactNumber" {...register('emergencyContactNumber' as any)} />
         <FieldError message={errors.emergencyContactNumber?.message as string | undefined} />
       </div>
       <div>
-        <Label htmlFor="emergencyContactRelationship">{t('personalInfo.fields.emergencyContactRelationship')}</Label>
+        <Label htmlFor="emergencyContactRelationship" required={requiredFields.has('emergencyContactRelationship')}>{t('personalInfo.fields.emergencyContactRelationship')}</Label>
         <Input id="emergencyContactRelationship" {...register('emergencyContactRelationship' as any)} />
         <FieldError message={errors.emergencyContactRelationship?.message as string | undefined} />
       </div>
+      {/* Load-bearing. The emergency group has three fields, so it leaves a
+          half-empty row; without this filler the police pair would flow into
+          that gap and land one column apart. Only ever add an empty cell to
+          pad the *end* of a group - one in the middle shifts every field
+          after it, splitting the following pair across two rows. */}
       <div />
 
       <div>
-        <Label htmlFor="policeDivision">{t('personalInfo.fields.policeDivision')}</Label>
+        <Label htmlFor="policeDivision" required={requiredFields.has('policeDivision')}>{t('personalInfo.fields.policeDivision')}</Label>
         <Input id="policeDivision" {...register('policeDivision' as any)} />
       </div>
       <div>
-        <Label htmlFor="policeStation">{t('personalInfo.fields.policeStation')}</Label>
+        <Label htmlFor="policeStation" required={requiredFields.has('policeStation')}>{t('personalInfo.fields.policeStation')}</Label>
         <Input id="policeStation" {...register('policeStation' as any)} />
       </div>
     </div>

@@ -2,6 +2,7 @@ import {
   mysqlTable,
   varchar,
   int,
+  decimal,
   text,
   date,
   datetime,
@@ -64,7 +65,10 @@ export const caregivers = mysqlTable(
     dateOfBirth: date('date_of_birth').notNull(),
     gender: mysqlEnum('gender', genderEnum).notNull(),
     civilStatus: mysqlEnum('civil_status', civilStatusEnum).notNull(),
-    heightCm: int('height_cm'),
+    // Height is recorded in inches, with one decimal so a metre-scale value
+    // does not have to round to a whole inch. `mode: 'number'` keeps the
+    // driver handing back a JS number - decimal columns default to string.
+    heightIn: decimal('height_in', { precision: 5, scale: 1, mode: 'number' }),
     weightKg: int('weight_kg'),
     primaryPhone: varchar('primary_phone', { length: 20 }).notNull().unique(),
     secondaryPhone: varchar('secondary_phone', { length: 20 }),
