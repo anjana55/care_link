@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1789716490079,
+      "tag": "0000_far_rictor",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1789915814801,
+      "tag": "0001_solid_quicksilver",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1790088185781,
+      "tag": "0002_purple_spitfire",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1790242523516,
+      "tag": "0003_add_public_search_support",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1790242570779,
+      "tag": "0004_backfill_ready_enforce_public_id_not_null",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1790403753585,
+      "tag": "0005_add_patient_consent",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1790490153585,
+      "tag": "0006_rename_height_to_inches",
+      "breakpoints": true
+    }
+  ]
+}

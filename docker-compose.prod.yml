@@ -1,0 +1,117 @@
+# Production-shaped compose file - a starting point, not a drop-in-and-go
+# deploy. Copy .env.production.example to .env.production, fill in every
+# secret and URL, then:
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# See DEPLOYMENT.md for the full walkthrough (migrations, TLS, backups,
+# secrets, and what this file deliberately leaves for you to plug in).
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-care_platform}
+      MYSQL_USER: ${MYSQL_USER:-care_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env.production}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env.production}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p${MYSQL_ROOT_PASSWORD}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # No ports published to the host - only `api` needs to reach it, over
+    # the compose network. Expose 3306 explicitly (e.g. for db:studio /
+    # an ad-hoc mysqldump from your workstation) only over an SSH tunnel,
+    # never by publishing the port directly on a public-facing host.
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-care_app}:${MYSQL_PASSWORD:?}@mysql:3306/${MYSQL_DATABASE:-care_platform}
+      NODE_ENV: production
+      PORT: 3001
+      CORS_ORIGIN: ${CORS_ORIGIN:?set CORS_ORIGIN in .env.production, e.g. https://yourdomain.example,https://yourdomain.example}
+      CAREGIVER_WEB_URL: ${CAREGIVER_WEB_URL:?set CAREGIVER_WEB_URL in .env.production}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:?set PUBLIC_WEB_URL in .env.production}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env.production}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env.production}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      STORAGE_LOCAL_ROOT: /storage/caregiver-documents
+      STORAGE_MAX_FILE_SIZE_BYTES: ${STORAGE_MAX_FILE_SIZE_BYTES:-10485760}
+      THROTTLE_TTL: ${THROTTLE_TTL:-60}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      # Optional: the app runs fine without these, but verification emails
+      # only get logged (see `docker compose logs api`), never delivered,
+      # until they're set - see DEPLOYMENT.md Part 8.4 and EmailService.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-CareLink <no-reply@care-platform.local>}
+    volumes:
+      # Caregiver-uploaded documents (qualifications, ID scans, etc).
+      # Persisted on a named volume, not the image, and must be part of
+      # your backup routine alongside the database - see DEPLOYMENT.md.
+      - caregiver-documents:/storage/caregiver-documents
+    # No ports published directly - nginx is the only public entry point.
+    expose:
+      - '3001'
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL in .env.production, e.g. https://yourdomain.example/api}
+    restart: unless-stopped
+    depends_on:
+      - api
+    expose:
+      - '3000'
+
+  public-web:
+    build:
+      context: .
+      dockerfile: apps/public-web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?}
+    restart: unless-stopped
+    depends_on:
+      - api
+    expose:
+      - '3000'
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+      - web
+      - public-web
+    ports:
+      - '80:80'
+      # TLS termination is deliberately not wired up here - see
+      # DEPLOYMENT.md's "HTTPS" section for the two straightforward ways
+      # to add it (managed load balancer, or Caddy/certbot on this box).
+      # Once you have a certificate, publish 443 and mount it into this
+      # container (or replace nginx with Caddy, which can provision one
+      # automatically).
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  mysql-data:
+  caregiver-documents:

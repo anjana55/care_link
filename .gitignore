@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.next/
+coverage/
+*.tsbuildinfo
+*.log
+.env
+.env.local
+.env.production
+!.env.example
+!.env.local.example
+!.env.production.example
+storage/caregiver-documents/**
+!storage/caregiver-documents/.gitkeep
+.DS_Store
