@@ -1,5 +1,5 @@
 import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsNumberString, IsString, validateSync } from 'class-validator';
+import { IsBooleanString, IsEnum, IsNumberString, IsOptional, IsString, validateSync } from 'class-validator';
 
 enum NodeEnv {
   Development = 'development',
@@ -25,6 +25,34 @@ class EnvironmentVariables {
 
   @IsString()
   STORAGE_LOCAL_ROOT!: string;
+
+  // All optional, even in production: EmailService degrades to logging
+  // verification links to the console when SMTP_HOST is unset, rather than
+  // the whole app refusing to boot over an unrelated feature. It does log
+  // an error at startup in production if left unset - see EmailService.
+  @IsOptional()
+  @IsString()
+  SMTP_HOST?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  SMTP_PORT?: string;
+
+  @IsOptional()
+  @IsBooleanString()
+  SMTP_SECURE?: string;
+
+  @IsOptional()
+  @IsString()
+  SMTP_USER?: string;
+
+  @IsOptional()
+  @IsString()
+  SMTP_PASSWORD?: string;
+
+  @IsOptional()
+  @IsString()
+  SMTP_FROM?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

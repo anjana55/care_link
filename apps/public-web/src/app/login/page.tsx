@@ -32,7 +32,9 @@ export default function LoginPage() {
       await login(values.email, values.password);
       router.push('/');
     } catch (err) {
-      setServerError(err instanceof ApiError ? err.message : t('login.error'));
+      // Fall back to the generic string only when there is no message to
+      // show, so a validation error isn't reported as a wrong password.
+      setServerError(err instanceof ApiError && err.message ? err.message : t('login.error'));
     }
   };
 

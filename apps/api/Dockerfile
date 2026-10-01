@@ -51,6 +51,14 @@ COPY --from=builder /repo/apps/api/src/database/migrations ./apps/api/src/databa
 # not src/database/seed-data like the migrations above.
 COPY --from=builder /repo/apps/api/src/database/seed-data ./apps/api/dist/src/database/seed-data
 
+# Create the local-storage root owned by the runtime user, before dropping
+# privileges. STORAGE_LOCAL_ROOT (docker-compose.prod.yml) mounts a named
+# volume over this path, and an empty named volume inherits its uid/gid from
+# the image path it first covers - so this directory's ownership is what the
+# volume gets. Left root-owned (the default), the volume came up 0755
+# root:root while the app runs as uid=100(app), and every upload died with
+# "EACCES: permission denied, mkdir" - see DEPLOYMENT.md.
+RUN mkdir -p /storage/caregiver-documents && chown -R app:app /storage
 USER app
 EXPOSE 3001
 

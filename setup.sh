@@ -93,23 +93,41 @@ else
   log "Creating $ENV_FILE from $ENV_EXAMPLE"
   cp "$ENV_EXAMPLE" "$ENV_FILE"
 
-  # A bare IP address gets http:// (no HTTPS without a real domain - see
-  # DEPLOYMENT.md Part 13); anything else is treated as a domain and gets https://.
-  if [[ "$DOMAIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    SCHEME="http"
-    warn "Using an IP address ($DOMAIN) - the site will be HTTP-only. Get a domain and see DEPLOYMENT.md Part 13 for HTTPS."
-  else
-    SCHEME="https"
-  fi
+  # HTTPS needs a real domain pointed at this box *before* it can work (see
+  # DEPLOYMENT.md Part 13); the bundled nginx only ever listens on 80. So
+  # http:// is correct for a bare IP *and* for localhost - the two cases where
+  # no certificate can exist yet. Treating "localhost" as a domain handed the
+  # browser an https:// URL for a port with no TLS listener, so every API call
+  # failed at the transport layer before it ever reached nginx.
+  case "$DOMAIN" in
+    localhost)
+      SCHEME="http"
+      warn "Using localhost - the site will be HTTP-only. Get a domain and see DEPLOYMENT.md Part 13 for HTTPS."
+      ;;
+    *)
+      if [[ "$DOMAIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        SCHEME="http"
+        warn "Using an IP address ($DOMAIN) - the site will be HTTP-only. Get a domain and see DEPLOYMENT.md Part 13 for HTTPS."
+      else
+        SCHEME="https"
+      fi
+      ;;
+  esac
 
   sed -i \
     -e "s#DOMAIN=yourdomain.example#DOMAIN=${DOMAIN}#" \
     -e "s#https://yourdomain.example#${SCHEME}://${DOMAIN}#g" \
+    -e "s#yourdomain.example#${DOMAIN}#g" \
     "$ENV_FILE"
 
   log "Generating random secrets (MySQL passwords, JWT signing keys)"
-  MYSQL_PASSWORD="$(openssl rand -base64 32)"
-  MYSQL_ROOT_PASSWORD="$(openssl rand -base64 32)"
+  # The MySQL passwords are hex, not base64: they get interpolated straight
+  # into the mysql:// DATABASE_URL in docker-compose.prod.yml, and base64's
+  # alphabet ('/', '+', '=') is not URL-safe - a '/' truncates the authority
+  # and the whole connection string fails to parse. hex is URL-safe by
+  # construction and still carries the full 256 bits of entropy.
+  MYSQL_PASSWORD="$(openssl rand -hex 32)"
+  MYSQL_ROOT_PASSWORD="$(openssl rand -hex 32)"
   JWT_ACCESS_SECRET="$(openssl rand -base64 48)"
   JWT_REFRESH_SECRET="$(openssl rand -base64 48)"
   sed -i \
@@ -129,6 +147,12 @@ if grep -v '^\s*#' "$ENV_FILE" | grep -qE '(yourdomain\.example|^(MYSQL_PASSWORD
   die "$ENV_FILE still has placeholder or blank values - open it and fill in every line (see DEPLOYMENT.md Part 8), then re-run."
 fi
 
+# SMTP is the one deliberate exception to the check above (DEPLOYMENT.md
+# Part 8.4): the app runs fine without it, so this warns rather than dies.
+if grep -v '^\s*#' "$ENV_FILE" | grep -qE '^(SMTP_HOST|SMTP_FROM)=$'; then
+  warn "SMTP_HOST/SMTP_FROM aren't set in $ENV_FILE - registrations will work, but nobody gets a verification email until you fill these in and restart (see DEPLOYMENT.md Part 8.4)."
+fi
+
 # ---------------------------------------------------------------------------
 # 3. Work out the initial admin's email/password (persisted into
 #    .env.production so a re-run doesn't lose track of them - but never
@@ -137,14 +161,28 @@ fi
 # ---------------------------------------------------------------------------
 ENV_DOMAIN="$(grep '^DOMAIN=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
 if [ -z "$ADMIN_EMAIL" ]; then
-  if [[ "$ENV_DOMAIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || [ -z "$ENV_DOMAIN" ]; then
-    ADMIN_EMAIL="admin@care-platform.local"
-  else
-    ADMIN_EMAIL="admin@${ENV_DOMAIN}"
-  fi
+  # The admin address has to satisfy the API's @IsEmail() check, so any
+  # domain without a dot in it is unusable - LoginDto rejects it at
+  # validation, before the password is even compared, and the login page
+  # reports that as a generic "Incorrect email or password". localhost and
+  # bare IPs therefore get the same placeholder address rather than
+  # admin@${DOMAIN}.
+  case "$ENV_DOMAIN" in
+    ""|localhost)                 ADMIN_EMAIL="admin@care-platform.local" ;;
+    *)
+      if [[ "$ENV_DOMAIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        ADMIN_EMAIL="admin@care-platform.local"
+      else
+        ADMIN_EMAIL="admin@${ENV_DOMAIN}"
+      fi
+      ;;
+  esac
 fi
 if [ -z "$ADMIN_PASSWORD" ]; then
-  ADMIN_PASSWORD="$(openssl rand -base64 18)"
+  # Hex, not base64: this one is typed by a human into the login form, and
+  # base64's '/' '+' '=' are easy to mistype when copying it out of the env
+  # file. Same 144 bits of entropy, nothing to transcribe wrong.
+  ADMIN_PASSWORD="$(openssl rand -hex 18)"
   PASSWORD_SOURCE="generated"
 fi
 grep -q '^INITIAL_ADMIN_EMAIL=' "$ENV_FILE" || echo "INITIAL_ADMIN_EMAIL=${ADMIN_EMAIL}" >> "$ENV_FILE"
@@ -165,11 +203,59 @@ fi
 log "Building images (this can take 5-15 minutes the first time)"
 compose build
 
+# `compose build` only refreshes the image; it does not recreate containers
+# that are already running. `up -d` then sees the same container and leaves
+# it alone, so a re-run after a code change silently keeps serving the OLD
+# build - which is how a server ended up serving a landing page that no
+# longer existed in the source, with /find 404ing. Recreating unconditionally
+# makes a re-run actually deploy what was just built. nginx is included
+# deliberately: its config is bind-mounted, so the container must restart to
+# pick up changes even though the image is unchanged.
+log "Recreating containers so the new build is actually used"
+compose up -d --force-recreate
+
 # ---------------------------------------------------------------------------
-# 5. Start everything (Part 10)
+# 5b. Make the document storage volume writable by the API's runtime user.
+#
+# The api image ships /storage/caregiver-documents already owned by its
+# `app` user (see apps/api/Dockerfile), and an *empty* named volume inherits
+# that ownership. But Docker only copies the image's ownership into a volume
+# the first time it's created. A volume carried over from an earlier deploy -
+# or one created before that Dockerfile fix shipped - stays root:root, and
+# since the API deliberately runs as non-root (USER app), every upload then
+# fails with "EACCES: permission denied, mkdir" and a 500.
+#
+# Fixing it here rather than only in the Dockerfile means an existing
+# deployment heals on re-run, instead of needing the volume deleted by hand
+# (which would throw away every caregiver document already stored).
 # ---------------------------------------------------------------------------
-log "Starting all services"
-compose up -d
+log "Ensuring document storage is writable by the API"
+API_CID="$(compose ps -q api)"
+if [ -z "$API_CID" ]; then
+  warn "Couldn't find the api container to fix storage permissions on - skipping."
+else
+  # Ask the container where its storage root is, rather than reading
+  # STORAGE_LOCAL_ROOT from the env file or hardcoding a path - compose
+  # hardcodes that variable, so it isn't in $ENV_FILE to be read, and this
+  # stays correct if the path is ever changed there.
+  STORAGE_ROOT="$(docker exec "$API_CID" sh -c 'printf %s "${STORAGE_LOCAL_ROOT:-/storage/caregiver-documents}"' 2>/dev/null || echo '')"
+  STORAGE_ROOT="${STORAGE_ROOT:-/storage/caregiver-documents}"
+  # Resolve the uid/gid the api actually runs as inside this image, rather
+  # than hardcoding 100/101 - those are only the values adduser picks in the
+  # current Dockerfile and would silently drift.
+  API_USER="$(docker exec "$API_CID" id -u 2>/dev/null || echo '')"
+  API_GROUP="$(docker exec "$API_CID" id -g 2>/dev/null || echo '')"
+  if [ -n "$API_USER" ] && [ -n "$API_GROUP" ]; then
+    # `|| true`: already-correct ownership makes chown a no-op that still
+    # exits 0, but a read-only or missing path shouldn't abort the deploy.
+    docker exec -u 0 "$API_CID" sh -c "mkdir -p '$STORAGE_ROOT' && chown -R ${API_USER}:${API_GROUP} '$STORAGE_ROOT'" >/dev/null 2>&1 || true
+    if docker exec "$API_CID" sh -c "test -w '$STORAGE_ROOT'" >/dev/null 2>&1; then
+      echo "  $STORAGE_ROOT writable by uid $API_USER."
+    else
+      warn "The api user still can't write to $STORAGE_ROOT - document uploads will fail until this is fixed."
+    fi
+  fi
+fi
 
 log "Waiting for mysql and api to be healthy/running"
 ATTEMPTS=0
@@ -216,6 +302,12 @@ echo "  Staff login: http://${ENV_DOMAIN:-<your-domain-or-server-ip>}/staff/logi
 echo "  Admin email:    ${ADMIN_EMAIL}"
 case "$PASSWORD_SOURCE" in
   generated) echo "  Admin password: ${ADMIN_PASSWORD}   (generated just now - shown once, also saved in $ENV_FILE)" ;;
+  # Note: on a RE-RUN this line prints the password from $ENV_FILE, but the
+  # seed only applies it when no admin exists yet (seed-production.ts checks
+  # for an existing ADMIN and leaves it alone). Once the password has been
+  # changed in-app it no longer matches the stored hash, so re-running this
+  # script will NOT reset it - a 401 here means the DB password differs from
+  # the one printed, not that the deploy is broken.
   flag)      echo "  Admin password: ${ADMIN_PASSWORD}   (the one you passed with --admin-password, also saved in $ENV_FILE)" ;;
   existing)  echo "  Admin password: ${ADMIN_PASSWORD}   (unchanged from a previous run of this script, saved in $ENV_FILE)" ;;
 esac

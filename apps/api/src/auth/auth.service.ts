@@ -10,6 +10,7 @@ import { JwtPayload } from './strategies/jwt.strategy';
 import { RegisterCaregiverDto } from './dto/register-caregiver.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
 import { generateRegistrationNumber, assertUniqueContactFields, assertKnownLocationPair } from '../caregivers/caregiver-creation.util';
+import { EmailService } from '../email/email.service';
 
 // Self-registering roles must verify their email before their first login;
 // staff/admin/verifier accounts are created by an already-authenticated admin
@@ -26,6 +27,7 @@ export class AuthService {
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -128,17 +130,16 @@ export class AuthService {
     });
 
     const verificationUrl = `${this.frontendUrl('CAREGIVER')}/verify-email?token=${verificationToken}`;
-    this.sendVerificationEmailStub(email, verificationUrl);
+    void this.emailService.sendVerificationEmail(email, verificationUrl, 'CAREGIVER');
 
     return {
       caregiverId: result.caregiverId,
       registrationNumber: result.registrationNumber,
       message: 'Registration successful. Please check your email to verify your account before logging in.',
-      // DEV-ONLY escape hatch: no real email provider is wired up yet (see
-      // sendVerificationEmailStub below), so outside production the link is
-      // echoed back here too, keeping the flow testable end-to-end without
-      // an inbox. Delete this field - and require the console-logged/real
-      // email path only - once a real provider is in place.
+      // DEV-ONLY convenience: echoes the link back here too (see the
+      // matching UI in both register pages), so registration stays testable
+      // end-to-end without a real inbox or SMTP setup. Never present in
+      // production - see the NODE_ENV check below.
       ...(this.config.get<string>('NODE_ENV') !== 'production' ? { devVerificationUrl: verificationUrl } : {}),
     };
   }
@@ -192,7 +193,7 @@ export class AuthService {
     });
 
     const verificationUrl = `${this.frontendUrl('PATIENT_GUARDIAN')}/verify-email?token=${verificationToken}`;
-    this.sendVerificationEmailStub(email, verificationUrl);
+    void this.emailService.sendVerificationEmail(email, verificationUrl, 'PATIENT_GUARDIAN');
 
     return {
       patientId: result.patientId,
@@ -240,7 +241,7 @@ export class AuthService {
         tokenHash: this.hashToken(token),
         expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
       });
-      this.sendVerificationEmailStub(email, `${this.frontendUrl(user.role)}/verify-email?token=${token}`);
+      void this.emailService.sendVerificationEmail(email, `${this.frontendUrl(user.role)}/verify-email?token=${token}`, user.role as 'CAREGIVER' | 'PATIENT_GUARDIAN');
     }
 
     return { message: 'If an account with this email exists and is not yet verified, a new verification link has been sent.' };
@@ -390,13 +391,4 @@ export class AuthService {
     return this.config.get<string>('CAREGIVER_WEB_URL') ?? 'http://localhost:3000';
   }
 
-  /**
-   * STUB: no email provider is wired up yet. Logs the verification link to
-   * the server console instead of sending mail. Swap this one method for a
-   * real provider (SES/SendGrid/etc.) when going live - nothing else in the
-   * verification flow needs to change.
-   */
-  private sendVerificationEmailStub(email: string, verificationUrl: string): void {
-    this.logger.log(`[STUB EMAIL] Verification link for ${email}: ${verificationUrl}`);
-  }
 }

@@ -52,6 +52,15 @@ services:
       STORAGE_MAX_FILE_SIZE_BYTES: ${STORAGE_MAX_FILE_SIZE_BYTES:-10485760}
       THROTTLE_TTL: ${THROTTLE_TTL:-60}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      # Optional: the app runs fine without these, but verification emails
+      # only get logged (see `docker compose logs api`), never delivered,
+      # until they're set - see DEPLOYMENT.md Part 8.4 and EmailService.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-CareLink <no-reply@care-platform.local>}
     volumes:
       # Caregiver-uploaded documents (qualifications, ID scans, etc).
       # Persisted on a named volume, not the image, and must be part of

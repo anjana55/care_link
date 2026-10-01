@@ -24,7 +24,15 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err) {
-      setError(err instanceof ApiError ? t('login.error') : 'Something went wrong. Please try again.');
+      // Surface the server's actual message. Swallowing it for a generic
+      // "Incorrect email or password" made every failure look like a wrong
+      // password - including a 400 from @IsEmail() rejecting the address,
+      // which is what happens on a localhost/IP deployment where
+      // setup.sh derives admin@<DOMAIN> and that domain has no dot in it.
+      // The API already returns one message for both "no such user" and
+      // "wrong password" (validateUser throws 'Invalid credentials' either
+      // way), so this leaks nothing about which accounts exist.
+      setError(err instanceof ApiError && err.message ? err.message : t('login.error'));
     } finally {
       setLoading(false);
     }
