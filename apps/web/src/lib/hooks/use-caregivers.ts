@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../api/client';
+import { api, API_URL, getStoredTokens } from '../api/client';
 import type {
   CaregiverDetail,
   CaregiverListResponse,
@@ -289,16 +289,31 @@ export function useUpdateVerification(caregiverId: string) {
 export function useViewDocument(caregiverId: string) {
   return useMutation({
     mutationFn: async (documentId: string) => {
-      const tokens = typeof window !== 'undefined'
-        ? (JSON.parse(window.localStorage.getItem('care-platform-tokens') || 'null') as { accessToken: string } | null)
-        : null;
-      const res = await fetch(`http://localhost:3001/caregivers/${caregiverId}/documents/${documentId}/file`, {
-        headers: { Authorization: `Bearer ${tokens?.accessToken}` },
+      // Go through API_URL (NEXT_PUBLIC_API_URL) like every other call,
+      // rather than a hardcoded origin. This used to fetch straight from
+      // http://localhost:3001, but the API publishes no ports in
+      // docker-compose.prod.yml - it sits behind nginx on 3001 internally
+      // and is unreachable from the browser. The request was refused at the
+      // transport layer, so the button silently did nothing.
+      const res = await fetch(`${API_URL}/caregivers/${caregiverId}/documents/${documentId}/file`, {
+        headers: { Authorization: `Bearer ${getStoredTokens()?.accessToken}` },
       });
-      if (!res.ok) throw new Error('Failed to download document');
+      if (!res.ok) {
+        let message = 'Failed to download document';
+        try {
+          const body = await res.json();
+          message = body.message ?? message;
+        } catch {
+          /* keep the default */
+        }
+        throw new Error(message);
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
+      // Revoke on the next tick: revoking synchronously can cancel the
+      // load in some browsers before the new tab has read the blob.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     },
   });
 }
