@@ -47,6 +47,7 @@ running, part by part, so you can pick up from wherever it stopped.
 - [Part 14 - Everyday commands](#part-14---everyday-commands-cheat-sheet)
 - [Part 15 - Backups](#part-15---backups)
 - [Part 16 - Updating to a newer version later](#part-16---updating-to-a-newer-version-later)
+- [Part 16b - Taking the whole thing down](#part-16b---taking-the-whole-thing-down)
 - [Part 17 - Troubleshooting](#part-17---troubleshooting)
 
 ---
@@ -945,6 +946,66 @@ locations.csv, or new skills/languages), also re-run the Part 11.2 seed
 command with the same `INITIAL_ADMIN_EMAIL`/`INITIAL_ADMIN_PASSWORD`
 values you used the first time - it's a no-op for the admin account at
 that point and only refreshes the reference data.
+
+---
+
+## Part 16b - Taking the whole thing down
+
+`uninstall.sh` removes a deployment. It has two modes, and the difference
+is whether any data is destroyed.
+
+### 16b.1 Stop the site, keep everything
+
+```bash
+./uninstall.sh
+```
+
+Removes the containers and the project network, and **keeps** the MySQL
+database, every caregiver document, your TLS certificate, all Docker
+images, and `.env.production`. Re-run `./setup.sh` afterwards and the
+site comes back exactly as it was, with its data.
+
+This is the right choice for a server you're decommissioning but might
+bring back, or if you just want the site offline for a while.
+
+### 16b.2 Remove absolutely everything
+
+```bash
+./uninstall.sh --purge
+```
+
+This also deletes, permanently and with no undo: every volume (the
+database, and all caregiver documents ever uploaded), all Docker images,
+the TLS certificate, and `.env.production` with its secrets.
+
+It asks you to type your domain back before doing anything, precisely
+because a stray `y` at the wrong prompt is otherwise enough to lose a
+database. **Take a backup first** (Part 15) if there is anything in there
+you care about - the script does not make one.
+
+To see what either mode would do without doing it:
+
+```bash
+./uninstall.sh --dry-run
+./uninstall.sh --purge --dry-run
+```
+
+### 16b.3 What it leaves alone
+
+Both modes remove the certificate-renewal cron entry, since it would
+otherwise keep firing twice a day against a deployment that no longer
+exists. Unrelated cron jobs in the same crontab are preserved, as are
+commented-out lines.
+
+Everything it does is scoped by Docker's compose project label, which
+derives from the directory name. Volumes belonging to any *other* stack
+on the host are never touched - on some machines that includes an older
+`care_platform_*` set from before the project was renamed. If you want
+those gone too, remove them by hand once you have confirmed they hold
+nothing you need.
+
+The script never removes the repo directory itself. Delete it by hand
+when you're finished with it.
 
 ---
 
