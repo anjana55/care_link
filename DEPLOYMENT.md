@@ -765,7 +765,7 @@ crontab -e
 Add (adjust the paths to the repo if it is not in `/home/pi/care_link`):
 
 ```cron
-17 3,15 * * * cd /home/pi/care_link && docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot renew --quiet
+17 3,15 * * * cd /home/pi/care_link && docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot renew --quiet --non-interactive && docker compose -f docker-compose.prod.yml --env-file .env.production exec -T nginx nginx -s reload
 ```
 
 `cron` runs with a minimal environment, which is why the line `cd`s and
@@ -774,37 +774,47 @@ find the env file and would fail on the required variables. Use
 `crontab -e` (yours) rather than `sudo crontab -e` (root's): the renewal
 has to run as the same user that can reach the Docker socket.
 
+Two parts of that line are load-bearing:
+
+- **`--non-interactive`.** Without it certbot can stop and wait for input,
+  and from cron (where there is no terminal) that wait never ends. A
+  renewal job that silently hangs is worse than one that fails, because
+  nothing tells you it stopped.
+- **The trailing `nginx -s reload`.** A renewed certificate is a new file
+  on disk, but nginx holds the old one in memory until it re-reads it.
+  Without the reload, a renewed certificate is not actually served until
+  the container next restarts. `renew` exits 0 whether or not it renewed
+  anything, and `nginx -s reload` is a graceful reload that drops no
+  connections, so running it on the no-op runs costs nothing.
+
 Test the renewal path *before* you need it. `--dry-run` contacts
 Let's Encrypt's staging server and exercises everything except the
 rate-limited issuance:
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot renew --dry-run
+docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot renew --dry-run --non-interactive
 ```
 
-Expect `Congratulations, all simulated renewals succeeded`.
+Expect `Congratulations, all simulated renewals succeeded`. Keep
+`--non-interactive` here too, for the same reason.
 
-**One thing the renewal does not do on its own: reload nginx.** A renewed
-certificate is a new file on disk, but nginx has the old one in memory
-until it is told to re-read it. Without a reload, a renewed certificate
-keeps being served until the container next restarts. That is what
-`deploy/certbot-deploy-hook.sh` is for, and it is already wired into the
-`certbot` service in `docker-compose.prod.yml`:
+**Do not put the nginx reload in a certbot hook.** The obvious-looking
+approach - dropping a script into `renewal-hooks/deploy/` that runs
+`docker compose exec nginx nginx -s reload` - cannot work, and fails with
+a confusing error:
 
-```yaml
-      - ./deploy/certbot-deploy-hook.sh:/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh:ro
+```
+Hook 'deploy-hook' reported error code 127
+/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh: line 17: docker: not found
 ```
 
-certbot runs every script in `renewal-hooks/deploy/` after a renewal, so
-nothing else is needed - just make sure the file is executable:
-
-```bash
-chmod +x deploy/certbot-deploy-hook.sh
-```
-
-`--quiet` in the cron line will not suppress this, and that is correct:
-the hook only fires when a certificate was actually renewed, so on the
-vast majority of runs (nothing due) there is nothing to report.
+Hooks run *inside* the certbot container, which has no `docker` CLI and no
+Docker socket mounted, so it cannot reach the host to reload anything
+(127 is "command not found"). Chain the reload onto the host side of the
+cron command instead, as above. Mounting the Docker socket into the
+certbot container would make a hook work, but it also hands that
+container root-equivalent control of the host - not worth it to reload
+one process.
 
 ### 13.5 Where the certificate lives, and backups
 
@@ -1150,3 +1160,50 @@ it before retrying again, because retrying makes the wait longer:
 ```bash
 docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot certificates
 ```
+
+### 17.12 `Hook 'deploy-hook' reported error code 127` / `docker: not found`
+
+This comes from a certbot renewal hook that tries to reload nginx. It
+is harmless to the certificate itself - the one you have is valid and
+in use - but it means **the reload half of automatic renewal is not
+working**, so a future renewed certificate would not be served until
+the nginx container is restarted.
+
+Hooks run inside the certbot container, which has no `docker` CLI and no
+Docker socket mounted, so a hook shelling out to `docker compose` cannot
+reach the host. The fix is to remove the hook and chain the reload onto
+the host side of the cron entry instead - see 13.4 for the exact line,
+which ends in:
+
+```
+&& docker compose -f docker-compose.prod.yml --env-file .env.production exec -T nginx nginx -s reload
+```
+
+Then confirm it works:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec -T nginx nginx -s reload
+```
+
+No output and no error means nginx reloaded cleanly. Re-running
+`setup.sh` also rewrites the cron entry for you.
+
+### 17.13 `certbot renew --dry-run` hangs and never returns
+
+Almost always a missing `--non-interactive`: certbot waits for input
+that can never arrive when there is no terminal attached, so the command
+blocks forever rather than failing. Add the flag:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot renew --dry-run --non-interactive
+```
+
+If it still hangs, the host cannot reach Let's Encrypt's staging server.
+Confirm outbound HTTPS works, and wrap the call in `timeout` so it can
+never block a deploy script again:
+
+```bash
+timeout 600 docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot renew --dry-run --non-interactive
+```
+
+Exit code 124 means it timed out.

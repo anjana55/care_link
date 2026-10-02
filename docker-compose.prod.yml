@@ -151,11 +151,11 @@ services:
     volumes:
       - certbot-conf:/etc/letsencrypt
       - certbot-webroot:/var/www/certbot
-      # Runs after any successful renewal to make nginx pick up the new
-      # certificate - certbot replaces the files on disk, but nginx holds the
-      # old one in memory until it re-reads them. Without this hook a renewed
-      # certificate goes unused until the container next restarts.
-      - ./deploy/certbot-deploy-hook.sh:/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh:ro
+      # Deliberately NO renewal hook mounted here. A hook runs INSIDE this
+      # container, which has no docker CLI and no docker socket, so a hook
+      # that tries to reload nginx dies with "docker: not found" (127). The
+      # reload is chained onto the host side of the cron command instead -
+      # see setup.sh's renewal step and DEPLOYMENT.md Part 13.4.
 
 volumes:
   mysql-data:

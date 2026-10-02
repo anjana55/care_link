@@ -484,12 +484,38 @@ if [ "$TLS_ENABLED" -eq 1 ]; then
   # staging server. It is the only way to know renewal works BEFORE the
   # 30-day window when a broken renewal turns into an expired certificate.
   # Failure is not fatal (the cert is valid for 90 days) but must be loud.
-  if compose run --rm certbot renew --dry-run >/dev/null 2>&1; then
-    echo "  Renewal test passed."
+  #
+  # Two things this must do, both learned the hard way:
+  #
+  #  - Pass --non-interactive. Without it certbot may stop and wait for
+  #    input, and with no terminal attached to a script that wait is
+  #    forever. That is what hung an earlier version of this step.
+  #  - Put a timeout on it. The staging CA is a separate, often-slower
+  #    endpoint; if the host can't reach it the call blocks on connect
+  #    rather than failing, and a deploy script should never block on it.
+  #
+  # The reload step is deliberately NOT part of this test or of the renew
+  # command. Doing it from inside the certbot container cannot work -
+  # there is no docker CLI in that image and no socket mounted, so a hook
+  # that shells out to `docker compose` dies with "docker: not found" (127).
+  # The reload is chained onto the host side of the cron command instead,
+  # where docker genuinely exists.
+  DRYRUN_CMD=(compose run --rm certbot renew --dry-run --non-interactive)
+  if command -v timeout >/dev/null 2>&1; then
+    if timeout 600 "${DRYRUN_CMD[@]}" >/dev/null 2>&1; then
+      echo "  Renewal test passed."
+    elif [ "$?" -eq 124 ]; then
+      warn "The renewal self-test timed out after 10 minutes. Your certificate is valid and renews on request,"
+      warn "but this host could not reach Let's Encrypt's staging server - check outbound HTTPS (port 443)."
+      warn "This does NOT affect the certificate you already have, only the automatic renewal test."
+    else
+      warn "The renewal self-test failed. Your certificate is valid, but automatic renewal may not work."
+      warn "Run it yourself for the full error: ${DRYRUN_CMD[*]}"
+      warn "and see DEPLOYMENT.md Part 17.11."
+    fi
   else
-    warn "The renewal self-test failed. Your certificate is valid, but automatic renewal may not work."
-    warn "Run: docker compose -f $COMPOSE_FILE --env-file $ENV_FILE run --rm certbot renew --dry-run"
-    warn "and see DEPLOYMENT.md Part 17.11. This usually means port 80 stopped being reachable."
+    warn "'timeout' isn't available, so the renewal self-test was skipped rather than risk hanging."
+    warn "Test it yourself: ${DRYRUN_CMD[*]}"
   fi
 
   log "Installing the automatic renewal timer"
@@ -498,7 +524,14 @@ if [ "$TLS_ENABLED" -eq 1 ]; then
   # failure to be retried. Installed via `crontab -l` rather than by
   # writing /etc/cron.d so this needs no root and doesn't touch a
   # system-wide file.
-  RENEW_CMD="cd ${SCRIPT_DIR} && docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} run --rm certbot renew --quiet"
+  #
+  # The nginx reload is chained here, on the HOST, rather than run as a
+  # certbot hook inside the container. `renew` exits 0 whether or not it
+  # actually renewed anything, and `nginx -s reload` is a graceful reload
+  # that re-reads the certificate and drops no connections - so running it
+  # on the many no-op runs costs nothing and removes any need to detect
+  # whether a renewal happened.
+  RENEW_CMD="cd ${SCRIPT_DIR} && docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} run --rm certbot renew --quiet --non-interactive && docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} exec -T nginx nginx -s reload"
   # cron runs with a minimal environment and no cwd, so the command has to
   # be absolute about where it runs from - a bare `docker compose` there
   # would not find the compose file or the env file and would fail on the
@@ -507,8 +540,24 @@ if [ "$TLS_ENABLED" -eq 1 ]; then
   # `crontab -l` exits non-zero when the user has no crontab at all, which
   # is the normal first-run case - hence the `|| true` and empty default.
   CURRENT_CRONTAB="$(crontab -l 2>/dev/null || true)"
-  if printf '%s\n' "$CURRENT_CRONTAB" | grep -qF "$RENEW_CMD"; then
-    echo "  Renewal timer already installed - leaving it alone."
+  if printf '%s\n' "$CURRENT_CRONTAB" | grep -qF "certbot renew"; then
+    # An entry from a previous run exists. Its command is stale if this run
+    # generated a different one (the reload was added later, --non-interactive
+    # was added later), so it is replaced rather than left in place - but
+    # only if the only thing it does is this renewal, since the crontab is
+    # the user's and may hold unrelated jobs.
+    if printf '%s\n' "$CURRENT_CRONTAB" | grep -F "$RENEW_CMD" >/dev/null; then
+      echo "  Renewal timer already installed and up to date - leaving it alone."
+    elif printf '%s\n' "$CURRENT_CRONTAB" | grep -v "certbot renew" | grep -qvE '^\s*(#|$)'; then
+      warn "Found an older certificate-renewal entry in your crontab but also unrelated jobs, so it"
+      warn "was left alone rather than overwritten. Update it by hand to reload nginx as well:"
+      warn "  $CRON_LINE"
+    else
+      printf '%s\n' "$CURRENT_CRONTAB" | grep -v "certbot renew" | crontab - 2>/dev/null || true
+      printf '%s\n' "$CRON_LINE" | crontab - 2>/dev/null \
+        && echo "  Replaced the old renewal entry (it did not reload nginx)." \
+        || warn "Couldn't update the renewal entry. Set it by hand: $CRON_LINE"
+    fi
   else
     # Append rather than replace: the user's crontab is not ours to
     # overwrite, and it may already hold unrelated jobs. The write is done
@@ -518,7 +567,7 @@ if [ "$TLS_ENABLED" -eq 1 ]; then
     if printf '%s\n' "$NEW_CRONTAB" | crontab - 2>/dev/null; then
       # Off-the-hour minute is deliberate: many crontabs fire at :00, and
       # Let's Encrypt's rate limiter is shared across unrelated deployments.
-      echo "  Installed: renewal checked twice daily (03:17 and 15:17)."
+      echo "  Installed: renewal checked twice daily (03:17 and 15:17), with nginx reloaded after each."
     else
       warn "Couldn't install a cron entry (no crontab for this user). The certificate will NOT renew automatically."
       warn "Add this to your crontab, or run it by hand before the certificate expires:"
