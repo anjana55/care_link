@@ -8,15 +8,40 @@ export interface AuthUser {
   /** Null for customers who signed up with WhatsApp instead of an email address. */
   email: string | null;
   phone?: string;
-  role: 'PATIENT_GUARDIAN';
+  /**
+   * Caregivers are a separate category from office staff, but both have a
+   * legitimate presence on the public site: patients search and book, and
+   * caregivers register and fill in their own profile at /me. Office-staff
+   * roles are deliberately absent - they belong to the /staff app.
+   */
+  role: 'PATIENT_GUARDIAN' | 'CAREGIVER';
   patientId?: string;
+  caregiverId?: string;
+}
+
+/**
+ * Where each role lands after signing in. Mirrors apps/web's postLoginPath,
+ * but a caregiver's home is now /me in THIS app rather than /staff/me.
+ */
+export function postLoginPath(user: AuthUser): string {
+  return user.role === 'CAREGIVER' ? '/me' : '/';
 }
 
 function decodeJwt(token: string): AuthUser | null {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    if (payload.role !== 'PATIENT_GUARDIAN') return null;
-    return { userId: payload.sub, email: payload.email ?? null, phone: payload.phone, role: payload.role, patientId: payload.patientId };
+    // An allowlist, not a deleted check. Widening it to "accept anything but
+    // patients" would let an ADMIN/STAFF/VERIFIER token sign someone in on the
+    // public site, where there is nothing for them to see.
+    if (payload.role !== 'PATIENT_GUARDIAN' && payload.role !== 'CAREGIVER') return null;
+    return {
+      userId: payload.sub,
+      email: payload.email ?? null,
+      phone: payload.phone,
+      role: payload.role,
+      patientId: payload.patientId,
+      caregiverId: payload.caregiverId,
+    };
   } catch {
     return null;
   }

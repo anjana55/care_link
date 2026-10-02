@@ -66,6 +66,18 @@ export function Label({
   );
 }
 
+/** Explains the `*` marker once per form. Pair with Label's `required`. */
+export function RequiredLegend({ label }: { label: string }) {
+  return (
+    <p className="mb-3 text-xs text-ink/50">
+      <span aria-hidden="true" className="text-danger">
+        *
+      </span>{' '}
+      {label}
+    </p>
+  );
+}
+
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="mt-1 text-xs text-danger">{message}</p>;

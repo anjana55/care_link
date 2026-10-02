@@ -1,4 +1,9 @@
 {
+  "caregiverLogin": {
+    "title": "Sign in as a caregiver",
+    "subtitle": "Sign in to continue your caregiver profile.",
+    "noAccount": "New to CareLink?"
+  },
   "nav": {
     "brand": "CareLink Finder",
     "signIn": "Sign in",
@@ -233,7 +238,9 @@
       "validation": {
         "numberRequired": "Please enter your WhatsApp number",
         "numberInvalid": "Please enter a valid WhatsApp number"
-      }
+      },
+      "primaryPhoneHint": "Primary phone is optional - your WhatsApp number is used if you leave it blank.",
+      "regNumber": "Registration number:"
     },
     "otp": {
       "sentTo": "Enter the code sent to",
@@ -330,5 +337,136 @@
       "body": "Families can search today. Caregivers can register in minutes. Staff sign in to manage it all.",
       "button": "Find a caregiver"
     }
+  },
+  "caregiverRegister": {
+    "title": "Register as a caregiver",
+    "subtitle": "Create your account to join the Care Platform",
+    "accountSection": "Account details",
+    "personalSection": "Personal information",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "consentLabel": "I consent to my personal and health information being processed for caregiver registration and verification purposes.",
+    "submit": "Create account",
+    "alreadyHaveAccount": "Already have an account?",
+    "signIn": "Sign in",
+    "successTitle": "Check your email",
+    "successBody": "We have sent a verification link to your email address. Click it to activate your account and sign in.",
+    "devLinkLabel": "Development mode - verification link",
+    "validation": {
+      "email": {
+        "required": "Email is required",
+        "invalid": "Enter a valid email address"
+      },
+      "password": {
+        "required": "Password is required",
+        "invalid": "Password must be at least 8 characters"
+      },
+      "confirmPassword": {
+        "required": "Please confirm your password"
+      },
+      "passwordMismatch": "Passwords do not match",
+      "consentRequired": "You must accept the consent statement to continue"
+    },
+    "join": {
+      "title": "Join as a caregiver",
+      "subtitle": "Create an account to apply to work as a caregiver on CareLink.",
+      "emailTitle": "Register with email",
+      "emailBody": "Sign up with your email address and a password, then verify your email.",
+      "emailCta": "Register with email",
+      "whatsappTitle": "Register with WhatsApp",
+      "whatsappBody": "No email address needed — verify your WhatsApp number instead.",
+      "whatsappCta": "Register with WhatsApp",
+      "whatsappUnavailable": "WhatsApp registration is not available right now. Please register with your email address.",
+      "backHome": "Back to the homepage"
+    },
+    "registrationNumber": "Registration number"
+  },
+  "personalInfo": {
+    "fields": {
+      "fullName": "Full name",
+      "permanentAddress": "Permanent address",
+      "nic": "NIC",
+      "passportNumber": "Passport number",
+      "dateOfBirth": "Date of birth",
+      "gender": "Gender",
+      "civilStatus": "Civil status",
+      "heightIn": "Height (in)",
+      "weightKg": "Weight (kg)",
+      "primaryPhone": "Primary phone",
+      "secondaryPhone": "Secondary phone",
+      "emergencyContactName": "Emergency contact name",
+      "emergencyContactNumber": "Emergency contact number",
+      "emergencyContactRelationship": "Emergency contact relationship",
+      "policeDivision": "Police division",
+      "policeStation": "Police station",
+      "district": "District",
+      "city": "City",
+      "postalCode": "Postal code"
+    },
+    "validation": {
+      "fullName": {
+        "required": "Full name is required",
+        "invalid": "Enter a full name of at least 2 characters"
+      },
+      "permanentAddress": {
+        "required": "Permanent address is required",
+        "invalid": "Enter an address of at least 5 characters"
+      },
+      "dateOfBirth": {
+        "required": "Date of birth is required"
+      },
+      "gender": {
+        "required": "Gender is required"
+      },
+      "civilStatus": {
+        "required": "Civil status is required"
+      },
+      "primaryPhone": {
+        "required": "Primary phone is required",
+        "invalid": "Enter a valid phone number with at least 9 digits"
+      },
+      "emergencyContactName": {
+        "required": "Emergency contact name is required",
+        "invalid": "Enter a name of at least 2 characters"
+      },
+      "emergencyContactNumber": {
+        "required": "Emergency contact number is required",
+        "invalid": "Enter a valid phone number with at least 9 digits"
+      },
+      "emergencyContactRelationship": {
+        "required": "Relationship to this contact is required",
+        "invalid": "Describe how you are related to this contact"
+      },
+      "district": {
+        "required": "District is required"
+      },
+      "city": {
+        "required": "City is required"
+      },
+      "postalCode": {
+        "required": "Postal code is required"
+      }
+    },
+    "options": {
+      "select": "Select",
+      "gender": {
+        "MALE": "Male",
+        "FEMALE": "Female",
+        "OTHER": "Other"
+      },
+      "civilStatus": {
+        "SINGLE": "Single",
+        "MARRIED": "Married",
+        "DIVORCED": "Divorced",
+        "WIDOWED": "Widowed",
+        "OTHER": "Other"
+      }
+    }
+  },
+  "common": {
+    "requiredField": "Required field",
+    "loading": "Loading...",
+    "locationsUnavailable": "Districts and cities could not be loaded. Check your connection and reload the page."
   }
 }

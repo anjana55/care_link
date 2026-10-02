@@ -1,19 +1,16 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Input, Label, RequiredLegend } from '@/components/ui/input';
 import { AuthHeader } from '@/components/layout/brand-mark';
-import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp';
 
 export default function LoginPage() {
   const { t } = useTranslation();
   const { login } = useAuth();
-  const { data: whatsapp } = useWhatsappConfig();
   const [email, setEmail] = useState('admin@care-platform.local');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -76,20 +73,16 @@ export default function LoginPage() {
           admin@care-platform.local · staff@care-platform.local · verifier@care-platform.local · selfregistered@care-platform.local — password ChangeMe123!
         </p>
 
-        {whatsapp?.caregiver.login && (
-          <p className="mt-4 text-center text-sm text-ink/60">
-            {t('whatsapp.login.noEmail')}{' '}
-            <Link href="/login/whatsapp" className="font-medium text-brand-dark hover:underline">
-              {t('whatsapp.login.useWhatsapp')}
-            </Link>
-          </p>
-        )}
-
+        {/*
+          A plain <a>, not <Link>: caregiver sign-up is served by the
+          public-web container, not this one. next/link would resolve it
+          through this app's router as /staff/caregiver/join and render a 404.
+        */}
         <p className="mt-6 text-center text-sm text-ink/60">
           {t('login.newCaregiver')}{' '}
-          <Link href="/register" className="font-medium text-brand-dark hover:underline">
+          <a href="/caregiver/join" className="font-medium text-brand-dark hover:underline">
             {t('register.title')}
-          </Link>
+          </a>
         </p>
         </div>
       </div>
