@@ -74,7 +74,7 @@ export default function RegisterWhatsappPage() {
   const router = useRouter();
   const { applyTokens } = useAuth();
   const { data: config, isLoading: configLoading } = useWhatsappConfig();
-  const { data: locations } = useLocations();
+  const { data: locations, isError: locationsUnavailable } = useLocations();
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<{ phone: string; res: RegisterResponse } | null>(null);
 
@@ -172,6 +172,7 @@ export default function RegisterWhatsappPage() {
           setValue={setValue as any}
           errors={errors as any}
           locations={locations ?? []}
+          locationsUnavailable={locationsUnavailable}
           requiredFields={requiredFields}
         />
         <p className="mt-1 text-xs text-ink/50">{t('whatsapp.register.primaryPhoneHint')}</p>

@@ -50,7 +50,8 @@
       "districtRequired": "කරුණාකර දිස්ත්‍රික්කයක් තෝරන්න.",
       "startDateRequired": "කරුණාකර අපේක්ෂිත ආරම්භක දිනය තෝරන්න.",
       "invalidValue": "කරුණාකර මෙම අගය පරීක්ෂා කරන්න."
-    }
+    },
+    "locationsUnavailable": "දිස්ත්‍රික සහ නගර ලෝඩ් කළ නොහැකි විය. කරුණාකර පිටුව නැවත පැටවීමට හෝ ටිකකින් පසු නැවත උත්සාහ කරන්න."
   },
   "aiSearch": {
     "label": "ඔබට අවශ්‍ය රැකවරණය විස්තර කරන්න",
@@ -220,7 +221,7 @@
       "title": "WhatsApp හරහා ලියාපදිංචි වන්න",
       "subtitle": "විද්‍යුත් තැපැල් ලිපිනයක් අවශ්‍ය නොවේ - ඒ වෙනුවට ඔබගේ WhatsApp අංකය සත්‍යාපනය කරන්න.",
       "number": "WhatsApp අංකය",
-      "numberHint": "We'll send a verification code to this number.",
+      "numberHint": "අපි මෙම අංකයට සත්‍යාපන කේතයක් එවනු ඇත.",
       "submit": "ගිණුම සාදන්න",
       "error": "ලියාපදිංචි වීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
       "link": "WhatsApp හරහා ලියාපදිංචි වන්න",
@@ -228,7 +229,7 @@
       "useEmail": "ඒ වෙනුවට විද්‍යුත් තැපෑලෙන් ලියාපදිංචි වන්න",
       "verifyTitle": "ඔබගේ WhatsApp අංකය සත්‍යාපනය කරන්න",
       "verifyBody": "ඔබගේ ගිණුම සාදා ඇත. ලියාපදිංචිය සම්පූර්ණ කිරීමට අප යැවූ කේතය ඇතුළත් කරන්න.",
-      "notSent": "We could not send the code just now. Use \"Send a new code\" below.",
+      "notSent": "අපිට දැන් කේතය එවී නොහැකි විය. පහතින් \"නව කේතයක් යවන්න\" භාවිතා කරන්න.",
       "validation": {
         "numberRequired": "කරුණාකර ඔබගේ WhatsApp අංකය ඇතුළත් කරන්න",
         "numberInvalid": "කරුණාකර වලංගු WhatsApp අංකයක් ඇතුළත් කරන්න"
@@ -237,12 +238,12 @@
     "otp": {
       "sentTo": "යවන ලද කේතය ඇතුළත් කරන්න",
       "code": "සත්‍යාපන කේතය",
-      "devCode": "Development mode - code (not sent over WhatsApp)",
+      "devCode": "සූත්‍ර මාදුම - කේතය (WhatsApp හරහා එවී නොමැත)",
       "verify": "සත්‍යාපනය කරන්න",
       "error": "එම කේතය ක්‍රියා නොකළේය. කරුණාකර නැවත උත්සාහ කරන්න.",
       "resent": "නව කේතයක් ඉල්ලා ඇත.",
       "changeNumber": "අංකය වෙනස් කරන්න",
-      "resendIn": "Send a new code in",
+      "resendIn": "නව කේතයක් යවන්න",
       "resend": "නව කේතයක් යවන්න"
     }
   },

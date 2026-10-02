@@ -82,7 +82,7 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
   const { t } = useTranslation();
   const { data: skills = [] } = useMetaSkills();
   const { data: languages = [] } = useMetaLanguages();
-  const { data: locations = [] } = useMetaLocations();
+  const { data: locations = [], isError: locationsFailed } = useMetaLocations();
   const [conditionInput, setConditionInput] = useState('');
 
   const districts = useMemo(() => [...new Set(locations.map((l) => l.district))].sort(), [locations]);
@@ -213,6 +213,17 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
       {/* Location */}
       <fieldset className="space-y-3">
         <legend className="text-sm font-semibold text-ink/80">{t('normalSearch.locationSection')}</legend>
+        {/*
+          A failed locations fetch used to be indistinguishable from "no
+          locations exist": `data` falls back to [] and the dropdowns simply
+          came up empty, which reads as a broken product rather than a broken
+          request. Say so instead.
+        */}
+        {locationsFailed && (
+          <p role="alert" className="rounded border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
+            {t('normalSearch.locationsUnavailable')}
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="district" >

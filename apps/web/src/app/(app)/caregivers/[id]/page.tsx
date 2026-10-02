@@ -61,7 +61,7 @@ export default function CaregiverProfilePage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user } = useAuth();
-  const { data: locations } = useLocations();
+  const { data: locations, isError: locationsUnavailable } = useLocations();
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteConfirm, setIsDeleteConfirm] = useState(false);
   const [isHealthEditing, setIsHealthEditing] = useState(false);
@@ -328,6 +328,7 @@ export default function CaregiverProfilePage() {
                 setValue={form.setValue}
                 errors={form.formState.errors}
                 locations={locations ?? []}
+                locationsUnavailable={locationsUnavailable}
                 requiredFields={requiredFields}
               />
               <div className="flex justify-end border-t border-border pt-4">

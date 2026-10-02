@@ -50,7 +50,8 @@
       "districtRequired": "Please select a district.",
       "startDateRequired": "Please choose a desired start date.",
       "invalidValue": "Please check this value."
-    }
+    },
+    "locationsUnavailable": "Districts and cities could not be loaded. Please refresh the page or try again shortly."
   },
   "aiSearch": {
     "label": "Describe the care you need",

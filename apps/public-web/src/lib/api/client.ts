@@ -1,4 +1,20 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+/**
+ * Same-origin by default.
+ *
+ * nginx already proxies this app's `/api/` to the API container (see
+ * deploy/nginx.conf), so a bare path is all that is needed - and it is the
+ * only form that keeps working when the site is reached by any host other
+ * than the machine it is deployed on. An absolute value baked in at build
+ * time makes the *visitor's* browser resolve it, so `http://localhost/api`
+ * points at the visitor's own machine and every call fails. That failure is
+ * silent: React Query swallows it, `data` falls back to `[]`, and the
+ * district/city dropdowns render as permanently empty with nothing on screen
+ * to explain why.
+ *
+ * Still overridable for split-host deployments where the API genuinely lives
+ * elsewhere; those must also add the site's origin to CORS_ORIGIN on the API.
+ */
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 const TOKEN_KEY = 'care-platform-patient-tokens';
 
 export interface Tokens {

@@ -12,6 +12,7 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
   setValue,
   errors,
   locations,
+  locationsUnavailable = false,
   requiredFields,
 }: {
   register: UseFormRegister<T>;
@@ -19,6 +20,12 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
   setValue: UseFormSetValue<T>;
   errors: FieldErrors<T>;
   locations?: Location[];
+  /**
+   * Whether the locations request failed. Without it a failed fetch and a
+   * genuinely empty locations table look identical: `locations` is undefined,
+   * both dropdowns render with no options, and nothing on screen says why.
+   */
+  locationsUnavailable?: boolean;
   /** Field names the schema enforces, from requiredFieldsOf(). */
   requiredFields: ReadonlySet<string>;
 }) {
@@ -79,6 +86,11 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
       </div>
 
       <div>
+        {locationsUnavailable && (
+          <p role="alert" className="mb-2 rounded border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
+            {t('common.locationsUnavailable')}
+          </p>
+        )}
         <Label htmlFor="district" required={requiredFields.has('district')}>{t('personalInfo.fields.district')}</Label>
         <Controller
           name={'district' as any}

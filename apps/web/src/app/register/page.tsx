@@ -27,7 +27,7 @@ export default function RegisterPage() {
   const { t, locale, setLocale } = useTranslation();
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<RegisterResponse | null>(null);
-  const { data: locations } = useLocations();
+  const { data: locations, isError: locationsUnavailable } = useLocations();
   const { data: whatsapp } = useWhatsappConfig();
 
   // Create localized Zod schema using the t function
@@ -172,6 +172,7 @@ export default function RegisterPage() {
             setValue={setValue}
             errors={errors}
             locations={locations ?? []}
+            locationsUnavailable={locationsUnavailable}
             requiredFields={requiredFields}
           />
 

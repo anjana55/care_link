@@ -18,7 +18,7 @@ export function PersonalInfoStep({ onCreated }: { onCreated: (caregiverId: strin
   // District and city are dropdowns populated from the locations table. Without
   // this the district select renders only its placeholder, so the field is
   // unanswerable and the form can't be submitted.
-  const { data: locations } = useLocations();
+  const { data: locations, isError: locationsUnavailable } = useLocations();
 
   const personalInfoSchemaLocalized = makePersonalInfoSchema(t);
   const requiredFields = requiredFieldsOf(personalInfoSchemaLocalized);
@@ -51,6 +51,7 @@ export function PersonalInfoStep({ onCreated }: { onCreated: (caregiverId: strin
         setValue={setValue}
         errors={errors}
         locations={locations ?? []}
+        locationsUnavailable={locationsUnavailable}
         requiredFields={requiredFields}
       />
 

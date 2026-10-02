@@ -227,7 +227,8 @@
     "yes": "Yes",
     "no": "No",
     "language": "Language",
-    "requiredField": "Required field"
+    "requiredField": "Required field",
+    "locationsUnavailable": "Districts and cities could not be loaded. Check your connection and reload the page."
   },
   "register": {
     "title": "Register as a caregiver",

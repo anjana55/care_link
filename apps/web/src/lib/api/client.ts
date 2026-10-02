@@ -1,4 +1,11 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+/**
+ * Same-origin by default - see the note in apps/public-web's client.ts.
+ * `/api` resolves against whichever host nginx answers on, so the staff
+ * portal works from a domain, a LAN IP or localhost alike. Only an absolute
+ * value baked in at build time breaks that, because the browser (not the
+ * server) is what resolves it.
+ */
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 const TOKEN_KEY = 'care-platform-tokens';
 
 export interface Tokens {
