@@ -96,6 +96,36 @@ command -v docker >/dev/null 2>&1 || die "Docker isn't installed - see DEPLOYMEN
 docker compose version >/dev/null 2>&1 || die "The 'docker compose' plugin isn't available - see DEPLOYMENT.md Part 4."
 command -v openssl >/dev/null 2>&1 || die "openssl isn't installed (needed to generate secrets)."
 
+# Can this Docker actually publish port 80?
+#
+# Rootless Docker refuses to bind ports below 1024 by default, so the
+# nginx container - the only thing that lets the outside world reach the
+# site - dies at the very END of the deploy with
+#   cannot expose privileged port 80, ... permission denied
+# after the images have already spent 5-15 minutes building. That is a
+# terrible way to find out, so it is checked here instead, while the
+# failure is still free.
+#
+# `sysctl` reports the current value; anything at or below 80 means
+# unprivileged processes may bind the web ports. Only rootless Docker is
+# affected, so a rootful install is skipped rather than nagged about.
+if [ "$(sysctl -n net.ipv4.ip_unprivileged_port_start 2>/dev/null || echo 1024)" -gt 80 ] 2>/dev/null; then
+  IS_ROOTLESS=0
+  if docker info --format '{{.SecurityOptions}}' 2>/dev/null | grep -qi rootless; then
+    IS_ROOTLESS=1
+  fi
+  if [ "$IS_ROOTLESS" -eq 1 ]; then
+    die "This is a rootless Docker install, and it can't bind port 80 - nginx would fail to start.
+  Fix it now (this applies immediately, no reboot needed):
+
+    echo 'net.ipv4.ip_unprivileged_port_start=80' | sudo tee -a /etc/sysctl.conf
+    sudo sysctl -p
+
+  Then re-run this script. It is safe to run those commands even if this
+  turns out not to be your problem - see DEPLOYMENT.md Part 5."
+  fi
+fi
+
 compose() { docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"; }
 
 # ---------------------------------------------------------------------------

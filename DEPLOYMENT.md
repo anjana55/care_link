@@ -266,6 +266,14 @@ This is completely safe to run whether or not you actually needed it -
 if your Docker install didn't have this restriction, these two commands
 simply do nothing harmful.
 
+**You can hit this on a re-deploy, not just the first one.** The setting
+is persistent, so if you applied it once it should stay applied - but if
+the Docker daemon was started before you did, or `/etc/sysctl.conf` was
+reverted by something else, the restriction quietly comes back and the
+next deploy fails at the very end. If you see this error after a deploy
+that previously worked, re-run the two commands above; `setup.sh` also
+checks for it before it starts building.
+
 ---
 
 ## Part 6 - Open your firewall / cloud security group
@@ -1016,8 +1024,40 @@ nothing here matches exactly, scroll to **17.10 - Getting more help**.
 
 ### 17.1 `cannot expose privileged port 80 ... permission denied`
 
-This is the exact error covered by Part 5. Run the two commands in Part
-5, then re-run the `up -d` command from Part 10.
+The full error looks like this:
+
+```
+failed to set up container networking: driver failed programming external
+connectivity on endpoint care_link-nginx-1: error while calling RootlessKit
+PortManager.AddPort(): cannot expose privileged port 80, you can add
+'net.ipv4.ip_unprivileged_port_start=80' to /etc/sysctl.conf (currently 1024)
+```
+
+`RootlessKit` in that message is the giveaway: this is **rootless
+Docker**, which by default may not bind ports below 1024. Part 5 covers
+this; the fix is two commands and takes effect immediately, with no
+reboot:
+
+```bash
+echo 'net.ipv4.ip_unprivileged_port_start=80' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
+Then re-run the deploy (`./setup.sh`, or the `up -d` from Part 10).
+
+Two things worth knowing:
+
+- **Why it can appear out of nowhere.** The setting lives in
+  `/etc/sysctl.conf`, so it survives a reboot - but if the daemon was
+  started before you applied it, or the file was ever reverted, the
+  restriction comes back. It is also possible to have deployed
+  successfully once and hit this after an unrelated change, because
+  whether it bites depends on the Docker mode and the running sysctl
+  value at the time, not on anything in this project.
+- **`setup.sh` now checks for this up front** and refuses to start
+  before it spends 5-15 minutes building images. If you see the deploy
+  stop early with a message about rootless Docker, it is this, not
+  something else.
 
 ### 17.2 `service "api" is not running` (or "web", "mysql", etc.)
 
