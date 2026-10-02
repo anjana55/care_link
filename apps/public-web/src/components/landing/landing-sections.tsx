@@ -63,12 +63,26 @@ export function LandingHero() {
             {t('landing.ctaSearch')}
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
-          <Link
-            href="/register"
+          {/*
+            "Join as a caregiver" sends a visitor to the caregiver
+            WhatsApp-OTP sign-up, NOT to /register - that route is the
+            patient/guardian sign-up and was what this button used to
+            point at, which quietly sent every prospective caregiver to
+            the wrong form.
+
+            A plain <a>, not <Link>: the page lives at /staff/... because
+            the staff app is mounted there with a basePath, and it is
+            served by a different container (web, not public-web). next/link
+            would resolve it through this app's router, which has no such
+            route and renders its 404. Same reason as `external: true`
+            on the app cards below.
+          */}
+          <a
+            href="/staff/register/whatsapp"
             className="inline-flex items-center rounded border border-border bg-white px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-brand hover:text-brand"
           >
             {t('landing.ctaRegister')}
-          </Link>
+          </a>
         </div>
 
         <dl className="mt-10 flex flex-wrap gap-8">

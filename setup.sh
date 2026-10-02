@@ -531,21 +531,41 @@ if [ "$TLS_ENABLED" -eq 1 ]; then
   # The reload is chained onto the host side of the cron command instead,
   # where docker genuinely exists.
   DRYRUN_CMD=(compose run --rm certbot renew --dry-run --non-interactive)
-  if command -v timeout >/dev/null 2>&1; then
-    if timeout 600 "${DRYRUN_CMD[@]}" >/dev/null 2>&1; then
-      echo "  Renewal test passed."
-    elif [ "$?" -eq 124 ]; then
-      warn "The renewal self-test timed out after 10 minutes. Your certificate is valid and renews on request,"
-      warn "but this host could not reach Let's Encrypt's staging server - check outbound HTTPS (port 443)."
-      warn "This does NOT affect the certificate you already have, only the automatic renewal test."
-    else
-      warn "The renewal self-test failed. Your certificate is valid, but automatic renewal may not work."
-      warn "Run it yourself for the full error: ${DRYRUN_CMD[*]}"
-      warn "and see DEPLOYMENT.md Part 17.11."
-    fi
-  else
+  # A command the operator can actually paste into their own shell. This has
+  # to be spelled out in full: `compose` is a shell function defined in this
+  # script, so printing "${DRYRUN_CMD[*]}" would hand back something that
+  # does not exist outside it - and without the -f/--env-file flags it would
+  # default to the DEV compose file, which has no certbot service at all and
+  # fails with a misleading "no such service: certbot".
+  DRYRUN_PRINT="docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} run --rm certbot renew --dry-run --non-interactive"
+
+  # Keep the output. Sending it to /dev/null means a failure here is
+  # undiagnosable without re-running the command by hand, which is exactly
+  # the round trip this is meant to avoid.
+  DRYRUN_LOG="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$DRYRUN_LOG'" EXIT
+
+  if ! command -v timeout >/dev/null 2>&1; then
     warn "'timeout' isn't available, so the renewal self-test was skipped rather than risk hanging."
-    warn "Test it yourself: ${DRYRUN_CMD[*]}"
+    warn "Test it yourself: $DRYRUN_PRINT"
+  elif timeout 600 "${DRYRUN_CMD[@]}" >"$DRYRUN_LOG" 2>&1; then
+    echo "  Renewal test passed."
+  else
+    DRYRUN_RC=$?
+    if [ "$DRYRUN_RC" -eq 124 ]; then
+      warn "The renewal self-test timed out after 10 minutes."
+      warn "This host could not reach Let's Encrypt's staging server - check outbound HTTPS (port 443)."
+    else
+      warn "The renewal self-test failed. Your certificate is valid and in use, but automatic renewal may not work."
+    fi
+    warn "Here is what certbot reported:"
+    # The tail, not the whole thing: certbot is verbose, and the actionable
+    # error is at the end. 2>/dev/null because the progress spinner rewrites
+    # its line and would otherwise appear as a wall of control characters.
+    tail -n 15 "$DRYRUN_LOG" 2>/dev/null | sed 's/^/    /' >&2
+    warn "To re-run it yourself: $DRYRUN_PRINT"
+    warn "See DEPLOYMENT.md Part 17.11."
   fi
 
   log "Installing the automatic renewal timer"
