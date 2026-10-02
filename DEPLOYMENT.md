@@ -642,116 +642,184 @@ Part 7 (DNS) - double check both.
 Right now your site loads over plain `http://`, not the secure
 `https://` shown in the examples above - browsers will show a "Not
 Secure" warning, and some features (like copying a password) may be
-blocked by the browser until this is fixed. This part gets you a free,
-auto-renewing certificate with **no manual certificate steps** by
-swapping the traffic-director container from `nginx` to `caddy`, which
-handles HTTPS completely automatically.
+blocked by the browser until this is fixed.
+
+This part gets you a free, auto-renewing certificate using **certbot in
+a container**, with the existing `nginx` container terminating TLS. Your
+`deploy/nginx.conf` - including the fixes described in its comments - is
+kept exactly as it is; only TLS directives are added around it.
 
 **You need a working domain (Part 7) for this - it will not work with a
 plain IP address.**
 
-### 13.1 Create the Caddy configuration file
+### 13.1 Put your domain into deploy/nginx.conf
+
+The config reads `yourdomain.example` as a placeholder in three places:
+the two `server_name` lines and the two `ssl_certificate` paths (which
+are keyed by domain name, because certbot lays its output out as
+`/etc/letsencrypt/live/<domain>/`).
 
 ```bash
-nano deploy/Caddyfile
+nano deploy/nginx.conf
 ```
 
-Paste in exactly this (replace `yourdomain.example` with your real
-domain - just that one line at the top):
+Replace every `yourdomain.example` with your real domain.
 
-```
-yourdomain.example {
-    handle /staff/* {
-        reverse_proxy web:3000
-    }
-    handle /api/* {
-        reverse_proxy api:3001
-    }
-    handle {
-        reverse_proxy public-web:3000
-    }
-}
-```
+### 13.2 Get the first certificate
 
-Save and exit: `Ctrl+X`, then `Y`, then `Enter`.
+There is an ordering problem here, and it trips up most people: **the
+`nginx` container cannot start until a certificate exists**, because
+nginx refuses to load when the files named in `ssl_certificate` are
+missing. So you cannot bring up the new config and then get a
+certificate - you have to get the certificate first, using the *old*
+plain-HTTP `nginx`, which is still running and already serving port 80.
 
-### 13.2 Swap nginx for Caddy in the compose file
+Make sure the new compose file is in place (it adds the `443` mapping and
+the shared volumes), but do **not** restart `nginx` yet:
 
 ```bash
-nano docker-compose.prod.yml
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --no-deps mysql api web public-web
 ```
 
-Find this block (near the bottom):
+Then ask certbot for the certificate. It writes a challenge file into
+the shared `certbot-webroot` volume, and the still-running old `nginx`
+serves it back to Let's Encrypt over port 80:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot certonly \
+  --webroot -w /var/www/certbot \
+  -d yourdomain.example \
+  --email you@example.com \
+  --agree-tos --no-eff-email
+```
+
+Use `--email` with a real address - that is how you get told if a
+renewal ever fails. Replace the domain and the address.
+
+Watch for `Successfully received certificate`. If it fails, see
+[17.11](#1711-certbot-cannot-obtain-a-certificate).
+
+### 13.3 Start nginx with TLS
+
+Now the certificate exists, so the 443 server block can load:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d nginx
+docker compose -f docker-compose.prod.yml --env-file .env.production logs nginx
+```
+
+Visit `https://yourdomain.example`. You should see a padlock with no
+warning, and `http://yourdomain.example` should redirect to `https://`.
+
+Check what Let's Encrypt actually issued - the "original validity
+period" is the window renewals have to happen in:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot certificates
+```
+
+### 13.4 Automate renewal
+
+Let's Encrypt certificates last 90 days and certbot only renews inside
+the final 30. Check twice a day, which leaves plenty of margin if one
+attempt fails:
+
+```bash
+sudo crontab -e
+```
+
+Add (adjust the paths to the repo if it is not in `/home/pi/care_link`):
+
+```cron
+17 3,15 * * * cd /home/pi/care_link && docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot renew --quiet
+```
+
+`cron` runs with a minimal environment, which is why the line `cd`s and
+passes `--env-file` explicitly - a bare `docker compose` there would not
+find the env file and would fail on the required variables.
+
+Test the renewal path *before* you need it. `--dry-run` contacts
+Let's Encrypt's staging server and exercises everything except the
+rate-limited issuance:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot renew --dry-run
+```
+
+Expect `Congratulations, all simulated renewals succeeded`.
+
+**One thing the renewal does not do: reload nginx.** A renewed
+certificate is a new file on disk, but nginx has the old one in memory
+until it is told to re-read it. Without a reload, a renewed certificate
+keeps being served until the container next restarts. Add a deploy hook
+so `certbot renew` restarts nginx automatically - create
+`deploy/certbot-deploy-hook.sh`:
+
+```bash
+#!/bin/sh
+# Runs after a successful `certbot renew`. Reloads nginx so the new
+# certificate is actually served - certbot replaces the files on disk,
+# but the running nginx keeps the old certificate in memory until it
+# re-reads them. Without this, a renewed cert is not used until the
+# container next restarts.
+set -e
+cd "$(dirname "$0")/.."
+docker compose -f docker-compose.prod.yml --env-file .env.production exec nginx nginx -s reload
+```
+
+Make it executable and point certbot at it:
+
+```bash
+chmod +x deploy/certbot-deploy-hook.sh
+```
+
+Then add the hook to the `certbot` service in `docker-compose.prod.yml`:
 
 ```yaml
-  nginx:
-    image: nginx:1.27-alpine
-    restart: unless-stopped
-    depends_on:
-      - api
-      - web
-      - public-web
-    ports:
-      - '80:80'
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ['tools']
     volumes:
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot-conf:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+      - ./deploy/certbot-deploy-hook.sh:/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh:ro
 ```
 
-Replace that **entire block** (all of it, from `nginx:` down to the end
-of its `volumes:` line) with:
+`--quiet` in the cron line will not suppress this, and that is correct:
+the hook only fires when a certificate was actually renewed, so on the
+vast majority of runs (nothing due) there is nothing to report.
 
-```yaml
-  caddy:
-    image: caddy:2.8-alpine
-    restart: unless-stopped
-    depends_on:
-      - api
-      - web
-      - public-web
-    ports:
-      - '80:80'
-      - '443:443'
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-```
+### 13.5 Where the certificate lives, and backups
 
-Then find the `volumes:` section at the very bottom of the file (it
-currently lists `mysql-data:` and `caregiver-documents:`), and add two
-more lines so it looks like:
+The certificate and its private key are in the `certbot-conf` Docker
+volume - **not** in the repo. That volume is part of your backup set
+alongside `mysql-data` and `caregiver-documents`; see Part 15. Losing it
+is not catastrophic (certbot can reissue), but on a rate-limited CA it
+means waiting out a failure window if you need to.
 
-```yaml
-volumes:
-  mysql-data:
-  caregiver-documents:
-  caddy-data:
-  caddy-config:
-```
+### 13.6 If you would rather use Caddy
 
-Save and exit: `Ctrl+X`, then `Y`, then `Enter`.
-
-### 13.3 Restart with the new setup
+Caddy provisions *and* renews its own certificate, with no certbot and no
+cron, at the cost of replacing `nginx` and re-expressing
+`deploy/nginx.conf` as a `deploy/Caddyfile`. It reloads itself, so there
+is no deploy hook. The one thing to be careful of is the port handover:
+the running `nginx` container already holds port 80, so it must be
+removed in the same step that starts `caddy`, or the new container will
+fail to bind:
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+docker compose -f docker-compose.prod.yml --env-file .env.production rm -sf nginx
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d caddy
 ```
 
-The first time Caddy starts, it automatically requests a free
-certificate from Let's Encrypt for your domain - this takes a few
-seconds to a couple of minutes. Watch it happen:
-
-```bash
-docker compose -f docker-compose.prod.yml --env-file .env.production logs -f caddy
-```
-
-(Press `Ctrl+C` to stop watching - this doesn't stop the container,
-just the log view.) Look for a line mentioning `certificate obtained`
-or `serving initial configuration`. Once you see that, visit
-`https://yourdomain.example` in your browser - you should now see a
-padlock icon with no warning.
+Doing these as two steps matters. A single `up -d` that replaces the
+service may try to start the replacement before the old container has
+released the port, which fails with
+`Bind for 0.0.0.0:80 failed: port is already allocated`.
 
 ---
+
+
 
 ## Part 14 - Everyday commands cheat-sheet
 
@@ -906,24 +974,57 @@ then retry whatever command failed.
 
 ### 17.5 `Bind for 0.0.0.0:80 failed: port is already allocated`
 
-Something else on your server is already using port 80 (maybe a default
-Apache/nginx install that came with your server image). Find and stop
-it:
+Something else on your server is already using port 80. Find out what:
 
 ```bash
-sudo lsof -i :80
+sudo ss -tlnp | grep ':80'
 ```
 
-This lists whatever's using port 80 and its process name. If it's a
-system web server you don't need (commonly `apache2` or `nginx` as a
-system service, not the Docker one), stop it:
+The output tells you which of the two cases you are in, and they need
+opposite fixes.
+
+**Case 1 - a system web server** (`apache2`, or `nginx` installed from
+apt). This most often appears after running
+`sudo apt install certbot python3-certbot-nginx`, which pulls in the
+*system* nginx as a dependency and tries to start it - a job that fails
+whenever this app's own container already holds the port. Note the
+resulting `apt` error is misleading: it is about nginx, not certbot, and
+leaves packages half-installed. Stop and disable the system service:
 
 ```bash
 sudo systemctl stop apache2   # or: sudo systemctl stop nginx
 sudo systemctl disable apache2 # or: sudo systemctl disable nginx
 ```
 
-then retry the `up -d` command.
+Then finish the interrupted install:
+
+```bash
+sudo apt-get remove --purge nginx nginx-common nginx-core
+sudo apt-get autoremove
+```
+
+The `certbot` package itself is harmless to keep; the
+`python3-certbot-nginx` plugin is built for host nginx and is not used
+by this project's container setup (Part 13).
+
+**Case 2 - this project's own container.** If the process is
+`docker-proxy`, then this is *not* a stray install - it is the app's
+`nginx` service, and stopping it would take your site offline. Stopping
+a system service will not help at all. If you are following Part 13.6
+(Caddy), the fix is to remove the old container so the new one can take
+the port:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production rm -sf nginx
+```
+
+To confirm which case you are in before changing anything:
+
+```bash
+docker ps --format '{{.Names}}\t{{.Ports}}'
+```
+
+A row like `care_link-nginx-1  0.0.0.0:80->80/tcp` is Case 2.
 
 ### 17.6 A variable is "not set" error during `up -d` or `build`
 
@@ -987,3 +1088,48 @@ docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail
 Copy the **full text** of both outputs (not a summary of what you think
 it means) along with the exact command you ran and the exact error you
 saw.
+
+### 17.11 certbot cannot obtain a certificate
+
+The most common cause is that the domain does not actually resolve to
+this server, so Let's Encrypt's validation request never reaches you.
+Check what your domain points at, and check that this machine is what it
+points at:
+
+```bash
+dig +short yourdomain.example
+curl -s ifconfig.me
+```
+
+The two must match. Remember that a record change is not instant - if
+you have just set it up, wait for it to propagate before retrying.
+
+Second most common: **port 80 is not reachable from the internet.** The
+challenge is served over plain HTTP, so it does not matter whether TLS
+is working. If you are on a cloud provider, port 80 has to be open in
+the security group as well as in the host firewall (Part 6 covers
+this). Test from your own machine, not the server:
+
+```bash
+curl -I http://yourdomain.example
+```
+
+If that times out from your laptop but works on the server, it is a
+firewall or security group problem, not a certbot problem.
+
+A third cause, specific to this setup: you followed Part 13's step order
+wrongly and restarted `nginx` before the certificate existed. nginx
+then fails to start with something like
+`cannot load certificate ... No such file or directory`, and the
+container stays down, so nothing can answer the challenge. Fix it by
+going back to 13.2 - the certificate has to be obtained while the old
+plain-HTTP `nginx` is still serving.
+
+Finally, if you have been retrying repeatedly, check for rate limiting.
+Let's Encrypt allows a small number of certificates per domain per week,
+and hitting that produces a clear error mentioning "rate limit" - read
+it before retrying again, because retrying makes the wait longer:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production run --rm certbot certificates
+```

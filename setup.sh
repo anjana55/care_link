@@ -94,7 +94,8 @@ else
   cp "$ENV_EXAMPLE" "$ENV_FILE"
 
   # HTTPS needs a real domain pointed at this box *before* it can work (see
-  # DEPLOYMENT.md Part 13); the bundled nginx only ever listens on 80. So
+  # DEPLOYMENT.md Part 13); setup.sh does not obtain a certificate, so until
+  # you run through Part 13 the bundled nginx only ever listens on 80. So
   # http:// is correct for a bare IP *and* for localhost - the two cases where
   # no certificate can exist yet. Treating "localhost" as a domain handed the
   # browser an https:// URL for a port with no TLS listener, so every API call
