@@ -8,9 +8,9 @@
     "auditLog": "විගණන ලොගය",
     "logout": "ඉවත් වන්න",
     "users": "පරිශීලකයින්",
-    "whatsappSettings": "WhatsApp පිවිසුම",
-    "backToPublic": "CareLink සඵස්ථාවට ආපහු යන්න",
-    "openMenu": "මෙනු ඇරියින්න",
+    "whatsappSettings": "WhatsApp මගින් පුරනය වීම",
+    "backToPublic": "CareLink වෙත ආපසු",
+    "openMenu": "මෙනුව විවෘත කරන්න",
     "closeMenu": "මෙනුව වසන්න"
   },
   "login": {
@@ -36,55 +36,11 @@
     "title": "සාත්තු සේවකයින්",
     "search": "නම, දුරකථන අංකය හෝ ලියාපදිංචි අංකය අනුව සොයන්න",
     "addNew": "සාත්තු සේවකයෙකු ලියාපදිංචි කරන්න",
-    "edit": {
-      "skills": "කුසල්තා ස්කම් කරන්න",
-      "languages": "භාෂා ස්කම් කරන්න",
-      "addSkill": "කුසල්තා එකතු කරන්න",
-      "addLanguage": "භාෂා එකතු කරන්න",
-      "selectSkill": "කුසල්තාවක් තෝරන්න",
-      "selectLanguage": "භාෂාවක් තෝරන්න",
-      "yearsOfExperience": "වසර ගණනය",
-      "proficiency": "ප්‍රවීණතා මට්ටම",
-      "noSkills": "තවමත් කුසල්තා පවරා නොමැත.",
-      "noLanguages": "තවමත් භාෂා එකතු කර නොමැත.",
-      "qualifications": "සුදුසුකම් ස්කම් කරන්න",
-      "addQualification": "සුදුසුකම එකතු කරන්න",
-      "addExperience": "Add experience",
-      "qualificationName": "සුදුසුකමේ නම",
-      "qualificationType": "වර්ගය",
-      "institution": "ආයතනය",
-      "certificateNumber": "සහතික අංකය",
-      "issueDate": "නිකුත් කළ දිනය",
-      "noQualifications": "තවමත් සුදුසුකම් එකතු කර නොමැත.",
-      "addDocument": "ගුනුනු එකතු කරන්න",
-      "documentType": "ගුනුනු වර්ගය",
-      "fileLabel": "ගොනුව (PDF, JPG, PNG, WEBP — මාක්සිමම 10MB)",
-      "uploading": "උඩගත් කරමින්…",
-      "view": "බලවා",
-      "verify": "සත්‍යාපනය කරන්න",
-      "verificationStatus": "සත්‍යාපන තත්ත්වය",
-      "addReference": "මැතිවන් එකතු කරන්න",
-      "referenceName": "නම",
-      "referenceRelationship": "සබඳතාව",
-      "referencePhone": "දුරකථනය",
-      "referenceEmail": "විදියට",
-      "referenceNotes": "නෝට්ස්",
-      "addVerification": "සත්‍යාපනය එකතු කරන්න",
-      "verificationType": "සත්‍යාපන වර්ගය",
-      "verificationNotes": "නෝට්ස්",
-      "pending": "ප්‍රතිබාහිතයි",
-      "markVerified": "සත්‍යාපිත කරන්න",
-      "markRejected": "ප්‍රතික්ෂේප කරන්න",
-      "resetToPending": "ප්‍රතිබාහිත වෙනුවට යොමු කරන්න",
-      "inProgress": "ක්‍රියාත්මක වෙමින් පවතී",
-      "verified": "සත්‍යාපිතයි",
-      "rejected": "ප්‍රතික්ෂේප කර ඇත"
-    },
-    "delete": "Delete caregiver",
-    "confirmDelete": "Are you sure you want to delete this caregiver? This action cannot be undone.",
-    "confirmDeleteDocument": "Delete this document? This action cannot be undone.",
-    "confirmDeleteReference": "Delete this reference? This action cannot be undone.",
-    "deleteTitle": "Confirm Delete",
+    "delete": "සාත්තු සේවකයා මකන්න",
+    "confirmDelete": "ඔබට මෙම සාත්තු සේවකයා මකා දැමීමට විශ්වාසද? මෙම ක්‍රියාව ආපසු හැරවිය නොහැක.",
+    "confirmDeleteDocument": "මෙම ලේඛනය මකන්නද? මෙම ක්‍රියාව ආපසු හැරවිය නොහැක.",
+    "confirmDeleteReference": "මෙම නිර්දේශය මකන්නද? මෙම ක්‍රියාව ආපසු හැරවිය නොහැක.",
+    "deleteTitle": "මකා දැමීම තහවුරු කරන්න",
     "table": {
       "registrationNumber": "ලියාපදිංචි අංකය",
       "name": "නම",
@@ -123,23 +79,7 @@
       "finish": "ලියාපදිංචිය ඉදිරිපත් කරන්න",
       "finishedTitle": "ලියාපදිංචිය ඉදිරිපත් කරන ලදී",
       "finishedBody": "සාත්තු සේවක වාර්තාව කෙටුම්පත් තත්ත්වයේ සිට ලියාපදිංචි තත්ත්වයට මාරු කර ඇති අතර ලේඛන සත්‍යාපනය සඳහා සූදානම්ය.",
-      "viewProfile": "View caregiver profile"
-    },
-    "profile": {
-      "tabs": {
-        "overview": "සාරාංශය",
-        "personal": "පුද්ගලික",
-        "qualifications": "සුදුසුකම්",
-        "experience": "පළපුරුද්ද",
-        "skills": "කුසලතා",
-        "languages": "භාෂා",
-        "availability": "ලබාගත හැකි බව",
-        "documents": "ලේඛන",
-        "references": "නිර්දේශ",
-        "verification": "සත්‍යාපනය",
-        "restricted": "සීමිත තොරතුරු",
-        "audit": "විගණන ඉතිහාසය"
-      }
+      "viewProfile": "සාත්තු සේවක පැතිකඩ බලන්න"
     },
     "me": {
       "qualifications": {
@@ -155,7 +95,7 @@
         "title": "පළපුරුද්ද",
         "noExperienceYet": "තවමත් පළපුරුද්ද පිළිබඳ වාර්තා එකතු කර නොමැත.",
         "employerOrClient": "සේවායෝජකයා / සේවාලාභියා",
-        "role": "තනතුර",
+        "role": "භූමිකාව",
         "country": "රට",
         "location": "ස්ථානය",
         "startDate": "ආරම්භක දිනය",
@@ -188,7 +128,7 @@
         "night": "රාත්‍රී",
         "twentyFourHourLiveIn": "පැය 24ක නේවාසික සේවය",
         "flexible": "නම්‍යශීලී",
-        "availableFrom": "රැකියාව ආරම්භ කළහැකි දිනය",
+        "availableFrom": "ලබාගත හැකි දිනය",
         "expectedDailyRate": "අපේක්ෂිත දෛනික ගාස්තුව (LKR)",
         "expectedMonthlyRate": "අපේක්ෂිත මාසික ගාස්තුව (LKR)",
         "expectedLeaveDays": "මාසයකට අපේක්ෂිත නිවාඩු දින",
@@ -213,6 +153,66 @@
         "submittingNote": "ඉදිරිපත් කිරීමෙන් මෙම සාත්තු සේවක වාර්තාව <strong>කෙටුම්පත්</strong> තත්ත්වයේ සිට <strong>ලියාපදිංචි</strong> තත්ත්වයට මාරු කර ලේඛන සත්‍යාපනය සඳහා සූදානම් කරනු ඇත.",
         "submitError": "ඉදිරිපත් කළ නොහැක. කරුණාකර නැවත උත්සාහ කරන්න."
       }
+    },
+    "profile": {
+      "tabs": {
+        "overview": "සාරාංශය",
+        "personal": "පුද්ගලික",
+        "qualifications": "සුදුසුකම්",
+        "experience": "පළපුරුද්ද",
+        "skills": "කුසලතා",
+        "languages": "භාෂා",
+        "availability": "ලබාගත හැකි බව",
+        "documents": "ලේඛන",
+        "references": "නිර්දේශ",
+        "verification": "සත්‍යාපනය",
+        "restricted": "සීමිත තොරතුරු",
+        "audit": "විගණන ඉතිහාසය"
+      }
+    },
+    "edit": {
+      "skills": "කුසලතා කළමනාකරණය",
+      "languages": "භාෂා කළමනාකරණය",
+      "addSkill": "කුසලතාවක් එක් කරන්න",
+      "addLanguage": "භාෂාවක් එක් කරන්න",
+      "selectSkill": "කුසලතාවක් තෝරන්න",
+      "selectLanguage": "භාෂාවක් තෝරන්න",
+      "yearsOfExperience": "පළපුරුද්දේ වසර ගණන",
+      "proficiency": "ප්‍රවීණතා මට්ටම",
+      "noSkills": "තවමත් කුසලතා පවරා නොමැත.",
+      "noLanguages": "තවමත් භාෂා එකතු කර නොමැත.",
+      "qualifications": "සුදුසුකම් කළමනාකරණය",
+      "addQualification": "සුදුසුකමක් එක් කරන්න",
+      "addExperience": "පළපුරුද්දක් එක් කරන්න",
+      "qualificationName": "සුදුසුකමේ නම",
+      "qualificationType": "වර්ගය",
+      "institution": "ආයතනය",
+      "certificateNumber": "සහතික අංකය",
+      "issueDate": "නිකුත් කළ දිනය",
+      "noQualifications": "තවමත් සුදුසුකම් එකතු කර නොමැත.",
+      "addDocument": "ලේඛනයක් එක් කරන්න",
+      "documentType": "ලේඛන වර්ගය",
+      "fileLabel": "ගොනුව (PDF, JPG, PNG, WEBP — උපරිම 10MB)",
+      "uploading": "උඩුගත කරමින්…",
+      "view": "බලන්න",
+      "verify": "සත්‍යාපනය කරන්න",
+      "verificationStatus": "සත්‍යාපන තත්ත්වය",
+      "addReference": "නිර්දේශයක් එක් කරන්න",
+      "referenceName": "නම",
+      "referenceRelationship": "සම්බන්ධතාව",
+      "referencePhone": "දුරකථන අංකය",
+      "referenceEmail": "විද්‍යුත් තැපෑල",
+      "referenceNotes": "සටහන්",
+      "addVerification": "සත්‍යාපනයක් එක් කරන්න",
+      "verificationType": "සත්‍යාපන වර්ගය",
+      "verificationNotes": "සටහන්",
+      "pending": "අපේක්ෂිතයි",
+      "markVerified": "සත්‍යාපිත ලෙස සලකුණු කරන්න",
+      "markRejected": "ප්‍රතික්ෂේපිත ලෙස සලකුණු කරන්න",
+      "resetToPending": "නැවත අපේක්ෂිත තත්ත්වයට සකසන්න",
+      "inProgress": "ක්‍රියාත්මක වෙමින්",
+      "verified": "සත්‍යාපිතයි",
+      "rejected": "ප්‍රතික්ෂේපිතයි"
     }
   },
   "common": {
@@ -220,14 +220,14 @@
     "save": "සුරකින්න",
     "cancel": "අවලංගු කරන්න",
     "add": "එකතු කරන්න",
-    "delete": "Delete",
-    "confirm": "Confirm",
-    "edit": "Edit",
+    "delete": "මකන්න",
+    "confirm": "තහවුරු කරන්න",
+    "edit": "සංස්කරණය කරන්න",
     "remove": "ඉවත් කරන්න",
     "yes": "ඔව්",
     "no": "නැත",
     "language": "භාෂාව",
-    "requiredField": "පිරිවිද යුතු ක්ෂෙතයයි"
+    "requiredField": "අවශ්‍ය ක්ෂේත්‍රයකි"
   },
   "register": {
     "title": "සාත්තු සේවකයෙකු ලෙස ලියාපදිංචි වන්න",
@@ -248,18 +248,18 @@
     "consentRequired": "ඉදිරියට යාම සඳහා ඔබ එකඟතා ප්‍රකාශය පිළිගත යුතුය",
     "validation": {
       "email": {
-        "required": "ඊමේල් ලිපිනය අවශ්‍යයි",
-        "invalid": "වලංගු ඊමේල් ලිපිනයක් ඇතුළත් කරන්න"
+        "required": "විද්‍යුත් තැපෑල අවශ්‍යයි",
+        "invalid": "වලංගු විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න"
       },
       "password": {
         "required": "මුරපදය අවශ්‍යයි",
-        "invalid": "මුරපදය අක්ෂර 8ක් තරම් දිග විය යුතුය"
+        "invalid": "මුරපදය අවම වශයෙන් අක්ෂර 8ක් විය යුතුය"
       },
       "confirmPassword": {
-        "required": "ඔබගේ මුරපදය තහවුරු කරන්න"
+        "required": "කරුණාකර ඔබගේ මුරපදය තහවුරු කරන්න"
       },
-      "passwordMismatch": "මුරපද අනුමාන නොවේ",
-      "consentRequired": "ඉදිරියට යාමට ඔබ අනුමැතිතා ප්‍රකාශය පිළිගන්න යුතුය"
+      "passwordMismatch": "මුරපද නොගැළපේ",
+      "consentRequired": "ඉදිරියට යාම සඳහා ඔබ එකඟතා ප්‍රකාශය පිළිගත යුතුය"
     }
   },
   "verifyEmail": {
@@ -279,9 +279,9 @@
     "draftNotice": "පහත පියවර සම්පූර්ණ කර, ඔබගේ ලියාපදිංචිය සමාලෝචනය සඳහා ඉදිරිපත් කරන්න.",
     "afterSubmitNotice": "ඔබගේ ලියාපදිංචිය සමාලෝචනය කරමින් පවතී. ඔබට පහත විස්තර සහ ලේඛන තවදුරටත් යාවත්කාලීන කළ හැකිය.",
     "submitted": "ලියාපදිංචිය සමාලෝචනය සඳහා ඉදිරිපත් කරන ලදී.",
-    "skills": "Skills",
-    "languages": "Languages",
-    "documentsOnFile": "Documents on file"
+    "skills": "කුසලතා",
+    "languages": "භාෂා",
+    "documentsOnFile": "ගොනුගත ලේඛන"
   },
   "personalInfo": {
     "fields": {
@@ -292,27 +292,27 @@
       "dateOfBirth": "උපන් දිනය",
       "gender": "ස්ත්‍රී පුරුෂ භාවය",
       "civilStatus": "විවාහක තත්ත්වය",
-      "heightIn": "උස (අයින්)",
+      "heightIn": "උස (අඟල්)",
       "weightKg": "බර (කි.ග්‍රෑ.)",
       "primaryPhone": "ප්‍රධාන දුරකථන අංකය",
       "secondaryPhone": "ද්විතීයික දුරකථන අංකය",
-      "emergencyContactName": "හදිසියකදී දැනුම්දියයුතු පුද්ගලයා",
-      "emergencyContactNumber": "හදිසියකදී දැනුම්දියයුතු අංකය",
-      "emergencyContactRelationship": "ඉහත අය සමඟ ඇති සම්බන්දතාවය",
+      "emergencyContactName": "හදිසි අවස්ථා සම්බන්ධතා නම",
+      "emergencyContactNumber": "හදිසි අවස්ථා සම්බන්ධතා අංකය",
+      "emergencyContactRelationship": "හදිසි අවස්ථා සම්බන්ධතා සබඳතාව",
       "policeDivision": "පොලිස් කොට්ඨාසය",
       "policeStation": "පොලිස් ස්ථානය",
       "district": "දිස්ත්‍රික්කය",
       "city": "නගරය",
-      "postalCode": "තැපෑල අංකය"
+      "postalCode": "තැපැල් කේතය"
     },
     "validation": {
       "fullName": {
         "required": "සම්පූර්ණ නම අවශ්‍යයි",
-        "invalid": "අක්ෂර 2ක් තරම් සම්පූර්ණ නමක් ඇතුළත් කරන්න"
+        "invalid": "අවම වශයෙන් අක්ෂර 2ක සම්පූර්ණ නමක් ඇතුළත් කරන්න"
       },
       "permanentAddress": {
         "required": "ස්ථිර ලිපිනය අවශ්‍යයි",
-        "invalid": "අක්ෂර 5ක් තරම් ලිපිනයක් ඇතුළත් කරන්න"
+        "invalid": "අවම වශයෙන් අක්ෂර 5ක ලිපිනයක් ඇතුළත් කරන්න"
       },
       "dateOfBirth": {
         "required": "උපන් දිනය අවශ්‍යයි"
@@ -325,19 +325,19 @@
       },
       "primaryPhone": {
         "required": "ප්‍රධාන දුරකථන අංකය අවශ්‍යයි",
-        "invalid": "අංක 9ක් තරම් වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න"
+        "invalid": "අවම වශයෙන් ඉලක්කම් 9ක් සහිත වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න"
       },
       "emergencyContactName": {
-        "required": "හදිසියකදී දැනුම්දියයුතු පුද්ගලයාගේ නම අවශ්‍යයි",
-        "invalid": "අක්ෂර 2ක් තරම් නමක් ඇතුළත් කරන්න"
+        "required": "හදිසි සම්බන්ධතා නම අවශ්‍යයි",
+        "invalid": "අවම වශයෙන් අක්ෂර 2ක නමක් ඇතුළත් කරන්න"
       },
       "emergencyContactNumber": {
-        "required": "හදිසියකදී දැනුම්දියයුතු අංකය අවශ්‍යයි",
-        "invalid": "අංක 9ක් තරම් වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න"
+        "required": "හදිසි සම්බන්ධතා අංකය අවශ්‍යයි",
+        "invalid": "අවම වශයෙන් ඉලක්කම් 9ක් සහිත වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න"
       },
       "emergencyContactRelationship": {
-        "required": "මෙම අය සමඟ ඇති සම්බන්දතාවය අවශ්‍යයි",
-        "invalid": "ඔබට මෙම අය සමඟ ඇති සම්බන්දතාවය කෙටියෙන් විස්තර කරන්න"
+        "required": "මෙම සම්බන්ධතා පුද්ගලයා සමඟ සම්බන්ධතාව අවශ්‍යයි",
+        "invalid": "මෙම සම්බන්ධතා පුද්ගලයා සමඟ ඔබේ සම්බන්ධතාව විස්තර කරන්න"
       },
       "district": {
         "required": "දිස්ත්‍රික්කය අවශ්‍යයි"
@@ -346,7 +346,7 @@
         "required": "නගරය අවශ්‍යයි"
       },
       "postalCode": {
-        "required": "තැපෑල අංකය අවශ්‍යයි"
+        "required": "තැපැල් කේතය අවශ්‍යයි"
       }
     },
     "options": {
@@ -366,61 +366,61 @@
     }
   },
   "healthInfo": {
-    "title": "සාත්තු සේවකයෙකුගේ සෞඛ්‍ය තොරතුරු",
-    "diabetes": "මීනිය",
-    "highBloodPressure": "ඉහළ විදුර සීමාව",
-    "physicalAbilityToLift": "රෝහල් උසස් කළ හැකිබ",
-    "surgicalHistory": "සුජිවරණ ඉතිහැසිම",
-    "mentalHealth": "මානසික සෞඛ්‍ය නිරීක්ෂණ",
-    "otherNotes": "වෙනත් නිරීක්ෂණ",
-    "edit": "සෞඛ්‍ය තොරතුරු සංස්කරණය",
+    "title": "සාත්තු සේවක සෞඛ්‍ය තොරතුරු",
+    "diabetes": "දියවැඩියාව",
+    "highBloodPressure": "අධි රුධිර පීඩනය",
+    "physicalAbilityToLift": "රෝගීන් ශාරීරිකව එසවීමට හැකියාව ඇත",
+    "surgicalHistory": "ශල්‍ය ඉතිහාසය",
+    "mentalHealth": "මානසික සෞඛ්‍ය සටහන්",
+    "otherNotes": "වෙනත් සටහන්",
+    "edit": "සෞඛ්‍ය තොරතුරු සංස්කරණය කරන්න",
     "save": "සෞඛ්‍ය තොරතුරු සුරකින්න",
     "cancel": "අවලංගු කරන්න",
     "yes": "ඔව්",
     "no": "නැත",
     "placeholder": {
-      "surgicalHistory": "සුජිවරණ ඉතිහැසිම ප්‍රවේසන්න",
-      "mentalHealth": "මානසික සෞඛ්‍ය නිරීක්ෂණ ප්‍රවේසන්න",
-      "otherNotes": "වෙනත් නිරීක්ෂණ ප්‍රවේසන්න"
+      "surgicalHistory": "ශල්‍ය ඉතිහාසය ඇතුළත් කරන්න",
+      "mentalHealth": "මානසික සෞඛ්‍ය සටහන් ඇතුළත් කරන්න",
+      "otherNotes": "වෙනත් සටහන් ඇතුළත් කරන්න"
     }
   },
   "users": {
     "title": "පරිශීලකයින්",
-    "subtitle": "කාර්ය මණ්ඩල, තහවුරු කරන්නන් සහ පරිපාලක ගිණුම් කළමනාකරණය කරන්න.",
-    "addNew": "පරිශීලකයෙකු එකතු කරන්න",
+    "subtitle": "කාර්ය මණ්ඩල, සත්‍යාපක සහ පරිපාලක ගිණුම් කළමනාකරණය කරන්න.",
+    "addNew": "පරිශීලකයෙකු එක් කරන්න",
     "search": "පරිශීලකයින් සොයන්න...",
-    "empty": "තවම පරිශීලකයින් නැත.",
-    "never": "කිසි විටෙක නැත",
+    "empty": "තවමත් පරිශීලකයින් නොමැත.",
+    "never": "කිසිදා නැත",
     "table": {
       "name": "නම",
       "email": "විද්‍යුත් තැපෑල",
       "role": "භූමිකාව",
       "status": "තත්ත්වය",
-      "lastLogin": "අවසන් පිවිසුම",
+      "lastLogin": "අවසන් පුරනය",
       "actions": "ක්‍රියා"
     },
     "role": {
       "ADMIN": "පරිපාලක",
       "STAFF": "කාර්ය මණ්ඩලය",
-      "VERIFIER": "තහවුරු කරන්නා"
+      "VERIFIER": "සත්‍යාපක"
     },
     "status": {
       "active": "සක්‍රීයයි",
       "inactive": "අක්‍රීයයි"
     },
     "actions": {
-      "edit": "සංස්කරණය",
+      "edit": "සංස්කරණය කරන්න",
       "resetPassword": "මුරපදය යළි සකසන්න",
       "activate": "සක්‍රීය කරන්න",
       "deactivate": "අක්‍රීය කරන්න",
       "delete": "මකන්න"
     },
-    "addTitle": "පරිශීලකයෙකු එකතු කරන්න",
+    "addTitle": "පරිශීලකයෙකු එක් කරන්න",
     "editTitle": "පරිශීලකයා සංස්කරණය කරන්න",
     "resetPasswordTitle": "මුරපදය යළි සකසන්න",
-    "resetPasswordBody": "මෙම ගිණුම සඳහා නව මුරපදයක් සකසන්න. ඔවුන්ට එය සමඟ නැවත පිවිසිය යුතුය.",
+    "resetPasswordBody": "මෙම ගිණුම සඳහා නව මුරපදයක් සකසන්න. එය සමඟ නැවත පුරනය වීමට ඔවුන්ට සිදුවේ.",
     "deleteTitle": "පරිශීලකයා මකන්න",
-    "confirmDelete": "මෙය ගිණුම ස්ථිරවම මකා දමයි. මෙය අහෝසි කළ නොහැක.",
+    "confirmDelete": "මෙම ගිණුම ස්ථිරවම මකා දැමෙන අතර එය ආපසු හැරවිය නොහැක.",
     "form": {
       "fullName": "සම්පූර්ණ නම",
       "email": "විද්‍යුත් තැපෑල",
@@ -435,43 +435,43 @@
     "currentPassword": "වත්මන් මුරපදය",
     "newPassword": "නව මුරපදය",
     "confirmPassword": "නව මුරපදය තහවුරු කරන්න",
-    "mismatch": "නව මුරපදය සහ තහවුරු කිරීම නොගැලපේ.",
+    "mismatch": "නව මුරපදය සහ තහවුරු කිරීම නොගැළපේ.",
     "success": "මුරපදය වෙනස් කරන ලදී."
   },
   "whatsapp": {
-    "unavailable": "WhatsApp පිවිසුම දැනට ලබාගත නොහැක. කරුණාකර ඔබේ ඊමේල් ලිපිනය භාවිතා කරන්න.",
+    "unavailable": "WhatsApp මගින් පුරනය වීම දැනට ලබාගත නොහැක. කරුණාකර ඒ වෙනුවට ඔබගේ විද්‍යුත් තැපැල් ලිපිනය භාවිතා කරන්න.",
     "login": {
-      "title": "WhatsApp මගින් පිවිසෙන්න",
-      "subtitle": "ඔබේ WhatsApp අංකයට එක්-වරක් කේතයක් එවනු ඇත",
+      "title": "WhatsApp මගින් පුරනය වන්න",
+      "subtitle": "අපි ඔබගේ WhatsApp අංකයට එක් වරක් භාවිතා කළ හැකි කේතයක් යවන්නෙමු",
       "phone": "WhatsApp අංකය",
       "phoneHint": "උදා: 0771234567 හෝ +94771234567",
-      "sendCode": "කේතය එවන්න",
-      "error": "කේතය එවීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
-      "lostAccess": "ගිණුමට ප්‍රවේශය අහිමි වුණාද?",
-      "backToWhatsapp": "WhatsApp පිවිසුමට ආපසු",
-      "useEmail": "ඒ වෙනුවට ඊමේල් මගින් පිවිසෙන්න",
-      "noEmail": "ඊමේල් ලිපිනයක් නැද්ද?",
-      "useWhatsapp": "WhatsApp මගින් පිවිසෙන්න"
+      "sendCode": "කේතය යවන්න",
+      "error": "කේතය යැවිය නොහැක. කරුණාකර නැවත උත්සාහ කරන්න.",
+      "lostAccess": "ඔබගේ ගිණුමට ප්‍රවේශය අහිමි වී තිබේද?",
+      "backToWhatsapp": "WhatsApp පුරනය වීමට ආපසු",
+      "useEmail": "ඒ වෙනුවට විද්‍යුත් තැපෑලෙන් පුරනය වන්න",
+      "noEmail": "විද්‍යුත් තැපැල් ලිපිනයක් නැද්ද?",
+      "useWhatsapp": "WhatsApp මගින් පුරනය වන්න"
     },
     "recover": {
-      "title": "ඔබේ ගිණුම යළි ලබාගන්න",
-      "subtitle": "නැවත පිවිසීමට ඔබේ WhatsApp අංකය තහවුරු කරන්න. වෙනත් උපාංගවලින් ඔබ ඉවත් කෙරේ."
+      "title": "ඔබගේ ගිණුම ප්‍රතිසාධනය කරන්න",
+      "subtitle": "නැවත පුරනය වීමට ඔබගේ WhatsApp අංකය සත්‍යාපනය කරන්න. අනෙකුත් උපාංගවලින් පුරනය වීම ඉවත් කරනු ඇත."
     },
     "register": {
       "title": "WhatsApp මගින් ලියාපදිංචි වන්න",
-      "subtitle": "ඊමේල් ලිපිනයක් අවශ්‍ය නැත - ඒ වෙනුවට ඔබේ WhatsApp අංකය තහවුරු කරන්න",
+      "subtitle": "විද්‍යුත් තැපැල් ලිපිනයක් අවශ්‍ය නැත - ඒ වෙනුවට ඔබගේ WhatsApp අංකය සත්‍යාපනය කරන්න",
       "number": "WhatsApp අංකය",
-      "numberHint": "මෙම අංකයට තහවුරු කිරීමේ කේතයක් එවනු ඇත",
-      "primaryPhoneHint": "ප්‍රධාන දුරකථන අංකය විකල්පයකි - හිස්ව තැබුවහොත් ඔබේ WhatsApp අංකය භාවිතා වේ.",
+      "numberHint": "අපි මෙම අංකයට සත්‍යාපන කේතයක් යවන්නෙමු",
+      "primaryPhoneHint": "ප්‍රධාන දුරකථන අංකය විකල්පයකි - එය හිස්ව තැබුවහොත් ඔබගේ WhatsApp අංකය භාවිතා වේ.",
       "submit": "ලියාපදිංචි වන්න",
-      "error": "ලියාපදිංචි වීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
+      "error": "ලියාපදිංචි විය නොහැක. කරුණාකර නැවත උත්සාහ කරන්න.",
       "link": "WhatsApp මගින් ලියාපදිංචි වන්න",
-      "noEmail": "ඊමේල් ලිපිනයක් නැද්ද?",
-      "useEmail": "ඒ වෙනුවට ඊමේල් මගින් ලියාපදිංචි වන්න",
-      "verifyTitle": "ඔබේ WhatsApp අංකය තහවුරු කරන්න",
-      "verifyBody": "ඔබේ ගිණුම සාදා ඇත. ලියාපදිංචිය සම්පූර්ණ කිරීමට අපි එවූ කේතය ඇතුළත් කරන්න.",
+      "noEmail": "විද්‍යුත් තැපැල් ලිපිනයක් නැද්ද?",
+      "useEmail": "ඒ වෙනුවට විද්‍යුත් තැපෑලෙන් ලියාපදිංචි වන්න",
+      "verifyTitle": "ඔබගේ WhatsApp අංකය සත්‍යාපනය කරන්න",
+      "verifyBody": "ඔබගේ ගිණුම සාදා ඇත. ලියාපදිංචිය සම්පූර්ණ කිරීමට අප යැවූ කේතය ඇතුළත් කරන්න.",
       "regNumber": "ලියාපදිංචි අංකය:",
-      "notSent": "කේතය දැන් එවීමට නොහැකි විය. පහත \"නව කේතයක් එවන්න\" භාවිතා කරන්න.",
+      "notSent": "දැනට කේතය යැවීමට නොහැකි විය. පහතින් \"නව කේතයක් යවන්න\" භාවිතා කරන්න.",
       "validation": {
         "number": {
           "required": "WhatsApp අංකය අවශ්‍යයි",
@@ -480,75 +480,75 @@
       }
     },
     "otp": {
-      "sentTo": "එවූ කේතය ඇතුළත් කරන්න:",
-      "code": "තහවුරු කිරීමේ කේතය",
-      "devCode": "සංවර්ධන මාදිලිය - කේතය (WhatsApp මගින් නොයවයි)",
-      "verify": "තහවුරු කරන්න",
+      "sentTo": "යවන ලද කේතය ඇතුළත් කරන්න",
+      "code": "සත්‍යාපන කේතය",
+      "devCode": "සංවර්ධන මාදිලිය - කේතය (WhatsApp හරහා නොයවයි)",
+      "verify": "සත්‍යාපනය කරන්න",
       "error": "එම කේතය ක්‍රියා නොකළේය. කරුණාකර නැවත උත්සාහ කරන්න.",
       "resent": "නව කේතයක් ඉල්ලා ඇත.",
       "changeNumber": "අංකය වෙනස් කරන්න",
-      "resendIn": "නව කේතයක් එවිය හැක්කේ",
-      "resend": "නව කේතයක් එවන්න"
+      "resendIn": "නව කේතයක් යැවීමට ඉතිරි",
+      "resend": "නව කේතයක් යවන්න"
     }
   },
   "whatsappAdmin": {
-    "title": "WhatsApp පිවිසුම",
-    "subtitle": "ඊමේල් ලිපිනයක් නොමැති සත්කාරකයින්ට සහ පාරිභෝගිකයින්ට WhatsApp කේතයක් මගින් ලියාපදිංචි වීමට සහ පිවිසීමට ඉඩ දෙන්න. ඊමේල් පිවිසුමට බලපෑමක් නැත.",
+    "title": "WhatsApp මගින් පුරනය වීම",
+    "subtitle": "විද්‍යුත් තැපැල් ලිපිනයක් නොමැති සාත්තු සේවකයින්ට සහ පාරිභෝගිකයින්ට WhatsApp කේතයක් භාවිතයෙන් ලියාපදිංචි වී පුරනය වීමට ඉඩ දෙන්න. විද්‍යුත් තැපෑලෙන් පුරනය වීමට බලපෑමක් නැත.",
     "togglesTitle": "ලබාගත හැකි බව",
-    "enabled": "WhatsApp පිවිසුම සක්‍රීය කරන්න",
-    "enabledHint": "ප්‍රධාන ස්විචය. අක්‍රීය විට WhatsApp ලියාපදිංචිය, පිවිසුම හෝ ගිණුම යළි ලබාගැනීම ක්‍රියා නොකරයි.",
-    "caregivers": "සත්කාරකයින්",
+    "enabled": "WhatsApp මගින් පුරනය වීම සක්‍රීය කරන්න",
+    "enabledHint": "ප්‍රධාන ස්විචය. අක්‍රිය කළ විට WhatsApp ලියාපදිංචිය, පුරනය වීම හෝ ගිණුම් ප්‍රතිසාධනය ක්‍රියා නොකරයි.",
+    "caregivers": "සාත්තු සේවකයින්",
     "customers": "පාරිභෝගිකයින්",
-    "registration": "නව ලියාපදිංචි",
-    "registrationHint": "දැනටමත් ආරම්භ කළ ලියාපදිංචි සම්පූර්ණ කළ හැක",
-    "login": "පිවිසුම",
-    "recovery": "ගිණුම යළි ලබාගැනීම",
-    "deliveryTitle": "යැවීම",
-    "provider": "සපයන්නා",
+    "registration": "නව ලියාපදිංචි කිරීම්",
+    "registrationHint": "දැනටමත් ආරම්භ කළ ලියාපදිංචි කිරීම් තවදුරටත් සම්පූර්ණ කළ හැකිය",
+    "login": "පුරනය වීම",
+    "recovery": "ගිණුම් ප්‍රතිසාධනය",
+    "deliveryTitle": "බෙදාහැරීම",
+    "provider": "සේවා සපයන්නා",
     "providerMeta": "WhatsApp Business Cloud API (Meta)",
     "providerConsole": "කොන්සෝලය (සංවර්ධනය සඳහා පමණි)",
-    "consoleHint": "කේත එවනවා වෙනුවට සේවාදායක ලොගයට ලියා තිරයේ පෙන්වයි. නිෂ්පාදනයේදී ලබාගත නොහැක.",
-    "phoneNumberId": "දුරකථන අංක හැඳුනුම (Phone number ID)",
-    "businessAccountId": "ව්‍යාපාරික ගිණුම් හැඳුනුම",
+    "consoleHint": "කේත යැවීම වෙනුවට සේවාදායක ලොගයට ලියා තිරය මත පෙන්වනු ලැබේ. නිෂ්පාදන පරිසරයේදී ලබාගත නොහැක.",
+    "phoneNumberId": "දුරකථන අංක ID",
+    "businessAccountId": "ව්‍යාපාර ගිණුම් ID",
     "accessToken": "ප්‍රවේශ ටෝකනය",
-    "tokenKeep": "තබාගැනීමට හිස්ව තබන්න",
-    "tokenHint": "සංකේතනය කර ගබඩා කෙරේ; සුරැකීමෙන් පසු නැවත නොපෙන්වයි.",
+    "tokenKeep": "තබා ගැනීමට හිස්ව තබන්න",
+    "tokenHint": "සංකේතනය කර ගබඩා කරන අතර සුරැකීමෙන් පසු නැවත කිසිවිටෙක පෙන්වන්නේ නැත.",
     "tokenRemove": "ගබඩා කළ ටෝකනය ඉවත් කරන්න",
     "apiBaseUrl": "API මූලික URL",
     "apiVersion": "API අනුවාදය",
-    "templateTitle": "පණිවිඩ ආකෘතිය",
-    "templateName": "ආකෘතියේ නම",
-    "templateLanguage": "ආකෘතියේ භාෂාව",
-    "copyCode": "ආකෘතියේ \"කේතය පිටපත් කරන්න\" බොත්තමක් ඇත",
-    "templateHint": "කේතය රැගෙන යන අනුමත WhatsApp සත්‍යාපන ආකෘතියක් භාවිතා කරන්න.",
-    "otpTitle": "එක්-වරක් කේත",
-    "otpLength": "කේතයේ දිග (ඉලක්කම්)",
-    "otpTtl": "කේතයේ වලංගු කාලය (තත්පර)",
-    "otpAttempts": "අවසර ඇති වැරදි උත්සාහ",
-    "otpCooldown": "නැවත යැවීමට පෙර රැඳී සිටීම (තත්පර)",
-    "otpPerHour": "පැයකට අංකයකට කේත",
+    "templateTitle": "පණිවිඩ සැකිල්ල",
+    "templateName": "සැකිලි නම",
+    "templateLanguage": "සැකිලි භාෂාව",
+    "copyCode": "සැකිල්ලේ \"කේතය පිටපත් කරන්න\" බොත්තමක් ඇත",
+    "templateHint": "කේතය අඩංගු අනුමත WhatsApp සත්‍යාපන සැකිල්ලක් භාවිතා කරන්න.",
+    "otpTitle": "එක් වරක් භාවිතා කරන කේත",
+    "otpLength": "කේත දිග (ඉලක්කම්)",
+    "otpTtl": "කේත වලංගු කාලය (තත්පර)",
+    "otpAttempts": "අවසර දෙන වැරදි උත්සාහ ගණන",
+    "otpCooldown": "නැවත යැවීමට පෙර රැඳී සිටිය යුතු කාලය (තත්පර)",
+    "otpPerHour": "එක් අංකයකට පැයකට කේත ගණන",
     "countryCode": "පෙරනිමි රටේ කේතය",
-    "countryCodeHint": "ඉලක්කම් පමණි, උදා: 94. රටේ කේතයක් නොමැතිව ලියූ අංකවලට යෙදේ.",
+    "countryCodeHint": "ඉලක්කම් පමණක්, උදා: 94. රටේ කේතයක් නොමැතිව ඇතුළත් කරන අංක සඳහා යෙදේ.",
     "saved": "සුරකින ලදී",
-    "saveError": "යමක් වැරදී ඇත",
+    "saveError": "යම් දෝෂයක් සිදු විය",
     "testTitle": "පරීක්ෂණ පණිවිඩයක් යවන්න",
-    "testHint": "සුරැකූ සැකසුම් භාවිතයෙන් පණිවිඩයක් යවයි; එවිට ඔබට අක්තපත්‍ර සහ ආකෘතිය පරීක්ෂා කළ හැක.",
+    "testHint": "සුරකින ලද සැකසුම් භාවිතයෙන් පණිවිඩයක් යවන අතර එමඟින් අක්තපත්‍ර සහ සැකිල්ල පරීක්ෂා කළ හැකිය.",
     "testPhone": "WhatsApp අංකය",
     "testSend": "පරීක්ෂණය යවන්න",
-    "testSaveFirst": "පරීක්ෂණයක් යැවීමට පෙර ඔබේ වෙනස්කම් සුරකින්න."
+    "testSaveFirst": "පරීක්ෂණයක් යැවීමට පෙර ඔබගේ වෙනස්කම් සුරකින්න."
   },
   "brand": {
     "name": "CareLink"
   },
   "notFound": {
     "title": "පිටුව හමු නොවීය",
-    "body": "එම පිටුව නොපවතී හෝ මාරු කරන ලදී.",
-    "home": "ඩැෂ්බෝර්ඩයට යන්න",
-    "public": "CareLink අයිටයට ආපහු යන්න"
+    "body": "එම පිටුව නොපවතී හෝ වෙනත් ස්ථානයකට ගෙන ගොස් ඇත.",
+    "home": "උපකරණ පුවරුව වෙත යන්න",
+    "public": "CareLink අඩවිය වෙත ආපසු"
   },
   "errorBoundary": {
-    "title": "යමඊ දෝෂයක් සිදු විය",
-    "body": "මෙම පිටුවේ අනපේක්ෂිත දෝෂයක් ඇති විය. නැවත උත්සාහ කරන්න.",
+    "title": "යම් දෝෂයක් සිදු විය",
+    "body": "මෙම පිටුවේ අනපේක්ෂිත දෝෂයක් ඇති විය. නැවත උත්සාහ කරන්න හෝ ආපසු යන්න.",
     "retry": "නැවත උත්සාහ කරන්න"
   }
 }
