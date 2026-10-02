@@ -6,13 +6,16 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from '@/lib/i18n';
-import { SiteHeader } from '@/components/layout/site-header';
-import { SiteFooter } from '@/components/layout/site-footer';
 import { useAuth } from '@/lib/api/auth-context';
 import { api, ApiError, type Tokens } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Input, Label, FieldError, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
+import {
+  CaregiverRegisterAlternate,
+  CaregiverRegisterHeader,
+  CaregiverRegisterShell,
+} from '@/components/caregivers/caregiver-register-layout';
 import { WhatsappOtpForm } from '@/components/auth/whatsapp-otp-form';
 import { makePersonalInfoSchema, requiredFieldsOf } from '@/lib/schemas/personal-info';
 import { useMetaLocations } from '@/lib/hooks/use-public-search';
@@ -33,22 +36,6 @@ interface RegisterResponse {
   otpSent: boolean;
   resendAfterSeconds: number;
   devOtp?: string;
-}
-
-/**
- * Module-level on purpose: declared inside the page component it would be a new
- * component type on every render, remounting the form and dropping typed input.
- */
-function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
-  return (
-    <div className="flex min-h-screen flex-col bg-paper">
-      <SiteHeader maxWidth={wide ? '3xl' : 'sm'} />
-      <main className="mx-auto w-full flex-1 px-4 py-10">
-        <div className={`mx-auto ${wide ? 'max-w-3xl' : 'max-w-sm'}`}>{children}</div>
-      </main>
-      <SiteFooter />
-    </div>
-  );
 }
 
 /**
@@ -111,25 +98,24 @@ export default function CaregiverRegisterWhatsappPage() {
   };
 
   if (configLoading) {
-    return <Shell><p className="text-center text-sm text-ink/50">{t('common.loading')}</p></Shell>;
+    return <CaregiverRegisterShell narrow><p className="text-center text-sm text-ink/50">{t('common.loading')}</p></CaregiverRegisterShell>;
   }
 
   if (!config?.caregiver.register) {
+    // Same shape as the join page's unavailable card: say why, and leave the
+    // one route that still works within reach.
     return (
-      <Shell>
-        <div className="rounded-lg border border-border bg-white p-6 text-center">
-          <p className="mb-4 text-sm text-ink/70">{t('whatsapp.unavailable')}</p>
-          <Link href="/caregiver/register" className="text-sm font-medium text-brand-dark hover:underline">
-            {t('whatsapp.register.useEmail')}
-          </Link>
-        </div>
-      </Shell>
+      <CaregiverRegisterShell narrow>
+        <CaregiverRegisterHeader title={t('whatsapp.register.title')} subtitle={t('whatsapp.unavailable')}>
+          <CaregiverRegisterAlternate href="/caregiver/register" linkText={t('whatsapp.register.useEmail')} />
+        </CaregiverRegisterHeader>
+      </CaregiverRegisterShell>
     );
   }
 
   if (result) {
     return (
-      <Shell>
+      <CaregiverRegisterShell narrow>
         <div className="rounded-lg border border-border bg-white p-6">
           <h1 className="mb-1 text-lg font-semibold text-ink">{t('whatsapp.register.verifyTitle')}</h1>
           <p className="mb-1 text-sm text-ink/60">{t('whatsapp.register.verifyBody')}</p>
@@ -147,16 +133,15 @@ export default function CaregiverRegisterWhatsappPage() {
             onChangeNumber={() => setResult(null)}
           />
         </div>
-      </Shell>
+      </CaregiverRegisterShell>
     );
   }
 
   return (
-    <Shell wide>
-      <div className="mb-6 text-center">
-        <h1 className="text-lg font-semibold text-ink">{t('whatsapp.register.title')}</h1>
-        <p className="text-sm text-ink/60">{t('whatsapp.register.subtitle')}</p>
-      </div>
+    <CaregiverRegisterShell>
+      <CaregiverRegisterHeader title={t('whatsapp.register.title')} subtitle={t('whatsapp.register.subtitle')}>
+        <CaregiverRegisterAlternate href="/caregiver/register" linkText={t('whatsapp.register.useEmail')} />
+      </CaregiverRegisterHeader>
 
       <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border border-border bg-white p-6">
         <RequiredLegend label={t('common.requiredField')} />
@@ -212,12 +197,6 @@ export default function CaregiverRegisterWhatsappPage() {
           </Button>
         </div>
       </form>
-
-      <p className="mt-4 text-center text-sm text-ink/60">
-        <Link href="/caregiver/register" className="font-medium text-brand-dark hover:underline">
-          {t('whatsapp.register.useEmail')}
-        </Link>
-      </p>
-    </Shell>
+    </CaregiverRegisterShell>
   );
 }

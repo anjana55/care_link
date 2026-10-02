@@ -7,9 +7,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CheckCircle2 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-import { SiteHeader } from '@/components/layout/site-header';
-import { SiteFooter } from '@/components/layout/site-footer';
 import { api, ApiError } from '@/lib/api/client';
+import {
+  CaregiverRegisterAlternate,
+  CaregiverRegisterHeader,
+  CaregiverRegisterShell,
+} from '@/components/caregivers/caregiver-register-layout';
 import { Button } from '@/components/ui/button';
 import { Input, Label, FieldError, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
@@ -84,120 +87,107 @@ export default function CaregiverRegisterPage() {
 
   if (result) {
     return (
-      <div className="flex min-h-screen flex-col bg-paper">
-        <SiteHeader maxWidth="sm" />
-        <main className="mx-auto flex w-full max-w-md flex-1 items-center justify-center px-4 py-10">
-          <div className="w-full rounded-lg border border-border bg-white p-8 text-center">
-            <CheckCircle2 size={40} className="mx-auto mb-4 text-brand" aria-hidden />
-            <h1 className="mb-2 text-lg font-semibold text-ink">{t('caregiverRegister.successTitle')}</h1>
-            <p className="mb-4 text-sm text-ink/60">{t('caregiverRegister.successBody')}</p>
-            <p className="mb-4 text-xs text-ink/40">
-              {t('caregiverRegister.registrationNumber')}: {result.registrationNumber}
-            </p>
+      <CaregiverRegisterShell narrow>
+        <div className="rounded-lg border border-border bg-white p-8 text-center">
+          <CheckCircle2 size={40} className="mx-auto mb-4 text-brand" aria-hidden />
+          <h1 className="mb-2 text-lg font-semibold text-ink">{t('caregiverRegister.successTitle')}</h1>
+          <p className="mb-4 text-sm text-ink/60">{t('caregiverRegister.successBody')}</p>
+          <p className="mb-4 text-xs text-ink/40">
+            {t('caregiverRegister.registrationNumber')}: {result.registrationNumber}
+          </p>
 
-            {result.devVerificationUrl && (
-              <div className="mb-4 rounded border border-dashed border-accent bg-accent-light p-3 text-left">
-                <p className="mb-2 text-xs font-medium text-accent">{t('caregiverRegister.devLinkLabel')}</p>
-                <Link
-                  href={result.devVerificationUrl.replace(/^https?:\/\/[^/]+/, '')}
-                  className="break-all text-xs text-brand-dark underline"
-                >
-                  {result.devVerificationUrl}
-                </Link>
-              </div>
-            )}
+          {result.devVerificationUrl && (
+            <div className="mb-4 rounded border border-dashed border-accent bg-accent-light p-3 text-left">
+              <p className="mb-2 text-xs font-medium text-accent">{t('caregiverRegister.devLinkLabel')}</p>
+              <Link
+                href={result.devVerificationUrl.replace(/^https?:\/\/[^/]+/, '')}
+                className="break-all text-xs text-brand-dark underline"
+              >
+                {result.devVerificationUrl}
+              </Link>
+            </div>
+          )}
 
-            <Link href="/caregiver/login">
-              <Button variant="secondary" className="w-full">
-                {t('caregiverRegister.signIn')}
-              </Button>
-            </Link>
-          </div>
-        </main>
-        <SiteFooter />
-      </div>
+          <Link href="/caregiver/login">
+            <Button variant="secondary" className="w-full">
+              {t('caregiverRegister.signIn')}
+            </Button>
+          </Link>
+        </div>
+      </CaregiverRegisterShell>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-paper">
-      <SiteHeader maxWidth="3xl" />
+    <CaregiverRegisterShell>
+      <CaregiverRegisterHeader title={t('caregiverRegister.title')} subtitle={t('caregiverRegister.subtitle')}>
+        {whatsapp?.caregiver.register && (
+          <CaregiverRegisterAlternate
+            href="/caregiver/register/whatsapp"
+            prefix={t('whatsapp.register.noEmail')}
+            linkText={t('whatsapp.register.link')}
+          />
+        )}
+      </CaregiverRegisterHeader>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
-        <div className="mb-6 text-center">
-          <h1 className="text-lg font-semibold text-ink">{t('caregiverRegister.title')}</h1>
-          <p className="text-sm text-ink/60">{t('caregiverRegister.subtitle')}</p>
-          {whatsapp?.caregiver.register && (
-            <p className="mt-2 text-sm text-ink/60">
-              {t('whatsapp.register.noEmail')}{' '}
-              <Link href="/caregiver/register/whatsapp" className="font-medium text-brand-dark hover:underline">
-                {t('whatsapp.register.link')}
-              </Link>
-            </p>
-          )}
+      <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border border-border bg-white p-6">
+        <RequiredLegend label={t('common.requiredField')} />
+        <h2 className="mb-3 text-sm font-semibold text-ink">{t('caregiverRegister.accountSection')}</h2>
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Label htmlFor="email" required>{t('caregiverRegister.email')}</Label>
+            <Input id="email" type="email" {...register('email')} />
+            <FieldError message={errors.email?.message as string | undefined} />
+          </div>
+          <div>
+            <Label htmlFor="password" required>{t('caregiverRegister.password')}</Label>
+            <Input id="password" type="password" {...register('password')} />
+            <FieldError message={errors.password?.message as string | undefined} />
+          </div>
+          <div>
+            <Label htmlFor="confirmPassword" required>{t('caregiverRegister.confirmPassword')}</Label>
+            <Input id="confirmPassword" type="password" {...register('confirmPassword')} />
+            <FieldError message={errors.confirmPassword?.message as string | undefined} />
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border border-border bg-white p-6">
-          <RequiredLegend label={t('common.requiredField')} />
-          <h2 className="mb-3 text-sm font-semibold text-ink">{t('caregiverRegister.accountSection')}</h2>
-          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <Label htmlFor="email" required>{t('caregiverRegister.email')}</Label>
-              <Input id="email" type="email" {...register('email')} />
-              <FieldError message={errors.email?.message as string | undefined} />
-            </div>
-            <div>
-              <Label htmlFor="password" required>{t('caregiverRegister.password')}</Label>
-              <Input id="password" type="password" {...register('password')} />
-              <FieldError message={errors.password?.message as string | undefined} />
-            </div>
-            <div>
-              <Label htmlFor="confirmPassword" required>{t('caregiverRegister.confirmPassword')}</Label>
-              <Input id="confirmPassword" type="password" {...register('confirmPassword')} />
-              <FieldError message={errors.confirmPassword?.message as string | undefined} />
-            </div>
-          </div>
+        <h2 className="mb-3 text-sm font-semibold text-ink">{t('caregiverRegister.personalSection')}</h2>
+        <PersonalInfoFields
+          register={register}
+          control={control}
+          setValue={setValue}
+          errors={errors}
+          locations={locations ?? []}
+          locationsUnavailable={locationsUnavailable}
+          requiredFields={requiredFields}
+        />
 
-          <h2 className="mb-3 text-sm font-semibold text-ink">{t('caregiverRegister.personalSection')}</h2>
-          <PersonalInfoFields
-            register={register}
-            control={control}
-            setValue={setValue}
-            errors={errors}
-            locations={locations ?? []}
-            locationsUnavailable={locationsUnavailable}
-            requiredFields={requiredFields}
+        <label className="mt-6 flex items-start gap-2 text-sm text-ink">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand"
+            {...register('consentAccepted')}
           />
+          <span>
+            <span aria-hidden="true" className="text-danger">*</span> {t('caregiverRegister.consentLabel')}
+          </span>
+        </label>
+        <FieldError message={errors.consentAccepted?.message as string | undefined} />
 
-          <label className="mt-6 flex items-start gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand"
-              {...register('consentAccepted')}
-            />
-            <span>
-              <span aria-hidden="true" className="text-danger">*</span> {t('caregiverRegister.consentLabel')}
-            </span>
-          </label>
-          <FieldError message={errors.consentAccepted?.message as string | undefined} />
+        {serverError && <p className="mt-4 text-sm text-danger">{serverError}</p>}
 
-          {serverError && <p className="mt-4 text-sm text-danger">{serverError}</p>}
-
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <p className="text-sm text-ink/60">
-              {t('caregiverRegister.alreadyHaveAccount')}{' '}
-              <Link href="/caregiver/login" className="font-medium text-brand-dark hover:underline">
-                {t('caregiverRegister.signIn')}
-              </Link>
-            </p>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? t('common.loading') : t('caregiverRegister.submit')}
-            </Button>
-          </div>
-        </form>
-      </main>
-
-      <SiteFooter />
-    </div>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          <p className="text-sm text-ink/60">
+            {t('caregiverRegister.alreadyHaveAccount')}{' '}
+            <Link href="/caregiver/login" className="font-medium text-brand-dark hover:underline">
+              {t('caregiverRegister.signIn')}
+            </Link>
+          </p>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? t('common.loading') : t('caregiverRegister.submit')}
+          </Button>
+        </div>
+      </form>
+    </CaregiverRegisterShell>
   );
 }
