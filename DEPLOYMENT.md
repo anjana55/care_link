@@ -16,10 +16,13 @@ need it saves you the confusion later.
 
 **Shortcut:** if you're comfortable with the command line and just want
 this running, `./setup.sh --domain=yourdomain.example` automates Parts
-8 through 12 below (filling in secrets, building, starting, migrating,
-and seeding). It's safe to re-run. Everything it can't safely automate
-- provisioning a server, DNS, HTTPS, backups - still needs the matching
-part of this guide. If anything about it is confusing or it fails
+8 through 13 below (filling in secrets, building, starting, migrating,
+seeding, and getting an HTTPS certificate). It's safe to re-run, and it
+will not re-request a certificate you already have. Everything it can't
+safely automate - provisioning a server, DNS, backups - still needs the
+matching part of this guide. HTTPS is only attempted when `--domain` is a
+real domain that already points at the server; a bare IP or `--skip-tls`
+deploys HTTP-only. If anything about it is confusing or it fails
 partway through, the manual walkthrough below is exactly what it's
 running, part by part, so you can pick up from wherever it stopped.
 
@@ -652,18 +655,46 @@ kept exactly as it is; only TLS directives are added around it.
 **You need a working domain (Part 7) for this - it will not work with a
 plain IP address.**
 
-### 13.1 Put your domain into deploy/nginx.conf
+### 13.1 Render the TLS config for your domain
+**If you ran `setup.sh`, skip all of Part 13** - the script does all of
+this for you, including the certificate, the config switch, the renewal
+timer, and a `--dry-run` test of the renewal. Re-running it later is safe
+and will not re-request a certificate you already have.
 
-The config reads `yourdomain.example` as a placeholder in three places:
-the two `server_name` lines and the two `ssl_certificate` paths (which
-are keyed by domain name, because certbot lays its output out as
-`/etc/letsencrypt/live/<domain>/`).
+The rest of this part is for doing it by hand, or for recovering when
+certbot itself fails.
+
+There are two config files, and the difference matters:
+
+- `deploy/nginx.conf` - plain HTTP, no certificate. This is the default
+  and the one nginx serves until a certificate exists. It always starts,
+  which is what makes the ordering below possible.
+- `deploy/nginx.https.conf` - TLS. The committed copy keeps `__DOMAIN__`
+  as a placeholder in the two `server_name` lines and the two
+  `ssl_certificate` paths (the paths are keyed by domain name, because
+  certbot lays its output out as `/etc/letsencrypt/live/<domain>/`).
+
+Render the TLS config by substituting the placeholder:
 
 ```bash
-nano deploy/nginx.conf
+sed "s#__DOMAIN__#example.com#g" deploy/nginx.https.conf > deploy/nginx.local.conf
 ```
 
-Replace every `yourdomain.example` with your real domain.
+`deploy/nginx.local.conf` is generated and git-ignored, so the committed
+files stay free of any one deployment's domain. The routing itself lives
+in `deploy/proxy-locations.conf`, which both configs include - so the HTTP
+and TLS versions cannot drift apart.
+
+Then point compose at the rendered file by adding this to
+`.env.production`:
+
+```
+NGINX_CONF=./deploy/nginx.local.conf
+```
+
+Keeping this in the env file rather than on the command line matters: it
+is what makes the renewal deploy hook (13.4) reload the *TLS* config when
+it runs from cron, where none of your shell environment exists.
 
 ### 13.2 Get the first certificate
 
@@ -720,12 +751,15 @@ docker compose -f docker-compose.prod.yml --env-file .env.production run --rm ce
 
 ### 13.4 Automate renewal
 
+`setup.sh` installs all of this for you. If you did Part 13 by hand, add
+it yourself.
+
 Let's Encrypt certificates last 90 days and certbot only renews inside
 the final 30. Check twice a day, which leaves plenty of margin if one
 attempt fails:
 
 ```bash
-sudo crontab -e
+crontab -e
 ```
 
 Add (adjust the paths to the repo if it is not in `/home/pi/care_link`):
@@ -736,7 +770,9 @@ Add (adjust the paths to the repo if it is not in `/home/pi/care_link`):
 
 `cron` runs with a minimal environment, which is why the line `cd`s and
 passes `--env-file` explicitly - a bare `docker compose` there would not
-find the env file and would fail on the required variables.
+find the env file and would fail on the required variables. Use
+`crontab -e` (yours) rather than `sudo crontab -e` (root's): the renewal
+has to run as the same user that can reach the Docker socket.
 
 Test the renewal path *before* you need it. `--dry-run` contacts
 Let's Encrypt's staging server and exercises everything except the
@@ -748,41 +784,22 @@ docker compose -f docker-compose.prod.yml --env-file .env.production run --rm ce
 
 Expect `Congratulations, all simulated renewals succeeded`.
 
-**One thing the renewal does not do: reload nginx.** A renewed
+**One thing the renewal does not do on its own: reload nginx.** A renewed
 certificate is a new file on disk, but nginx has the old one in memory
 until it is told to re-read it. Without a reload, a renewed certificate
-keeps being served until the container next restarts. Add a deploy hook
-so `certbot renew` restarts nginx automatically - create
-`deploy/certbot-deploy-hook.sh`:
+keeps being served until the container next restarts. That is what
+`deploy/certbot-deploy-hook.sh` is for, and it is already wired into the
+`certbot` service in `docker-compose.prod.yml`:
 
-```bash
-#!/bin/sh
-# Runs after a successful `certbot renew`. Reloads nginx so the new
-# certificate is actually served - certbot replaces the files on disk,
-# but the running nginx keeps the old certificate in memory until it
-# re-reads them. Without this, a renewed cert is not used until the
-# container next restarts.
-set -e
-cd "$(dirname "$0")/.."
-docker compose -f docker-compose.prod.yml --env-file .env.production exec nginx nginx -s reload
+```yaml
+      - ./deploy/certbot-deploy-hook.sh:/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh:ro
 ```
 
-Make it executable and point certbot at it:
+certbot runs every script in `renewal-hooks/deploy/` after a renewal, so
+nothing else is needed - just make sure the file is executable:
 
 ```bash
 chmod +x deploy/certbot-deploy-hook.sh
-```
-
-Then add the hook to the `certbot` service in `docker-compose.prod.yml`:
-
-```yaml
-  certbot:
-    image: certbot/certbot:latest
-    profiles: ['tools']
-    volumes:
-      - certbot-conf:/etc/letsencrypt
-      - certbot-webroot:/var/www/certbot
-      - ./deploy/certbot-deploy-hook.sh:/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh:ro
 ```
 
 `--quiet` in the cron line will not suppress this, and that is correct:
