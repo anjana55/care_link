@@ -9,7 +9,9 @@ import type { UserRole } from '../../database/schema/users.schema';
 
 export interface JwtPayload {
   sub: string;
-  email: string;
+  // Null for accounts that registered with WhatsApp and have no email.
+  email: string | null;
+  phone?: string | null;
   role: UserRole;
   caregiverId?: string;
   patientId?: string;
@@ -34,7 +36,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // page) takes effect immediately instead of when their access token
     // expires. Role comes from the database, not the token.
     const [user] = await this.db
-      .select({ id: users.id, email: users.email, role: users.role, isActive: users.isActive })
+      .select({ id: users.id, email: users.email, phone: users.phone, role: users.role, isActive: users.isActive })
       .from(users)
       .where(eq(users.id, payload.sub))
       .limit(1);
@@ -44,6 +46,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       userId: user.id,
       email: user.email,
+      phone: user.phone,
       role: user.role,
       caregiverId: payload.caregiverId,
       patientId: payload.patientId,

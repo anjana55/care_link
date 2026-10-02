@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/api/auth-context';
 import { useTranslation } from '@/lib/i18n/provider';
@@ -11,6 +11,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const { user, loading } = useAuth();
   const { fontClass } = useTranslation();
   const router = useRouter();
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -36,9 +37,9 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
 
   return (
     <div className={`flex min-h-screen ${fontClass}`}>
-      <Sidebar />
-      <div className="flex min-h-screen flex-1 flex-col">
-        <Topbar />
+      <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+        <Topbar onMenu={() => setNavOpen(true)} />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>

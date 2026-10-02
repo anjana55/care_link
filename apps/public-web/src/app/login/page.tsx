@@ -5,9 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from '@/lib/i18n';
-import { LanguageSwitcher } from '@/components/common/language-switcher';
+import { SiteHeader } from '@/components/layout/site-header';
+import { SiteFooter } from '@/components/layout/site-footer';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
+import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
+import { Input, Label } from '@/components/ui/input';
 
 interface LoginValues {
   email: string;
@@ -18,6 +21,7 @@ export default function LoginPage() {
   const { t } = useTranslation();
   const { login } = useAuth();
   const router = useRouter();
+  const { data: whatsapp } = useWhatsappConfig();
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -40,14 +44,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-border bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/" className="text-sm font-semibold text-brand-dark">
-            {t('nav.brand')}
-          </Link>
-          <LanguageSwitcher />
-        </div>
-      </header>
+      <SiteHeader maxWidth="sm" />
 
       <div className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm rounded-lg border border-border bg-white p-8">
@@ -56,24 +53,22 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
             <div>
-              <label htmlFor="email" className="mb-1 block text-xs font-medium text-ink/60">
+              <Label htmlFor="email" >
                 {t('login.email')}
-              </label>
-              <input
+              </Label>
+              <Input
                 id="email"
                 type="email"
-                className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
                 {...register('email', { required: true })}
               />
             </div>
             <div>
-              <label htmlFor="password" className="mb-1 block text-xs font-medium text-ink/60">
+              <Label htmlFor="password" >
                 {t('login.password')}
-              </label>
-              <input
+              </Label>
+              <Input
                 id="password"
                 type="password"
-                className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
                 {...register('password', { required: true })}
               />
             </div>
@@ -93,6 +88,15 @@ export default function LoginPage() {
               {isSubmitting ? '…' : t('login.submit')}
             </button>
 
+            {whatsapp?.customer.login && (
+              <p className="text-center text-sm text-ink/60">
+                {t('whatsapp.login.noEmail')}{' '}
+                <Link href="/login/whatsapp" className="font-medium text-brand-dark hover:underline">
+                  {t('whatsapp.login.useWhatsapp')}
+                </Link>
+              </p>
+            )}
+
             <p className="text-center text-sm text-ink/60">
               {t('login.noAccount')}{' '}
               <Link href="/register" className="font-medium text-brand-dark hover:underline">
@@ -102,6 +106,8 @@ export default function LoginPage() {
           </form>
         </div>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

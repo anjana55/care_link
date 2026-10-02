@@ -6,12 +6,14 @@ import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label, RequiredLegend } from '@/components/ui/input';
+import { Input, Label, RequiredLegend } from '@/components/ui/input';
+import { AuthHeader } from '@/components/layout/brand-mark';
+import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp';
 
 export default function LoginPage() {
   const { t } = useTranslation();
   const { login } = useAuth();
+  const { data: whatsapp } = useWhatsappConfig();
   const [email, setEmail] = useState('admin@care-platform.local');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -39,17 +41,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded bg-brand text-base font-bold text-white">
-            CP
-          </div>
-          <div className="text-center">
+    <div className="flex min-h-screen flex-col bg-paper">
+      <AuthHeader />
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 text-center">
             <h1 className="text-lg font-semibold text-ink">{t('login.title')}</h1>
             <p className="text-sm text-ink/60">{t('login.subtitle')}</p>
           </div>
-        </div>
 
         <form onSubmit={onSubmit} className="rounded-lg border border-border bg-white p-6">
           <RequiredLegend label={t('common.requiredField')} />
@@ -77,12 +76,22 @@ export default function LoginPage() {
           admin@care-platform.local · staff@care-platform.local · verifier@care-platform.local · selfregistered@care-platform.local — password ChangeMe123!
         </p>
 
+        {whatsapp?.caregiver.login && (
+          <p className="mt-4 text-center text-sm text-ink/60">
+            {t('whatsapp.login.noEmail')}{' '}
+            <Link href="/login/whatsapp" className="font-medium text-brand-dark hover:underline">
+              {t('whatsapp.login.useWhatsapp')}
+            </Link>
+          </p>
+        )}
+
         <p className="mt-6 text-center text-sm text-ink/60">
           {t('login.newCaregiver')}{' '}
           <Link href="/register" className="font-medium text-brand-dark hover:underline">
             {t('register.title')}
           </Link>
         </p>
+        </div>
       </div>
     </div>
   );

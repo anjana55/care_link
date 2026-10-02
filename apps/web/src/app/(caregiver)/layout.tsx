@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { useAuth, postLoginPath } from '@/lib/api/auth-context';
 import { useTranslation, type Locale } from '@/lib/i18n/provider';
+import { BrandMark } from '@/components/layout/brand-mark';
 
 const LOCALES: { value: Locale; label: string }[] = [
   { value: 'en', label: 'EN' },
@@ -41,10 +42,7 @@ export default function CaregiverLayout({ children }: { children: React.ReactNod
   return (
     <div className={`min-h-screen bg-paper ${fontClass}`}>
       <header className="flex h-16 items-center justify-between border-b border-border bg-white px-6">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-brand text-sm font-bold text-white">CP</div>
-          <span className="text-sm font-semibold text-ink">Care Platform</span>
-        </div>
+        <BrandMark />
         <div className="flex items-center gap-4">
           <div className="flex overflow-hidden rounded border border-border">
             {LOCALES.map((l) => (
@@ -61,7 +59,7 @@ export default function CaregiverLayout({ children }: { children: React.ReactNod
             ))}
           </div>
           <div className="flex items-center gap-3 border-l border-border pl-4">
-            <span className="text-sm text-ink/70">{user.email}</span>
+            <span className="text-sm text-ink/70">{user.email ?? user.phone}</span>
             <button
               onClick={logout}
               className="flex h-9 w-9 items-center justify-center rounded text-ink/60 hover:bg-paper hover:text-ink"

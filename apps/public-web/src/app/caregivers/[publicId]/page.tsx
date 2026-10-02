@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, BadgeCheck, MapPin, Languages as LanguagesIcon } from 'lucide-react';
+import { BadgeCheck, MapPin, Languages as LanguagesIcon } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useCaregiverProfile } from '@/lib/hooks/use-public-search';
 import { ApiError } from '@/lib/api/client';
 import { LoadingState, ErrorState } from '@/components/common/states';
 import { RegistrationGate } from '@/components/common/registration-gate';
-import { LanguageSwitcher } from '@/components/common/language-switcher';
+import { SiteHeader } from '@/components/layout/site-header';
+import { SiteFooter } from '@/components/layout/site-footer';
 
 export default function CaregiverProfilePage() {
   const { t } = useTranslation();
@@ -19,18 +19,10 @@ export default function CaregiverProfilePage() {
   const isNotFound = error instanceof ApiError && error.status === 404;
 
   return (
-    <main className="min-h-screen">
-      <header className="border-b border-border bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <Link href="/" className="flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink">
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-            {t('profile.backToResults')}
-          </Link>
-          <LanguageSwitcher />
-        </div>
-      </header>
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader maxWidth="3xl" backHref="/find" backLabel={t('profile.backToResults')} />
 
-      <div className="mx-auto max-w-3xl px-4 py-8">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
         {isLoading && <LoadingState label={t('loading.searching')} />}
         {isError && isNotFound && <p className="py-16 text-center text-sm text-ink/60">{t('profile.notFound')}</p>}
         {isError && !isNotFound && <ErrorState onRetry={() => refetch()} />}
@@ -41,7 +33,8 @@ export default function CaregiverProfilePage() {
               {t('profile.anonymousId', { id: caregiver.publicId.slice(0, 8) })}
             </p>
             <h1 className="mt-1 text-2xl font-bold text-ink">
-              {caregiver.gender === 'FEMALE' ? '♀' : caregiver.gender === 'MALE' ? '♂' : ''} {caregiver.approxAge} years
+              {caregiver.gender === 'FEMALE' ? '♀' : caregiver.gender === 'MALE' ? '♂' : ''}{' '}
+              {t('results.approxAge', { age: caregiver.approxAge })}
             </h1>
             <p className="mt-1 text-sm text-ink/60">{t('results.yearsExperience', { years: caregiver.yearsExperience })}</p>
 
@@ -82,9 +75,9 @@ export default function CaregiverProfilePage() {
                 <dt className="text-xs font-semibold uppercase tracking-wide text-ink/50">{t('profile.availability')}</dt>
                 <dd className="mt-1 text-sm text-ink/80">
                   {[
-                    caregiver.availability.dayDuty && 'Day',
-                    caregiver.availability.nightDuty && 'Night',
-                    caregiver.availability.liveIn24h && '24h live-in',
+                    caregiver.availability.dayDuty && t('profile.availabilityDay'),
+                    caregiver.availability.nightDuty && t('profile.availabilityNight'),
+                    caregiver.availability.liveIn24h && t('profile.availabilityLiveIn'),
                   ]
                     .filter(Boolean)
                     .join(' · ') || '—'}
@@ -145,9 +138,11 @@ export default function CaregiverProfilePage() {
             </div>
           </article>
         )}
-      </div>
+      </main>
+
+      <SiteFooter />
 
       <RegistrationGate open={gateOpen} onClose={() => setGateOpen(false)} reason="contact" />
-    </main>
+    </div>
   );
 }

@@ -3,7 +3,9 @@ import type { UserRole } from '../../database/schema/users.schema';
 
 export interface AuthenticatedUser {
   userId: string;
-  email: string;
+  /** Null for accounts that registered with WhatsApp and have no email. */
+  email: string | null;
+  phone?: string | null;
   role: UserRole;
   /** Present only when role === 'CAREGIVER': the caregiver record this login owns. */
   caregiverId?: string;

@@ -70,7 +70,7 @@ npm run db:generate           # generate SQL migrations from the Drizzle schema
 npm run db:migrate            # apply them to MySQL
 npm run db:seed               # seed skills, languages, locations, users, sample caregivers
 npm run build
-npm run start:dev             # http://localhost:3001  (Swagger: /api/docs)
+npm run start:dev             # http://localhost:3001  (Swagger: /docs)
 
 # 3. Frontend (in a second terminal)
 cd apps/web
@@ -101,6 +101,13 @@ npm run test:e2e -- --forceExit       # e2e tests against a live MySQL connectio
 
 `--forceExit` is needed because the mysql2 connection pool keeps the process alive
 after the test suite finishes; it does not indicate a failing test.
+
+`test/whatsapp-auth.e2e-spec.ts` covers WhatsApp sign-in end to end (registration, login,
+recovery and logout for caregivers and customers; invalid, expired, reused and locked-out
+codes; duplicate and existing accounts; admin settings and feature toggles; and that
+email/password authentication is unchanged). It runs against the same migrated and seeded
+database as the other e2e tests, using the Console provider so no WhatsApp account is needed.
+The customer app has its own component tests: `cd apps/public-web && npx jest`.
 
 ## 5. Database
 
@@ -135,11 +142,13 @@ size cap, and every file read is written to the audit log.
 
 ## 7. API overview
 
-Full interactive documentation: `http://localhost:3001/api/docs` (Swagger/OpenAPI) once
+Full interactive documentation: `http://localhost:3001/docs` (Swagger/OpenAPI) once
 the API is running. Route groups:
 
 - `POST /auth/login`, `/auth/refresh`, `/auth/logout`
 - `POST /auth/register-caregiver`, `/auth/verify-email`, `/auth/resend-verification` — public, see §7a
+- `/auth/whatsapp/*` — WhatsApp OTP registration, login and recovery, public, see §7b
+- `/settings/whatsapp` (ADMIN only) — WhatsApp sign-in configuration, see §7b
 - `/users` (ADMIN only)
 - `/caregivers`, `/caregivers/:id`, `/caregivers/:id/status`, `/caregivers/dashboard`
 - `/caregivers/:id/qualifications`, `/experiences`, `/skills`, `/languages`,
@@ -189,6 +198,69 @@ self-service shell at `/me` — the wizard step components staff already use
 just pointed at the logged-in caregiver's own id. Each shell redirects the other role
 away, so neither ends up on a page that's entirely 403s.
 
+### 7b. WhatsApp sign-in (alternative to email)
+
+Caregivers and customers (patients/guardians) who don't have an email address can
+register and sign in with a **one-time code sent over WhatsApp**. It is an *addition*:
+email + password registration, verification, login and password change are untouched,
+and a WhatsApp user ends up with the very same `users` row shape, role, `caregivers` /
+`patients` profile, JWT claims and permissions as an email user — so every guard
+(`@Roles()`, `@CaregiverScope()`, refresh rotation, logout, deactivation) applies
+identically. The feature is **off until an admin turns it on**.
+
+| Endpoint (all public, rate-limited) | Purpose |
+| --- | --- |
+| `GET /auth/whatsapp/config` | What the sign-in screens may offer (no secrets) |
+| `POST /auth/whatsapp/register-caregiver` | Create an unverified caregiver login + DRAFT profile, send a code |
+| `POST /auth/whatsapp/register-patient` | Create an unverified customer login + profile, send a code |
+| `POST /auth/whatsapp/request-otp` | Send a `REGISTER` (re-send), `LOGIN` or `RECOVERY` code |
+| `POST /auth/whatsapp/verify-otp` | Check a code; on success returns the normal `{ accessToken, refreshToken }` |
+
+Logout and token refresh are the existing `POST /auth/logout` and `POST /auth/refresh`.
+
+**Flows**
+
+- **Registration** – the personal-information requirements are identical to email
+  registration (the DTO extends the same `CreateCaregiverDto`); a WhatsApp number replaces
+  email + password, and a caregiver's primary phone defaults to that number. The account
+  can't sign in until the number is verified with the `REGISTER` code.
+- **Login** – request a `LOGIN` code, submit it, receive tokens.
+- **Account recovery** – the same, with a `RECOVERY` code; on success **every existing
+  session is revoked** and only the new one survives (use this when a phone is lost).
+- WhatsApp-only accounts have no password, so email login rejects them and
+  *change password* is hidden/refused for them. Staff/admin/verifier accounts can never use WhatsApp.
+
+**Duplicate prevention** – numbers are normalised to E.164 (`0771234567`, `+94 77 123 4567`
+and `94771234567` are the same number). Registration is refused with `409` if the number
+already belongs to a WhatsApp login, a caregiver profile (including staff-entered ones) or
+a customer profile, and an *email* registration whose phone is already a WhatsApp login is
+refused too. A sign-up that never completed its OTP is replaced rather than blocking the
+real owner from using their own number. Unique indexes settle simultaneous sign-ups.
+
+**OTP security** – codes are generated with a CSPRNG, stored only as a keyed HMAC, are
+single-use, expire (default 5 min), lock after a configurable number of wrong guesses
+(default 5), and only the newest code for a number works. Sending is limited by a
+per-number resend cooldown and an hourly cap, plus per-IP throttling on the endpoints.
+Login/recovery requests answer identically for registered and unregistered numbers, and a
+wrong, expired, used or locked code all produce the same error, so the API can't be used
+to discover who has an account.
+
+**Admin configuration** – an admin manages everything under **Settings → WhatsApp
+sign-in** in the staff app (`GET/PATCH /settings/whatsapp`, ADMIN only, audit-logged):
+master switch and per-role / per-flow toggles (caregivers, customers, new registrations,
+login, recovery); delivery provider and WhatsApp Business Cloud API credentials (phone
+number ID, business account ID, access token, API version); the approved authentication
+template (name, language, copy-code button); OTP policy (length, lifetime, attempts,
+resend cooldown, sends per hour); default country code; and a **Send test** button. The
+access token is **encrypted at rest** (AES-256-GCM) and write-only — it is never returned
+by the API. Settings are stored in the `whatsapp_auth_settings` table (migration `0007`);
+the `WHATSAPP_*` environment variables only seed it on first start. See DEPLOYMENT.md §8.5
+for the Meta-side setup.
+
+For local development choose the **Console** provider: no Meta account is needed, codes
+are written to the API log and echoed to the screen (and as `devOtp` in responses). The
+Console provider is refused when `NODE_ENV=production`.
+
 ### Caregiver search & advanced filters
 
 `GET /caregivers` accepts, all optional and combinable:
@@ -231,6 +303,8 @@ checkboxes — plus removable filter chips summarizing what's active.
   executables, non-guessable storage keys
 - `CaregiverHealthInformation` lives in its own table, is never joined into normal
   caregiver list/profile responses, and is restricted to ADMIN/VERIFIER roles
+- WhatsApp sign-in OTPs are HMAC-hashed, single-use, expiring and attempt-limited; the
+  WhatsApp access token is encrypted at rest and never returned by the API (§7b)
 - Every sensitive action (login/logout, caregiver create/update/status change, document
   upload/verify/access, health-information access) is written to `audit_logs`
 
@@ -276,7 +350,7 @@ build environment had no outbound access to font hosts — this is a one-line ch
 
 The API was designed independent of the web UI: `GET /caregivers` returns a
 domain-level representation, not a UI-shaped one, and the OpenAPI contract at
-`/api/docs-json` can be used to generate a typed client for a future
+`/docs-json` (`/api/docs-json` behind nginx) can be used to generate a typed client for a future
 React Native/Expo app. No second backend would be needed — same NestJS API, same
 MySQL database.
 

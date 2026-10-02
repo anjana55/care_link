@@ -53,6 +53,49 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   SMTP_FROM?: string;
+
+  // WhatsApp sign-in. Everything here is optional and only *bootstraps* the
+  // admin-managed settings row the first time the API runs (see
+  // WhatsappSettingsService) - after that, the admin UI (Settings > WhatsApp
+  // sign-in) is the source of truth and these are ignored.
+  //
+  // SETTINGS_ENCRYPTION_KEY encrypts the stored WhatsApp access token at rest.
+  // If unset, a key derived from JWT_REFRESH_SECRET is used instead.
+  @IsOptional()
+  @IsString()
+  SETTINGS_ENCRYPTION_KEY?: string;
+
+  @IsOptional()
+  @IsBooleanString()
+  WHATSAPP_ENABLED?: string;
+
+  @IsOptional()
+  @IsEnum({ META_CLOUD: 'META_CLOUD', CONSOLE: 'CONSOLE' })
+  WHATSAPP_PROVIDER?: string;
+
+  @IsOptional()
+  @IsString()
+  WHATSAPP_API_VERSION?: string;
+
+  @IsOptional()
+  @IsString()
+  WHATSAPP_PHONE_NUMBER_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  WHATSAPP_BUSINESS_ACCOUNT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  WHATSAPP_ACCESS_TOKEN?: string;
+
+  @IsOptional()
+  @IsString()
+  WHATSAPP_TEMPLATE_NAME?: string;
+
+  @IsOptional()
+  @IsString()
+  WHATSAPP_TEMPLATE_LANGUAGE?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

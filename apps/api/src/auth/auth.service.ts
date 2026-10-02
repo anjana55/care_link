@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -9,8 +9,16 @@ import { refreshTokens, users, caregivers, patients, emailVerificationTokens, ty
 import { JwtPayload } from './strategies/jwt.strategy';
 import { RegisterCaregiverDto } from './dto/register-caregiver.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
-import { generateRegistrationNumber, assertUniqueContactFields, assertKnownLocationPair } from '../caregivers/caregiver-creation.util';
+import {
+  generateRegistrationNumber,
+  assertUniqueContactFields,
+  assertKnownLocationPair,
+  selfRegisteredCaregiverValues,
+} from '../caregivers/caregiver-creation.util';
 import { EmailService } from '../email/email.service';
+import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
+import { assertNoWhatsappLoginForPhone } from './phone-accounts.util';
+import { normalizePhone } from '../common/utils/phone.util';
 
 // Self-registering roles must verify their email before their first login;
 // staff/admin/verifier accounts are created by an already-authenticated admin
@@ -28,11 +36,14 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly emailService: EmailService,
+    private readonly whatsappSettings: WhatsappSettingsService,
   ) {}
 
   async validateUser(email: string, password: string) {
     const [user] = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
-    if (!user || !user.isActive) {
+    // A WhatsApp-registered account has no password hash; it can only sign in
+    // with an OTP, so the email/password path always rejects it.
+    if (!user || !user.isActive || !user.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
     }
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
@@ -67,6 +78,7 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException('An account with this email already exists');
     }
+    await this.assertNoWhatsappLogin(caregiverFields.primaryPhone);
 
     const verificationToken = randomBytes(32).toString('hex');
 
@@ -89,35 +101,15 @@ export class AuthService {
 
       const caregiverId = uuid();
       const registrationNumber = await generateRegistrationNumber(txDb);
-      await tx.insert(caregivers).values({
-        id: caregiverId,
-        publicId: uuid(),
-        userId,
-        registrationNumber,
-        fullName: caregiverFields.fullName,
-        permanentAddress: caregiverFields.permanentAddress,
-        nic: caregiverFields.nic ?? null,
-        passportNumber: caregiverFields.passportNumber ?? null,
-        dateOfBirth: caregiverFields.dateOfBirth as unknown as Date,
-        gender: caregiverFields.gender,
-        civilStatus: caregiverFields.civilStatus,
-        heightIn: caregiverFields.heightIn ?? null,
-        weightKg: caregiverFields.weightKg ?? null,
-        primaryPhone: caregiverFields.primaryPhone,
-        secondaryPhone: caregiverFields.secondaryPhone ?? null,
-        emergencyContactName: caregiverFields.emergencyContactName,
-        emergencyContactNumber: caregiverFields.emergencyContactNumber,
-        emergencyContactRelationship: caregiverFields.emergencyContactRelationship,
-        policeDivision: caregiverFields.policeDivision ?? null,
-        policeStation: caregiverFields.policeStation ?? null,
-        district: caregiverFields.district ?? null,
-        city: caregiverFields.city ?? null,
-        postalCode: caregiverFields.postalCode ?? null,
-        status: 'DRAFT',
-        // Visible to staff immediately, same as a staff-entered DRAFT
-        // record - self-registration doesn't hide anyone from the ops view.
-        consentAcceptedAt: new Date(),
-      });
+      await tx.insert(caregivers).values(
+        selfRegisteredCaregiverValues({
+          id: caregiverId,
+          publicId: uuid(),
+          userId,
+          registrationNumber,
+          fields: caregiverFields,
+        }),
+      );
 
       await tx.insert(emailVerificationTokens).values({
         id: uuid(),
@@ -157,6 +149,7 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException('An account with this email already exists');
     }
+    await this.assertNoWhatsappLogin(phone);
 
     const verificationToken = randomBytes(32).toString('hex');
 
@@ -201,6 +194,17 @@ export class AuthService {
       // DEV-ONLY escape hatch - see the identical field on registerCaregiver.
       ...(this.config.get<string>('NODE_ENV') !== 'production' ? { devVerificationUrl: verificationUrl } : {}),
     };
+  }
+
+  /**
+   * An email sign-up whose phone number is already a WhatsApp login belongs to
+   * someone who has an account - point them at WhatsApp rather than creating a
+   * second identity for the same number.
+   */
+  private async assertNoWhatsappLogin(rawPhone: string | undefined) {
+    if (!rawPhone) return;
+    const { defaultCountryCode } = await this.whatsappSettings.getResolved();
+    await assertNoWhatsappLoginForPhone(this.db, normalizePhone(rawPhone, defaultCountryCode));
   }
 
   async verifyEmail(token: string) {
@@ -278,7 +282,7 @@ export class AuthService {
     // The account may have been deactivated, deleted, or had its role changed
     // since this token was issued - never mint new tokens from stale claims.
     const [account] = await this.db
-      .select({ email: users.email, role: users.role, isActive: users.isActive })
+      .select({ email: users.email, phone: users.phone, role: users.role, isActive: users.isActive })
       .from(users)
       .where(eq(users.id, payload.sub))
       .limit(1);
@@ -295,6 +299,7 @@ export class AuthService {
     return this.issueTokens({
       sub: payload.sub,
       email: account.email,
+      phone: account.phone,
       role: account.role,
       caregiverId: payload.caregiverId,
       patientId: payload.patientId,
@@ -310,6 +315,9 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Account not found');
     }
+    if (!user.passwordHash) {
+      throw new BadRequestException('This account signs in with WhatsApp and has no password to change');
+    }
     const matches = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!matches) {
       throw new UnauthorizedException('Current password is incorrect');
@@ -322,8 +330,21 @@ export class AuthService {
     await this.db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, userId));
   }
 
-  private async buildPayload(user: { id: string; email: string; role: UserRole }): Promise<JwtPayload> {
+  /**
+   * Issues the same access/refresh token pair email login does, for a user a
+   * different method has already authenticated (WhatsApp OTP). Everything
+   * downstream - roles, guards, caregiverId/patientId claims, refresh
+   * rotation, logout - is shared, which is what keeps WhatsApp users
+   * identical in access to email users.
+   */
+  async startSession(user: { id: string; email: string | null; phone?: string | null; role: UserRole }) {
+    await this.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
+    return this.issueTokens(await this.buildPayload(user));
+  }
+
+  private async buildPayload(user: { id: string; email: string | null; phone?: string | null; role: UserRole }): Promise<JwtPayload> {
     const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
+    if (user.phone) payload.phone = user.phone;
     if (user.role === 'CAREGIVER') {
       const [caregiver] = await this.db.select({ id: caregivers.id }).from(caregivers).where(eq(caregivers.userId, user.id)).limit(1);
       if (caregiver) payload.caregiverId = caregiver.id;
@@ -343,10 +364,18 @@ export class AuthService {
       expiresIn: (this.config.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m') as any,
     });
 
+    // A unique token id (`jti`) on the refresh token. Without it, two
+    // sessions minted for the same user within the same second carry identical
+    // claims and therefore sign to the *same string*, so they share one
+    // token_hash row: revoking "the old session" would also revoke (or fail
+    // to revoke) the new one. That matters for WhatsApp account recovery,
+    // which revokes every session and immediately issues a fresh one.
+
     const refreshExpiresIn = this.config.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d';
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.config.get<string>('JWT_REFRESH_SECRET'),
       expiresIn: refreshExpiresIn as any,
+      jwtid: uuid(),
     });
 
     await this.db.insert(refreshTokens).values({

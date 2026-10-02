@@ -412,12 +412,10 @@
         },
         "height_in": {
           "name": "height_in",
-          "type": "decimal",
+          "type": "decimal(5,1)",
           "primaryKey": false,
           "notNull": false,
-          "autoincrement": false,
-          "precision": 5,
-          "scale": 1
+          "autoincrement": false
         },
         "weight_kg": {
           "name": "weight_kg",

@@ -7,9 +7,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CheckCircle2, MessageCircle, Heart, Send } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-import { LanguageSwitcher } from '@/components/common/language-switcher';
+import { SiteHeader } from '@/components/layout/site-header';
+import { SiteFooter } from '@/components/layout/site-footer';
 import { HeroBanner } from '@/components/register/hero-banner';
 import { api, ApiError } from '@/lib/api/client';
+import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
+import { Input, Label } from '@/components/ui/input';
 
 interface RegisterResponse {
   patientId: string;
@@ -40,6 +43,7 @@ function makeRegisterSchema(t: (key: string) => string) {
 export default function RegisterPage() {
   const { t } = useTranslation();
   const formRef = useRef<HTMLDivElement>(null);
+  const { data: whatsapp } = useWhatsappConfig();
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<RegisterResponse | null>(null);
 
@@ -67,21 +71,10 @@ export default function RegisterPage() {
   };
 
   return (
-    <main>
-      <header className="border-b border-border bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/" className="text-sm font-semibold text-brand-dark">
-            {t('nav.brand')}
-          </Link>
-          <div className="flex items-center gap-3">
-            <LanguageSwitcher />
-            <Link href="/login" className="text-sm font-medium text-ink/60 hover:text-ink">
-              {t('nav.signIn')}
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader />
 
+      <main className="flex-1">
       {/* Hero - single-page site opens with a full banner, headline and a
           direct CTA down to the signup form, per the one-page brief. */}
       <section className="mx-auto grid max-w-5xl items-center gap-8 px-4 py-10 sm:grid-cols-2 sm:py-16">
@@ -151,38 +144,35 @@ export default function RegisterPage() {
 
             <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
               <div>
-                <label htmlFor="fullName" className="mb-1 block text-xs font-medium text-ink/60">
+                <Label htmlFor="fullName" >
                   {t('register.fullName')}
-                </label>
-                <input
+                </Label>
+                <Input
                   id="fullName"
-                  className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
                   {...register('fullName')}
                 />
                 {errors.fullName && <p className="mt-1 text-xs text-danger">{errors.fullName.message}</p>}
               </div>
 
               <div>
-                <label htmlFor="email" className="mb-1 block text-xs font-medium text-ink/60">
+                <Label htmlFor="email" >
                   {t('register.email')}
-                </label>
-                <input
+                </Label>
+                <Input
                   id="email"
                   type="email"
-                  className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
                   {...register('email')}
                 />
                 {errors.email && <p className="mt-1 text-xs text-danger">{errors.email.message}</p>}
               </div>
 
               <div>
-                <label htmlFor="phone" className="mb-1 block text-xs font-medium text-ink/60">
+                <Label htmlFor="phone" >
                   {t('register.phone')}
-                </label>
-                <input
+                </Label>
+                <Input
                   id="phone"
                   type="tel"
-                  className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
                   {...register('phone')}
                 />
                 {errors.phone && <p className="mt-1 text-xs text-danger">{errors.phone.message}</p>}
@@ -190,25 +180,23 @@ export default function RegisterPage() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="password" className="mb-1 block text-xs font-medium text-ink/60">
+                  <Label htmlFor="password" >
                     {t('register.password')}
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     id="password"
                     type="password"
-                    className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
                     {...register('password')}
                   />
                   {errors.password && <p className="mt-1 text-xs text-danger">{errors.password.message}</p>}
                 </div>
                 <div>
-                  <label htmlFor="confirmPassword" className="mb-1 block text-xs font-medium text-ink/60">
+                  <Label htmlFor="confirmPassword" >
                     {t('register.confirmPassword')}
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     id="confirmPassword"
                     type="password"
-                    className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
                     {...register('confirmPassword')}
                   />
                   {errors.confirmPassword && <p className="mt-1 text-xs text-danger">{errors.confirmPassword.message}</p>}
@@ -231,6 +219,15 @@ export default function RegisterPage() {
                 {isSubmitting ? '…' : t('register.submit')}
               </button>
 
+              {whatsapp?.customer.register && (
+                <p className="text-center text-sm text-ink/60">
+                  {t('whatsapp.register.noEmail')}{' '}
+                  <Link href="/register/whatsapp" className="font-medium text-brand-dark hover:underline">
+                    {t('whatsapp.register.link')}
+                  </Link>
+                </p>
+              )}
+
               <p className="text-center text-sm text-ink/60">
                 {t('register.alreadyHaveAccount')}{' '}
                 <Link href="/login" className="font-medium text-brand-dark hover:underline">
@@ -241,10 +238,9 @@ export default function RegisterPage() {
           </div>
         )}
       </section>
+      </main>
 
-      <footer className="border-t border-border py-6 text-center text-xs text-ink/40">
-        <p className="mx-auto max-w-2xl px-4">{t('footer.disclaimer')}</p>
-      </footer>
-    </main>
+      <SiteFooter />
+    </div>
   );
 }

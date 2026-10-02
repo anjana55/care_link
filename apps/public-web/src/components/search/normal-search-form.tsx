@@ -7,6 +7,7 @@ import { searchRequestSchema, type SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { useMetaSkills, useMetaLanguages, useMetaLocations } from '@/lib/hooks/use-public-search';
 import { cn } from '@/lib/utils';
+import { Input, Select, Label } from '@/components/ui/input';
 
 interface NormalSearchFormProps {
   onSubmit: (request: SearchRequest) => void;
@@ -157,46 +158,43 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
         <legend className="text-sm font-semibold text-ink/80">{t('normalSearch.patientSection')}</legend>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div>
-            <label htmlFor="patient-age" className="mb-1 block text-xs font-medium text-ink/60">
+            <Label htmlFor="patient-age" >
               {t('normalSearch.age')}
-            </label>
-            <input
+            </Label>
+            <Input
               id="patient-age"
               type="number"
               min={0}
               max={120}
               {...register('patient.age', { valueAsNumber: true })}
-              className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
-            />
+              />
           </div>
           <div>
-            <label htmlFor="patient-gender" className="mb-1 block text-xs font-medium text-ink/60">
+            <Label htmlFor="patient-gender" >
               {t('normalSearch.gender')}
-            </label>
-            <select
+            </Label>
+            <Select
               id="patient-gender"
               {...register('patient.gender')}
-              className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
               defaultValue=""
             >
               <option value="">—</option>
               <option value="MALE">{t('normalSearch.genderMale')}</option>
               <option value="FEMALE">{t('normalSearch.genderFemale')}</option>
-            </select>
+            </Select>
           </div>
         </div>
         <div>
-          <label htmlFor="medical-conditions" className="mb-1 block text-xs font-medium text-ink/60">
+          <Label htmlFor="medical-conditions" >
             {t('normalSearch.medicalConditions')}
-          </label>
-          <input
+          </Label>
+          <Input
             id="medical-conditions"
             value={conditionInput}
             onChange={(e) => setConditionInput(e.target.value)}
             onKeyDown={addCondition}
             placeholder={t('normalSearch.medicalConditionsPlaceholder')}
-            className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
-          />
+            />
           {medicalConditions.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
               {medicalConditions.map((c) => (
@@ -217,10 +215,10 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
         <legend className="text-sm font-semibold text-ink/80">{t('normalSearch.locationSection')}</legend>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="district" className="mb-1 block text-xs font-medium text-ink/60">
+            <Label htmlFor="district" >
               {t('normalSearch.district')} <span aria-hidden="true" className="text-danger">*</span>
-            </label>
-            <select
+            </Label>
+            <Select
               id="district"
               {...register('location.district')}
               // aria-required rather than `required`: the native attribute would
@@ -229,10 +227,7 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
               aria-required="true"
               aria-invalid={districtError ? true : undefined}
               aria-describedby={districtError ? 'district-error' : undefined}
-              className={cn(
-                'w-full rounded-DEFAULT border bg-white px-3 py-2 text-sm',
-                districtError ? 'border-danger' : 'border-border',
-              )}
+              className={districtError ? 'border-danger' : undefined}
               defaultValue=""
             >
               <option value="">{t('normalSearch.anyDistrict')}</option>
@@ -241,7 +236,7 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
                   {d}
                 </option>
               ))}
-            </select>
+            </Select>
             {districtError && (
               <p id="district-error" role="alert" className="mt-1 text-xs text-danger">
                 {districtError}
@@ -249,13 +244,12 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
             )}
           </div>
           <div>
-            <label htmlFor="city" className="mb-1 block text-xs font-medium text-ink/60">
+            <Label htmlFor="city" >
               {t('normalSearch.city')}
-            </label>
-            <select
+            </Label>
+            <Select
               id="city"
               {...register('location.city')}
-              className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
               defaultValue=""
             >
               <option value="">{t('normalSearch.anyCity')}</option>
@@ -264,7 +258,7 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
                   {c}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
       </fieldset>
@@ -293,28 +287,26 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="preferred-gender" className="mb-1 block text-xs font-medium text-ink/60">
+            <Label htmlFor="preferred-gender" >
               {t('normalSearch.preferredGender')}
-            </label>
-            <select
+            </Label>
+            <Select
               id="preferred-gender"
               {...register('caregiverGenderPreference')}
-              className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
               defaultValue="ANY"
             >
               <option value="ANY">{t('normalSearch.genderAny')}</option>
               <option value="FEMALE">{t('normalSearch.genderFemale')}</option>
               <option value="MALE">{t('normalSearch.genderMale')}</option>
-            </select>
+            </Select>
           </div>
           <div>
-            <label htmlFor="shift" className="mb-1 block text-xs font-medium text-ink/60">
+            <Label htmlFor="shift" >
               {t('normalSearch.shift')}
-            </label>
-            <select
+            </Label>
+            <Select
               id="shift"
               {...register('shift')}
-              className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
               defaultValue=""
             >
               <option value="">—</option>
@@ -322,7 +314,7 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
               <option value="NIGHT">{t('normalSearch.shiftNight')}</option>
               <option value="TWENTY_FOUR_HOUR_LIVE_IN">{t('normalSearch.shiftLiveIn')}</option>
               <option value="FLEXIBLE">{t('normalSearch.shiftFlexible')}</option>
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -337,9 +329,9 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="start-date" className="mb-1 block text-xs font-medium text-ink/60">
+            <Label htmlFor="start-date" >
               {t('normalSearch.startDate')} <span aria-hidden="true" className="text-danger">*</span>
-            </label>
+            </Label>
             <input
               id="start-date"
               type="date"
@@ -362,17 +354,16 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
             </p>
           </div>
           <div>
-            <label htmlFor="min-experience" className="mb-1 block text-xs font-medium text-ink/60">
+            <Label htmlFor="min-experience" >
               {t('normalSearch.minimumExperience')}
-            </label>
-            <input
+            </Label>
+            <Input
               id="min-experience"
               type="number"
               min={0}
               max={50}
               {...register('minimumExperienceYears', { valueAsNumber: true })}
-              className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
-            />
+              />
           </div>
         </div>
       </fieldset>
@@ -382,28 +373,26 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
         <legend className="text-sm font-semibold text-ink/80">{t('normalSearch.budgetSection')}</legend>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="daily-budget" className="mb-1 block text-xs font-medium text-ink/60">
+            <Label htmlFor="daily-budget" >
               {t('normalSearch.dailyBudget')}
-            </label>
-            <input
+            </Label>
+            <Input
               id="daily-budget"
               type="number"
               min={0}
               {...register('budget.dailyRate', { valueAsNumber: true })}
-              className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
-            />
+              />
           </div>
           <div>
-            <label htmlFor="monthly-budget" className="mb-1 block text-xs font-medium text-ink/60">
+            <Label htmlFor="monthly-budget" >
               {t('normalSearch.monthlyBudget')}
-            </label>
-            <input
+            </Label>
+            <Input
               id="monthly-budget"
               type="number"
               min={0}
               {...register('budget.monthlyRate', { valueAsNumber: true })}
-              className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm"
-            />
+              />
           </div>
         </div>
       </fieldset>

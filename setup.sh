@@ -120,7 +120,7 @@ else
     -e "s#yourdomain.example#${DOMAIN}#g" \
     "$ENV_FILE"
 
-  log "Generating random secrets (MySQL passwords, JWT signing keys)"
+  log "Generating random secrets (MySQL passwords, JWT signing keys, settings encryption key)"
   # The MySQL passwords are hex, not base64: they get interpolated straight
   # into the mysql:// DATABASE_URL in docker-compose.prod.yml, and base64's
   # alphabet ('/', '+', '=') is not URL-safe - a '/' truncates the authority
@@ -130,11 +130,13 @@ else
   MYSQL_ROOT_PASSWORD="$(openssl rand -hex 32)"
   JWT_ACCESS_SECRET="$(openssl rand -base64 48)"
   JWT_REFRESH_SECRET="$(openssl rand -base64 48)"
+  SETTINGS_ENCRYPTION_KEY="$(openssl rand -base64 48)"
   sed -i \
     -e "s#^MYSQL_PASSWORD=.*#MYSQL_PASSWORD=${MYSQL_PASSWORD}#" \
     -e "s#^MYSQL_ROOT_PASSWORD=.*#MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}#" \
     -e "s#^JWT_ACCESS_SECRET=.*#JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}#" \
     -e "s#^JWT_REFRESH_SECRET=.*#JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}#" \
+    -e "s#^SETTINGS_ENCRYPTION_KEY=.*#SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}#" \
     "$ENV_FILE"
 
   chmod 600 "$ENV_FILE"

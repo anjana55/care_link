@@ -6,7 +6,9 @@ import { api, clearTokens, getStoredTokens, storeTokens, type Tokens } from './c
 
 export interface AuthUser {
   userId: string;
-  email: string;
+  /** Null for accounts that signed up with WhatsApp instead of an email address. */
+  email: string | null;
+  phone?: string;
   role: 'ADMIN' | 'STAFF' | 'VERIFIER' | 'CAREGIVER';
   /** Present only when role === 'CAREGIVER': the caregiver record this login owns. */
   caregiverId?: string;
@@ -20,7 +22,7 @@ export function postLoginPath(user: AuthUser): string {
 function decodeJwt(token: string): AuthUser | null {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    return { userId: payload.sub, email: payload.email, role: payload.role, caregiverId: payload.caregiverId };
+    return { userId: payload.sub, email: payload.email ?? null, phone: payload.phone, role: payload.role, caregiverId: payload.caregiverId };
   } catch {
     return null;
   }

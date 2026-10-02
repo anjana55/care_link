@@ -2,7 +2,8 @@
   "nav": {
     "brand": "CareLink Finder",
     "signIn": "Sign in",
-    "signUp": "Sign up"
+    "signUp": "Sign up",
+    "backHome": "Back to home"
   },
   "hero": {
     "title": "Find the right caregiver",
@@ -62,7 +63,9 @@
     "extractedCare": "Care",
     "extractedPreferences": "Preferences",
     "editHint": "Edit anything that doesn't look right, then search.",
-    "searchWithThis": "Search with these requirements"
+    "searchWithThis": "Search with these requirements",
+    "extractedLine": "Requirement {value}",
+    "removeLine": "Remove {value}"
   },
   "results": {
     "title": "Caregivers matching your search",
@@ -73,7 +76,8 @@
     "viewProfile": "View profile",
     "page": "Page {page} of {totalPages}",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "approxAge": "{age} years"
   },
   "empty": {
     "title": "No caregivers matched those filters",
@@ -102,7 +106,10 @@
     "qualifications": "Qualifications",
     "contactCta": "Sign up to contact this caregiver",
     "saveCta": "Sign up to save this caregiver",
-    "notFound": "This caregiver profile isn't available."
+    "notFound": "This caregiver profile isn't available.",
+    "availabilityDay": "Day duty",
+    "availabilityNight": "Night duty",
+    "availabilityLiveIn": "24-hour live-in"
   },
   "registrationGate": {
     "title": "Create a free account to continue",
@@ -130,7 +137,10 @@
     "ctaButton": "Start searching"
   },
   "footer": {
-    "disclaimer": "Search results are ranked automatically based on the filters you provide. They are not a recommendation or guarantee of fit."
+    "disclaimer": "Search results are ranked automatically based on the filters you provide. They are not a recommendation or guarantee of fit.",
+    "navLabel": "Footer",
+    "finder": "Find a caregiver",
+    "apiDocs": "API docs"
   },
   "register": {
     "heroTitle": "Find and hire the right caregiver for your family",
@@ -186,5 +196,138 @@
     "errorBody": "This link is invalid or has expired. Request a new one from the sign-in page.",
     "backHome": "Back to home",
     "goToLogin": "Go to sign in"
+  },
+  "whatsapp": {
+    "unavailable": "WhatsApp sign-in is not available right now. Please use your email address instead.",
+    "login": {
+      "title": "Sign in with WhatsApp",
+      "subtitle": "We'll send a one-time code to your WhatsApp number.",
+      "phone": "WhatsApp number",
+      "phoneHint": "e.g. 0771234567 or +94771234567",
+      "sendCode": "Send code",
+      "error": "Could not send the code. Please try again.",
+      "lostAccess": "Lost access to your account?",
+      "backToWhatsapp": "Back to WhatsApp sign-in",
+      "useEmail": "Sign in with email instead",
+      "noEmail": "No email address?",
+      "useWhatsapp": "Sign in with WhatsApp"
+    },
+    "recover": {
+      "title": "Recover your account",
+      "subtitle": "Verify your WhatsApp number to sign back in. Other devices will be signed out."
+    },
+    "register": {
+      "title": "Sign up with WhatsApp",
+      "subtitle": "No email address needed - verify your WhatsApp number instead.",
+      "number": "WhatsApp number",
+      "numberHint": "We'll send a verification code to this number.",
+      "submit": "Create account",
+      "error": "Could not register. Please try again.",
+      "link": "Sign up with WhatsApp",
+      "noEmail": "No email address?",
+      "useEmail": "Sign up with email instead",
+      "verifyTitle": "Verify your WhatsApp number",
+      "verifyBody": "Your account has been created. Enter the code we sent to finish signing up.",
+      "notSent": "We could not send the code just now. Use \"Send a new code\" below.",
+      "validation": {
+        "numberRequired": "Please enter your WhatsApp number",
+        "numberInvalid": "Please enter a valid WhatsApp number"
+      }
+    },
+    "otp": {
+      "sentTo": "Enter the code sent to",
+      "code": "Verification code",
+      "devCode": "Development mode - code (not sent over WhatsApp)",
+      "verify": "Verify",
+      "error": "That code didn't work. Please try again.",
+      "resent": "A new code has been requested.",
+      "changeNumber": "Change number",
+      "resendIn": "Send a new code in",
+      "resend": "Send a new code"
+    }
+  },
+  "notFound": {
+    "title": "We couldn't find that page",
+    "body": "The link may be out of date, or the page may have moved.",
+    "home": "Back to home",
+    "search": "Find a caregiver"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "body": "This page ran into a problem. You can try again, or head back to the start.",
+    "reference": "Reference",
+    "retry": "Try again"
+  },
+  "landing": {
+    "pill": "Verified caregivers · Sri Lanka",
+    "heroTitle": "Find trusted caregivers. Manage care with confidence.",
+    "heroBody": "One platform for families, caregivers and care teams — search verified professionals by skill, language and location, and run the whole operation from a single staff portal.",
+    "ctaSearch": "Search caregivers",
+    "ctaRegister": "Join as a caregiver",
+    "statLocations": "1,800+",
+    "statLocationsLabel": "Locations covered",
+    "statLanguages": "3",
+    "statLanguagesLabel": "Languages: EN · සිං · தமி",
+    "statVerified": "100%",
+    "statVerifiedLabel": "Staff-verified profiles",
+    "panelTitle": "Care that starts with trust",
+    "panelBody": "Every profile is reviewed by our care team before it appears in search.",
+    "apps": {
+      "eyebrow": "The platform",
+      "title": "Everything in one place",
+      "body": "Each app is built for a different audience and shares the same verified caregiver data.",
+      "finder": {
+        "tag": "Public",
+        "title": "Caregiver Finder",
+        "body": "Search by skill, language, availability and location — with smart matching and privacy-safe profiles.",
+        "cta": "Open finder"
+      },
+      "account": {
+        "tag": "Caregivers & guardians",
+        "title": "Sign in / Register",
+        "body": "Caregivers build and maintain their profile; guardians register and verify their email to get started.",
+        "cta": "Sign in"
+      },
+      "register": {
+        "tag": "Families",
+        "title": "Create a free account",
+        "body": "Contact caregivers directly, save your favourites and send hire requests once you are signed up.",
+        "cta": "Create account"
+      },
+      "api": {
+        "tag": "Developers",
+        "title": "REST API",
+        "body": "The API behind every app, documented with interactive Swagger and role-based access.",
+        "cta": "View API docs"
+      }
+    },
+    "steps": {
+      "eyebrow": "How it works",
+      "title": "From sign-up to a verified match",
+      "step1Title": "Caregivers register",
+      "step1Body": "Create a profile with skills, languages, availability and documents.",
+      "step2Title": "Staff verify",
+      "step2Body": "Care teams review submissions and approve profiles for the public directory.",
+      "step3Title": "Families search",
+      "step3Body": "Filter and match by need, location and language, with personal details protected.",
+      "step4Title": "Admins oversee",
+      "step4Body": "Role-based access and a complete audit trail keep everything accountable."
+    },
+    "gallery": {
+      "eyebrow": "Why CareLink",
+      "title": "Built on trust",
+      "body": "The things that matter most when you are choosing someone to care for a family member.",
+      "verifiedTitle": "Verified qualifications",
+      "verifiedBody": "Credentials are checked against the issuing institution before a profile goes live.",
+      "languageTitle": "Care in your language",
+      "languageBody": "Search and sign up in English, Sinhala or Tamil.",
+      "privacyTitle": "Privacy by default",
+      "privacyBody": "Contact details, addresses and documents are never shown in public search."
+    },
+    "cta": {
+      "title": "Ready to get started?",
+      "body": "Families can search today. Caregivers can register in minutes. Staff sign in to manage it all.",
+      "button": "Find a caregiver"
+    }
   }
 }

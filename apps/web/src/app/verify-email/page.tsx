@@ -9,6 +9,7 @@ import { useAuth, postLoginPath } from '@/lib/api/auth-context';
 import { api, ApiError, type Tokens } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
+import { AuthHeader } from '@/components/layout/brand-mark';
 
 function VerifyEmailInner() {
   const { t } = useTranslation();
@@ -49,8 +50,10 @@ function VerifyEmailInner() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-4">
-      <div className="w-full max-w-sm rounded-lg border border-border bg-white p-8 text-center">
+    <div className="flex min-h-screen flex-col bg-paper">
+      <AuthHeader />
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="w-full max-w-sm rounded-lg border border-border bg-white p-8 text-center">
         {status === 'verifying' && <p className="text-sm text-ink/60">{t('verifyEmail.verifying')}</p>}
 
         {status === 'success' && (
@@ -81,6 +84,7 @@ function VerifyEmailInner() {
             </Link>
           </>
         )}
+        </div>
       </div>
     </div>
   );

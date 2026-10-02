@@ -7,7 +7,11 @@
     "locations": "Locations",
     "auditLog": "Audit log",
     "logout": "Log out",
-    "users": "Users"
+    "users": "Users",
+    "whatsappSettings": "WhatsApp sign-in",
+    "backToPublic": "Back to CareLink",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
   },
   "login": {
     "title": "Sign in",
@@ -433,5 +437,118 @@
     "confirmPassword": "Confirm new password",
     "mismatch": "New password and confirmation don't match.",
     "success": "Password changed."
+  },
+  "whatsapp": {
+    "unavailable": "WhatsApp sign-in is not available right now. Please use your email address instead.",
+    "login": {
+      "title": "Sign in with WhatsApp",
+      "subtitle": "We'll send a one-time code to your WhatsApp number",
+      "phone": "WhatsApp number",
+      "phoneHint": "e.g. 0771234567 or +94771234567",
+      "sendCode": "Send code",
+      "error": "Could not send the code. Please try again.",
+      "lostAccess": "Lost access to your account?",
+      "backToWhatsapp": "Back to WhatsApp sign-in",
+      "useEmail": "Sign in with email instead",
+      "noEmail": "No email address?",
+      "useWhatsapp": "Sign in with WhatsApp"
+    },
+    "recover": {
+      "title": "Recover your account",
+      "subtitle": "Verify your WhatsApp number to sign back in. Other devices will be signed out."
+    },
+    "register": {
+      "title": "Register with WhatsApp",
+      "subtitle": "No email address needed - verify your WhatsApp number instead",
+      "number": "WhatsApp number",
+      "numberHint": "We'll send a verification code to this number",
+      "primaryPhoneHint": "Primary phone is optional - your WhatsApp number is used if you leave it blank.",
+      "submit": "Register",
+      "error": "Could not register. Please try again.",
+      "link": "Register with WhatsApp",
+      "noEmail": "No email address?",
+      "useEmail": "Register with email instead",
+      "verifyTitle": "Verify your WhatsApp number",
+      "verifyBody": "Your account has been created. Enter the code we sent to finish registering.",
+      "regNumber": "Registration number:",
+      "notSent": "We could not send the code just now. Use \"Send a new code\" below.",
+      "validation": {
+        "number": {
+          "required": "WhatsApp number is required",
+          "invalid": "Enter a valid WhatsApp number"
+        }
+      }
+    },
+    "otp": {
+      "sentTo": "Enter the code sent to",
+      "code": "Verification code",
+      "devCode": "Development mode - code (not sent over WhatsApp)",
+      "verify": "Verify",
+      "error": "That code didn't work. Please try again.",
+      "resent": "A new code has been requested.",
+      "changeNumber": "Change number",
+      "resendIn": "Send a new code in",
+      "resend": "Send a new code"
+    }
+  },
+  "whatsappAdmin": {
+    "title": "WhatsApp sign-in",
+    "subtitle": "Let caregivers and customers without an email address register and sign in with a WhatsApp code. Email sign-in is not affected.",
+    "togglesTitle": "Availability",
+    "enabled": "Enable WhatsApp sign-in",
+    "enabledHint": "Master switch. When off, no WhatsApp registration, login or recovery works.",
+    "caregivers": "Caregivers",
+    "customers": "Customers",
+    "registration": "New registrations",
+    "registrationHint": "Existing sign-ups can still be completed",
+    "login": "Login",
+    "recovery": "Account recovery",
+    "deliveryTitle": "Delivery",
+    "provider": "Provider",
+    "providerMeta": "WhatsApp Business Cloud API (Meta)",
+    "providerConsole": "Console (development only)",
+    "consoleHint": "Codes are written to the server log and shown on screen instead of being sent. Not available in production.",
+    "phoneNumberId": "Phone number ID",
+    "businessAccountId": "Business account ID",
+    "accessToken": "Access token",
+    "tokenKeep": "leave blank to keep",
+    "tokenHint": "Stored encrypted and never shown again after saving.",
+    "tokenRemove": "Remove the stored token",
+    "apiBaseUrl": "API base URL",
+    "apiVersion": "API version",
+    "templateTitle": "Message template",
+    "templateName": "Template name",
+    "templateLanguage": "Template language",
+    "copyCode": "Template has a \"Copy code\" button",
+    "templateHint": "Use an approved WhatsApp authentication template that carries the code.",
+    "otpTitle": "One-time codes",
+    "otpLength": "Code length (digits)",
+    "otpTtl": "Code lifetime (seconds)",
+    "otpAttempts": "Wrong attempts allowed",
+    "otpCooldown": "Wait before resending (seconds)",
+    "otpPerHour": "Codes per number per hour",
+    "countryCode": "Default country code",
+    "countryCodeHint": "Digits only, e.g. 94. Applied to numbers written without a country code.",
+    "saved": "Saved",
+    "saveError": "Something went wrong",
+    "testTitle": "Send a test message",
+    "testHint": "Uses the saved settings to send a message, so you can check the credentials and template.",
+    "testPhone": "WhatsApp number",
+    "testSend": "Send test",
+    "testSaveFirst": "Save your changes before sending a test."
+  },
+  "brand": {
+    "name": "CareLink"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "That page doesn't exist or has moved.",
+    "home": "Go to dashboard",
+    "public": "Back to the CareLink site"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "body": "This page hit an unexpected error. Try again, or go back.",
+    "retry": "Try again"
   }
 }

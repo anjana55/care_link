@@ -8,8 +8,18 @@ export const users = mysqlTable(
   'users',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
-    email: varchar('email', { length: 255 }).notNull().unique(),
-    passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+    // Nullable since WhatsApp sign-in was added: a user who registers with a
+    // WhatsApp number has no email address (and so no password either).
+    // Staff/admin/verifier accounts and email-registered users always have both;
+    // MySQL's UNIQUE index allows any number of NULLs, so uniqueness of real
+    // addresses is unchanged.
+    email: varchar('email', { length: 255 }).unique(),
+    passwordHash: varchar('password_hash', { length: 255 }),
+    // WhatsApp identity, stored normalised to E.164 (e.g. +94771234567). Null
+    // for every email-registered account. phoneVerifiedAt is null until the
+    // registration OTP is confirmed; an unverified row never signs in.
+    phone: varchar('phone', { length: 20 }).unique(),
+    phoneVerifiedAt: datetime('phone_verified_at'),
     fullName: varchar('full_name', { length: 255 }).notNull(),
     role: mysqlEnum('role', userRoleEnum).notNull().default('STAFF'),
     isActive: boolean('is_active').notNull().default(true),

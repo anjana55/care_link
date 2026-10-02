@@ -5,6 +5,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
+import { SiteHeader } from '@/components/layout/site-header';
+import { SiteFooter } from '@/components/layout/site-footer';
 import { useAuth } from '@/lib/api/auth-context';
 import { api, type Tokens } from '@/lib/api/client';
 
@@ -35,8 +37,11 @@ function VerifyEmailInner() {
   }, [token]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-4">
-      <div className="w-full max-w-sm rounded-lg border border-border bg-white p-8 text-center">
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader maxWidth="sm" />
+
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="w-full max-w-sm rounded-lg border border-border bg-white p-8 text-center">
         {status === 'verifying' && <p className="text-sm text-ink/60">{t('verifyEmail.verifying')}</p>}
 
         {status === 'success' && (
@@ -62,7 +67,10 @@ function VerifyEmailInner() {
             </div>
           </>
         )}
+        </div>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

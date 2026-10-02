@@ -3,3 +3,4 @@
 // instead, so a backend consumer (apps/api) never needs a jsx compiler
 // setting just to read these type definitions.
 export * from './types/public-search';
+export * from './types/whatsapp';

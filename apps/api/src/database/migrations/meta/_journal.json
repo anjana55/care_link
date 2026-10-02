@@ -50,6 +50,13 @@
       "when": 1790490153585,
       "tag": "0006_rename_height_to_inches",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1790878323607,
+      "tag": "0007_add_whatsapp_auth",
+      "breakpoints": true
     }
   ]
 }

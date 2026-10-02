@@ -439,6 +439,57 @@ This prints the file's contents back to you. Read through it once -
 does every line have a real value, with no leftover `yourdomain.example`
 or blank `=` at the end of any line? If yes, move on.
 
+### 8.5 WhatsApp sign-in (optional)
+
+You can skip this whole section: WhatsApp sign-in is **off by default** and the app works
+exactly as before without it. Do it only if you want caregivers and customers *without an
+email address* to register and sign in with a one-time code sent over WhatsApp.
+
+**In your `.env.production`** the only value that matters is the key that encrypts the
+WhatsApp access token in the database. If you used `setup.sh` it was generated for you;
+otherwise generate one (the same way as in 8.2) and put it on the line:
+
+```
+SETTINGS_ENCRYPTION_KEY=<output of: openssl rand -base64 48>
+```
+
+If you leave it blank the app derives a key from `JWT_REFRESH_SECRET` instead, which works
+but means changing that secret later makes the stored token unreadable (you would simply
+paste it again). The other `WHATSAPP_*` lines in the file are optional and only *seed* the
+settings the first time the API starts - after that, the admin screen is the source of
+truth and editing them has no effect.
+
+**On the Meta side** (once, in [Meta for Developers](https://developers.facebook.com) and
+WhatsApp Manager):
+
+1. Create a Meta Business account and a WhatsApp Business app, and add a phone number.
+   Note its **Phone number ID** and your **WhatsApp Business Account ID**.
+2. Create a **System User** access token with the `whatsapp_business_messaging` permission
+   (use a permanent system-user token, not the 24-hour test token).
+3. In WhatsApp Manager create a message template in the **Authentication** category (this is
+   the type WhatsApp lets a business send to someone who hasn't messaged it first). Enable
+   the "copy code" button if you want it. Wait for it to be **approved** and note its exact
+   **name** and **language code**.
+
+**In the app**, sign in as an admin and open **Settings → WhatsApp sign-in** (staff app):
+
+1. Under *Delivery* choose *WhatsApp Business Cloud API (Meta)* and enter the phone number
+   ID, business account ID and access token.
+2. Under *Message template* enter the approved template's name and language, and tick
+   "copy code" only if the template has that button.
+3. Adjust the OTP rules if you like (defaults: 6 digits, 5 minutes, 5 attempts, 60 s
+   between sends, 5 codes per number per hour) and set the default country code (`94`).
+4. Save, then use **Send test** to send yourself a message and confirm it arrives.
+5. Finally tick **Enable WhatsApp sign-in** (you can restrict it to caregivers or
+   customers, and turn registration, login and recovery on and off individually) and save.
+
+The "WhatsApp" links then appear on the login and registration pages of both apps. Turning
+the master switch off hides them again and disables every WhatsApp endpoint immediately -
+existing email accounts and already-signed-in sessions are unaffected.
+
+The Console provider (codes written to `docker compose logs api` instead of sent) is for
+development only and is refused when `NODE_ENV=production`.
+
 ---
 
 ## Part 9 - Build the images

@@ -173,3 +173,43 @@ export interface StaffUser {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Public, secret-free view of WhatsApp sign-in availability (GET /auth/whatsapp/config). */
+export interface WhatsappPublicConfig {
+  enabled: boolean;
+  caregiver: { register: boolean; login: boolean; recovery: boolean };
+  customer: { register: boolean; login: boolean; recovery: boolean };
+  otpLength: number;
+  otpTtlSeconds: number;
+  resendCooldownSeconds: number;
+  defaultCountryCode: string;
+}
+
+export type WhatsappOtpPurpose = 'REGISTER' | 'LOGIN' | 'RECOVERY';
+
+/** Admin-managed WhatsApp settings (GET/PATCH /settings/whatsapp). The access token is never returned. */
+export interface WhatsappSettings {
+  enabled: boolean;
+  caregiverEnabled: boolean;
+  customerEnabled: boolean;
+  registrationEnabled: boolean;
+  loginEnabled: boolean;
+  recoveryEnabled: boolean;
+  provider: 'META_CLOUD' | 'CONSOLE';
+  apiBaseUrl: string;
+  apiVersion: string;
+  phoneNumberId: string | null;
+  businessAccountId: string | null;
+  accessTokenSet: boolean;
+  accessTokenHint: string | null;
+  templateName: string;
+  templateLanguage: string;
+  templateHasCopyCodeButton: boolean;
+  otpLength: number;
+  otpTtlSeconds: number;
+  otpMaxAttempts: number;
+  otpResendCooldownSeconds: number;
+  otpMaxSendsPerHour: number;
+  defaultCountryCode: string;
+  updatedAt: string;
+}

@@ -6,6 +6,7 @@ import { useTranslation } from '@/lib/i18n';
 import { useMetaSkills, useMetaLocations } from '@/lib/hooks/use-public-search';
 import { mockExtractRequirements } from '@/lib/ai/mock-extract';
 import { LoadingState } from '@/components/common/states';
+import { Input, Label, Textarea } from '@/components/ui/input';
 
 interface AiSearchPanelProps {
   onSubmit: (request: SearchRequest) => void;
@@ -62,16 +63,15 @@ export function AiSearchPanel({ onSubmit }: AiSearchPanelProps) {
   return (
     <div className="space-y-6">
       <form onSubmit={handleExtract} className="space-y-3">
-        <label htmlFor="ai-query" className="block text-sm font-semibold text-ink/80">
+        <Label htmlFor="ai-query">
           {t('aiSearch.label')}
-        </label>
-        <textarea
+        </Label>
+        <Textarea
           id="ai-query"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('aiSearch.placeholder')}
           rows={4}
-          className="w-full rounded-lg border border-border bg-white px-4 py-3 text-sm focus:border-brand focus:outline-none"
         />
         <p className="text-xs italic text-ink/50">{t('aiSearch.example')}</p>
         <button
@@ -100,15 +100,18 @@ export function AiSearchPanel({ onSubmit }: AiSearchPanelProps) {
                   <ul className="space-y-1.5">
                     {extracted.summary[group.key].map((line, i) => (
                       <li key={i} className="flex items-center gap-2">
-                        <input
+                        <Input
                           value={line}
                           onChange={(e) => updateSummaryLine(group.key, i, e.target.value)}
-                          className="flex-1 rounded-DEFAULT border border-border bg-white px-2 py-1 text-sm"
+                          aria-label={t('aiSearch.extractedLine', { value: line })}
+                          // One line of an extracted requirement, in a dense grid -
+                          // the standard field padding is taller than the row.
+                          className="flex-1 py-1"
                         />
                         <button
                           type="button"
                           onClick={() => removeSummaryLine(group.key, i)}
-                          aria-label={`Remove ${line}`}
+                          aria-label={t('aiSearch.removeLine', { value: line })}
                           className="text-ink/40 hover:text-danger"
                         >
                           ×

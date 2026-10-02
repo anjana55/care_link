@@ -7,12 +7,16 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuditModule } from '../audit/audit.module';
 import { EmailModule } from '../email/email.module';
+import { WhatsappModule } from '../whatsapp/whatsapp.module';
+import { WhatsappAuthService } from './whatsapp-auth.service';
+import { WhatsappAuthController } from './whatsapp-auth.controller';
 
 @Module({
   imports: [
     PassportModule,
     AuditModule,
     EmailModule,
+    WhatsappModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -25,8 +29,8 @@ import { EmailModule } from '../email/email.module';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy],
-  controllers: [AuthController],
+  providers: [AuthService, WhatsappAuthService, JwtStrategy],
+  controllers: [AuthController, WhatsappAuthController],
   exports: [AuthService],
 })
 export class AuthModule {}

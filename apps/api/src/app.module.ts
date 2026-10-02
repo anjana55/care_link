@@ -28,6 +28,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { HealthInformationModule } from './health-information/health-information.module';
 import { VerificationModule } from './verification/verification.module';
 import { PublicSearchModule } from './public-search/public-search.module';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { PublicSearchModule } from './public-search/public-search.module';
     HealthInformationModule,
     VerificationModule,
     PublicSearchModule,
+    WhatsappModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

@@ -12,7 +12,8 @@ export function ResultCard({ caregiver }: { caregiver: PublicCaregiverSummary })
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-ink/40">{t('profile.anonymousId', { id: caregiver.publicId.slice(0, 8) })}</p>
           <h3 className="mt-0.5 text-base font-semibold text-ink">
-            {caregiver.gender === 'FEMALE' ? '♀' : caregiver.gender === 'MALE' ? '♂' : ''} {caregiver.approxAge} years ·{' '}
+            {caregiver.gender === 'FEMALE' ? '♀' : caregiver.gender === 'MALE' ? '♂' : ''}{' '}
+            {t('results.approxAge', { age: caregiver.approxAge })} ·{' '}
             {t('results.yearsExperience', { years: caregiver.yearsExperience })}
           </h3>
         </div>

@@ -5,7 +5,9 @@ import { api, clearTokens, getStoredTokens, storeTokens, type Tokens } from './c
 
 export interface AuthUser {
   userId: string;
-  email: string;
+  /** Null for customers who signed up with WhatsApp instead of an email address. */
+  email: string | null;
+  phone?: string;
   role: 'PATIENT_GUARDIAN';
   patientId?: string;
 }
@@ -14,7 +16,7 @@ function decodeJwt(token: string): AuthUser | null {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
     if (payload.role !== 'PATIENT_GUARDIAN') return null;
-    return { userId: payload.sub, email: payload.email, role: payload.role, patientId: payload.patientId };
+    return { userId: payload.sub, email: payload.email ?? null, phone: payload.phone, role: payload.role, patientId: payload.patientId };
   } catch {
     return null;
   }

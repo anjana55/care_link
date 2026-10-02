@@ -13,7 +13,9 @@ import { Input, Label, FieldError, RequiredLegend } from '@/components/ui/input'
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
 import { makePersonalInfoSchema, requiredFieldsOf } from '@/lib/schemas/personal-info';
 import { useLocations } from '@/lib/hooks/use-caregivers';
+import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp';
 import type { Location } from '@/lib/api/types';
+import { AuthHeader } from '@/components/layout/brand-mark';
 
 const LOCALES: { value: Locale; label: string }[] = [
   { value: 'en', label: 'EN' },
@@ -26,6 +28,7 @@ export default function RegisterPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<RegisterResponse | null>(null);
   const { data: locations } = useLocations();
+  const { data: whatsapp } = useWhatsappConfig();
 
   // Create localized Zod schema using the t function
   const personalInfoSchemaLocalized = makePersonalInfoSchema(t);
@@ -106,10 +109,11 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-4 py-10">
-      <div className="w-full max-w-2xl">
+    <div className="flex min-h-screen flex-col bg-paper">
+      <AuthHeader />
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="w-full max-w-2xl">
         <div className="mb-6 flex flex-col items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded bg-brand text-base font-bold text-white">CP</div>
           <div className="flex items-center gap-4">
             <div className="flex overflow-hidden rounded border border-border">
               {LOCALES.map((l) => (
@@ -129,6 +133,14 @@ export default function RegisterPage() {
           <div className="text-center">
             <h1 className="text-lg font-semibold text-ink">{t('register.title')}</h1>
             <p className="text-sm text-ink/60">{t('register.subtitle')}</p>
+            {whatsapp?.caregiver.register && (
+              <p className="mt-2 text-sm text-ink/60">
+                {t('whatsapp.register.noEmail')}{' '}
+                <Link href="/register/whatsapp" className="font-medium text-brand-dark hover:underline">
+                  {t('whatsapp.register.link')}
+                </Link>
+              </p>
+            )}
           </div>
         </div>
 
@@ -185,6 +197,7 @@ export default function RegisterPage() {
             </Button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );

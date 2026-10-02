@@ -46,12 +46,16 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  // Mounted at the root, NOT at "api/docs". nginx proxies this app under
+  // /api/ and strips that prefix (see deploy/nginx.conf), so a path that
+  // repeats it - "api/docs" - is only reachable at the double-prefixed
+  // /api/api/docs and 404s at the /api/docs every other client assumes.
+  SwaggerModule.setup('docs', app, document);
 
   const port = config.get<number>('PORT') ?? 3001;
   await app.listen(port);
   console.log(`Care Platform API listening on port ${port}`);
-  console.log(`Swagger docs available at http://localhost:${port}/api/docs`);
+  console.log(`Swagger docs available at http://localhost:${port}/docs`);
 }
 
 bootstrap();

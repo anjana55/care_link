@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import type { Database } from '../database/database.module';
 import { caregivers, locations } from '../database/schema';
+import type { CreateCaregiverDto } from './dto/create-caregiver.dto';
 
 /**
  * Accepts either the top-level Database handle or a transaction handle from
@@ -95,4 +96,49 @@ export async function assertKnownLocationPair(
   if (!row) {
     throw new BadRequestException(`Unknown district/city combination: '${district}' / '${city}'`);
   }
+}
+
+/**
+ * The `caregivers` row a self-registration creates, shared by the email and
+ * WhatsApp sign-up paths so the two can never drift apart. Always DRAFT,
+ * always consented (the DTO already enforced that), and always owned by the
+ * login that created it.
+ */
+export function selfRegisteredCaregiverValues(params: {
+  id: string;
+  publicId: string;
+  userId: string;
+  registrationNumber: string;
+  fields: CreateCaregiverDto;
+}): typeof caregivers.$inferInsert {
+  const { id, publicId, userId, registrationNumber, fields } = params;
+  return {
+    id,
+    publicId,
+    userId,
+    registrationNumber,
+    fullName: fields.fullName,
+    permanentAddress: fields.permanentAddress,
+    nic: fields.nic ?? null,
+    passportNumber: fields.passportNumber ?? null,
+    dateOfBirth: fields.dateOfBirth as unknown as Date,
+    gender: fields.gender,
+    civilStatus: fields.civilStatus,
+    heightIn: fields.heightIn ?? null,
+    weightKg: fields.weightKg ?? null,
+    primaryPhone: fields.primaryPhone,
+    secondaryPhone: fields.secondaryPhone ?? null,
+    emergencyContactName: fields.emergencyContactName,
+    emergencyContactNumber: fields.emergencyContactNumber,
+    emergencyContactRelationship: fields.emergencyContactRelationship,
+    policeDivision: fields.policeDivision ?? null,
+    policeStation: fields.policeStation ?? null,
+    district: fields.district ?? null,
+    city: fields.city ?? null,
+    postalCode: fields.postalCode ?? null,
+    status: 'DRAFT',
+    // Visible to staff immediately, same as a staff-entered DRAFT
+    // record - self-registration doesn't hide anyone from the ops view.
+    consentAcceptedAt: new Date(),
+  };
 }
