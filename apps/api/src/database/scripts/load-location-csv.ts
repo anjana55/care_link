@@ -179,11 +179,20 @@ export function parseLocationCsvs(): { provinces: ProvinceRow[]; districts: Dist
 export async function loadLocationCsvs(db: Database): Promise<{ provinces: number; districts: number; cities: number }> {
   const { provinces: provinceRows, districts: districtRows, cities: cityRows } = parseLocationCsvs();
 
-  // Leaves most of cities (or the row's district) with no district.
-  const parentIds = districtRows.map((r) => r.id);
-  await db.delete(cities).where(sql`${cities.districtId} NOT IN ${parentIds}`);
-  await db.delete(districts).where(sql`${districts.id} NOT IN ${provinceRows.map((r) => r.id)}`);
-  await db.delete(provinces).where(sql`${provinces.id} NOT IN ${provinceRows.map((r) => r.id)}`);
+  // Child rows first: a district cannot go while a city still points at it,
+  // and a province cannot go while a district does. Each delete therefore
+  // compares against the id list of its OWN table as the CSVs define it.
+  //
+  // The three lists are genuinely different - provinces are 1-9, districts
+  // 1-25, cities non-sequential - so they are named apart rather than shared.
+  // They used to be confused, and a district delete fed the province ids
+  // matched districts 10-25, 16 districts that all have cities; MySQL refused
+  // with ER_ROW_IS_REFERENCED_2 and the whole production seed aborted.
+  const districtIds = districtRows.map((r) => r.id);
+  const provinceIds = provinceRows.map((r) => r.id);
+  await db.delete(cities).where(sql`${cities.districtId} NOT IN ${districtIds}`);
+  await db.delete(districts).where(sql`${districts.id} NOT IN ${districtIds}`);
+  await db.delete(provinces).where(sql`${provinces.id} NOT IN ${provinceIds}`);
 
   // Batched: 2155 cities in one INSERT would exceed max_allowed_packet once
   // the Sinhala and Tamil names are included.
