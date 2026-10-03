@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ValidationPipe, INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { SEED_PASSWORD } from './seed-password';
 
 describe('Care Platform API (e2e)', () => {
   let app: INestApplication;
@@ -18,12 +19,12 @@ describe('Care Platform API (e2e)', () => {
 
     const adminLogin = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: 'admin@care-platform.local', password: 'ChangeMe123!' });
+      .send({ email: 'admin@care-platform.local', password: SEED_PASSWORD });
     adminToken = adminLogin.body.accessToken;
 
     const staffLogin = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: 'staff@care-platform.local', password: 'ChangeMe123!' });
+      .send({ email: 'staff@care-platform.local', password: SEED_PASSWORD });
     staffToken = staffLogin.body.accessToken;
   });
 

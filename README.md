@@ -79,7 +79,11 @@ npm install
 npm run dev                   # http://localhost:3000
 ```
 
-Seeded logins (password for all: `ChangeMe123!`):
+`npm run db:seed` creates one demo account per role so you have something to log in
+with locally. It prints each account's generated password once, at the end of the
+run — the passwords are not stored in this file, in the source, or anywhere else
+that gets committed. Set `SEED_PASSWORD` beforehand if you need a known value
+(for instance when the e2e tests will log in afterwards):
 
 | Role       | Email                              | Can access                                    |
 |------------|--------------------------------------|------------------------------------------------|
@@ -101,6 +105,14 @@ npm run test:e2e -- --forceExit       # e2e tests against a live MySQL connectio
 
 `--forceExit` is needed because the mysql2 connection pool keeps the process alive
 after the test suite finishes; it does not indicate a failing test.
+
+The e2e tests log in as the seeded demo accounts, and the seed picks a random
+password unless you pin one. Seed and test with the same value:
+
+```bash
+SEED_PASSWORD=<password> npm run db:seed
+SEED_PASSWORD=<password> npm run test:e2e -- --forceExit
+```
 
 `test/whatsapp-auth.e2e-spec.ts` covers WhatsApp sign-in end to end (registration, login,
 recovery and logout for caregivers and customers; invalid, expired, reused and locked-out

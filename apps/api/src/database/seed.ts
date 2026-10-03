@@ -3,9 +3,30 @@ import * as bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { eq } from 'drizzle-orm';
 import * as mysql from 'mysql2/promise';
-import { randomUUID as uuid } from 'crypto';
+import { randomBytes, randomUUID as uuid } from 'crypto';
 import * as schema from './schema';
 import { seedReferenceData } from './seed-reference-data';
+
+/**
+ * The password given to every demo account this script creates.
+ *
+ * Read from the environment so the literal never sits in the source, in a
+ * screenshot of the seed output, or in a README. Falls back to a freshly
+ * generated one, which is what happens on a normal local run and the common
+ * case anyway - it is printed at the end of the run, exactly once, so the
+ * accounts are still usable without anyone editing a file.
+ *
+ * Set SEED_PASSWORD only when something else has to log in afterwards
+ * without reading the seed output - the e2e suites do this, since they cannot
+ * capture what a separate process printed.
+ */
+function seedPassword(): string {
+  const fromEnv = process.env.SEED_PASSWORD;
+  if (fromEnv) return fromEnv;
+  // Alphanumeric only: this gets typed by a human into a login form, and
+  // shell-hostile characters are easy to mistype when copying from a terminal.
+  return randomBytes(18).toString('base64url');
+}
 
 async function main() {
   const connection = await mysql.createConnection(requireDatabaseUrl());
@@ -14,40 +35,39 @@ async function main() {
   const { skillIds, languageIds, locationIds } = await seedReferenceData(db);
 
   console.log('Seeding admin + staff users...');
-  const adminPasswordHash = await bcrypt.hash('ChangeMe123!', 12);
+  const demoPassword = seedPassword();
+  const demoPasswordHash = await bcrypt.hash(demoPassword, 12);
   const adminId = uuid();
   await db
     .insert(schema.users)
     .values({
       id: adminId,
       email: 'admin@care-platform.local',
-      passwordHash: adminPasswordHash,
+      passwordHash: demoPasswordHash,
       fullName: 'Platform Administrator',
       role: 'ADMIN',
       emailVerifiedAt: new Date(),
     })
     .onDuplicateKeyUpdate({ set: { fullName: 'Platform Administrator' } });
 
-  const staffPasswordHash = await bcrypt.hash('ChangeMe123!', 12);
   await db
     .insert(schema.users)
     .values({
       id: uuid(),
       email: 'staff@care-platform.local',
-      passwordHash: staffPasswordHash,
+      passwordHash: demoPasswordHash,
       fullName: 'Registration Staff',
       role: 'STAFF',
       emailVerifiedAt: new Date(),
     })
     .onDuplicateKeyUpdate({ set: { fullName: 'Registration Staff' } });
 
-  const verifierPasswordHash = await bcrypt.hash('ChangeMe123!', 12);
   await db
     .insert(schema.users)
     .values({
       id: uuid(),
       email: 'verifier@care-platform.local',
-      passwordHash: verifierPasswordHash,
+      passwordHash: demoPasswordHash,
       fullName: 'Document Verifier',
       role: 'VERIFIER',
       emailVerifiedAt: new Date(),
@@ -55,13 +75,12 @@ async function main() {
     .onDuplicateKeyUpdate({ set: { fullName: 'Document Verifier' } });
 
   console.log('Seeding a demo self-registered caregiver account...');
-  const selfRegPasswordHash = await bcrypt.hash('ChangeMe123!', 12);
   await db
     .insert(schema.users)
     .values({
       id: uuid(),
       email: 'selfregistered@care-platform.local',
-      passwordHash: selfRegPasswordHash,
+      passwordHash: demoPasswordHash,
       fullName: 'Dilani Rathnayake',
       role: 'CAREGIVER',
       emailVerifiedAt: new Date(),
@@ -302,10 +321,18 @@ async function main() {
   }
 
   console.log('Seed complete.');
-  console.log('Admin login: admin@care-platform.local / ChangeMe123!');
-  console.log('Staff login: staff@care-platform.local / ChangeMe123!');
-  console.log('Verifier login: verifier@care-platform.local / ChangeMe123!');
-  console.log('Self-registered caregiver login: selfregistered@care-platform.local / ChangeMe123!');
+  console.log('');
+  console.log('Demo accounts created. They all share one generated password:');
+  console.log('');
+  console.log(`    ${demoPassword}`);
+  console.log('');
+  console.log('  ADMIN      admin@care-platform.local');
+  console.log('  STAFF      staff@care-platform.local');
+  console.log('  VERIFIER   verifier@care-platform.local');
+  console.log('  CAREGIVER  selfregistered@care-platform.local');
+  console.log('');
+  console.log('This is printed once and is not stored anywhere. Re-run with');
+  console.log('SEED_PASSWORD=<password> to set a known one instead.');
 
   await connection.end();
 }

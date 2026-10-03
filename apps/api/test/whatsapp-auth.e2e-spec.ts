@@ -6,6 +6,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
 import { users, caregivers, patients, whatsappAuthSettings } from '../src/database/schema';
+import { SEED_PASSWORD } from './seed-password';
 
 /**
  * End-to-end coverage for WhatsApp OTP sign-in, run against the real database
@@ -117,8 +118,8 @@ describe('WhatsApp authentication (e2e)', () => {
     db = app.get<Database>(DRIZZLE);
     http = request(app.getHttpServer());
 
-    adminToken = (await http.post('/auth/login').send({ email: 'admin@care-platform.local', password: 'ChangeMe123!' })).body.accessToken;
-    staffToken = (await http.post('/auth/login').send({ email: 'staff@care-platform.local', password: 'ChangeMe123!' })).body.accessToken;
+    adminToken = (await http.post('/auth/login').send({ email: 'admin@care-platform.local', password: SEED_PASSWORD })).body.accessToken;
+    staffToken = (await http.post('/auth/login').send({ email: 'staff@care-platform.local', password: SEED_PASSWORD })).body.accessToken;
 
     // Known starting point for every run: dev console provider, default policy.
     await setSettings({
@@ -438,7 +439,7 @@ describe('WhatsApp authentication (e2e)', () => {
     beforeAll(async () => {
       waCaregiver = await verifiedCaregiver();
       waPatient = await verifiedPatient();
-      const res = await http.post('/auth/login').send({ email: 'selfregistered@care-platform.local', password: 'ChangeMe123!' }).expect(201);
+      const res = await http.post('/auth/login').send({ email: 'selfregistered@care-platform.local', password: SEED_PASSWORD }).expect(201);
       emailCaregiverToken = res.body.accessToken;
       emailCaregiverId = decodeJwt(emailCaregiverToken).caregiverId;
     });
@@ -887,14 +888,14 @@ describe('WhatsApp authentication (e2e)', () => {
   describe('email/password authentication is unchanged', () => {
     it('still logs in the seeded users', async () => {
       for (const email of ['admin@care-platform.local', 'staff@care-platform.local', 'verifier@care-platform.local', 'selfregistered@care-platform.local']) {
-        const res = await api().post('/auth/login').send({ email, password: 'ChangeMe123!' }).expect(201);
+        const res = await api().post('/auth/login').send({ email, password: SEED_PASSWORD }).expect(201);
         expect(decodeJwt(res.body.accessToken).email).toBe(email);
       }
     });
 
     it('still rejects bad credentials and bad emails', async () => {
       await api().post('/auth/login').send({ email: 'admin@care-platform.local', password: 'wrong-password' }).expect(401);
-      await api().post('/auth/login').send({ email: 'not-an-email', password: 'ChangeMe123!' }).expect(400);
+      await api().post('/auth/login').send({ email: 'not-an-email', password: SEED_PASSWORD }).expect(400);
     });
 
     it('still registers, verifies and logs in an email customer end to end', async () => {
@@ -932,7 +933,7 @@ describe('WhatsApp endpoint rate limiting (e2e)', () => {
 
   beforeAll(async () => {
     app = await buildApp({ throttle: true });
-    adminToken = (await request(app.getHttpServer()).post('/auth/login').send({ email: 'admin@care-platform.local', password: 'ChangeMe123!' })).body.accessToken;
+    adminToken = (await request(app.getHttpServer()).post('/auth/login').send({ email: 'admin@care-platform.local', password: SEED_PASSWORD })).body.accessToken;
     await request(app.getHttpServer()).patch('/settings/whatsapp').set({ Authorization: `Bearer ${adminToken}` }).send({ enabled: true, provider: 'CONSOLE' }).expect(200);
   });
   afterAll(async () => {

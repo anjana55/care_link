@@ -11,7 +11,7 @@ import { AuthHeader } from '@/components/layout/brand-mark';
 export default function LoginPage() {
   const { t } = useTranslation();
   const { login } = useAuth();
-  const [email, setEmail] = useState('admin@care-platform.local');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,10 +68,6 @@ export default function LoginPage() {
             {loading ? t('common.loading') : t('login.submit')}
           </Button>
         </form>
-
-        <p className="mt-4 text-center text-xs text-ink/40">
-          admin@care-platform.local · staff@care-platform.local · verifier@care-platform.local · selfregistered@care-platform.local — password ChangeMe123!
-        </p>
 
         {/*
           A plain <a>, not <Link>: caregiver sign-up is served by the
