@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 
-# apps/web has no dependency on packages/shared, so its build context is
-# just the app itself - still built from the monorepo root so the root
-# package-lock.json (a single lockfile for all workspaces) is available.
+# Built from the monorepo root (see docker-compose.prod.yml's `context: .`)
+# because apps/web depends on the packages/shared workspace - the Locale type
+# its i18n provider and location hooks import.
 #
 #   docker build -f apps/web/Dockerfile -t care-platform-web .
 
@@ -11,9 +11,11 @@ WORKDIR /repo
 
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/package.json
+COPY packages/shared/package.json packages/shared/package.json
 RUN npm ci
 
 COPY apps/web apps/web
+COPY packages/shared packages/shared
 # See apps/public-web/Dockerfile - same NEXT_PUBLIC_* build-time caveat.
 ARG NEXT_PUBLIC_API_URL=http://localhost:3001
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
