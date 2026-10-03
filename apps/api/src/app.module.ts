@@ -17,6 +17,7 @@ import { SkillsModule } from './skills/skills.module';
 import { LanguagesModule } from './languages/languages.module';
 import { LocationsModule } from './locations/locations.module';
 import { CaregiversModule } from './caregivers/caregivers.module';
+import { PatientsModule } from './patients/patients.module';
 import { QualificationsModule } from './qualifications/qualifications.module';
 import { ExperiencesModule } from './experiences/experiences.module';
 import { AvailabilityModule } from './availability/availability.module';
@@ -53,6 +54,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     LanguagesModule,
     LocationsModule,
     CaregiversModule,
+    PatientsModule,
     QualificationsModule,
     ExperiencesModule,
     AvailabilityModule,

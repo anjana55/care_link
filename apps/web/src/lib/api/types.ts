@@ -9,6 +9,9 @@ export type CaregiverStatus =
   | 'SUSPENDED'
   | 'REJECTED';
 
+/** Client status ladder - mirrors clientStatusEnum on the API. */
+export type ClientStatus = 'PENDING_REVIEW' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+
 export interface CaregiverListItem {
   id: string;
   registrationNumber: string;
@@ -255,4 +258,34 @@ export interface WhatsappSettings {
   otpMaxSendsPerHour: number;
   defaultCountryCode: string;
   updatedAt: string;
+}
+
+/**
+ * A registered patient/guardian, as returned by the staff clients endpoints.
+ *
+ * `phone` is masked on the list endpoint and raw on the detail endpoint (the
+ * same split the caregiver list uses). `email` is null for a WhatsApp-only
+ * client, who never supplied one.
+ */
+export interface Client {
+  id: string;
+  userId: string;
+  fullName: string;
+  phone: string | null;
+  status: ClientStatus;
+  consentAcceptedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  email: string | null;
+  isActive: boolean;
+  emailVerifiedAt: string | null;
+  lastLoginAt: string | null;
+}
+
+export interface ClientListResponse {
+  items: Client[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }

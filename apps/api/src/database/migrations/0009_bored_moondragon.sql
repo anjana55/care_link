@@ -1,0 +1,2 @@
+ALTER TABLE `patients` ADD `status` enum('PENDING_REVIEW','ACTIVE','INACTIVE','SUSPENDED') DEFAULT 'PENDING_REVIEW' NOT NULL;--> statement-breakpoint
+CREATE INDEX `patients_status_idx` ON `patients` (`status`);

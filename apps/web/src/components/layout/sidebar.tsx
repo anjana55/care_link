@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, Sparkles, Languages, MapPin, ScrollText, ShieldCheck, MessageCircle } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Sparkles, Languages, MapPin, ScrollText, ShieldCheck, MessageCircle } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,9 @@ import { BrandMark } from '@/components/layout/brand-mark';
 const ITEMS = [
   { href: '/dashboard', key: 'nav.dashboard', icon: LayoutDashboard },
   { href: '/caregivers', key: 'nav.caregivers', icon: Users },
+  // Clients = registered patients/guardians. Lives in ITEMS rather than
+  // ADMIN_ITEMS because the API allows ADMIN + STAFF (not just ADMIN).
+  { href: '/clients', key: 'nav.clients', icon: HeartHandshake },
   { href: '/skills', key: 'nav.skills', icon: Sparkles },
   { href: '/languages', key: 'nav.languages', icon: Languages },
   { href: '/locations', key: 'nav.locations', icon: MapPin },

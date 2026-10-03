@@ -140,7 +140,16 @@ export class WhatsappAuthService {
           isActive: true,
         });
         const patientId = uuid();
-        await tx.insert(patients).values({ id: patientId, userId, fullName: dto.fullName, phone, consentAcceptedAt: new Date() });
+        await tx.insert(patients).values({
+          id: patientId,
+          userId,
+          fullName: dto.fullName,
+          phone,
+          consentAcceptedAt: new Date(),
+          // Every self-registered client starts unreviewed; staff promote it
+          // to ACTIVE from the staff app.
+          status: 'PENDING_REVIEW',
+        });
         return { userId, patientId };
       }),
     );

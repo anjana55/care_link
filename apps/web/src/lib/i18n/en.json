@@ -11,7 +11,8 @@
     "whatsappSettings": "WhatsApp sign-in",
     "backToPublic": "Back to CareLink",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "clients": "Clients"
   },
   "login": {
     "title": "Sign in",
@@ -550,5 +551,58 @@
     "title": "Something went wrong",
     "body": "This page hit an unexpected error. Try again, or go back.",
     "retry": "Try again"
+  },
+  "clients": {
+    "title": "Clients",
+    "subtitle": "Patients and guardians registered through the public site.",
+    "search": "Search by name, phone or email",
+    "empty": "No clients match your search yet.",
+    "deleteTitle": "Delete client",
+    "confirmDelete": "This permanently deletes the client account and cannot be undone.",
+    "table": {
+      "name": "Name",
+      "phone": "Phone",
+      "email": "Email",
+      "status": "Status",
+      "account": "Account",
+      "registered": "Registered",
+      "lastLogin": "Last login",
+      "actions": "Actions"
+    },
+    "status": {
+      "PENDING_REVIEW": "Pending review",
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive",
+      "SUSPENDED": "Suspended"
+    },
+    "account": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "never": "Never",
+    "back": "Back",
+    "detail": {
+      "contact": "Contact",
+      "account": "Account",
+      "registration": "Registration",
+      "email": "Email",
+      "emailUnverified": "Not verified",
+      "noEmail": "No email (WhatsApp only)",
+      "phone": "Phone",
+      "status": "Status",
+      "isActive": "Account status",
+      "emailVerified": "Email verified",
+      "lastLogin": "Last login",
+      "registered": "Registered",
+      "consent": "Consent to data processing",
+      "notRecorded": "Not recorded"
+    },
+    "actions": {
+      "activate": "Activate account",
+      "deactivate": "Deactivate account",
+      "delete": "Delete"
+    },
+    "changeStatus": "Change status",
+    "statusChanged": "Status updated."
   }
 }

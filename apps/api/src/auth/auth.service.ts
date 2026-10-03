@@ -174,6 +174,9 @@ export class AuthService {
         fullName,
         phone: phone ?? null,
         consentAcceptedAt: new Date(),
+        // Every self-registered client starts unreviewed; staff promote it to
+        // ACTIVE from the staff app.
+        status: 'PENDING_REVIEW',
       });
 
       await tx.insert(emailVerificationTokens).values({
