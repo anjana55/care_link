@@ -15,6 +15,11 @@ RUN npm ci
 
 COPY apps/public-web apps/public-web
 COPY packages/shared packages/shared
+# shared FIRST: its package.json points `main`/`exports` at dist/, so Next
+# resolves @care-platform/shared to dist/index.js. Only the build outputs
+# matter here - the "./i18n" subpath still points at the raw .tsx source,
+# which is what lets Next apply the 'use client' directive.
+RUN npm run build -w @care-platform/shared
 # NEXT_PUBLIC_* values are baked into the client bundle at build time, not
 # read at container start - they must be supplied as build args, and the
 # image rebuilt whenever the API's public URL changes.

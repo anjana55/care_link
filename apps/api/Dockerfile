@@ -21,6 +21,11 @@ RUN npm ci
 
 COPY apps/api apps/api
 COPY packages/shared packages/shared
+# shared FIRST: its package.json points `main` at dist/, so the API's own
+# compile has to be able to read dist/index.d.ts. Built as CommonJS because
+# this image runs `node dist/src/main.js` with no transpiler - Node loads
+# packages/shared/dist/index.js directly.
+RUN npm run build -w @care-platform/shared
 RUN npm run build -w @care-platform/api
 # Strips devDependencies (typescript, jest, ts-node, ...) from node_modules
 # without needing a second, separate `npm ci --omit=dev` pass (which would

@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // apps/api is CommonJS (`module: "commonjs"`, nest build to dist/), and it
+    // consumes this package at runtime with require(). Emitting CommonJS here
+    // is what lets a plain `node dist/src/main.js` load the API without a
+    // loader, transpiler or --experimental-* flag.
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    // The base config targets ESNext modules for the two frontends' bundler
+    // resolution; that is not a thing CommonJS output can be, so pin it here.
+    "isolatedModules": false
+  },
+  // Deliberately narrower than the base config's `include: ["src"]`.
+  //
+  // Only the types-only root entry is compiled. `src/i18n/create-i18n.tsx` is
+  // JSX, carries a 'use client' directive and needs React to typecheck - and
+  // the API never imports it (see index.ts). The frontends still consume it
+  // as raw source through the "./i18n" export below, compiled by their own
+  // bundler, which is the only thing that can honour 'use client' anyway.
+  "include": ["src/index.ts", "src/types/**/*.ts"]
+}

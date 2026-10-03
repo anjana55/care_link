@@ -16,6 +16,11 @@ RUN npm ci
 
 COPY apps/web apps/web
 COPY packages/shared packages/shared
+# shared FIRST: its package.json points `main`/`exports` at dist/, so Next
+# resolves @care-platform/shared to dist/index.js. Only the build outputs
+# matter here - the "./i18n" subpath still points at the raw .tsx source,
+# which is what lets Next apply the 'use client' directive.
+RUN npm run build -w @care-platform/shared
 # See apps/public-web/Dockerfile - same NEXT_PUBLIC_* build-time caveat.
 ARG NEXT_PUBLIC_API_URL=http://localhost:3001
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
