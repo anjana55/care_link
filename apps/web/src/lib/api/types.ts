@@ -31,7 +31,9 @@ export interface CaregiverSearchFilters {
   gender?: string;
   skillIds?: string[];
   languageIds?: string[];
-  locationIds?: string[];
+  /** City ids. The API matches on the caregiver's own city or on one of their
+   *  preferred work cities. */
+  locationIds?: number[];
   dayDuty?: boolean;
   nightDuty?: boolean;
   liveIn24h?: boolean;
@@ -80,6 +82,10 @@ export interface CaregiverDetail {
   policeDivision: string | null;
   policeStation: string | null;
   status: CaregiverStatus;
+  /** Ids are the source of truth and what the edit form round-trips; the names
+   *  and postcode beside them are derived server-side display caches. */
+  districtId: number | null;
+  cityId: number | null;
   district: string | null;
   city: string | null;
   postalCode: string | null;
@@ -108,11 +114,48 @@ export interface Language {
   code: string | null;
 }
 
-export interface Location {
-  id: string;
+/**
+ * A province -> district node of the locations reference data. Names are
+ * already resolved to the caller's language by the API, so there is one `name`
+ * rather than a column per locale. The whole tree is 34 rows and worth caching;
+ * the 2155 cities underneath it are fetched per district.
+ */
+export interface LocationProvince {
+  id: number;
+  name: string;
+  districts: LocationDistrict[];
+}
+
+export interface LocationDistrict {
+  id: number;
+  name: string;
+}
+
+export interface LocationCity {
+  id: number;
+  name: string;
+  subName: string | null;
+  /** A string, not a number: 47 of the real postcodes begin with 0. */
+  postcode: string | null;
+  latitude: number;
+  longitude: number;
+}
+
+/** The same city as the read-only browse page returns it, with the parent
+ *  names resolved so a result row can show its district without a second
+ *  request per row. */
+export interface BrowsableCity extends LocationCity {
+  districtId: number;
   district: string;
-  city: string;
   province: string;
+}
+
+/** One page of the staff browse page, plus the total for its pager. */
+export interface PagedCities {
+  items: BrowsableCity[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface Qualification {

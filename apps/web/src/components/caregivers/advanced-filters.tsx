@@ -1,7 +1,8 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { SlidersHorizontal, X } from 'lucide-react';
-import { useSkills, useLanguages, useLocations } from '@/lib/hooks/use-caregivers';
+import { useSkills, useLanguages, useLocationTree, useCities } from '@/lib/hooks/use-caregivers';
 import { Button } from '@/components/ui/button';
 import { Select, Label } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -11,7 +12,13 @@ export interface AdvancedFilters {
   gender?: string;
   skillIds: string[];
   languageIds: string[];
-  locationIds: string[];
+  /** City ids. The API filters on them; the picker below goes via district
+   *  because 2155 city pills is not a filter, it is a list. */
+  locationIds: number[];
+  /** Which district the picker is currently narrowed to. Client-side only -
+   *  it is not a filter, but the list page needs it to label the chips above
+   *  the table without refetching every city's name. */
+  locationDistrictId?: number;
   dayDuty?: boolean;
   nightDuty?: boolean;
   liveIn24h?: boolean;
@@ -51,7 +58,7 @@ export function toApiFilters(filters: AdvancedFilters): Partial<CaregiverSearchF
   };
 }
 
-function toggle(list: string[], id: string): string[] {
+function toggle<T>(list: T[], id: T): T[] {
   return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 }
 
@@ -80,7 +87,16 @@ export function AdvancedFiltersPanel({
 }) {
   const { data: skills, isLoading: skillsLoading } = useSkills();
   const { data: languages, isLoading: languagesLoading } = useLanguages();
-  const { data: locations, isLoading: locationsLoading } = useLocations();
+  const { data: tree, isLoading: treeLoading } = useLocationTree();
+  const districts = useMemo(() => (tree ?? []).flatMap((p) => p.districts), [tree]);
+  // Cities are only shown for a district the user has actually narrowed to:
+  // fetching every district's cities up front would pull all 2155 rows into
+  // a filter panel.
+  // Lifted into the filter object rather than kept local: the caregivers list
+  // renders a chip for each selected city and has no other way to name them.
+  const districtFilter = filters.locationDistrictId ?? null;
+  const setDistrictFilter = (id: number | null) => onChange({ ...filters, locationDistrictId: id ?? undefined });
+  const { data: cities, isLoading: citiesLoading } = useCities(districtFilter, 'en');
 
   const activeCount = countActiveFilters(filters);
 
@@ -180,16 +196,38 @@ export function AdvancedFiltersPanel({
           <Label>
             Locations {filters.locationIds.length > 0 && <span className="font-normal text-ink/40">(any selected)</span>}
           </Label>
-          <div className="flex max-h-52 flex-wrap gap-1.5 overflow-y-auto pr-1">
-            {locationsLoading && <span className="text-xs text-ink/40">Loading…</span>}
-            {locations?.map((l) => (
-              <CheckboxPill
-                key={l.id}
-                checked={filters.locationIds.includes(l.id)}
-                label={`${l.city}`}
-                onChange={() => onChange({ ...filters, locationIds: toggle(filters.locationIds, l.id) })}
-              />
+          <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto pr-1">
+            {treeLoading && <span className="text-xs text-ink/40">Loading…</span>}
+            {districts.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                aria-pressed={districtFilter === d.id}
+                onClick={() => setDistrictFilter(districtFilter === d.id ? null : d.id)}
+                className={
+                  districtFilter === d.id
+                    ? 'rounded-full border border-brand bg-brand px-2.5 py-1 text-xs text-white'
+                    : 'rounded-full border border-border bg-white px-2.5 py-1 text-xs text-ink/70 hover:border-brand'
+                }
+              >
+                {d.name}
+              </button>
             ))}
+          </div>
+          <div className="mt-2 flex max-h-52 flex-wrap gap-1.5 overflow-y-auto pr-1">
+            {!districtFilter && (
+              <span className="text-xs text-ink/40">Pick a district to narrow to its cities.</span>
+            )}
+            {districtFilter && citiesLoading && <span className="text-xs text-ink/40">Loading…</span>}
+            {districtFilter &&
+              cities?.map((c) => (
+                <CheckboxPill
+                  key={c.id}
+                  checked={filters.locationIds.includes(c.id)}
+                  label={c.subName ? `${c.name} - ${c.subName}` : c.name}
+                  onChange={() => onChange({ ...filters, locationIds: toggle(filters.locationIds, c.id) })}
+                />
+              ))}
           </div>
         </div>
       </div>

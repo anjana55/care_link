@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { searchRequestSchema, type SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
-import { useMetaSkills, useMetaLanguages, useMetaLocations } from '@/lib/hooks/use-public-search';
+import { useMetaSkills, useMetaLanguages, useLocationTree, useCities } from '@/lib/hooks/use-public-search';
 import { cn } from '@/lib/utils';
 import { Input, Select, Label } from '@/components/ui/input';
 
@@ -20,7 +20,7 @@ interface NormalSearchFormProps {
  * translated copy here rather than shown raw.
  */
 const REQUIRED_FIELD_MESSAGE_KEYS: Record<string, string> = {
-  'location.district': 'normalSearch.errors.districtRequired',
+  'location.districtId': 'normalSearch.errors.districtRequired',
   desiredStartDate: 'normalSearch.errors.startDateRequired',
 };
 
@@ -79,13 +79,10 @@ function ChipToggle({
 }
 
 export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { data: skills = [] } = useMetaSkills();
   const { data: languages = [] } = useMetaLanguages();
-  const { data: locations = [], isError: locationsFailed } = useMetaLocations();
   const [conditionInput, setConditionInput] = useState('');
-
-  const districts = useMemo(() => [...new Set(locations.map((l) => l.district))].sort(), [locations]);
 
   const {
     register,
@@ -98,6 +95,35 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
     resolver: zodResolver(searchRequestSchema),
     defaultValues: initialValues ?? { page: 1, pageSize: 20 },
   });
+
+  // register() returns the handlers as an object rather than wiring them in,
+  // because this select needs its own onChange on top. Spreading
+  // {...register(...)} and then adding onChange would silently replace the
+  // registered one and the field would never receive a value.
+  const districtField = register('location.districtId', {
+    setValueAs: (v: string) => (v === '' ? undefined : Number(v)),
+  });
+
+  // Both lookups are keyed by locale, so switching language re-fetches and the
+  // dropdowns relabel in place instead of showing the previous language.
+  const watchedDistrictId = watch('location.districtId');
+  const { data: tree = [], isError: locationsFailed } = useLocationTree(locale);
+  const { data: cities = [] } = useCities(watchedDistrictId ?? null, locale);
+
+  // Options carry ids as values and names as labels. `localeCompare(locale)`
+  // is what makes the Sinhala and Tamil lists order naturally rather than by
+  // code point; a plain `.sort()` puts them in an arbitrary-looking order.
+  const districts = useMemo(
+    () =>
+      tree
+        .flatMap((p) => p.districts)
+        .sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [tree, locale],
+  );
+  const sortedCities = useMemo(
+    () => [...cities].sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [cities, locale],
+  );
 
   /**
    * Validation failures used to be dropped on the floor - `errors` was pulled
@@ -114,14 +140,8 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
     return map;
   }, [errors, t]);
 
-  const districtError = errorMessages['location.district'];
+  const districtError = errorMessages['location.districtId'];
   const startDateError = errorMessages.desiredStartDate;
-
-  const watchedDistrict = watch('location.district');
-  const cities = useMemo(
-    () => [...new Set(locations.filter((l) => !watchedDistrict || l.district === watchedDistrict).map((l) => l.city))].sort(),
-    [locations, watchedDistrict],
-  );
 
   const mandatorySkillIds = watch('mandatorySkillIds') ?? [];
   const optionalSkillIds = watch('optionalSkillIds') ?? [];
@@ -231,7 +251,15 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
             </Label>
             <Select
               id="district"
-              {...register('location.district')}
+              {...districtField}
+              // The city list belongs to the chosen district, so changing the
+              // district has to clear a city that is no longer in it -
+              // otherwise the form submits a city/district pair the API
+              // rejects with a 400 the user cannot act on.
+              onChange={(e) => {
+                districtField.onChange(e);
+                setValue('location.cityId', undefined);
+              }}
               // aria-required rather than `required`: the native attribute would
               // make the browser block submit with its own untranslated tooltip
               // before react-hook-form ever runs the resolver.
@@ -243,8 +271,8 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
             >
               <option value="">{t('normalSearch.anyDistrict')}</option>
               {districts.map((d) => (
-                <option key={d} value={d}>
-                  {d}
+                <option key={d.id} value={d.id}>
+                  {d.name}
                 </option>
               ))}
             </Select>
@@ -260,13 +288,14 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
             </Label>
             <Select
               id="city"
-              {...register('location.city')}
+              {...register('location.cityId', { setValueAs: (v: string) => (v === '' ? undefined : Number(v)) })}
+              disabled={!watchedDistrictId}
               defaultValue=""
             >
               <option value="">{t('normalSearch.anyCity')}</option>
-              {cities.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              {sortedCities.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.subName ? `${c.name} - ${c.subName}` : c.name}
                 </option>
               ))}
             </Select>

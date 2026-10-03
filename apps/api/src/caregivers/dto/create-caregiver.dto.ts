@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { civilStatusEnum, genderEnum } from '../../database/schema/caregivers.schema';
 import { TextField } from '../../common/validation/text-field.validator';
 
@@ -124,21 +125,22 @@ export class CreateCaregiverDto {
   @IsString({ message: 'Police station must be text' })
   policeStation?: string;
 
-  @ApiPropertyOptional()
+  // Location is submitted as a pair of ids from the locations reference data,
+  // not as typed text. `district`, `city` and `postalCode` are written by the
+  // service from the referenced rows and are deliberately absent here: if a
+  // client could send them, the display caches could drift from the ids that
+  // search and ranking actually match on.
+  @ApiPropertyOptional({ description: 'District id from the locations reference data' })
   @IsOptional()
-  @IsString({ message: 'District must be text' })
-  @MaxLength(100, { message: 'District must be 100 characters or fewer' })
-  district?: string;
+  @Type(() => Number)
+  @IsInt({ message: 'District id must be a number' })
+  @Min(1, { message: 'District id must be a valid district' })
+  districtId?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'City id from the locations reference data' })
   @IsOptional()
-  @IsString({ message: 'City must be text' })
-  @MaxLength(100, { message: 'City must be 100 characters or fewer' })
-  city?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString({ message: 'Postal code must be text' })
-  @MaxLength(20, { message: 'Postal code must be 20 characters or fewer' })
-  postalCode?: string;
+  @Type(() => Number)
+  @IsInt({ message: 'City id must be a number' })
+  @Min(1, { message: 'City id must be a valid city' })
+  cityId?: number;
 }

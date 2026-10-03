@@ -36,6 +36,18 @@ async function configSettled(client: QueryClient) {
   await waitFor(() => expect(client.getQueryState(['whatsapp-config'])?.status).toBe('success'));
 }
 
+/** A minimal province -> district tree, as the locations endpoint returns it. */
+const TREE = [
+  {
+    id: 1,
+    name: 'Western Province',
+    districts: [
+      { id: 1, name: 'Colombo' },
+      { id: 2, name: 'Gampaha' },
+    ],
+  },
+];
+
 /** True when `a` sits before `b` in document order. */
 function comesBefore(a: Element, b: Element) {
   return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
@@ -46,7 +58,7 @@ beforeEach(() => {
   post.mockReset();
   get.mockImplementation((path: string) => {
     if (path === '/auth/whatsapp/config') return Promise.resolve(config);
-    if (path === '/public/meta/locations') return Promise.resolve([]);
+    if (path.startsWith('/public/meta/locations/tree')) return Promise.resolve(TREE);
     return Promise.resolve(null);
   });
 });
@@ -80,6 +92,23 @@ describe('the two caregiver sign-up pages agree', () => {
     expect(container.querySelectorAll('a[href="/caregiver/register"]')).toHaveLength(1);
   });
 
+  it('offers the same district options on both pages, keyed by id', async () => {
+    // Both pages render the shared PersonalInfoFields against the same
+    // reference data, so a district picked on one must mean the same thing on
+    // the other. The ids are what makes that true.
+    const first = renderPage(<CaregiverRegisterPage />);
+    await configSettled(first.client);
+    const emailOptions = screen.getByLabelText(/district/i).textContent;
+    first.unmount();
+
+    const second = renderPage(<CaregiverRegisterWhatsappPage />);
+    await configSettled(second.client);
+    const whatsappOptions = screen.getByLabelText(/district/i).textContent;
+
+    expect(emailOptions).toContain('Colombo');
+    expect(whatsappOptions).toBe(emailOptions);
+  });
+
   it('styles the cross-link identically on both pages', async () => {
     const first = renderPage(<CaregiverRegisterPage />);
     await configSettled(first.client);
@@ -98,7 +127,7 @@ describe('the two caregiver sign-up pages agree', () => {
       if (path === '/auth/whatsapp/config') {
         return Promise.resolve({ ...config, caregiver: { ...config.caregiver, register: false } });
       }
-      if (path === '/public/meta/locations') return Promise.resolve([]);
+      if (path.startsWith('/public/meta/locations/tree')) return Promise.resolve(TREE);
       return Promise.resolve(null);
     });
 

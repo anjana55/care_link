@@ -18,7 +18,7 @@ import {
 } from '@/components/caregivers/caregiver-register-layout';
 import { WhatsappOtpForm } from '@/components/auth/whatsapp-otp-form';
 import { makePersonalInfoSchema, requiredFieldsOf } from '@/lib/schemas/personal-info';
-import { useMetaLocations } from '@/lib/hooks/use-public-search';
+import { useLocationTree } from '@/lib/hooks/use-public-search';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
 
 /**
@@ -45,10 +45,10 @@ interface RegisterResponse {
  * phone becomes optional because it defaults to that WhatsApp number.
  */
 export default function CaregiverRegisterWhatsappPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { applyTokens } = useAuth();
   const { data: config, isLoading: configLoading } = useWhatsappConfig();
-  const { data: locations, isError: locationsUnavailable } = useMetaLocations();
+  const { data: locationTree, isError: locationsUnavailable } = useLocationTree(locale);
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<{ phone: string; res: RegisterResponse } | null>(null);
 
@@ -165,7 +165,7 @@ export default function CaregiverRegisterWhatsappPage() {
           control={control as any}
           setValue={setValue as any}
           errors={errors as any}
-          locations={locations ?? []}
+          locationTree={locationTree ?? []}
           locationsUnavailable={locationsUnavailable}
           requiredFields={requiredFields}
         />

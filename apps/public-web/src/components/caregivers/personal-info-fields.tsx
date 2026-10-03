@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import type { Control, FieldErrors, UseFormRegister, UseFormSetValue } from 'react-hook-form';
 import { Input, Label, FieldError, Select, Textarea } from '@/components/ui/input';
-import type { PublicMetaLocation } from '@care-platform/shared';
+import type { PublicLocationTree } from '@care-platform/shared';
+import { useCities } from '@/lib/hooks/use-public-search';
 import type { PersonalInfoValues } from '@/lib/schemas/personal-info';
 import { useTranslation } from '@/lib/i18n';
 
@@ -11,17 +12,18 @@ import { useTranslation } from '@/lib/i18n';
  * caregiver self-registration can live on the public site instead of under
  * the `/staff` basePath.
  *
- * `PublicMetaLocation` (from the public search metadata) stands in for
- * apps/web's own `Location`: both are `{ id, district, city, province }`, and
- * the public one is already fetched by `useMetaLocations()` here, so there is
- * no need to port the 341-line staff hook file for a single dropdown pair.
+ * Location is a pair of ids with names supplied by the API in the reader's
+ * language: the district options come from the province -> district tree, the
+ * city options from that district alone. The dropdowns offer ids as values,
+ * so what the form submits is what search and ranking actually match on - and
+ * there is no postal code to type, because the city record already carries it.
  */
 export function PersonalInfoFields<T extends PersonalInfoValues>({
   register,
   control,
   setValue,
   errors,
-  locations,
+  locationTree,
   locationsUnavailable = false,
   requiredFields,
 }: {
@@ -29,17 +31,17 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
   control: Control<T>;
   setValue: UseFormSetValue<T>;
   errors: FieldErrors<T>;
-  locations?: PublicMetaLocation[];
+  locationTree?: PublicLocationTree;
   /**
    * Whether the locations request failed. Without it a failed fetch and a
-   * genuinely empty locations table look identical: `locations` is undefined,
+   * genuinely empty locations table look identical: `locationTree` is undefined,
    * both dropdowns render with no options, and nothing on screen says why.
    */
   locationsUnavailable?: boolean;
   /** Field names the schema enforces, from requiredFieldsOf(). */
   requiredFields: ReadonlySet<string>;
 }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
   // District and city are a dependent pair, so they can't stay uncontrolled
   // like the rest of the form: the city options are derived from the selected
@@ -48,22 +50,43 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
   // district in useState instead would leave the form value and the rendered
   // value disagreeing - on the edit screen the caregiver's saved district
   // arrives via form.reset() and the dropdown would still read blank.
-  const selectedDistrict = useWatch({ control, name: 'district' as any }) ?? '';
+  // Ids, not names. `''` is "nothing chosen" and never reaches the API: the
+  // schema rejects a non-positive number, so an untouched select blocks submit
+  // with the same "required" message a blank one always produced.
+  const selectedDistrictId = useWatch({ control, name: 'districtId' as any }) ?? '';
+  const selectedCityId = useWatch({ control, name: 'cityId' as any }) ?? '';
 
-  const districts = useMemo(() => {
-    const unique = new Set((locations ?? []).map((l) => l.district));
-    return Array.from(unique).sort();
-  }, [locations]);
+  // localeCompare(locale) is what makes the Sinhala and Tamil lists read in
+  // their own order; a plain .sort() orders by code point, which puts them in
+  // an order no Sinhala or Tamil reader would recognise.
+  const districts = useMemo(
+    () =>
+      (locationTree ?? [])
+        .flatMap((p) => p.districts)
+        .sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [locationTree, locale],
+  );
 
-  const cities = useMemo(() => {
-    if (!selectedDistrict) return [];
-    const unique = new Set(
-      (locations ?? [])
-        .filter((l) => l.district === selectedDistrict)
-        .map((l) => l.city),
-    );
-    return Array.from(unique).sort();
-  }, [locations, selectedDistrict]);
+  // Fetched here rather than passed in: the district is only known once the
+  // form state has it, and threading it back out to the page only to hand it
+  // straight back in would put the dependent-dropdown logic in two places.
+  const { data: districtCities = [] } = useCities(
+    selectedDistrictId === '' ? null : Number(selectedDistrictId),
+    locale,
+  );
+
+  const cities = useMemo(
+    () => [...districtCities].sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [districtCities, locale],
+  );
+
+  // Shown read-only under the city dropdown rather than typed into it. 47 of
+  // the postcodes carry a leading zero and 101 of the 2155 cities have none at
+  // all, so this renders as a blank line in the latter case, not as an error.
+  const selectedCity = useMemo(
+    () => districtCities.find((c) => String(c.id) === String(selectedCityId)),
+    [districtCities, selectedCityId],
+  );
 
   const genderOptions = [
     { value: '', label: t('personalInfo.options.select') },
@@ -101,9 +124,9 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
             {t('common.locationsUnavailable')}
           </p>
         )}
-        <Label htmlFor="district" required={requiredFields.has('district')}>{t('personalInfo.fields.district')}</Label>
+        <Label htmlFor="district" required={requiredFields.has('districtId')}>{t('personalInfo.fields.district')}</Label>
         <Controller
-          name={'district' as any}
+          name={'districtId' as any}
           control={control}
           render={({ field }) => (
             <Select
@@ -119,24 +142,24 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
                 // happens when the edit screen loads a saved record) doesn't
                 // wipe the city that just came back from the server.
                 if (e.target.value !== field.value) {
-                  setValue('city' as any, '' as any);
+                  setValue('cityId' as any, '' as any);
                 }
               }}
             >
               <option value="">{t('personalInfo.options.select')}</option>
               {districts.map((d) => (
-                <option key={d} value={d}>{d}</option>
+                <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </Select>
           )}
         />
-        <FieldError message={errors.district?.message as string | undefined} />
+        <FieldError message={(errors as any).districtId?.message as string | undefined} />
       </div>
 
       <div>
-        <Label htmlFor="city" required={requiredFields.has('city')}>{t('personalInfo.fields.city')}</Label>
+        <Label htmlFor="city" required={requiredFields.has('cityId')}>{t('personalInfo.fields.city')}</Label>
         <Controller
-          name={'city' as any}
+          name={'cityId' as any}
           control={control}
           render={({ field }) => (
             <Select
@@ -144,22 +167,27 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
               ref={field.ref}
               value={field.value ?? ''}
               onChange={field.onChange}
-              disabled={!selectedDistrict}
+              disabled={!selectedDistrictId}
             >
               <option value="">{t('personalInfo.options.select')}</option>
               {cities.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                // 16 of the cities carry a second name in the source data;
+                // folding it into the label keeps "Colombo 03 - Modara"
+                // distinguishable from the bare division name.
+                <option key={c.id} value={c.id}>{c.subName ? `${c.name} - ${c.subName}` : c.name}</option>
               ))}
             </Select>
           )}
         />
-        <FieldError message={errors.city?.message as string | undefined} />
-      </div>
-
-      <div>
-        <Label htmlFor="postalCode" required={requiredFields.has('postalCode')}>{t('personalInfo.fields.postalCode')}</Label>
-        <Input id="postalCode" type="text" {...register('postalCode' as any)} />
-        <FieldError message={errors.postalCode?.message as string | undefined} />
+        <FieldError message={(errors as any).cityId?.message as string | undefined} />
+        {/* Derived from the selected city by the API, so it is shown rather
+            than submitted. A district with no city picked yet has nothing to
+            show, and the label stays put so the row does not jump. */}
+        <p className="mt-1 text-xs text-ink/60" aria-live="polite">
+          {selectedCity?.postcode
+            ? `${t('personalInfo.fields.postalCode')}: ${selectedCity.postcode}`
+            : ''}
+        </p>
       </div>
 
       <div>

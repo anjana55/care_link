@@ -14,6 +14,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { LOCALES, type Locale } from '@care-platform/shared';
 import { genderEnum } from '../../database/schema/caregivers.schema';
 import { shiftPreferenceEnum } from '../../database/schema/availability.schema';
 import { RequireSearchCriteria } from './require-search-criteria.validator';
@@ -75,19 +76,25 @@ class PatientInfoDto {
 }
 
 class LocationDto {
-  @ApiPropertyOptional()
+  /**
+   * Ids from the locations reference data, not names. Names were ambiguous
+   * (ten city names appear under more than one district) and the API's
+   * filter and ranking disagreed about how to compare them; ids remove both
+   * problems at once.
+   */
+  @ApiPropertyOptional({ description: 'District id from the locations reference data' })
   @IsOptional()
-  @Transform(blankToUndefined)
-  @IsString()
-  @MaxLength(100)
-  district?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  districtId?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'City id from the locations reference data' })
   @IsOptional()
-  @Transform(blankToUndefined)
-  @IsString()
-  @MaxLength(100)
-  city?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  cityId?: number;
 }
 
 class BudgetDto {
@@ -127,6 +134,17 @@ export class SearchRequestDto {
   @ValidateNested()
   @Type(() => LocationDto)
   location?: LocationDto;
+
+  /**
+   * Which language the response's district/city names are rendered in.
+   * Display only - it never affects which caregivers match. Supplied by the
+   * public site, which already knows the visitor's language.
+   */
+  @ApiPropertyOptional({ enum: LOCALES, default: 'en' })
+  @IsOptional()
+  @Transform(blankToUndefined)
+  @IsEnum(LOCALES)
+  locale?: Locale;
 
   @ApiPropertyOptional({ enum: genderPreferenceEnum, description: 'Preference, not a hard filter unless ANY is omitted entirely by the caller choosing not to send it' })
   @IsOptional()

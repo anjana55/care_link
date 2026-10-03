@@ -10,6 +10,11 @@ function toIdList({ value }: { value: unknown }): string[] {
   return [];
 }
 
+function toNumberList({ value }: { value: unknown }): number[] {
+  const parts = toIdList({ value });
+  return parts.map(Number).filter((n) => Number.isInteger(n) && n > 0);
+}
+
 function toBoolean({ value }: { value: unknown }): boolean | undefined {
   if (value === undefined || value === '') return undefined;
   if (typeof value === 'boolean') return value;
@@ -53,14 +58,15 @@ export class CaregiverQueryDto {
   languageIds?: string[];
 
   @ApiPropertyOptional({
-    type: [String],
-    description: 'Comma-separated location IDs. A caregiver matches if they prefer ANY of the listed locations.',
+    type: [Number],
+    description: 'Comma-separated city IDs from the locations reference data. A caregiver matches if they prefer ANY of the listed cities.',
   })
   @IsOptional()
-  @Transform(toIdList)
+  @Transform(toNumberList)
   @IsArray()
-  @IsString({ each: true })
-  locationIds?: string[];
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  locationIds?: number[];
 
   @ApiPropertyOptional({ description: 'Only caregivers available for day duty' })
   @IsOptional()

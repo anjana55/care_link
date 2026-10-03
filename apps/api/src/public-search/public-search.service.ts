@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { PublicCaregiverProfile, PublicCaregiverSummary, PublicSearchResponse } from '@care-platform/shared';
+import { resolveLocale, type Locale } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
   caregivers,
@@ -9,13 +10,14 @@ import {
   caregiverLanguages,
   languages,
   preferredLocations,
-  locations,
+  cities,
+  districts,
   availability,
   qualifications,
   experiences,
 } from '../database/schema';
 import { SearchRequestDto } from './dto/search-request.dto';
-import { RankingService, type RankingCandidate } from './ranking/ranking.service';
+import { RankingService, type LocationLabels, type RankingCandidate } from './ranking/ranking.service';
 
 /** Hard cap on how many hard-filter matches we ever pull into memory to
  * score - independent of the page size the caller asked for. Bounds both
@@ -24,6 +26,28 @@ import { RankingService, type RankingCandidate } from './ranking/ranking.service
 const MAX_CANDIDATE_POOL = 500;
 
 const NONE = sql`1 = 0`;
+
+/** Picks the requested language's city name from a three-column row. */
+function pick(row: { nameEn: string; nameSi: string; nameTa: string }, locale: Locale): string {
+  return locale === 'si' ? row.nameSi : locale === 'ta' ? row.nameTa : row.nameEn;
+}
+
+/** Same as pick(), for the own-location join whose columns are prefixed. */
+function pickOwnCity(
+  row: { cityEn: string | null; citySi: string | null; cityTa: string | null },
+  locale: Locale,
+): string | null {
+  const value = locale === 'si' ? row.citySi : locale === 'ta' ? row.cityTa : row.cityEn;
+  return value ?? row.cityEn;
+}
+
+function pickDistrict(
+  row: { districtEn: string | null; districtSi: string | null; districtTa: string | null },
+  locale: Locale,
+): string | null {
+  const value = locale === 'si' ? row.districtSi : locale === 'ta' ? row.districtTa : row.districtEn;
+  return value ?? row.districtEn;
+}
 
 function approxAgeBand(dateOfBirth: Date): number {
   const ageYears = Math.floor((Date.now() - new Date(dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
@@ -54,35 +78,36 @@ export class PublicSearchService {
     return rows.map((r) => r.caregiverId);
   }
 
-  private async resolveLocationFilterIds(city?: string, district?: string): Promise<string[] | null> {
-    if (!city && !district) return null;
-    const conditions = [city ? eq(locations.city, city) : null, district ? eq(locations.district, district) : null].filter(
-      (c): c is NonNullable<typeof c> => c !== null,
-    );
-    const matchingLocations = await this.db
-      .select({ id: locations.id })
-      .from(locations)
-      .where(or(...conditions));
-    const locationIds = matchingLocations.map((l) => l.id);
-    if (!locationIds.length) return [];
+  /**
+   * Caregiver ids matching a district and/or city, by id.
+   *
+   * Returns null for "no location filter at all", which the caller treats
+   * differently from an empty array - an empty array means the filter was
+   * applied and matched nobody, which has to collapse the result set rather
+   * than silently returning everyone.
+   */
+  private async resolveLocationFilterIds(cityId?: number, districtId?: number): Promise<string[] | null> {
+    if (!cityId && !districtId) return null;
 
-    const rows = await this.db
-      .selectDistinct({ caregiverId: preferredLocations.caregiverId })
-      .from(preferredLocations)
-      .where(inArray(preferredLocations.locationId, locationIds));
-    const preferredMatches = rows.map((r) => r.caregiverId);
-
-    // A caregiver whose OWN district/city matches also counts, not just
-    // preferred-location rows, since `district`/`city` on the caregiver
-    // record itself is where they're actually based.
-    const ownLocationConditions = [
-      city ? eq(caregivers.city, city) : null,
-      district ? eq(caregivers.district, district) : null,
+    const ownConditions = [
+      cityId ? eq(caregivers.cityId, cityId) : null,
+      districtId ? eq(caregivers.districtId, districtId) : null,
     ].filter((c): c is NonNullable<typeof c> => c !== null);
     const ownMatches = await this.db
       .select({ id: caregivers.id })
       .from(caregivers)
-      .where(or(...ownLocationConditions));
+      .where(or(...ownConditions));
+
+    // A caregiver who lists a searched city as a preferred work location counts
+    // too, not only one whose own record names it.
+    const preferredMatches = cityId
+      ? (
+          await this.db
+            .selectDistinct({ caregiverId: preferredLocations.caregiverId })
+            .from(preferredLocations)
+            .where(eq(preferredLocations.cityId, cityId))
+        ).map((r) => r.caregiverId)
+      : [];
 
     return [...new Set([...preferredMatches, ...ownMatches.map((r) => r.id)])];
   }
@@ -95,7 +120,7 @@ export class PublicSearchService {
       conditions.push(matches.length ? inArray(caregivers.id, matches) : NONE);
     }
 
-    const locationMatches = await this.resolveLocationFilterIds(request.location?.city, request.location?.district);
+    const locationMatches = await this.resolveLocationFilterIds(request.location?.cityId, request.location?.districtId);
     if (locationMatches !== null) {
       conditions.push(locationMatches.length ? inArray(caregivers.id, locationMatches) : NONE);
     }
@@ -123,8 +148,8 @@ export class PublicSearchService {
         publicId: caregivers.publicId,
         gender: caregivers.gender,
         dateOfBirth: caregivers.dateOfBirth,
-        district: caregivers.district,
-        city: caregivers.city,
+        districtId: caregivers.districtId,
+        cityId: caregivers.cityId,
       })
       .from(caregivers)
       .where(whereClause)
@@ -141,9 +166,12 @@ export class PublicSearchService {
       const e = enriched.get(row.id)!;
       return {
         caregiverId: row.id,
-        district: row.district,
-        city: row.city,
-        preferredLocationCities: e.preferredLocationCities,
+        districtId: row.districtId,
+        cityId: row.cityId,
+        preferredLocationCityIds: e.preferredLocationCityIds,
+        preferredLocationDistrictIds: e.preferredLocationDistrictIds,
+        districtName: e.districtName,
+        cityName: e.cityName,
         gender: row.gender,
         matchedOptionalSkillCount: e.matchedOptionalSkillCount,
         matchedLanguageCount: e.matchedLanguageCount,
@@ -158,7 +186,7 @@ export class PublicSearchService {
       };
     });
 
-    const ranked = this.ranking.rankAll(rankingInputs, request);
+    const ranked = this.ranking.rankAll(rankingInputs, request, await this.locationLabels(request));
     const total = ranked.length;
     const start = (request.page - 1) * request.pageSize;
     const pageOfRanked = ranked.slice(start, start + request.pageSize);
@@ -179,15 +207,15 @@ export class PublicSearchService {
     };
   }
 
-  async findByPublicId(publicId: string): Promise<PublicCaregiverProfile> {
+  async findByPublicId(publicId: string, locale?: string): Promise<PublicCaregiverProfile> {
     const [row] = await this.db
       .select({
         id: caregivers.id,
         publicId: caregivers.publicId,
         gender: caregivers.gender,
         dateOfBirth: caregivers.dateOfBirth,
-        district: caregivers.district,
-        city: caregivers.city,
+        districtId: caregivers.districtId,
+        cityId: caregivers.cityId,
         status: caregivers.status,
         deletedAt: caregivers.deletedAt,
       })
@@ -202,20 +230,44 @@ export class PublicSearchService {
       throw new NotFoundException('Caregiver not found');
     }
 
-    const enriched = await this.enrichCandidates([row.id], {} as SearchRequestDto);
+    // A profile page has no request locale of its own, so the visitor's
+    // language arrives as a query parameter. resolveLocale makes an
+    // unrecognised one English rather than a query for a column that isn't there.
+    const enriched = await this.enrichCandidates([row.id], {
+      locale: resolveLocale(locale),
+    } as SearchRequestDto);
     const e = enriched.get(row.id)!;
     const { matchScore, matchReasons, ...profile } = this.toSummary(row, e, 0, []);
     return profile;
   }
 
+  /**
+   * The names behind the requested location ids, so a match reason can say
+   * "based in Dehiwala" rather than "based in 340". Resolved once per search
+   * rather than per candidate - it is the same answer every time.
+   */
+  private async locationLabels(request: SearchRequestDto): Promise<LocationLabels> {
+    const locale = resolveLocale(request.locale);
+    const [city, district] = await Promise.all([
+      request.location?.cityId
+        ? this.db.select({ nameEn: cities.nameEn, nameSi: cities.nameSi, nameTa: cities.nameTa }).from(cities).where(eq(cities.id, request.location.cityId)).limit(1)
+        : Promise.resolve([]),
+      request.location?.districtId
+        ? this.db.select({ nameEn: districts.nameEn, nameSi: districts.nameSi, nameTa: districts.nameTa }).from(districts).where(eq(districts.id, request.location.districtId)).limit(1)
+        : Promise.resolve([]),
+    ]);
+    return { city: city[0] ? pick(city[0], locale) : null, district: district[0] ? pick(district[0], locale) : null };
+  }
+
   /** Fetches everything ranking + the public DTO need for a set of
    * caregiver IDs, batched (never N+1). */
   private async enrichCandidates(caregiverIds: string[], request: SearchRequestDto) {
+    const locale = resolveLocale(request.locale);
     const optionalSkillIds = request.optionalSkillIds ?? [];
     const requestedLanguageIds = request.languageIds ?? [];
     const conditions = request.patient?.medicalConditions ?? [];
 
-    const [skillRows, languageRows, locationRows, availabilityRows, qualificationRows, experienceRows] = await Promise.all([
+    const [skillRows, languageRows, locationRows, availabilityRows, qualificationRows, experienceRows, ownLocationRows] = await Promise.all([
       this.db
         .select({
           caregiverId: caregiverSkills.caregiverId,
@@ -237,9 +289,16 @@ export class PublicSearchService {
         .innerJoin(languages, eq(caregiverLanguages.languageId, languages.id))
         .where(inArray(caregiverLanguages.caregiverId, caregiverIds)),
       this.db
-        .select({ caregiverId: preferredLocations.caregiverId, city: locations.city })
+        .select({
+          caregiverId: preferredLocations.caregiverId,
+          cityId: cities.id,
+          districtId: cities.districtId,
+          nameEn: cities.nameEn,
+          nameSi: cities.nameSi,
+          nameTa: cities.nameTa,
+        })
         .from(preferredLocations)
-        .innerJoin(locations, eq(preferredLocations.locationId, locations.id))
+        .innerJoin(cities, eq(preferredLocations.cityId, cities.id))
         .where(inArray(preferredLocations.caregiverId, caregiverIds)),
       this.db.select().from(availability).where(inArray(availability.caregiverId, caregiverIds)),
       this.db
@@ -261,7 +320,27 @@ export class PublicSearchService {
         })
         .from(experiences)
         .where(inArray(experiences.caregiverId, caregiverIds)),
+      // The caregiver's own district/city, joined out to the reference tables
+      // so the response can name them in the visitor's language. The cache
+      // columns on `caregivers` hold English and are for staff, not the site.
+      this.db
+        .select({
+          caregiverId: caregivers.id,
+          cityId: caregivers.cityId,
+          cityEn: cities.nameEn,
+          citySi: cities.nameSi,
+          cityTa: cities.nameTa,
+          districtEn: districts.nameEn,
+          districtSi: districts.nameSi,
+          districtTa: districts.nameTa,
+        })
+        .from(caregivers)
+        .leftJoin(cities, eq(caregivers.cityId, cities.id))
+        .leftJoin(districts, eq(caregivers.districtId, districts.id))
+        .where(inArray(caregivers.id, caregiverIds)),
     ]);
+
+    const ownRows = new Map(ownLocationRows.map((r) => [r.caregiverId, r]));
 
     const result = new Map<
       string,
@@ -269,6 +348,10 @@ export class PublicSearchService {
         skills: { id: string; name: string }[];
         languages: { name: string; proficiency: string }[];
         preferredLocationCities: string[];
+        preferredLocationCityIds: number[];
+        preferredLocationDistrictIds: number[];
+        districtName: string | null;
+        cityName: string | null;
         matchedOptionalSkillCount: number;
         matchedLanguageCount: number;
         matchedConditionCount: number;
@@ -289,7 +372,8 @@ export class PublicSearchService {
     for (const id of caregiverIds) {
       const mySkills = skillRows.filter((s) => s.caregiverId === id);
       const myLanguages = languageRows.filter((l) => l.caregiverId === id);
-      const myLocations = locationRows.filter((l) => l.caregiverId === id).map((l) => l.city);
+      const myLocations = locationRows.filter((l) => l.caregiverId === id);
+      const myOwn = ownRows.get(id);
       const myAvailability = availabilityRows.find((a) => a.caregiverId === id);
       const myQualifications = qualificationRows.filter((q) => q.caregiverId === id);
       const myExperiences = experienceRows.filter((e) => e.caregiverId === id);
@@ -310,7 +394,11 @@ export class PublicSearchService {
       result.set(id, {
         skills: mySkills.map((s) => ({ id: s.skillId, name: s.skillName })),
         languages: myLanguages.map((l) => ({ name: l.languageName, proficiency: l.proficiency })),
-        preferredLocationCities: myLocations,
+        preferredLocationCities: myLocations.map((l) => pick(l, locale)),
+        preferredLocationCityIds: myLocations.map((l) => l.cityId),
+        preferredLocationDistrictIds: [...new Set(myLocations.map((l) => l.districtId))],
+        districtName: myOwn ? pickDistrict(myOwn, locale) : null,
+        cityName: myOwn?.cityId ? pickOwnCity(myOwn, locale) : null,
         matchedOptionalSkillCount,
         matchedLanguageCount,
         matchedConditionCount,
@@ -338,7 +426,13 @@ export class PublicSearchService {
   }
 
   private toSummary(
-    row: { publicId: string; gender: 'MALE' | 'FEMALE' | 'OTHER'; dateOfBirth: Date; district: string | null; city: string | null },
+    row: {
+      publicId: string;
+      gender: 'MALE' | 'FEMALE' | 'OTHER';
+      dateOfBirth: Date;
+      districtId: number | null;
+      cityId: number | null;
+    },
     enriched: Awaited<ReturnType<PublicSearchService['enrichCandidates']>> extends Map<string, infer V> ? V : never,
     score: number,
     reasons: string[],
@@ -348,8 +442,10 @@ export class PublicSearchService {
       gender: row.gender,
       approxAge: approxAgeBand(row.dateOfBirth),
       yearsExperience: enriched.yearsOfRelevantExperience,
-      district: row.district,
-      city: row.city,
+      district: enriched.districtName,
+      city: enriched.cityName,
+      districtId: row.districtId,
+      cityId: row.cityId,
       preferredLocations: enriched.preferredLocationCities,
       languages: enriched.languages,
       skills: enriched.skills,

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
@@ -7,7 +7,6 @@ import { SearchRequestDto } from './dto/search-request.dto';
 import { PublicSearchConfigDto } from './dto/public-search-config.dto';
 import { SkillsService } from '../skills/skills.service';
 import { LanguagesService } from '../languages/languages.service';
-import { LocationsService } from '../locations/locations.service';
 
 /**
  * Everything here is `@Public()` - reachable without a JWT, by design. That
@@ -27,7 +26,6 @@ export class PublicSearchController {
     private readonly publicSearchService: PublicSearchService,
     private readonly skillsService: SkillsService,
     private readonly languagesService: LanguagesService,
-    private readonly locationsService: LocationsService,
   ) {}
 
   @Public()
@@ -41,8 +39,8 @@ export class PublicSearchController {
   @Public()
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   @Get('caregivers/:publicId')
-  findOne(@Param('publicId') publicId: string) {
-    return this.publicSearchService.findByPublicId(publicId);
+  findOne(@Param('publicId') publicId: string, @Query('locale') locale?: string) {
+    return this.publicSearchService.findByPublicId(publicId, locale);
   }
 
   @Public()
@@ -59,12 +57,10 @@ export class PublicSearchController {
     return rows.map((l) => ({ id: l.id, name: l.name }));
   }
 
-  @Public()
-  @Get('meta/locations')
-  async locations() {
-    const rows = await this.locationsService.findAll();
-    return rows.map((l) => ({ id: l.id, district: l.district, city: l.city, province: l.province }));
-  }
+  // Province/district/city lookups live on LocationsController
+  // (`public/meta/locations/tree` and `.../cities`). They moved when the
+  // reference data became three real tables: serving a locale is part of the
+  // read, not an afterthought bolted onto a flat projection.
 
   @Public()
   @Get('meta/search-config')

@@ -18,8 +18,9 @@
     "db:migrate": "ts-node src/database/migrate.ts",
     "db:seed": "ts-node src/database/seed.ts",
     "db:seed:production": "ts-node src/database/seed-production.ts",
-    "db:export-locations": "ts-node src/database/scripts/export-locations.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:load-locations": "ts-node src/database/scripts/load-location-csv.ts",
+    "db:export-locations": "ts-node src/database/scripts/export-locations.ts"
   },
   "dependencies": {
     "@care-platform/shared": "*",

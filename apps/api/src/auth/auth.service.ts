@@ -12,7 +12,7 @@ import { RegisterPatientDto } from './dto/register-patient.dto';
 import {
   generateRegistrationNumber,
   assertUniqueContactFields,
-  assertKnownLocationPair,
+  resolveLocationRefs,
   selfRegisteredCaregiverValues,
 } from '../caregivers/caregiver-creation.util';
 import { EmailService } from '../email/email.service';
@@ -85,7 +85,7 @@ export class AuthService {
     const result = await this.db.transaction(async (tx) => {
       const txDb = tx as unknown as Database;
       await assertUniqueContactFields(txDb, caregiverFields);
-      await assertKnownLocationPair(txDb, caregiverFields);
+      const location = await resolveLocationRefs(txDb, caregiverFields);
 
       const userId = uuid();
       const passwordHash = await bcrypt.hash(password, 12);
@@ -108,6 +108,7 @@ export class AuthService {
           userId,
           registrationNumber,
           fields: caregiverFields,
+          location,
         }),
       );
 

@@ -1,8 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { IsInt, Min } from 'class-validator';
 
 export class AssignPreferredLocationDto {
+  /** A city id from the locations reference data, not a free-text name. */
   @ApiProperty()
-  @IsString()
-  locationId: string;
+  @IsInt()
+  @Min(1)
+  cityId: number;
 }

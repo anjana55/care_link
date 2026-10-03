@@ -345,9 +345,6 @@
       },
       "city": {
         "required": "නගරය අවශ්‍යයි"
-      },
-      "postalCode": {
-        "required": "තැපැල් කේතය අවශ්‍යයි"
       }
     },
     "options": {

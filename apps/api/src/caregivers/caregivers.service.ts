@@ -9,7 +9,7 @@ import {
   caregiverLanguages,
   languages,
   preferredLocations,
-  locations,
+  cities,
   availability,
   caregiverDocuments,
   CAREGIVER_STATUS_TRANSITIONS,
@@ -19,11 +19,37 @@ import { CreateCaregiverDto } from './dto/create-caregiver.dto';
 import { UpdateCaregiverDto } from './dto/update-caregiver.dto';
 import { CaregiverQueryDto } from './dto/caregiver-query.dto';
 import { maskIdentifier, maskPhone } from '../common/utils/masking.util';
-import { generateRegistrationNumber, assertUniqueContactFields, assertKnownLocationPair } from './caregiver-creation.util';
+import { generateRegistrationNumber, assertUniqueContactFields, resolveLocationRefs } from './caregiver-creation.util';
 
 /** A condition that always evaluates to false - used to short-circuit a
  * filter to "no results" without ever building an invalid `IN ()` clause. */
 const NONE = sql`1 = 0`;
+
+/**
+ * The columns a client may write directly on a caregiver. Everything else -
+ * status, registrationNumber, publicId, userId, the derived location columns,
+ * the timestamps - is either set at creation or owned by a dedicated endpoint.
+ * An explicit list, because the DTO-to-row spread this replaces would have
+ * written whatever a client sent.
+ */
+const UPDATABLE_COLUMNS: ReadonlySet<string> = new Set([
+  'fullName',
+  'permanentAddress',
+  'nic',
+  'passportNumber',
+  'dateOfBirth',
+  'gender',
+  'civilStatus',
+  'heightIn',
+  'weightKg',
+  'primaryPhone',
+  'secondaryPhone',
+  'emergencyContactName',
+  'emergencyContactNumber',
+  'emergencyContactRelationship',
+  'policeDivision',
+  'policeStation',
+]);
 
 @Injectable()
 export class CaregiversService {
@@ -32,7 +58,7 @@ export class CaregiversService {
 
   async create(dto: CreateCaregiverDto) {
     await assertUniqueContactFields(this.db, dto);
-    await assertKnownLocationPair(this.db, dto);
+    const location = await resolveLocationRefs(this.db, dto);
     const id = uuid();
     // Generated at creation time, independent of `id`, so the public-search
     // API never has to expose (or derive from) the internal primary key.
@@ -59,9 +85,11 @@ export class CaregiversService {
       emergencyContactRelationship: dto.emergencyContactRelationship,
       policeDivision: dto.policeDivision ?? null,
       policeStation: dto.policeStation ?? null,
-      district: dto.district ?? null,
-      city: dto.city ?? null,
-      postalCode: dto.postalCode ?? null,
+      districtId: location?.districtId ?? null,
+      cityId: location?.cityId ?? null,
+      district: location?.district ?? null,
+      city: location?.city ?? null,
+      postalCode: location?.postalCode ?? null,
       status: 'DRAFT',
     });
 
@@ -92,13 +120,13 @@ export class CaregiversService {
     return rows.map((r) => r.caregiverId);
   }
 
-  /** Caregiver IDs that prefer ANY of the given location IDs. */
-  private async caregiverIdsWithAnyLocation(locationIds: string[]): Promise<string[]> {
-    if (!locationIds.length) return [];
+  /** Caregiver IDs that prefer ANY of the given city IDs. */
+  private async caregiverIdsWithAnyLocation(cityIds: number[]): Promise<string[]> {
+    if (!cityIds.length) return [];
     const rows = await this.db
       .selectDistinct({ caregiverId: preferredLocations.caregiverId })
       .from(preferredLocations)
-      .where(inArray(preferredLocations.locationId, locationIds));
+      .where(inArray(preferredLocations.cityId, cityIds));
     return rows.map((r) => r.caregiverId);
   }
 
@@ -197,9 +225,9 @@ export class CaregiversService {
         : Promise.resolve([] as { caregiverId: string; languageName: string }[]),
       caregiverIds.length
         ? this.db
-            .select({ caregiverId: preferredLocations.caregiverId, city: locations.city })
+            .select({ caregiverId: preferredLocations.caregiverId, city: cities.nameEn })
             .from(preferredLocations)
-            .innerJoin(locations, eq(preferredLocations.locationId, locations.id))
+            .innerJoin(cities, eq(preferredLocations.cityId, cities.id))
             .where(sql`${preferredLocations.caregiverId} in ${caregiverIds}`)
         : Promise.resolve([] as { caregiverId: string; city: string }[]),
     ]);
@@ -273,24 +301,39 @@ export class CaregiversService {
   async update(id: string, dto: UpdateCaregiverDto) {
     const existing = await this.findOne(id);
     await assertUniqueContactFields(this.db, dto, id);
-    // dto is partial, so validate the pair that will actually be stored - a
-    // city-only edit is still checked against the district on the record.
-    await assertKnownLocationPair(this.db, {
-      district: dto.district ?? existing.district,
-      city: dto.city ?? existing.city,
-    });
+    // Only null out the pair when this edit actually names one. A partial
+    // update that touches neither district nor city must leave the existing
+    // location alone, so this returns null for an untouched form rather than
+    // an empty pair.
+    const location = await resolveLocationRefs(this.db, dto);
 
-    const updateData: Record<string, unknown> = { ...dto };
+    // Explicit allowlist rather than spreading the DTO. The derived columns
+    // (district/city/postalCode) are written from `location` below and must
+    // not be settable directly, or a client could desynchronise them from the
+    // ids that search and ranking actually match on.
+    const updateData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(dto)) {
+      if (key === 'districtId' || key === 'cityId') continue;
+      // `.has`, not `in`: `in` on a Set tests for a property, not for
+      // membership, so `in` silently rejected every field and update() wrote
+      // nothing but the location columns.
+      if (!UPDATABLE_COLUMNS.has(key)) continue;
+      // Convert empty strings to null for nullable fields to avoid unique
+      // constraint violations and keep the data clean.
+      updateData[key] = value === '' ? null : value;
+    }
     if (dto.dateOfBirth) updateData.dateOfBirth = dto.dateOfBirth as unknown as Date;
-    // Convert empty strings to null for nullable fields to avoid
-    // unique constraint violations and keep the data clean.
-    for (const key of Object.keys(updateData)) {
-      if (typeof updateData[key] === 'string' && updateData[key] === '') {
-        updateData[key] = null;
-      }
+    if (location) {
+      updateData.districtId = location.districtId;
+      updateData.cityId = location.cityId;
+      updateData.district = location.district;
+      updateData.city = location.city;
+      updateData.postalCode = location.postalCode;
     }
 
-    await this.db.update(caregivers).set(updateData).where(eq(caregivers.id, id));
+    if (Object.keys(updateData).length) {
+      await this.db.update(caregivers).set(updateData).where(eq(caregivers.id, id));
+    }
     return this.findOne(id);
   }
 

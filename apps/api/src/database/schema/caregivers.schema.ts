@@ -77,6 +77,13 @@ export const caregivers = mysqlTable(
     emergencyContactRelationship: varchar('emergency_contact_relationship', { length: 100 }).notNull(),
     policeDivision: varchar('police_division', { length: 100 }),
     policeStation: varchar('police_station', { length: 100 }),
+    // Source of truth is the id pair below; these three are display caches
+    // written by the service from the referenced rows, so a caregiver can
+    // never claim to live in a city that is not in that district. Nothing
+    // reads them for matching - see public-search.service and ranking.service,
+    // which both filter on district_id/city_id.
+    districtId: int('district_id'),
+    cityId: int('city_id'),
     district: varchar('district', { length: 100 }),
     city: varchar('city', { length: 100 }),
     postalCode: varchar('postal_code', { length: 20 }),
@@ -94,6 +101,6 @@ export const caregivers = mysqlTable(
     nameIdx: index('caregivers_name_idx').on(table.fullName),
     publicIdIdx: index('caregivers_public_id_idx').on(table.publicId),
     // Public search's most common shape: ACTIVE caregivers filtered by location.
-    publicSearchIdx: index('caregivers_public_search_idx').on(table.status, table.district, table.city),
+    publicSearchIdx: index('caregivers_public_search_idx').on(table.status, table.districtId, table.cityId),
   }),
 );

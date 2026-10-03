@@ -64,9 +64,26 @@ async function refreshStoredTokens(): Promise<Tokens | null> {
   return tokens;
 }
 
-interface RequestOptions {
+export interface RequestOptions {
   method?: string;
   body?: unknown;
+  /** Serialised into the query string, skipping `undefined`/`null` entries so a
+   * caller can pass a value that may not be set without branching at the call
+   * site. Needed by the locations endpoints, whose only inputs (`districtId`,
+   * `locale`) are query parameters. */
+  params?: Record<string, string | number | boolean | undefined | null>;
+}
+
+/** Appends `params` to `path` as a query string, dropping empty values. */
+function withParams(path: string, params: RequestOptions['params']): string {
+  if (!params) return path;
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    query.set(key, String(value));
+  }
+  const qs = query.toString();
+  return qs ? `${path}${path.includes('?') ? '&' : '?'}${qs}` : path;
 }
 
 /**
@@ -77,13 +94,14 @@ interface RequestOptions {
  * expired access token without an extra round trip through /login.
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body } = options;
+  const { method = 'GET', body, params } = options;
+  const url = `${API_URL}${withParams(path, params)}`;
   const tokens = getStoredTokens();
 
   const doFetch = async (accessToken: string | undefined) => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-    return fetch(`${API_URL}${path}`, {
+    return fetch(url, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
@@ -118,7 +136,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 }
 
 export const api = {
-  get: <T,>(path: string) => apiRequest<T>(path),
+  get: <T,>(path: string, params?: RequestOptions['params']) => apiRequest<T>(path, { params }),
   post: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'POST', body }),
 };
 

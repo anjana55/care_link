@@ -5,7 +5,9 @@ import en from './en.json';
 import si from './si.json';
 import ta from './ta.json';
 
-export type Locale = 'en' | 'si' | 'ta';
+// One definition of a locale, shared with apps/api's resolveLocale.
+export type { Locale } from '@care-platform/shared';
+import type { Locale } from '@care-platform/shared';
 
 const DICTIONARIES: Record<Locale, Record<string, unknown>> = { en, si, ta };
 const FONT_CLASS: Record<Locale, string> = { en: 'font-sans', si: 'font-sinhala', ta: 'font-tamil' };

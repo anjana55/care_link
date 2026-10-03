@@ -2,15 +2,32 @@ import { Injectable } from '@nestjs/common';
 import type { SearchRequestDto } from '../dto/search-request.dto';
 
 /**
+ * The names behind the requested location ids, for the human-readable match
+ * reasons. Ids decide *whether* a caregiver matches; these only decide what the
+ * reason line says, so they are passed in already resolved rather than looked
+ * up per candidate.
+ */
+export interface LocationLabels {
+  district: string | null;
+  city: string | null;
+}
+
+/**
  * Everything a candidate needs to be scored against a search request.
  * Deliberately narrow - only the fields ranking actually reads, so this
  * service can be unit-tested without touching Drizzle or the DB at all.
  */
 export interface RankingCandidate {
   caregiverId: string;
-  district: string | null;
-  city: string | null;
-  preferredLocationCities: string[];
+  districtId: number | null;
+  cityId: number | null;
+  /** Ids of the districts and cities this caregiver lists as preferred work
+   * locations. Compared against the request's ids directly - see
+   * score() for why these are ids and not names. */
+  preferredLocationCityIds: number[];
+  preferredLocationDistrictIds: number[];
+  districtName: string | null;
+  cityName: string | null;
   gender: 'MALE' | 'FEMALE' | 'OTHER';
   matchedOptionalSkillCount: number;
   matchedLanguageCount: number;
@@ -60,7 +77,7 @@ export class RankingService {
    * produces the same score and the same reasons. That determinism is the
    * whole point of "Normal Search": it must never require an AI model.
    */
-  score(candidate: RankingCandidate, request: SearchRequestDto): RankedCandidate {
+  score(candidate: RankingCandidate, request: SearchRequestDto, labels: LocationLabels): RankedCandidate {
     let score = 0;
     const reasons: string[] = [];
 
@@ -97,20 +114,27 @@ export class RankingService {
       reasons.push(`has ${candidate.yearsOfRelevantExperience}+ years of relevant experience`);
     }
 
-    const requestedCity = request.location?.city?.toLowerCase().trim();
-    const requestedDistrict = request.location?.district?.toLowerCase().trim();
-    if (requestedCity && candidate.city?.toLowerCase().trim() === requestedCity) {
+    // Id equality, not name equality. These used to be lowercased string
+    // comparisons while public-search's filter matched the same fields
+    // case-sensitively and untrimmed - so a caregiver could be filtered in by
+    // one rule and then scored as "not in this district" by the other. Ids
+    // cannot disagree with themselves.
+    const requestedCityId = request.location?.cityId;
+    const requestedDistrictId = request.location?.districtId;
+
+    if (requestedCityId && candidate.cityId === requestedCityId) {
       score += WEIGHTS.exactCityMatch;
-      reasons.push(`based in ${candidate.city}`);
-    } else if (requestedDistrict && candidate.district?.toLowerCase().trim() === requestedDistrict) {
-      score += WEIGHTS.districtOnlyMatch;
-      reasons.push(`works in the ${candidate.district} district`);
+      reasons.push(`based in ${candidate.cityName ?? 'the requested city'}`);
+    } else if (requestedCityId && candidate.preferredLocationCityIds.includes(requestedCityId)) {
+      score += WEIGHTS.exactCityMatch;
+      reasons.push(`covers ${labels.city ?? 'the requested city'} as a preferred work location`);
     } else if (
-      requestedCity &&
-      candidate.preferredLocationCities.some((c) => c.toLowerCase().trim() === requestedCity)
+      requestedDistrictId &&
+      (candidate.districtId === requestedDistrictId ||
+        candidate.preferredLocationDistrictIds.includes(requestedDistrictId))
     ) {
-      score += WEIGHTS.exactCityMatch;
-      reasons.push(`covers ${requestedCity} as a preferred work location`);
+      score += WEIGHTS.districtOnlyMatch;
+      reasons.push(`works in the ${candidate.districtName ?? labels.district ?? 'requested'} district`);
     }
 
     if (request.shift) {
@@ -156,7 +180,7 @@ export class RankingService {
     return { caregiverId: candidate.caregiverId, score: Math.round(score * 100) / 100, reasons };
   }
 
-  rankAll(candidates: RankingCandidate[], request: SearchRequestDto): RankedCandidate[] {
-    return candidates.map((c) => this.score(c, request)).sort((a, b) => b.score - a.score);
+  rankAll(candidates: RankingCandidate[], request: SearchRequestDto, labels: LocationLabels): RankedCandidate[] {
+    return candidates.map((c) => this.score(c, request, labels)).sort((a, b) => b.score - a.score);
   }
 }

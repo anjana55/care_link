@@ -115,7 +115,7 @@ async function main() {
       status: 'ACTIVE' as const,
       skills: ['Insulin Administration', 'Vital Signs Monitoring', 'Wound Care / Dressing'],
       languages: ['Sinhala', 'English'],
-      location: 'Colombo-Colombo',
+      location: 'Colombo-Colombo 1',
       nightDuty: false,
       hasVerifiedQualification: true,
     },
@@ -145,7 +145,7 @@ async function main() {
       // female, Colombo, Parkinson's care, night duty, medication + bathing.
       skills: ["Parkinson's Care", 'Medication Assistance', 'Bathing Assistance'],
       languages: ['Sinhala', 'English'],
-      location: 'Colombo-Colombo',
+      location: 'Colombo-Colombo 1',
       nightDuty: true,
       hasVerifiedQualification: true,
     },
@@ -268,16 +268,24 @@ async function main() {
       });
     }
 
-    const preferredLocationId = locationIds[c.location];
-    if (!preferredLocationId) {
+    const location = locationIds[c.location];
+    if (!location) {
       throw new Error(
-        `Seed references location "${c.location}", which is missing from seed-data/locations.csv`,
+        `Seed references location "${c.location}", which is missing from seed-data/cities.csv`,
       );
     }
 
+    // The caregiver's own location is the same city they prefer working in,
+    // so a public search for that district finds them by their record and not
+    // only through their preferred-location row.
+    await db
+      .update(schema.caregivers)
+      .set({ cityId: location.cityId, districtId: location.districtId })
+      .where(eq(schema.caregivers.id, id));
+
     await db.insert(schema.preferredLocations).values({
       caregiverId: id,
-      locationId: preferredLocationId,
+      cityId: location.cityId,
     });
 
     await db.insert(schema.availability).values({

@@ -1,6 +1,14 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+// The one definition of a locale: `types/locale.ts` also carries
+// `resolveLocale`, which the API uses to narrow a client-supplied locale before
+// it can reach the database as a column name. Re-exported rather than
+// redeclared, so the three locales cannot drift apart between the two apps.
+import { LOCALES, type Locale } from '../types/locale';
+
+export type { Locale };
+export const SUPPORTED_LOCALES: Locale[] = [...LOCALES];
 
 /**
  * Generic i18n engine extracted from apps/web's original provider so both
@@ -9,9 +17,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, R
  * dashboard and a public search page don't share much vocabulary) via
  * createI18n(); only the mechanism is shared, not the strings themselves.
  */
-
-export type Locale = 'en' | 'si' | 'ta';
-export const SUPPORTED_LOCALES: Locale[] = ['en', 'si', 'ta'];
 
 export interface I18nContextValue {
   locale: Locale;

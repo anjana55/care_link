@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from '@/lib/i18n/provider';
-import { useCaregivers, useSkills, useLanguages, useLocations } from '@/lib/hooks/use-caregivers';
+import { useCaregivers, useSkills, useLanguages, useLocationTree } from '@/lib/hooks/use-caregivers';
 import { useAuth } from '@/lib/api/auth-context';
 import { api } from '@/lib/api/client';
 import { Input } from '@/components/ui/input';
@@ -47,7 +47,7 @@ export default function CaregiversListPage() {
 
   const { data: skills } = useSkills();
   const { data: languages } = useLanguages();
-  const { data: locations } = useLocations();
+  const { data: tree } = useLocationTree();
 
   const activeCount = countActiveFilters(advanced);
 
@@ -62,16 +62,16 @@ export default function CaregiversListPage() {
   const nameOf = useMemo(() => {
     const skillNames = new Map((skills ?? []).map((s) => [s.id, s.name]));
     const languageNames = new Map((languages ?? []).map((l) => [l.id, l.name]));
-    const locationNames = new Map((locations ?? []).map((l) => [l.id, l.city]));
-    return { skill: skillNames, language: languageNames, location: locationNames };
-  }, [skills, languages, locations]);
+    const districtNames = new Map((tree ?? []).flatMap((p) => p.districts).map((d) => [d.id, d.name]));
+    return { skill: skillNames, language: languageNames, location: districtNames };
+  }, [skills, languages, tree]);
 
   const updateAdvanced = (next: AdvancedFilters) => {
     setAdvanced(next);
     setPage(1);
   };
 
-  const removeChip = (kind: 'skillIds' | 'languageIds' | 'locationIds', id: string) => {
+  const removeChip = (kind: 'skillIds' | 'languageIds', id: string) => {
     updateAdvanced({ ...advanced, [kind]: advanced[kind].filter((x) => x !== id) });
   };
 
@@ -161,9 +161,18 @@ export default function CaregiversListPage() {
           {advanced.languageIds.map((id) => (
             <FilterChip key={id} label={nameOf.language.get(id) ?? id} onRemove={() => removeChip('languageIds', id)} />
           ))}
-          {advanced.locationIds.map((id) => (
-            <FilterChip key={id} label={nameOf.location.get(id) ?? id} onRemove={() => removeChip('locationIds', id)} />
-          ))}
+          {advanced.locationIds.length > 0 && (
+            <FilterChip
+              label={
+                advanced.locationDistrictId
+                  ? `${nameOf.location.get(advanced.locationDistrictId) ?? ''} (${advanced.locationIds.length})`
+                  : `${advanced.locationIds.length} cities`
+              }
+              onRemove={() =>
+                updateAdvanced({ ...advanced, locationIds: [], locationDistrictId: undefined })
+              }
+            />
+          )}
           <button onClick={() => updateAdvanced(EMPTY_ADVANCED_FILTERS)} className="text-xs font-medium text-ink/40 hover:text-danger">
             Clear all
           </button>

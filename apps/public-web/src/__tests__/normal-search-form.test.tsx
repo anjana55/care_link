@@ -8,15 +8,24 @@ import type { SearchRequest } from '@care-platform/shared';
 jest.mock('@/lib/hooks/use-public-search', () => ({
   useMetaSkills: () => ({ data: [] }),
   useMetaLanguages: () => ({ data: [] }),
-  useMetaLocations: () => ({ data: [{ id: 'l1', district: 'Colombo', city: 'Colombo', province: 'Western' }] }),
+  useLocationTree: () => ({
+    data: [
+      { id: 1, name: 'Western Province', districts: [{ id: 1, name: 'Colombo' }, { id: 2, name: 'Gampaha' }] },
+    ],
+  }),
+  // Cities are fetched per district, so this returns them only for the
+  // district that has been chosen - the same guard the real hook applies.
+  useCities: (districtId: number | null) => ({
+    data: districtId === 1 ? [{ id: 118, name: 'Colombo 15', subName: null, postcode: '00100', latitude: 6.9, longitude: 79.8 }] : [],
+  }),
 }));
 
 const district = () => screen.getByLabelText(/district/i);
 const startDate = () => screen.getByLabelText(/desired start date/i);
 const submit = () => screen.getByRole('button', { name: /search caregivers/i });
 
-/** Sets the React state a controlled-looking `register`ed select/input needs. */
-const chooseDistrict = () => fireEvent.change(district(), { target: { value: 'Colombo' } });
+/** The selects carry ids as values, so picking Colombo means choosing 1. */
+const chooseDistrict = () => fireEvent.change(district(), { target: { value: '1' } });
 const chooseStartDate = () => fireEvent.change(startDate(), { target: { value: '2026-10-01' } });
 
 describe('NormalSearchForm', () => {
@@ -41,7 +50,7 @@ describe('NormalSearchForm', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
-      location: { district: 'Colombo' },
+      location: { districtId: 1 },
       desiredStartDate: '2026-10-01',
     });
   });
@@ -63,7 +72,7 @@ describe('NormalSearchForm', () => {
     expect(submitted.patient?.age).toBeUndefined();
     expect(submitted.minimumExperienceYears).toBeUndefined();
     expect(submitted.budget?.dailyRate).toBeUndefined();
-    expect(submitted.location?.city).toBeUndefined();
+    expect(submitted.location?.cityId).toBeUndefined();
   });
 
   it('clears the district error once a district is chosen', async () => {
@@ -90,5 +99,37 @@ describe('NormalSearchForm', () => {
   it('tells the user the start date does not affect results yet', () => {
     render(renderWithProviders(<NormalSearchForm onSubmit={jest.fn()} />));
     expect(screen.getByText(/does not change results today/i)).toBeInTheDocument();
+  });
+
+  it('offers the chosen district\'s cities, and only those', () => {
+    render(renderWithProviders(<NormalSearchForm onSubmit={jest.fn()} />));
+
+    // Before a district is picked there is nothing to narrow to.
+    expect(screen.getByLabelText(/city/i)).toBeDisabled();
+
+    chooseDistrict();
+
+    expect(screen.getByRole('option', { name: 'Colombo 15' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Negombo' })).not.toBeInTheDocument();
+  });
+
+  it('clears a chosen city when the district changes under it', async () => {
+    // A city from the previous district is no longer on the list, and a stale
+    // city/district pair is exactly what the API rejects with a 400.
+    const onSubmit = jest.fn();
+    render(renderWithProviders(<NormalSearchForm onSubmit={onSubmit} />));
+
+    chooseDistrict();
+    fireEvent.change(screen.getByLabelText(/city/i), { target: { value: '118' } });
+    chooseStartDate();
+    fireEvent.click(submit());
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ location: { districtId: 1, cityId: 118 } });
+
+    fireEvent.change(district(), { target: { value: '2' } });
+    fireEvent.click(submit());
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+    expect(onSubmit.mock.calls[1][0]).toMatchObject({ location: { districtId: 2 } });
+    expect((onSubmit.mock.calls[1][0] as SearchRequest).location?.cityId).toBeUndefined();
   });
 });

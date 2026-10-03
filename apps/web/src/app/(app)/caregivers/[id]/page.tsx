@@ -11,7 +11,7 @@ import {
   useUpdateCaregiverStatus,
   useUpdateCaregiver,
   useDeleteCaregiver,
-  useLocations,
+  useLocationTree,
   useUpsertHealthInformation,
   useSkills,
   useLanguages,
@@ -42,7 +42,7 @@ import { Button } from '@/components/ui/button';
 import { allowedNextStatuses } from '@/lib/caregiver-status';
 import { Select, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
-import { makePersonalInfoSchema, requiredFieldsOf, type PersonalInfoValues } from '@/lib/schemas/personal-info';
+import { makePersonalInfoSchema, requiredFieldsOf, UNSET_ID, type PersonalInfoValues } from '@/lib/schemas/personal-info';
 import { Trash2 } from 'lucide-react';
 import { DocumentViewButton } from '@/components/caregivers/document-view-button';
 import { IconButton } from '@/components/ui/icon-button';
@@ -61,7 +61,7 @@ export default function CaregiverProfilePage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user } = useAuth();
-  const { data: locations, isError: locationsUnavailable } = useLocations();
+  const { data: locationTree, isError: locationsUnavailable } = useLocationTree();
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteConfirm, setIsDeleteConfirm] = useState(false);
   const [isHealthEditing, setIsHealthEditing] = useState(false);
@@ -175,9 +175,8 @@ export default function CaregiverProfilePage() {
       emergencyContactRelationship: '',
       policeDivision: '',
       policeStation: '',
-      district: '',
-      city: '',
-      postalCode: '',
+      districtId: UNSET_ID,
+      cityId: UNSET_ID,
     },
   });
 
@@ -209,9 +208,11 @@ export default function CaregiverProfilePage() {
         emergencyContactRelationship: caregiver.emergencyContactRelationship ?? '',
         policeDivision: caregiver.policeDivision ?? '',
         policeStation: caregiver.policeStation ?? '',
-        district: caregiver.district ?? '',
-        city: caregiver.city ?? '',
-        postalCode: caregiver.postalCode ?? '',
+        // Ids, not the derived names: the dropdowns are keyed by id, so
+        // resetting with `caregiver.district` would leave both selects blank
+        // on a record that does have a location.
+        districtId: caregiver.districtId ?? UNSET_ID,
+        cityId: caregiver.cityId ?? UNSET_ID,
       });
     }
   }, [isEditing, caregiver, form]);
@@ -327,7 +328,7 @@ export default function CaregiverProfilePage() {
                 control={form.control}
                 setValue={form.setValue}
                 errors={form.formState.errors}
-                locations={locations ?? []}
+                locationTree={locationTree ?? []}
                 locationsUnavailable={locationsUnavailable}
                 requiredFields={requiredFields}
               />

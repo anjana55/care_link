@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from '@/lib/i18n/provider';
-import { useCreateCaregiver, useLocations } from '@/lib/hooks/use-caregivers';
+import { useCreateCaregiver, useLocationTree } from '@/lib/hooks/use-caregivers';
 import { Button } from '@/components/ui/button';
 import { RequiredLegend } from '@/components/ui/input';
 import { ApiError } from '@/lib/api/client';
@@ -18,7 +18,7 @@ export function PersonalInfoStep({ onCreated }: { onCreated: (caregiverId: strin
   // District and city are dropdowns populated from the locations table. Without
   // this the district select renders only its placeholder, so the field is
   // unanswerable and the form can't be submitted.
-  const { data: locations, isError: locationsUnavailable } = useLocations();
+  const { data: locationTree, isError: locationsUnavailable } = useLocationTree();
 
   const personalInfoSchemaLocalized = makePersonalInfoSchema(t);
   const requiredFields = requiredFieldsOf(personalInfoSchemaLocalized);
@@ -50,7 +50,7 @@ export function PersonalInfoStep({ onCreated }: { onCreated: (caregiverId: strin
         control={control}
         setValue={setValue}
         errors={errors}
-        locations={locations ?? []}
+        locationTree={locationTree ?? []}
         locationsUnavailable={locationsUnavailable}
         requiredFields={requiredFields}
       />

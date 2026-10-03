@@ -2,6 +2,19 @@ import { z } from 'zod';
 
 export type PersonalInfoValues = z.infer<ReturnType<typeof makePersonalInfoSchema>>;
 
+/**
+ * An `<select>` always submits a string, so the empty option arrives as `''`.
+ * `z.coerce.number` turns that into 0 and `.positive()` rejects it with the
+ * same "required" message a blank text input produces - which is what we
+ * want, and is why this is coercion rather than a union that tolerates `''`.
+ *
+ * The cost is that the *output* type is `number` while the *form* legitimately
+ * holds `''` before validation. This narrows that gap in one named place
+ * rather than scattering casts across every reset() call.
+ */
+export const UNSET_ID = '' as unknown as number;
+
+
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
 const CIVIL_STATUSES = ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED', 'OTHER'] as const;
 
@@ -28,9 +41,12 @@ export function makePersonalInfoSchema(t: (key: string) => string) {
     emergencyContactRelationship: z.string().trim().min(1, required('emergencyContactRelationship')).min(2, invalid('emergencyContactRelationship')),
     policeDivision: z.string().trim().optional(),
     policeStation: z.string().trim().optional(),
-    district: z.string().trim().min(1, required('district')),
-    city: z.string().trim().min(1, required('city')),
-    postalCode: z.string().trim().min(1, required('postalCode')),
+    // Location is a pair of ids from the reference data, and the API derives
+    // the display names and the postcode from them. There is nothing left for
+    // a person to type here, which is why `postalCode` is gone from the form
+    // and from this schema rather than being made optional.
+    districtId: z.coerce.number().int().positive(required('district')),
+    cityId: z.coerce.number().int().positive(required('city')),
   });
 }
 

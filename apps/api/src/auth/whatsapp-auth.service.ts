@@ -11,7 +11,7 @@ import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
 import {
   generateRegistrationNumber,
   assertUniqueContactFields,
-  assertKnownLocationPair,
+  resolveLocationRefs,
   selfRegisteredCaregiverValues,
 } from '../caregivers/caregiver-creation.util';
 import { assertWhatsappNumberAvailable, purgeUnverifiedPhoneAccount } from './phone-accounts.util';
@@ -83,7 +83,7 @@ export class WhatsappAuthService {
         await purgeUnverifiedPhoneAccount(txDb, phone);
         await assertWhatsappNumberAvailable(txDb, phone, s.defaultCountryCode);
         await assertUniqueContactFields(txDb, caregiverFields);
-        await assertKnownLocationPair(txDb, caregiverFields);
+        const location = await resolveLocationRefs(txDb, caregiverFields);
 
         const userId = uuid();
         await tx.insert(users).values({
@@ -100,7 +100,7 @@ export class WhatsappAuthService {
         const caregiverId = uuid();
         const registrationNumber = await generateRegistrationNumber(txDb);
         await tx.insert(caregivers).values(
-          selfRegisteredCaregiverValues({ id: caregiverId, publicId: uuid(), userId, registrationNumber, fields: caregiverFields }),
+          selfRegisteredCaregiverValues({ id: caregiverId, publicId: uuid(), userId, registrationNumber, fields: caregiverFields, location }),
         );
         return { userId, caregiverId, registrationNumber };
       }),

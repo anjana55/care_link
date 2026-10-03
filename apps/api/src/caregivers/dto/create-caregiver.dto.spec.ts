@@ -113,10 +113,49 @@ describe('caregiver DTO validation messages', () => {
   });
 
   it('caps optional free-text fields with a readable limit', async () => {
-    expect(await errorsFor({ ...valid, city: 'c'.repeat(101) })).toEqual(['City must be 100 characters or fewer']);
-    expect(await errorsFor({ ...valid, postalCode: '9'.repeat(21) })).toEqual([
-      'Postal code must be 20 characters or fewer',
+    expect(await errorsFor({ ...valid, nic: '1'.repeat(21) })).toEqual(['NIC must be 20 characters or fewer']);
+    expect(await errorsFor({ ...valid, passportNumber: 'P'.repeat(21) })).toEqual([
+      'Passport number must be 20 characters or fewer',
     ]);
+  });
+
+  // Location arrives as ids, never as typed text: `district`, `city` and
+  // `postalCode` are written by the service from the referenced rows. With
+  // whitelist stripping they are silently dropped rather than stored, so a
+  // client cannot desynchronise the display caches from the ids.
+  describe('location is submitted as ids', () => {
+    it('accepts a well-formed district/city id pair', async () => {
+      expect(await errorsFor({ ...valid, districtId: 1, cityId: 340 })).toEqual([]);
+    });
+
+    it('explains a district id that is not a positive number', async () => {
+      expect(await errorsFor({ ...valid, districtId: 0 })).toEqual(['District id must be a valid district']);
+      // @Type(() => Number) turns a non-numeric string into NaN, which fails
+      // both @IsInt and @Min, so assert the type message is among them.
+      expect(await errorsFor({ ...valid, districtId: 'Colombo' as unknown as number })).toContain(
+        'District id must be a number',
+      );
+    });
+
+    it('explains a city id that is not a positive number', async () => {
+      expect(await errorsFor({ ...valid, cityId: -1 })).toEqual(['City id must be a valid city']);
+      expect(await errorsFor({ ...valid, cityId: 'Dehiwala' as unknown as number })).toContain(
+        'City id must be a number',
+      );
+    });
+
+    it('ignores free-text location fields a client might still send', async () => {
+      // Rejection here would only push us back toward storing typed names.
+      expect(
+        await errorsFor({
+          ...valid,
+          district: 'Colombo',
+          city: 'Colombo',
+          postalCode: '00100',
+          province: 'Western',
+        }),
+      ).toEqual([]);
+    });
   });
 
   describe('self-registration adds account fields on top', () => {

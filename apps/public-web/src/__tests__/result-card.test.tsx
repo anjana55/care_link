@@ -9,6 +9,8 @@ function caregiver(overrides: Partial<PublicCaregiverSummary> = {}): PublicCareg
     gender: 'FEMALE',
     approxAge: 45,
     yearsExperience: 8,
+    districtId: 1,
+    cityId: 118,
     district: 'Colombo',
     city: 'Colombo',
     preferredLocations: [],

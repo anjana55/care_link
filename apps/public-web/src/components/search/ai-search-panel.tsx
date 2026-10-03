@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ExtractedRequirements, SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
-import { useMetaSkills, useMetaLocations } from '@/lib/hooks/use-public-search';
+import { useMetaSkills, useLocationTree } from '@/lib/hooks/use-public-search';
 import { mockExtractRequirements } from '@/lib/ai/mock-extract';
 import { LoadingState } from '@/components/common/states';
 import { Input, Label, Textarea } from '@/components/ui/input';
@@ -13,9 +13,13 @@ interface AiSearchPanelProps {
 }
 
 export function AiSearchPanel({ onSubmit }: AiSearchPanelProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { data: skills = [] } = useMetaSkills();
-  const { data: locations = [] } = useMetaLocations();
+  // Only the district level is matched here. Cities live behind a per-district
+  // endpoint, and pulling all 2155 to feed a stand-in extractor behind a
+  // disabled flag would not be a trade worth making.
+  const { data: tree = [] } = useLocationTree(locale);
+  const districts = useMemo(() => tree.flatMap((p) => p.districts), [tree]);
   const [query, setQuery] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedRequirements | null>(null);
@@ -27,7 +31,7 @@ export function AiSearchPanel({ onSubmit }: AiSearchPanelProps) {
     // Simulated latency so this reads the same as a real model call would -
     // the extraction itself is the local mock (see lib/ai/mock-extract.ts).
     setTimeout(() => {
-      setExtracted(mockExtractRequirements(query, skills, locations));
+      setExtracted(mockExtractRequirements(query, skills, districts));
       setExtracting(false);
     }, 400);
   }

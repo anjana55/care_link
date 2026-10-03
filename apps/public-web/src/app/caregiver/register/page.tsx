@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Label, FieldError, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
 import { makePersonalInfoSchema, requiredFieldsOf } from '@/lib/schemas/personal-info';
-import { useMetaLocations } from '@/lib/hooks/use-public-search';
+import { useLocationTree } from '@/lib/hooks/use-public-search';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
 
 /**
@@ -27,10 +27,10 @@ import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
  * behaves like every other page on the public site.
  */
 export default function CaregiverRegisterPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<RegisterResponse | null>(null);
-  const { data: locations, isError: locationsUnavailable } = useMetaLocations();
+  const { data: locationTree, isError: locationsUnavailable } = useLocationTree(locale);
   const { data: whatsapp } = useWhatsappConfig();
 
   // Rebuilt each render so t() is current; the WhatsApp link is only offered
@@ -157,7 +157,7 @@ export default function CaregiverRegisterPage() {
           control={control}
           setValue={setValue}
           errors={errors}
-          locations={locations ?? []}
+          locationTree={locationTree ?? []}
           locationsUnavailable={locationsUnavailable}
           requiredFields={requiredFields}
         />

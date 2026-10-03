@@ -1,4 +1,4 @@
-import type { ExtractedRequirements, PublicMetaLocation, PublicMetaSkill, SearchRequest } from '@care-platform/shared';
+import type { ExtractedRequirements, PublicMetaDistrict, PublicMetaSkill, SearchRequest } from '@care-platform/shared';
 
 /**
  * STAND-IN ONLY. The real extraction step belongs server-side, calling an
@@ -16,7 +16,13 @@ import type { ExtractedRequirements, PublicMetaLocation, PublicMetaSkill, Search
 export function mockExtractRequirements(
   query: string,
   skills: PublicMetaSkill[],
-  locations: PublicMetaLocation[],
+  districts: PublicMetaDistrict[],
+  // Empty by default: the panel only holds the province -> district tree, and
+  // fetching all 2155 cities to satisfy a disabled stand-in would be absurd.
+  // City matching works as soon as a caller has cities to hand. `districtId`
+  // is carried alongside because a named city has to imply its district - the
+  // search filters on the district, so a city id alone would return nothing.
+  cities: { id: number; name: string; districtId: number }[] = [],
 ): ExtractedRequirements {
   const lower = query.toLowerCase();
 
@@ -38,17 +44,18 @@ export function mockExtractRequirements(
     summary.patient.push('Male');
   }
 
-  // Location: match against known city/district names rather than guessing.
-  for (const loc of locations) {
-    if (lower.includes(loc.city.toLowerCase())) {
-      requirements.location = { ...requirements.location, city: loc.city, district: loc.district };
-      summary.location.push(loc.city);
-      break;
-    }
-    if (lower.includes(loc.district.toLowerCase()) && !requirements.location?.district) {
-      requirements.location = { ...requirements.location, district: loc.district };
-      summary.location.push(loc.district);
-    }
+  // Location: match against known district and city names rather than
+  // guessing - and emit the id, because a search request carries ids now, not
+  // the name the query happened to contain. Cities are checked first: a query
+  // naming a city is more specific than one naming its district.
+  const city = cities.find((c) => lower.includes(c.name.toLowerCase()));
+  const district = districts.find((d) => lower.includes(d.name.toLowerCase()));
+  if (city) {
+    requirements.location = { cityId: city.id, districtId: city.districtId };
+    summary.location.push(city.name);
+  } else if (district) {
+    requirements.location = { districtId: district.id };
+    summary.location.push(district.name);
   }
 
   // Skills / conditions: match query text against known skill names -

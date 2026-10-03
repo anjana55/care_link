@@ -12,9 +12,11 @@ import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 
 export default function CaregiverProfilePage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const params = useParams<{ publicId: string }>();
-  const { data: caregiver, isLoading, isError, error, refetch } = useCaregiverProfile(params.publicId);
+  // Locale in the query key: the profile renders the caregiver's district and
+  // city, and those names have to change with the language the visitor picked.
+  const { data: caregiver, isLoading, isError, error, refetch } = useCaregiverProfile(params.publicId, locale);
   const [gateOpen, setGateOpen] = useState(false);
   const isNotFound = error instanceof ApiError && error.status === 404;
 

@@ -345,9 +345,6 @@
       },
       "city": {
         "required": "City is required"
-      },
-      "postalCode": {
-        "required": "Postal code is required"
       }
     },
     "options": {

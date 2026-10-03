@@ -25,12 +25,12 @@ import type { SearchRequestDto } from './search-request.dto';
 export class RequireSearchCriteriaConstraint implements ValidatorConstraintInterface {
   validate(_value: unknown, args: ValidationArguments): boolean {
     const dto = args.object as SearchRequestDto;
-    return Boolean(dto.location?.district?.trim()) && Boolean(dto.desiredStartDate?.trim());
+    return Boolean(dto.location?.districtId) && Boolean(dto.desiredStartDate?.trim());
   }
 
   defaultMessage(args: ValidationArguments): string {
     const dto = args.object as SearchRequestDto;
-    if (!dto.location?.district?.trim()) return 'location.district is required';
+    if (!dto.location?.districtId) return 'location.districtId is required';
     return 'desiredStartDate is required';
   }
 }

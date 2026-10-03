@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LOCALES } from './locale';
 
 /**
  * Domain types shared between apps/api (source of truth, validated again with
@@ -57,12 +58,17 @@ export const searchRequestSchema = z
         medicalConditions: optionalOf(z.array(z.string().min(1).max(80)).max(10)),
       }),
     ),
+    // Ids, not names. The old string pair was ambiguous - ten city names
+    // appear under more than one district - and it made the API's filter and
+    // its ranking compare the same thing with different rules.
     location: optionalOf(
       z.object({
-        district: optionalOf(z.string().max(100)),
-        city: optionalOf(z.string().max(100)),
+        districtId: optionalOf(z.number().int().positive()),
+        cityId: optionalOf(z.number().int().positive()),
       }),
     ),
+    // Only selects which name column the response renders. Never a filter.
+    locale: optionalOf(z.enum(LOCALES)),
     caregiverGenderPreference: optionalOf(z.enum(genderPreferenceValues)),
     mandatorySkillIds: optionalOf(z.array(z.string().uuid()).max(15)),
     optionalSkillIds: optionalOf(z.array(z.string().uuid()).max(15)),
@@ -80,8 +86,8 @@ export const searchRequestSchema = z
     pageSize: optionalOf(z.number().int().min(1).max(50)),
   })
   .superRefine((data, ctx) => {
-    if (!data.location?.district) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['location', 'district'], message: 'required' });
+    if (!data.location?.districtId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['location', 'districtId'], message: 'required' });
     }
     // Mandatory ahead of the availability feature that will consume it. The
     // API accepts and validates it today but does not yet filter or rank on
@@ -141,6 +147,8 @@ export interface PublicCaregiverSummary {
   yearsExperience: number;
   district: string | null;
   city: string | null;
+  districtId: number | null;
+  cityId: number | null;
   preferredLocations: string[];
   languages: PublicLanguageMatch[];
   skills: PublicSkillMatch[];
@@ -179,11 +187,29 @@ export interface PublicMetaLanguage {
   name: string;
 }
 
-export interface PublicMetaLocation {
-  id: string;
-  district: string;
-  city: string;
-  province: string;
+export interface PublicMetaDistrict {
+  id: number;
+  name: string;
+}
+
+export interface PublicMetaProvince {
+  id: number;
+  name: string;
+  districts: PublicMetaDistrict[];
+}
+
+/** The whole province -> district shape. 34 rows, so it is worth caching
+ * whole; the cities underneath it are not. */
+export type PublicLocationTree = PublicMetaProvince[];
+
+export interface PublicMetaCity {
+  id: number;
+  name: string;
+  /** The handful of cities the source data qualifies with a second name. */
+  subName: string | null;
+  postcode: string | null;
+  latitude: number;
+  longitude: number;
 }
 
 /** Drives whether the frontend shows the AI Search tab at all — admin

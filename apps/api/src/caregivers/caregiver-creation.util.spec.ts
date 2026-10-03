@@ -1,95 +1,99 @@
 import { BadRequestException } from '@nestjs/common';
-import { Param, SQL } from 'drizzle-orm';
-import { assertKnownLocationPair } from './caregiver-creation.util';
+import { resolveLocationRefs } from './caregiver-creation.util';
 import type { Database } from '../database/database.module';
 
 /**
- * The district/city guard. The city dropdown is derived from the selected
- * district, so a mismatched pair can only reach the API from a client bug or a
- * hand-rolled request - and a stored record whose city sits outside its
- * district can never be matched by the district-scoped public-search filters.
+ * The district/city guard, now over ids rather than typed names.
  *
- * The guard is a single lookup against the `locations` reference table, so the
- * stub below just has to answer that lookup correctly. It reads the district
- * and city back out of the Drizzle `and(eq, eq)` clause rather than being told
- * them, which is what lets these cases assert on what was actually looked up -
- * the trimming case especially, since "did it trim" is the whole point.
+ * The city dropdown is derived from the selected district, so a mismatched pair
+ * can only reach the API from a client bug or a hand-rolled request - and a
+ * stored record whose city sits outside its district can never be matched by the
+ * district-scoped public-search filters.
+ *
+ * Name matching made this weaker than it looked: the old guard compared two
+ * free-text strings, and ten of the real city names appear under more than one
+ * district. Comparing ids removes that ambiguity entirely.
+ *
+ * The stub below answers the three lookups in order (city, district, province)
+ * rather than parsing them out of the query, because what these cases are
+ * really asserting is the decision the function makes, not the SQL it emits.
  */
-const KNOWN = [
-  { district: 'Colombo', city: 'Colombo' },
-  { district: 'Colombo', city: 'Dehiwala' },
-  { district: 'Gampaha', city: 'Negombo' },
-];
+const COLOMBO = { id: 1, nameEn: 'Colombo', nameSi: 'කොළඹ', nameTa: 'கொழும்பு' };
+const DEHIWALA = { id: 340, districtId: 1, nameEn: 'Dehiwala', postcode: '10350' };
 
-function paramsOf(node: unknown): unknown[] {
-  if (node instanceof Param) return [node.value];
-  if (Array.isArray(node)) return node.flatMap(paramsOf);
-  if (node instanceof SQL) return paramsOf(node.queryChunks);
-  return [];
-}
-
-function stubDb(rows: { district: string; city: string }[] = KNOWN) {
-  let looked: [string, string] | null = null;
+function stubDb(overrides: {
+  city?: unknown[] | null;
+  district?: unknown[] | null;
+  province?: unknown[] | null;
+} = {}) {
+  let call = 0;
   const chain = {
     select: () => chain,
     from: () => chain,
-    where: (clause: unknown) => {
-      const [district, city] = paramsOf(clause);
-      looked = [district as string, city as string];
-      return chain;
+    where: () => chain,
+    innerJoin: () => chain,
+    limit: () => {
+      const answer = [overrides.city, overrides.district, overrides.province][call++];
+      return Promise.resolve(answer === undefined ? [] : answer);
     },
-    limit: () => Promise.resolve(rows.filter((r) => r.district === looked?.[0] && r.city === looked?.[1])),
   };
-  return { db: chain as unknown as Database, lookedUp: () => looked };
+  return { db: chain as unknown as Database };
 }
 
-describe('assertKnownLocationPair', () => {
-  it('accepts a district/city pair present in the locations table', async () => {
-    await expect(assertKnownLocationPair(stubDb().db, { district: 'Colombo', city: 'Dehiwala' })).resolves.toBeUndefined();
+describe('resolveLocationRefs', () => {
+  it('derives the display columns and postcode from the referenced rows', async () => {
+    const { db } = stubDb({ city: [DEHIWALA], district: [COLOMBO], province: [{ nameEn: 'Western' }] });
+    await expect(resolveLocationRefs(db, { districtId: 1, cityId: 340 })).resolves.toEqual({
+      districtId: 1,
+      cityId: 340,
+      district: 'Colombo',
+      city: 'Dehiwala',
+      province: 'Western',
+      // From the city record, not from the client - which is the whole point
+      // of dropping the field off the form.
+      postalCode: '10350',
+    });
   });
 
   it('rejects a city that belongs to a different district', async () => {
     // Dehiwala is a Colombo city, so pairing it with Gampaha is the exact
     // mismatch the UI's derived city list is meant to make impossible.
-    await expect(assertKnownLocationPair(stubDb().db, { district: 'Gampaha', city: 'Dehiwala' })).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    // A fresh stub per assertion: the stub answers its three lookups in order,
+    // so reusing one across two calls would run the second off the end.
+    await expect(
+      resolveLocationRefs(stubDb({ city: [DEHIWALA] }).db, { districtId: 2, cityId: 340 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      resolveLocationRefs(stubDb({ city: [DEHIWALA] }).db, { districtId: 2, cityId: 340 }),
+    ).rejects.toThrow('City 340 belongs to district 1, not district 2');
   });
 
-  it('rejects a district that is not in the locations table at all', async () => {
-    await expect(assertKnownLocationPair(stubDb().db, { district: 'Nowhere', city: 'Nowhere' })).rejects.toThrow(
-      /Unknown district\/city combination/,
-    );
+  it('rejects a city id that does not exist at all', async () => {
+    const { db } = stubDb({ city: [] });
+    await expect(resolveLocationRefs(db, { cityId: 999999 })).rejects.toThrow(/Unknown city id/);
   });
 
-  it('names the offending pair in the error so the caller can correct it', async () => {
-    await expect(assertKnownLocationPair(stubDb().db, { district: 'Gampaha', city: 'Dehiwala' })).rejects.toThrow(
-      "'Gampaha' / 'Dehiwala'",
-    );
+  it('rejects a district id that does not exist at all', async () => {
+    const { db } = stubDb({ district: [] });
+    await expect(resolveLocationRefs(db, { districtId: 999999 })).rejects.toThrow(/Unknown district id/);
   });
 
-  it('trims surrounding whitespace before matching', async () => {
-    // A form field that round-tripped through a text input can arrive padded;
-    // rejecting that would be a spurious failure, not a real mismatch.
-    const { db, lookedUp } = stubDb();
-    await expect(assertKnownLocationPair(db, { district: ' Colombo ', city: ' Dehiwala ' })).resolves.toBeUndefined();
-    expect(lookedUp()).toEqual(['Colombo', 'Dehiwala']);
+  it('infers the district from the city when only a city is given', async () => {
+    const { db } = stubDb({ city: [DEHIWALA], district: [COLOMBO] });
+    const resolved = await resolveLocationRefs(db, { cityId: 340 });
+    expect(resolved).toMatchObject({ districtId: COLOMBO.id, cityId: 340, district: 'Colombo' });
   });
 
-  describe('partial pairs are exempt', () => {
-    it.each([
-      ['no city', { district: 'Colombo' }],
-      ['no district', { city: 'Colombo' }],
-      ['neither', {}],
-      ['both null', { district: null, city: null }],
-      ['both empty', { district: '', city: '' }],
-      ['whitespace only', { district: '   ', city: '   ' }],
-    ])('%s is skipped without querying the database', async (_label, fields) => {
-      // A district with no city is still meaningful - the column is nullable -
-      // so a half-filled pair must not be turned into a rejection.
-      const { db, lookedUp } = stubDb();
-      await expect(assertKnownLocationPair(db, fields)).resolves.toBeUndefined();
-      expect(lookedUp()).toBeNull();
-    });
+  it('leaves the postcode null for a city that has none', async () => {
+    // 101 of the 2155 cities in the source data have no postcode at all.
+    const { db } = stubDb({ city: [{ ...DEHIWALA, postcode: null }], district: [COLOMBO] });
+    await expect(resolveLocationRefs(db, { cityId: 340 })).resolves.toMatchObject({ postalCode: null });
+  });
+
+  it('returns null when neither id is supplied, so an untouched form is a no-op', async () => {
+    // A partial update that does not touch the location must leave the
+    // existing one alone rather than erasing it.
+    await expect(resolveLocationRefs(stubDb().db, {})).resolves.toBeNull();
+    await expect(resolveLocationRefs(stubDb().db, { districtId: null, cityId: null })).resolves.toBeNull();
   });
 });

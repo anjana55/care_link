@@ -1,77 +1,12 @@
-import { sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { randomUUID as uuid } from 'crypto';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
 import * as schema from './schema';
 import type { Database } from './database.module';
-
-/**
- * Location reference data lives in seed-data/locations.csv rather than inline,
- * because there are ~1800 of them. Regenerate that file from a database that
- * already has the full list loaded:
- *
- *   npx ts-node src/database/scripts/export-locations.ts
- *
- * Resolved relative to this compiled file's own directory (not CWD), so
- * whatever copies dist/src/database/seed.js or seed-production.js into a
- * runtime image must also copy this seed-data folder alongside it.
- */
-const LOCATIONS_CSV = resolve(__dirname, 'seed-data/locations.csv');
-
-function parseCsvLine(line: string): string[] {
-  const fields: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (inQuotes) {
-      if (char !== '"') {
-        current += char;
-      } else if (line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = false;
-      }
-    } else if (char === '"') {
-      inQuotes = true;
-    } else if (char === ',') {
-      fields.push(current);
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  fields.push(current);
-  return fields;
-}
-
-function loadLocationRows(): { district: string; city: string; province: string }[] {
-  let raw: string;
-  try {
-    raw = readFileSync(LOCATIONS_CSV, 'utf8');
-  } catch {
-    throw new Error(`Missing ${LOCATIONS_CSV}.\nGenerate it with: npx ts-node src/database/scripts/export-locations.ts`);
-  }
-
-  const lines = raw.split(/\r?\n/).filter((line) => line.trim() !== '');
-  const header = parseCsvLine(lines.shift() ?? '').map((h) => h.trim().toLowerCase());
-  if (header.join(',') !== 'district,city,province') {
-    throw new Error(`Unexpected CSV header in ${LOCATIONS_CSV}: "${header.join(',')}"`);
-  }
-
-  return lines.map((line, index) => {
-    const [district, city, province] = parseCsvLine(line);
-    if (!district || !city || !province) {
-      throw new Error(`Malformed row ${index + 2} in ${LOCATIONS_CSV}: "${line}"`);
-    }
-    return { district, city, province };
-  });
-}
+import { loadLocationCsvs } from './scripts/load-location-csv';
 
 /**
  * Seeds the reference data every environment needs to function at all -
- * skills, languages, and the ~1800 Sri Lankan locations - none of it PII,
+ * skills, languages, and the ~2200 Sri Lankan divisions - none of it PII,
  * none of it environment-specific. Idempotent: safe to run on every
  * deploy, every migration run, or repeatedly in dev.
  *
@@ -116,32 +51,29 @@ export async function seedReferenceData(db: Database) {
     await db.insert(schema.languages).values({ id, name, code }).onDuplicateKeyUpdate({ set: { code } });
   }
 
-  console.log('Seeding Sri Lankan locations from seed-data/locations.csv...');
-  const locationValues = loadLocationRows().map((row) => ({ id: uuid(), ...row }));
+  console.log('Loading Sri Lankan divisions from seed-data/{provinces,districts,cities}.csv...');
+  const counts = await loadLocationCsvs(db);
 
-  // Batched, so ~1800 rows don't become ~1800 sequential round trips.
-  for (let i = 0; i < locationValues.length; i += 500) {
-    await db
-      .insert(schema.locations)
-      .values(locationValues.slice(i, i + 500))
-      .onDuplicateKeyUpdate({ set: { province: sql`values(${schema.locations.province})` } });
-  }
-
-  // Read the ids back rather than trusting the generated ones: on a re-seed the
-  // unique (district, city) key matches the existing row, so the row keeps its
-  // original id and the freshly generated one is never written.
-  const persistedLocations = await db
+  // Read the ids back rather than trusting the loader's: they are what the
+  // caregiver fixtures below need, and reading them from the same query the
+  // dropdowns use proves the data actually landed.
+  const persisted = await db
     .select({
-      id: schema.locations.id,
-      district: schema.locations.district,
-      city: schema.locations.city,
+      id: schema.cities.id,
+      districtId: schema.cities.districtId,
+      cityName: schema.cities.nameEn,
+      districtName: schema.districts.nameEn,
     })
-    .from(schema.locations);
-  const locationIds: Record<string, string> = {};
-  for (const row of persistedLocations) {
-    locationIds[`${row.district}-${row.city}`] = row.id;
+    .from(schema.cities)
+    .innerJoin(schema.districts, eq(schema.cities.districtId, schema.districts.id));
+  // Keyed "District-City" because that is how the fixtures refer to places.
+  // The value carries the district too, because a caregiver row needs both
+  // ids and a fixture only names one of them.
+  const locationIds: Record<string, { cityId: number; districtId: number }> = {};
+  for (const row of persisted) {
+    locationIds[`${row.districtName}-${row.cityName}`] = { cityId: row.id, districtId: row.districtId };
   }
-  console.log(`  ${persistedLocations.length} locations available.`);
+  console.log(`  ${counts.provinces} provinces, ${counts.districts} districts, ${counts.cities} cities available.`);
 
   return { skillIds, languageIds, locationIds };
 }

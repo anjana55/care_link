@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { Locale } from '@care-platform/shared';
 import { api, API_URL, getStoredTokens } from '../api/client';
 import type {
   CaregiverDetail,
@@ -10,7 +11,10 @@ import type {
   DashboardStats,
   Skill,
   Language,
-  Location,
+  LocationCity,
+  LocationDistrict,
+  LocationProvince,
+  PagedCities,
   Qualification,
 } from '../api/types';
 
@@ -60,8 +64,44 @@ export function useLanguages() {
   return useQuery({ queryKey: ['languages'], queryFn: () => api.get<Language[]>('/languages') });
 }
 
-export function useLocations() {
-  return useQuery({ queryKey: ['locations'], queryFn: () => api.get<Location[]>('/locations') });
+/**
+ * Province -> district, named in the reader's language.
+ *
+ * The staff forms are English-only today, so `locale` is not threaded through
+ * from `useTranslation()` here as it is on the public site - the API defaults
+ * an absent locale to English, and the key carries the value so a future
+ * language switch gets its own cache entry rather than a stale one.
+ */
+export function useLocationTree(locale: Locale = 'en') {
+  return useQuery({
+    queryKey: ['locations', 'tree', locale],
+    queryFn: () => api.get<LocationProvince[]>('/admin/locations/tree', { locale }),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** The cities of one district. Disabled until a district is chosen so the
+ * browse page doesn't pull all 2155 into the browser. */
+export function useCities(districtId: number | null, locale: Locale = 'en') {
+  return useQuery({
+    queryKey: ['locations', 'cities', districtId, locale],
+    queryFn: () => api.get<LocationCity[]>('/admin/locations/cities', { districtId, locale, pageSize: 300 }),
+    enabled: districtId !== null,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Server-paginated city search for the read-only /staff/locations browser. */
+export function useCitiesPage(params: { districtId?: number; q?: string; page: number }) {
+  return useQuery({
+    queryKey: ['admin', 'locations', 'cities', params],
+    queryFn: () => api.get<PagedCities>('/admin/locations/cities', { ...params, pageSize: 50 }),
+  });
+}
+
+export function useLocationDistricts(): LocationDistrict[] {
+  const { data = [] } = useLocationTree();
+  return data.flatMap((p) => p.districts);
 }
 
 export function useInvalidateCaregiver(id: string | undefined) {

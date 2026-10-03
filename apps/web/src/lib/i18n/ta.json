@@ -345,9 +345,6 @@
       },
       "city": {
         "required": "நகரம் தேவை"
-      },
-      "postalCode": {
-        "required": "அஞ்சல் குறியீடு தேவை"
       }
     },
     "options": {

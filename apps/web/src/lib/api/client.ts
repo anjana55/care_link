@@ -59,10 +59,26 @@ interface RequestOptions {
   method?: string;
   body?: unknown;
   isFormData?: boolean;
+  /** Serialised into the query string, skipping `undefined`/`null`/empty values
+   * so a caller can pass something that may not be set without branching. The
+   * locations endpoints take all their input this way. */
+  params?: Record<string, string | number | boolean | undefined | null>;
+}
+
+function withParams(path: string, params: RequestOptions['params']): string {
+  if (!params) return path;
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    query.set(key, String(value));
+  }
+  const qs = query.toString();
+  return qs ? `${path}${path.includes('?') ? '&' : '?'}${qs}` : path;
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, isFormData = false } = options;
+  const { method = 'GET', body, isFormData = false, params } = options;
+  const url = `${API_URL}${withParams(path, params)}`;
   const tokens = getStoredTokens();
 
   const doFetch = async (accessToken: string | undefined) => {
@@ -70,7 +86,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (!isFormData) headers['Content-Type'] = 'application/json';
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-    return fetch(`${API_URL}${path}`, {
+    return fetch(url, {
       method,
       headers,
       body: body ? (isFormData ? (body as FormData) : JSON.stringify(body)) : undefined,
@@ -108,7 +124,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 }
 
 export const api = {
-  get: <T,>(path: string) => apiRequest<T>(path),
+  get: <T,>(path: string, params?: RequestOptions['params']) => apiRequest<T>(path, { params }),
   post: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'POST', body }),
   patch: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
   put: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PUT', body }),

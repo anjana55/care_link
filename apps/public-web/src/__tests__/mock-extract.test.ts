@@ -1,5 +1,5 @@
 import { mockExtractRequirements } from '@/lib/ai/mock-extract';
-import type { PublicMetaLocation, PublicMetaSkill } from '@care-platform/shared';
+import type { PublicMetaDistrict, PublicMetaSkill } from '@care-platform/shared';
 
 const skills: PublicMetaSkill[] = [
   { id: 'skill-parkinsons', name: "Parkinson's Care", category: 'Specialized Care' },
@@ -7,17 +7,23 @@ const skills: PublicMetaSkill[] = [
   { id: 'skill-bathing', name: 'Bathing Assistance', category: 'Daily Living' },
 ];
 
-const locations: PublicMetaLocation[] = [{ id: 'loc-colombo', district: 'Colombo', city: 'Colombo', province: 'Western' }];
+const districts: PublicMetaDistrict[] = [
+  { id: 1, name: 'Colombo' },
+  { id: 2, name: 'Gampaha' },
+];
+const cities = [{ id: 118, name: 'Colombo 15', districtId: 1 }];
 
 describe('mockExtractRequirements', () => {
   it('extracts the exact example scenario from the brief', () => {
     const query =
       "I need a female caregiver in Colombo for my 78 year old mother who has Parkinson's. She needs night care and help with medication and bathing.";
-    const { requirements, summary } = mockExtractRequirements(query, skills, locations);
+    const { requirements, summary } = mockExtractRequirements(query, skills, districts, cities);
 
     expect(requirements.patient?.age).toBe(78);
     expect(requirements.patient?.gender).toBe('FEMALE');
-    expect(requirements.location?.city).toBe('Colombo');
+    // "in Colombo" names the district, not a city - Colombo isn't itself a
+    // city row in the reference data, it has 164 of them.
+    expect(requirements.location).toEqual({ districtId: 1 });
     expect(requirements.caregiverGenderPreference).toBe('FEMALE');
     expect(requirements.shift).toBe('NIGHT');
     expect(requirements.mandatorySkillIds).toEqual(
@@ -28,13 +34,25 @@ describe('mockExtractRequirements', () => {
     expect(summary.preferences).toContain('Female caregiver');
   });
 
+  it('emits the city id when the query names a city, and its district with it', () => {
+    // A city id alone would return nothing: the search filters on the
+    // district, so the two have to travel together.
+    const { requirements } = mockExtractRequirements('A caregiver near Colombo 15 please', skills, districts, cities);
+    expect(requirements.location).toEqual({ cityId: 118, districtId: 1 });
+  });
+
+  it('matches any district name, not just the first', () => {
+    const { requirements } = mockExtractRequirements('I need a caregiver in Gampaha', skills, districts, cities);
+    expect(requirements.location).toEqual({ districtId: 2 });
+  });
+
   it('never invents a location that was not mentioned', () => {
-    const { requirements } = mockExtractRequirements('I need a caregiver for night care', skills, locations);
+    const { requirements } = mockExtractRequirements('I need a caregiver for night care', skills, districts, cities);
     expect(requirements.location).toBeUndefined();
   });
 
   it('leaves fields absent rather than guessing when the text is ambiguous', () => {
-    const { requirements } = mockExtractRequirements('Looking for some help', skills, locations);
+    const { requirements } = mockExtractRequirements('Looking for some help', skills, districts, cities);
     expect(requirements.patient).toBeUndefined();
     expect(requirements.shift).toBeUndefined();
     expect(requirements.mandatorySkillIds).toBeUndefined();
