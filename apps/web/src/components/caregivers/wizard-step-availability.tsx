@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import type { Availability } from '@/lib/api/types';
-import { Input, Label, Select } from '@/components/ui/input';
+import { Input, Label, Select, FieldError, RequiredLegend } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/lib/i18n/provider';
 
@@ -60,21 +60,62 @@ export function AvailabilityStep({ caregiverId, onNext, onBack }: { caregiverId:
     },
   });
 
+  // The one rule this step enforces.
+  //
+  // Every field in UpsertAvailabilityDto is @IsOptional() and the database
+  // defaults preferred_shift to FLEXIBLE, so the API will happily store a
+  // caregiver who is available for nothing at all. That is not a harmless
+  // default: ranking.service.ts scores a shift match only when
+  // dayDuty/nightDuty/liveIn24h is set, so a caregiver with all three
+  // unticked can never match a DAY, NIGHT or TWENTY_FOUR_HOUR_LIVE_IN search
+  // and is effectively invisible to the public finder. One tick is the
+  // minimum that makes the record mean anything.
+  const noDutyType = !form.dayDuty && !form.nightDuty && !form.liveIn24h;
+  const [showDutyTypeError, setShowDutyTypeError] = useState(false);
+  // Ticking any box clears the complaint immediately; leaving it on until
+  // submit would keep pointing at something already fixed.
+  const setDutyType = (key: 'dayDuty' | 'nightDuty' | 'liveIn24h', value: boolean) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    if (value) setShowDutyTypeError(false);
+  };
+  const handleNext = () => {
+    if (noDutyType) {
+      setShowDutyTypeError(true);
+      return;
+    }
+    saveMutation.mutate();
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-6">
-        {(['dayDuty', 'nightDuty', 'liveIn24h'] as const).map((key) => (
-          <label key={key} className="flex items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={form[key]}
-              onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
-              className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
-            />
-            {key === 'dayDuty' ? t('caregivers.me.availability.dayDuty') : key === 'nightDuty' ? t('caregivers.me.availability.nightDuty') : t('caregivers.me.availability.liveIn24h')}
-          </label>
-        ))}
-      </div>
+      <RequiredLegend label={t('common.requiredField')} />
+
+      {/* Marked on the group rather than on any single box: it is "at least
+          one of these" that is required, and ticking a `*` onto all three
+          would claim each is individually mandatory. The marker's colour and
+          glyph are reused from <Label required> so the two read the same. */}
+      <fieldset>
+        <legend className="mb-1.5 block text-sm font-medium text-ink">
+          {t('caregivers.me.availability.dutyTypes')}
+          <span aria-hidden="true" className="ml-0.5 text-danger">
+            *
+          </span>
+        </legend>
+        <div className="flex flex-wrap gap-6">
+          {(['dayDuty', 'nightDuty', 'liveIn24h'] as const).map((key) => (
+            <label key={key} className="flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={form[key]}
+                onChange={(e) => setDutyType(key, e.target.checked)}
+                className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
+              />
+              {key === 'dayDuty' ? t('caregivers.me.availability.dayDuty') : key === 'nightDuty' ? t('caregivers.me.availability.nightDuty') : t('caregivers.me.availability.liveIn24h')}
+            </label>
+          ))}
+        </div>
+        <FieldError message={showDutyTypeError && noDutyType ? t('caregivers.me.availability.dutyTypeRequired') : undefined} />
+      </fieldset>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
@@ -116,7 +157,7 @@ export function AvailabilityStep({ caregiverId, onNext, onBack }: { caregiverId:
         <Button type="button" variant="secondary" onClick={onBack}>
           {t('caregivers.wizard.back')}
         </Button>
-        <Button type="button" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+        <Button type="button" onClick={handleNext} disabled={saveMutation.isPending}>
           {t('caregivers.wizard.next')}
         </Button>
       </div>

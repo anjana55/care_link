@@ -123,6 +123,8 @@
         "dayDuty": "Day duty",
         "nightDuty": "Night duty",
         "liveIn24h": "24-hour live-in",
+        "dutyTypes": "Duty types",
+        "dutyTypeRequired": "Select at least one duty type",
         "preferredShift": "Preferred shift",
         "day": "Day",
         "night": "Night",
