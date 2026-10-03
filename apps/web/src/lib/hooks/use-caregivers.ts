@@ -80,12 +80,23 @@ export function useLocationTree(locale: Locale = 'en') {
   });
 }
 
-/** The cities of one district. Disabled until a district is chosen so the
- * browse page doesn't pull all 2155 into the browser. */
+/** The cities of one district, as a flat list ready for a <select>.
+ *
+ * This hits the PUBLIC unpaginated endpoint, not /admin/locations/cities.
+ * The admin route is the browse page's: it returns a paginated envelope
+ * ({ items, total, page, pageSize }) and caps pageSize at 200, so asking it
+ * for a dropdown's worth of cities both overflowed that cap (a 400, and an
+ * empty dropdown) and returned a shape nothing downstream could iterate.
+ * One district is at most 251 cities - roughly 25 KB - which is why the
+ * public endpoint serves the whole district at once and this hook can hand
+ * the result straight to a select without unpaging it.
+ *
+ * Disabled until a district is chosen, so the browse page doesn't pull all
+ * 2155 into the browser. */
 export function useCities(districtId: number | null, locale: Locale = 'en') {
   return useQuery({
     queryKey: ['locations', 'cities', districtId, locale],
-    queryFn: () => api.get<LocationCity[]>('/admin/locations/cities', { districtId, locale, pageSize: 300 }),
+    queryFn: () => api.get<LocationCity[]>('/public/meta/locations/cities', { districtId, locale }),
     enabled: districtId !== null,
     staleTime: 5 * 60 * 1000,
   });
