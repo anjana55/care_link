@@ -11,9 +11,9 @@ import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
 import {
   generateRegistrationNumber,
   assertUniqueContactFields,
-  resolveLocationRefs,
   selfRegisteredCaregiverValues,
 } from '../caregivers/caregiver-creation.util';
+import { resolveLocationRefs } from '../common/utils/location.util';
 import { assertWhatsappNumberAvailable, purgeUnverifiedPhoneAccount } from './phone-accounts.util';
 import { normalizePhone } from '../common/utils/phone.util';
 import { maskPhone } from '../common/utils/masking.util';

@@ -266,6 +266,15 @@ export interface WhatsappSettings {
  * `phone` is masked on the list endpoint and raw on the detail endpoint (the
  * same split the caregiver list uses). `email` is null for a WhatsApp-only
  * client, who never supplied one.
+ *
+ * `accountPhone` is a different number from `phone`: it is the E.164 WhatsApp
+ * *login* identity on the linked account, and is null for every client who
+ * registered by email. The two disagree until a staff edit reconciles them, so
+ * the edit form submits `phone` and lets the API decide what the account row
+ * should become - never write `accountPhone` from here.
+ *
+ * The profile block below is null on any row that has not been through a staff
+ * edit, since neither self-registration path populates it.
  */
 export interface Client {
   id: string;
@@ -274,13 +283,28 @@ export interface Client {
   phone: string | null;
   status: ClientStatus;
   consentAcceptedAt: string | null;
+  permanentAddress: string | null;
+  /** ISO serialised, e.g. "1990-05-05T00:00:00.000Z". Slice to 10 chars for a date input. */
+  dateOfBirth: string | null;
+  gender: ClientGender | null;
+  nic: string | null;
+  districtId: number | null;
+  cityId: number | null;
+  district: string | null;
+  city: string | null;
+  province: string | null;
+  postalCode: string | null;
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
   email: string | null;
+  accountPhone: string | null;
   isActive: boolean;
   emailVerifiedAt: string | null;
   lastLoginAt: string | null;
 }
+
+export type ClientGender = 'MALE' | 'FEMALE' | 'OTHER';
 
 export interface ClientListResponse {
   items: Client[];

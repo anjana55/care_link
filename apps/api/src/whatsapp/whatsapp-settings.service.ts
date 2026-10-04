@@ -71,6 +71,18 @@ export class WhatsappSettingsService {
     return created;
   }
 
+  /**
+   * The one settings field other modules legitimately need: the country code
+   * that turns a locally-typed number into E.164. Deliberately narrow - a
+   * caller that needs only this must not be handed the decrypted access token
+   * that getResolved() carries. Same uncached single-row read, so an admin's
+   * change to the code takes effect immediately, as everywhere else here.
+   */
+  async getDefaultCountryCode(): Promise<string> {
+    const row = await this.getRow();
+    return row.defaultCountryCode;
+  }
+
   async getResolved(): Promise<ResolvedWhatsappSettings> {
     const { accessTokenEncrypted, ...rest } = await this.getRow();
     return { ...rest, accessToken: decryptSecret(accessTokenEncrypted, this.encryptionKey) };

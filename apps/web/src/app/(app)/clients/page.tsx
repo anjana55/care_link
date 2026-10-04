@@ -44,7 +44,8 @@ export default function ClientsListPage() {
   const deleteMutation = useDeleteClient();
 
   const isAdmin = user?.role === 'ADMIN';
-  const colSpan = isAdmin ? 7 : 6;
+  const canEdit = isAdmin || user?.role === 'STAFF';
+  const colSpan = canEdit ? 7 : 6;
 
   // Same guard as users/page.tsx - don't flash the table for a split second
   // before the redirect effect fires.
@@ -103,7 +104,7 @@ export default function ClientsListPage() {
               <th className="px-4 py-3 font-medium">{t('clients.table.status')}</th>
               <th className="px-4 py-3 font-medium">{t('clients.table.account')}</th>
               <th className="px-4 py-3 font-medium">{t('clients.table.registered')}</th>
-              {isAdmin && <th className="px-4 py-3 font-medium">{t('clients.table.actions')}</th>}
+              {canEdit && <th className="px-4 py-3 font-medium">{t('clients.table.actions')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -145,14 +146,24 @@ export default function ClientsListPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-ink/70">{new Date(c.createdAt).toLocaleDateString()}</td>
-                {isAdmin && (
+                {canEdit && (
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => setDeleteConfirmId(c.id)}
-                      className="text-sm text-danger hover:underline"
+                    {/* Editing details is a staff operation; deleting the
+                        account stays admin-only, matching the API's @Roles. */}
+                    <Link
+                      href={`/clients/${c.id}?edit=1`}
+                      className="text-sm text-brand-dark hover:underline"
                     >
-                      {t('clients.actions.delete')}
-                    </button>
+                      {t('clients.actions.edit')}
+                    </Link>
+                    {isAdmin && (
+                      <button
+                        onClick={() => setDeleteConfirmId(c.id)}
+                        className="ml-3 text-sm text-danger hover:underline"
+                      >
+                        {t('clients.actions.delete')}
+                      </button>
+                    )}
                   </td>
                 )}
               </tr>

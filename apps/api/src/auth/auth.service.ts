@@ -12,9 +12,9 @@ import { RegisterPatientDto } from './dto/register-patient.dto';
 import {
   generateRegistrationNumber,
   assertUniqueContactFields,
-  resolveLocationRefs,
   selfRegisteredCaregiverValues,
 } from '../caregivers/caregiver-creation.util';
+import { resolveLocationRefs } from '../common/utils/location.util';
 import { EmailService } from '../email/email.service';
 import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
 import { assertNoWhatsappLoginForPhone } from './phone-accounts.util';

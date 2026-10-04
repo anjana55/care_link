@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PatientsService } from './patients.service';
 import { PatientQueryDto } from './dto/patient-query.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { UpdatePatientDto } from './dto/update-patient.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
 
@@ -25,6 +26,19 @@ export class PatientsController {
   @Audit({ action: 'VIEW_CLIENT', entityType: 'Patient' })
   findOne(@Param('id') id: string) {
     return this.patientsService.findOne(id);
+  }
+
+  // Staff and admin, inherited from the class-level @Roles: the same
+  // operations view that can already read and review a client. Deliberately
+  // not narrowed to ADMIN the way :id/active is - that one gates a real
+  // person's ability to sign in, whereas this corrects the data attached to
+  // the account. (The phone it writes IS the WhatsApp login number, but
+  // writing it grants nothing: the new number has to complete an OTP before
+  // phoneVerifiedAt is set again.)
+  @Patch(':id')
+  @Audit({ action: 'UPDATE_CLIENT', entityType: 'Patient' })
+  update(@Param('id') id: string, @Body() dto: UpdatePatientDto) {
+    return this.patientsService.update(id, dto);
   }
 
   @Patch(':id/status')

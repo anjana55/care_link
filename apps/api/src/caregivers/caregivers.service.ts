@@ -19,7 +19,8 @@ import { CreateCaregiverDto } from './dto/create-caregiver.dto';
 import { UpdateCaregiverDto } from './dto/update-caregiver.dto';
 import { CaregiverQueryDto } from './dto/caregiver-query.dto';
 import { maskIdentifier, maskPhone } from '../common/utils/masking.util';
-import { generateRegistrationNumber, assertUniqueContactFields, resolveLocationRefs } from './caregiver-creation.util';
+import { generateRegistrationNumber, assertUniqueContactFields } from './caregiver-creation.util';
+import { resolveLocationRefs } from '../common/utils/location.util';
 
 /** A condition that always evaluates to false - used to short-circuit a
  * filter to "no results" without ever building an invalid `IN ()` clause. */

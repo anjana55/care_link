@@ -1,5 +1,5 @@
 import { ConflictException } from '@nestjs/common';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { Database } from '../database/database.module';
 import { caregivers, patients, refreshTokens, users } from '../database/schema';
 import { phoneVariants } from '../common/utils/phone.util';
@@ -33,21 +33,59 @@ export async function purgeUnverifiedPhoneAccount(db: Database, phone: string): 
 }
 
 /**
+ * Narrowing for an EDIT rather than a registration. On registration the caller
+ * is anonymous and the number must belong to nobody; on an edit the caller is
+ * staff and the two rows about to be written would otherwise match themselves -
+ * the users row always, and the patients row whenever the value already stored
+ * is one of the spellings of the number being written (always, since we write
+ * the text as typed).
+ *
+ * Both exclusions are needed and they are different tables' keys, which is why
+ * this is an object rather than the single excludeId that
+ * assertUniqueContactFields takes - that one only ever queries `caregivers`.
+ */
+export interface PhoneAvailabilityExclusions {
+  /** users.id to ignore - the login being edited. */
+  userId?: string;
+  /** patients.id to ignore - the profile being edited. */
+  patientId?: string;
+}
+
+/**
  * Rejects a WhatsApp registration when the number is already attached to any
  * account, whichever way that account was created: another WhatsApp login, a
  * caregiver profile (including ones staff entered), or a customer profile.
  * Compares every stored spelling, since phone columns hold free text.
  */
-export async function assertWhatsappNumberAvailable(db: Database, e164: string, defaultCountryCode: string): Promise<void> {
+export async function assertWhatsappNumberAvailable(
+  db: Database,
+  e164: string,
+  defaultCountryCode: string,
+  exclude: PhoneAvailabilityExclusions = {},
+): Promise<void> {
   const variants = phoneVariants(e164, defaultCountryCode);
 
-  const [byLogin] = await db.select({ id: users.id }).from(users).where(eq(users.phone, e164)).limit(1);
+  const [byLogin] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(exclude.userId ? and(eq(users.phone, e164), ne(users.id, exclude.userId)) : eq(users.phone, e164))
+    .limit(1);
   if (byLogin) throw new ConflictException('An account with this WhatsApp number already exists');
 
+  // Never excluded: a clients PATIENT_GUARDIAN login has no caregivers row, so
+  // a hit here is always a genuine collision.
   const [byCaregiver] = await db.select({ id: caregivers.id }).from(caregivers).where(inArray(caregivers.primaryPhone, variants)).limit(1);
   if (byCaregiver) throw new ConflictException('An account with this phone number already exists');
 
-  const [byPatient] = await db.select({ id: patients.id }).from(patients).where(inArray(patients.phone, variants)).limit(1);
+  const [byPatient] = await db
+    .select({ id: patients.id })
+    .from(patients)
+    .where(
+      exclude.patientId
+        ? and(inArray(patients.phone, variants), ne(patients.id, exclude.patientId))
+        : inArray(patients.phone, variants),
+    )
+    .limit(1);
   if (byPatient) throw new ConflictException('An account with this phone number already exists');
 }
 

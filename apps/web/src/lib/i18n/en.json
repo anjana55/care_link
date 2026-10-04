@@ -595,14 +595,40 @@
       "lastLogin": "Last login",
       "registered": "Registered",
       "consent": "Consent to data processing",
-      "notRecorded": "Not recorded"
+      "notRecorded": "Not recorded",
+      "profile": "Profile",
+      "updated": "Last updated",
+      "whatsappNumber": "WhatsApp login number",
+      "notLinked": "Not linked"
     },
     "actions": {
       "activate": "Activate account",
       "deactivate": "Deactivate account",
-      "delete": "Delete"
+      "delete": "Delete",
+      "edit": "Edit"
     },
     "changeStatus": "Change status",
-    "statusChanged": "Status updated."
+    "statusChanged": "Status updated.",
+    "form": {
+      "phone": "Phone",
+      "email": "Email",
+      "notes": "Staff notes",
+      "phoneHint": "Also set as the WhatsApp login number. If it changes, the client must verify WhatsApp on the new number."
+    },
+    "validation": {
+      "email": {
+        "invalid": "Enter a valid email address"
+      },
+      "phone": {
+        "tooLong": "Phone number is too long"
+      },
+      "nic": {
+        "tooLong": "NIC must be 20 characters or fewer"
+      },
+      "notes": {
+        "tooLong": "Notes must be 2000 characters or fewer"
+      },
+      "saveFailed": "Could not save the client. Please try again."
+    }
   }
 }

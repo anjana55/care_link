@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
-import { resolveLocationRefs } from './caregiver-creation.util';
-import type { Database } from '../database/database.module';
+import { resolveLocationRefs } from './location.util';
+import type { Database } from '../../database/database.module';
 
 /**
  * The district/city guard, now over ids rather than typed names.
