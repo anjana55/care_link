@@ -63,7 +63,12 @@ export class WhatsappSettingsController {
             : 'Test message accepted by WhatsApp.',
       };
     } catch (err) {
-      if (err instanceof WhatsappDeliveryError) throw new ServiceUnavailableException(err.message);
+      if (err instanceof WhatsappDeliveryError) {
+        // The test button exists to tell an admin *why* delivery failed, so
+        // Meta's own code travels with the message rather than being logged
+        // server-side only. ADMIN-only route, and the body holds no secret.
+        throw new ServiceUnavailableException(err.detail ? `${err.message} (${err.detail})` : err.message);
+      }
       throw err;
     }
   }

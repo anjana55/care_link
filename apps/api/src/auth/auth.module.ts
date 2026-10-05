@@ -10,6 +10,14 @@ import { EmailModule } from '../email/email.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { WhatsappAuthService } from './whatsapp-auth.service';
 import { WhatsappAuthController } from './whatsapp-auth.controller';
+import { SocialAuthService } from './social-auth.service';
+import { SocialAuthController } from './social-auth.controller';
+import {
+  FacebookProviderClient,
+  GoogleProviderClient,
+  MicrosoftProviderClient,
+  SocialProviderRegistry,
+} from './social/social-provider';
 
 @Module({
   imports: [
@@ -29,8 +37,19 @@ import { WhatsappAuthController } from './whatsapp-auth.controller';
       }),
     }),
   ],
-  providers: [AuthService, WhatsappAuthService, JwtStrategy],
-  controllers: [AuthController, WhatsappAuthController],
+  providers: [
+    AuthService,
+    WhatsappAuthService,
+    SocialAuthService,
+    JwtStrategy,
+    // Registry only - the three clients are constructed with the ConfigService
+    // and are not useful to anything outside this file.
+    GoogleProviderClient,
+    MicrosoftProviderClient,
+    FacebookProviderClient,
+    SocialProviderRegistry,
+  ],
+  controllers: [AuthController, WhatsappAuthController, SocialAuthController],
   exports: [AuthService],
 })
 export class AuthModule {}

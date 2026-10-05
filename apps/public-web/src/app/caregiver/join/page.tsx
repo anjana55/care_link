@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Mail, MessageCircle } from 'lucide-react';
+import { Mail, MessageCircle, ShieldCheck } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
@@ -42,6 +42,20 @@ export default function CaregiverJoinPage() {
         </div>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2">
+          <Link
+            href="/caregiver/signup"
+            className="group flex flex-col gap-3 rounded-lg border border-border bg-white p-6 transition-all hover:-translate-y-0.5 hover:border-brand hover:shadow-lg"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded bg-brand-light text-brand-dark">
+              <ShieldCheck className="h-5 w-5" aria-hidden />
+            </span>
+            <h2 className="text-base font-semibold text-ink">{t('caregiverSignup.joinTitle')}</h2>
+            <p className="flex-1 text-sm text-ink/60">{t('caregiverSignup.joinBody')}</p>
+            <span className="text-sm font-semibold text-brand transition-colors group-hover:text-brand-dark">
+              {t('caregiverSignup.joinCta')}
+            </span>
+          </Link>
+
           <Link
             href="/caregiver/register"
             className="group flex flex-col gap-3 rounded-lg border border-border bg-white p-6 transition-all hover:-translate-y-0.5 hover:border-brand hover:shadow-lg"

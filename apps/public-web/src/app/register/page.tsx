@@ -12,7 +12,11 @@ import { SiteFooter } from '@/components/layout/site-footer';
 import { HeroBanner } from '@/components/register/hero-banner';
 import { api, ApiError } from '@/lib/api/client';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
-import { Input, Label } from '@/components/ui/input';
+import { FieldError, Input, Label, RequiredLegend } from '@/components/ui/input';
+import { PatientIntakeFields } from '@/components/register/patient-intake-fields';
+import { useLocationTree } from '@/lib/hooks/use-public-search';
+import { UNSET_ID } from '@/lib/schemas/personal-info';
+import { guardianFieldsCheck, makePatientIntakeSchema, toIntakePayload } from '@/lib/schemas/patient-intake';
 
 interface RegisterResponse {
   patientId: string;
@@ -21,15 +25,17 @@ interface RegisterResponse {
 }
 
 function makeRegisterSchema(t: (key: string) => string) {
-  return z
-    .object({
+  return makePatientIntakeSchema(t, { allowEmailContact: true })
+    .extend({
       fullName: z.string().min(2, t('register.validation.fullName')),
       email: z.string().email(t('register.validation.email')),
-      phone: z.string().optional().or(z.literal('')),
+      // Required now: it is how staff reach the client.
+      phone: z.string().trim().min(1, t('register.validation.phoneRequired')).min(9, t('register.validation.phone')),
       password: z.string().min(8, t('register.validation.password')),
       confirmPassword: z.string(),
       consentAccepted: z.boolean(),
     })
+    .superRefine(guardianFieldsCheck(t))
     .refine((data) => data.password === data.confirmPassword, {
       message: t('register.validation.passwordMismatch'),
       path: ['confirmPassword'],
@@ -41,9 +47,10 @@ function makeRegisterSchema(t: (key: string) => string) {
 }
 
 export default function RegisterPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const formRef = useRef<HTMLDivElement>(null);
   const { data: whatsapp } = useWhatsappConfig();
+  const { data: locationTree, isError: locationsUnavailable } = useLocationTree(locale);
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<RegisterResponse | null>(null);
 
@@ -52,18 +59,35 @@ export default function RegisterPage() {
 
   const {
     register,
+    control,
+    setValue,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterValues>({ resolver: zodResolver(registerSchema) });
+  } = useForm<RegisterValues>({
+    resolver: zodResolver(registerSchema),
+    // Selects submit '' until chosen; the schema turns that into a "required" message.
+    defaultValues: {
+      preferredContactTime: 'ANYTIME',
+      preferredCaregiverGender: 'NO_PREFERENCE',
+      districtId: UNSET_ID,
+      cityId: UNSET_ID,
+    },
+  });
 
   const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: 'smooth' });
 
   const onSubmit = async (values: RegisterValues) => {
     setServerError(null);
     try {
-      const { confirmPassword: _confirmPassword, ...payload } = values;
-      const cleaned = { ...payload, phone: payload.phone || undefined };
-      const res = await api.post<RegisterResponse>('/auth/register-patient', cleaned);
+      const payload = {
+        fullName: values.fullName,
+        email: values.email,
+        phone: values.phone,
+        password: values.password,
+        consentAccepted: values.consentAccepted,
+        ...toIntakePayload(values),
+      };
+      const res = await api.post<RegisterResponse>('/auth/register-patient', payload);
       setResult(res);
     } catch (err) {
       setServerError(err instanceof ApiError ? err.message : 'Could not register. Please try again.');
@@ -114,7 +138,7 @@ export default function RegisterPage() {
       </section>
 
       {/* Signup form - the page's actual purpose. */}
-      <section ref={formRef} className="mx-auto max-w-md px-4 py-12">
+      <section ref={formRef} className="mx-auto max-w-xl px-4 py-12">
         {result ? (
           <div className="rounded-lg border border-border bg-white p-8 text-center">
             <CheckCircle2 size={40} className="mx-auto mb-4 text-brand" />
@@ -143,8 +167,9 @@ export default function RegisterPage() {
             <p className="mt-1 text-sm text-ink/60">{t('register.formSubtitle')}</p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+              <RequiredLegend label={t('common.requiredField')} />
               <div>
-                <Label htmlFor="fullName" >
+                <Label htmlFor="fullName" required>
                   {t('register.fullName')}
                 </Label>
                 <Input
@@ -155,7 +180,7 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <Label htmlFor="email" >
+                <Label htmlFor="email" required>
                   {t('register.email')}
                 </Label>
                 <Input
@@ -167,7 +192,7 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <Label htmlFor="phone" >
+                <Label htmlFor="phone" required>
                   {t('register.phone')}
                 </Label>
                 <Input
@@ -175,12 +200,13 @@ export default function RegisterPage() {
                   type="tel"
                   {...register('phone')}
                 />
-                {errors.phone && <p className="mt-1 text-xs text-danger">{errors.phone.message}</p>}
+                <p className="mt-1 text-xs text-ink/50">{t('patientIntake.phoneHint')}</p>
+                <FieldError message={errors.phone?.message} />
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="password" >
+                  <Label htmlFor="password" required>
                     {t('register.password')}
                   </Label>
                   <Input
@@ -191,7 +217,7 @@ export default function RegisterPage() {
                   {errors.password && <p className="mt-1 text-xs text-danger">{errors.password.message}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="confirmPassword" >
+                  <Label htmlFor="confirmPassword" required>
                     {t('register.confirmPassword')}
                   </Label>
                   <Input
@@ -203,7 +229,17 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <label className="flex items-start gap-2 text-sm text-ink">
+              <PatientIntakeFields
+                register={register}
+                control={control}
+                setValue={setValue}
+                errors={errors}
+                locationTree={locationTree}
+                locationsUnavailable={locationsUnavailable}
+                allowEmailContact
+              />
+
+              <label className="flex items-start gap-2 border-t border-border pt-5 text-sm text-ink">
                 <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand" {...register('consentAccepted')} />
                 <span>{t('register.consentLabel')}</span>
               </label>

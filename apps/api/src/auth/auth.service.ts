@@ -19,6 +19,7 @@ import { EmailService } from '../email/email.service';
 import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
 import { assertNoWhatsappLoginForPhone } from './phone-accounts.util';
 import { normalizePhone } from '../common/utils/phone.util';
+import { buildPatientIntake } from '../clients/patient-profile.util';
 
 // Self-registering roles must verify their email before their first login;
 // staff/admin/verifier accounts are created by an already-authenticated admin
@@ -144,7 +145,7 @@ export class AuthService {
    * (`patients`) atomically, then sends the same stubbed verification email.
    */
   async registerPatient(dto: RegisterPatientDto) {
-    const { email, password, fullName, phone, consentAccepted: _consentAccepted } = dto;
+    const { email, password, fullName, phone } = dto;
 
     const [existingUser] = await this.db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
     if (existingUser) {
@@ -155,6 +156,10 @@ export class AuthService {
     const verificationToken = randomBytes(32).toString('hex');
 
     const result = await this.db.transaction(async (tx) => {
+      // Validated first so a bad location or contact method never leaves a
+      // half-created account behind.
+      const intake = await buildPatientIntake(tx as unknown as Database, dto, { hasEmail: true });
+
       const userId = uuid();
       const passwordHash = await bcrypt.hash(password, 12);
       await tx.insert(users).values({
@@ -172,8 +177,9 @@ export class AuthService {
         id: patientId,
         userId,
         fullName,
-        phone: phone ?? null,
+        phone,
         consentAcceptedAt: new Date(),
+        ...intake,
         // Every self-registered client starts unreviewed; staff promote it to
         // ACTIVE from the staff app.
         status: 'PENDING_REVIEW',

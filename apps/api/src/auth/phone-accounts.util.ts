@@ -1,7 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { Database } from '../database/database.module';
-import { caregivers, patients, refreshTokens, users } from '../database/schema';
+import { caregivers, patients, refreshTokens, socialAccounts, users } from '../database/schema';
 import { phoneVariants } from '../common/utils/phone.util';
 
 const SELF_REGISTERED = ['CAREGIVER', 'PATIENT_GUARDIAN'] as const;
@@ -23,6 +23,15 @@ export async function purgeUnverifiedPhoneAccount(db: Database, phone: string): 
     .where(and(eq(users.phone, phone), isNull(users.phoneVerifiedAt), inArray(users.role, [...SELF_REGISTERED])));
 
   for (const { id } of stale) {
+    // A caregiver who signed up through the unified form and then proved who
+    // they are with Google/Microsoft/Facebook has an unverified *phone* but a
+    // verified *identity*, and phoneVerifiedAt stays null by design on that
+    // route. Purging them would let a later WhatsApp signup for the same number
+    // silently delete the account they just secured - so a linked provider
+    // identity exempts the row, exactly as a non-DRAFT profile does.
+    const [linked] = await db.select({ id: socialAccounts.id }).from(socialAccounts).where(eq(socialAccounts.userId, id)).limit(1);
+    if (linked) continue;
+
     const [profile] = await db.select({ status: caregivers.status }).from(caregivers).where(eq(caregivers.userId, id)).limit(1);
     if (profile && profile.status !== 'DRAFT') continue;
     await db.delete(caregivers).where(eq(caregivers.userId, id));

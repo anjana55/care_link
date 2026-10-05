@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { OmitType } from '@nestjs/swagger';
 import { Equals, IsIn, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 import { CreateCaregiverDto } from '../../caregivers/dto/create-caregiver.dto';
+import { PatientProfileDto } from './patient-profile.dto';
 import { TextField } from '../../common/validation/text-field.validator';
 import { whatsappOtpPurposeEnum, type WhatsappOtpPurpose } from '../../database/schema';
 
@@ -35,8 +36,12 @@ export class RegisterCaregiverWhatsappDto extends OmitType(CreateCaregiverDto, [
   consentAccepted: boolean;
 }
 
-/** Customer (patient/guardian) self-registration with a WhatsApp number. */
-export class RegisterPatientWhatsappDto {
+/**
+ * Customer (patient/guardian) self-registration with a WhatsApp number. Asks for
+ * the same care intake as the email flow; the WhatsApp number doubles as the
+ * contact phone.
+ */
+export class RegisterPatientWhatsappDto extends PatientProfileDto {
   @ApiProperty()
   @IsString()
   @Length(2, 255)

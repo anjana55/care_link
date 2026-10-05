@@ -1,1 +1,0 @@
-ALTER TABLE `patients` ADD `consent_accepted_at` datetime;

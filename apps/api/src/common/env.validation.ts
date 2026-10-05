@@ -96,6 +96,53 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   WHATSAPP_TEMPLATE_LANGUAGE?: string;
+
+  // Google / Microsoft / Facebook sign-in, offered to a caregiver once the
+  // unified registration form has been submitted. A provider is offered only
+  // when BOTH its client id and secret are set, so a partially configured
+  // environment degrades to "that button is absent" rather than to a broken
+  // sign-in (see SocialProviderRegistry.available).
+  // Redirect URIs are {SOCIAL_AUTH_CALLBACK_BASE_URL}/auth/social/{provider}/callback.
+  @IsOptional()
+  @IsString()
+  GOOGLE_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  GOOGLE_CLIENT_SECRET?: string;
+
+  @IsOptional()
+  @IsString()
+  MICROSOFT_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  MICROSOFT_CLIENT_SECRET?: string;
+
+  // 'common' for any Microsoft work/school account, 'organizations' for
+  // work/school only, 'consumers' for personal accounts.
+  @IsOptional()
+  @IsString()
+  MICROSOFT_TENANT?: string;
+
+  @IsOptional()
+  @IsString()
+  FACEBOOK_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  FACEBOOK_CLIENT_SECRET?: string;
+
+  // The public origin the providers send the caregiver back to. Must be the
+  // value registered in each provider's console BYTE FOR BYTE, because the
+  // token exchange is rejected otherwise. Behind nginx that origin is
+  // https://<domain>/api - nginx strips the /api prefix before proxying to the
+  // API container, so the redirect_uri still has to carry it. Left unset it
+  // falls back to {PUBLIC_WEB_URL}/api, which is right for the default
+  // single-origin setup and wrong anywhere the API is mounted elsewhere.
+  @IsOptional()
+  @IsString()
+  SOCIAL_AUTH_CALLBACK_BASE_URL?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

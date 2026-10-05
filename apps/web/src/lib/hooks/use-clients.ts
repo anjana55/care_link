@@ -24,6 +24,15 @@ export interface ClientFilters {
   search?: string;
   status?: string;
   isActive?: boolean;
+  /** Intake facets. These match nothing on rows registered before the intake
+   * form existed, so a filtered list legitimately drops those clients. */
+  districtId?: number;
+  cityId?: number;
+  careSchedule?: string;
+  careStart?: string;
+  contactMethod?: string;
+  registrantType?: string;
+  verification?: 'VERIFIED' | 'UNVERIFIED';
   page?: number;
   pageSize?: number;
 }
@@ -33,6 +42,13 @@ function buildClientQuery(filters: ClientFilters): string {
   if (filters.search) query.set('search', filters.search);
   if (filters.status) query.set('status', filters.status);
   if (filters.isActive !== undefined) query.set('isActive', String(filters.isActive));
+  if (filters.districtId) query.set('districtId', String(filters.districtId));
+  if (filters.cityId) query.set('cityId', String(filters.cityId));
+  if (filters.careSchedule) query.set('careSchedule', filters.careSchedule);
+  if (filters.careStart) query.set('careStart', filters.careStart);
+  if (filters.contactMethod) query.set('contactMethod', filters.contactMethod);
+  if (filters.registrantType) query.set('registrantType', filters.registrantType);
+  if (filters.verification) query.set('verification', filters.verification);
   query.set('page', String(filters.page ?? 1));
   query.set('pageSize', String(filters.pageSize ?? 20));
   return query.toString();

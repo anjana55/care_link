@@ -26,6 +26,7 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
   locationTree,
   locationsUnavailable = false,
   requiredFields,
+  omitFields,
 }: {
   register: UseFormRegister<T>;
   control: Control<T>;
@@ -40,6 +41,16 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
   locationsUnavailable?: boolean;
   /** Field names the schema enforces, from requiredFieldsOf(). */
   requiredFields: ReadonlySet<string>;
+  /**
+   * Field names to leave out entirely.
+   *
+   * The unified sign-up renders its own `phone` input in the account section,
+   * because on that form the number is called a phone number rather than a
+   * primary phone - asking for both `phone` and `primaryPhone` is exactly the
+   * duplicate field this flow exists to remove. Omitting rather than
+   * duplicating is what keeps the two inputs from reappearing.
+   */
+  omitFields?: ReadonlySet<string>;
 }) {
   const { t, locale } = useTranslation();
 
@@ -237,10 +248,19 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
         <Input id="weightKg" type="number" {...register('weightKg' as any)} />
       </div>
 
-      <div>
-        <Label htmlFor="primaryPhone" required={requiredFields.has('primaryPhone')}>{t('personalInfo.fields.primaryPhone')}</Label>
-        <Input id="primaryPhone" {...register('primaryPhone' as any)} />
-      </div>
+      {omitFields?.has('primaryPhone') ? (
+        // The unified form renders its own `phone` input, in the account
+        // section where the other credentials are. This spacer keeps
+        // secondaryPhone in the right-hand column: without it the whole grid
+        // shifts left by one from here on, which is the trap the emergency
+        // group's filler below already documents.
+        <div />
+      ) : (
+        <div>
+          <Label htmlFor="primaryPhone" required={requiredFields.has('primaryPhone')}>{t('personalInfo.fields.primaryPhone')}</Label>
+          <Input id="primaryPhone" {...register('primaryPhone' as any)} />
+        </div>
+      )}
       <div>
         <Label htmlFor="secondaryPhone" required={requiredFields.has('secondaryPhone')}>{t('personalInfo.fields.secondaryPhone')}</Label>
         <Input id="secondaryPhone" {...register('secondaryPhone' as any)} />

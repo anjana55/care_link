@@ -2,6 +2,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "caregivers": "Caregivers",
+    "clients": "Clients",
     "skills": "Skills",
     "languages": "Languages",
     "locations": "Locations",
@@ -216,6 +217,186 @@
       "inProgress": "In progress",
       "verified": "Verified",
       "rejected": "Rejected"
+    }
+  },
+  "clients": {
+    "title": "Clients",
+    "search": "Search by name, phone or email",
+    "empty": "No clients found.",
+    "allDistricts": "All districts",
+    "allSchedules": "Any schedule",
+    "allStarts": "Any start date",
+    "allContactMethods": "Any contact method",
+    "allVerification": "Verified or not",
+    "verified": "Verified",
+    "unverified": "Unverified",
+    "view": "View",
+    "notProvided": "Not provided",
+    "forRecipient": "For",
+    "pageLabel": "Page",
+    "pageOf": "of",
+    "clientsCount": "clients",
+    "previous": "Previous",
+    "next": "Next",
+    "table": {
+      "name": "Name",
+      "contact": "Contact",
+      "location": "Location",
+      "care": "Care needed",
+      "registered": "Registered",
+      "status": "Status",
+      "phone": "Phone",
+      "email": "Email",
+      "account": "Account",
+      "lastLogin": "Last login",
+      "actions": "Actions"
+    },
+    "detail": {
+      "close": "Close",
+      "title": "Client details",
+      "accountHolder": "Account holder",
+      "recipient": "Person needing care",
+      "contact": "How to reach them",
+      "location": "Where care is needed",
+      "care": "Care needed",
+      "account": "Account",
+      "legacyNote": "This client registered before the care questions were added, so some details are missing.",
+      "registration": "Registration",
+      "email": "Email",
+      "emailUnverified": "Not verified",
+      "noEmail": "No email (WhatsApp only)",
+      "phone": "Phone",
+      "status": "Status",
+      "isActive": "Account status",
+      "emailVerified": "Email verified",
+      "lastLogin": "Last login",
+      "registered": "Registered",
+      "consent": "Consent to data processing",
+      "notRecorded": "Not recorded",
+      "profile": "Profile",
+      "updated": "Last updated",
+      "whatsappNumber": "WhatsApp login number",
+      "notLinked": "Not linked"
+    },
+    "field": {
+      "fullName": "Full name",
+      "registeredAs": "Registered as",
+      "recipientName": "Name",
+      "relationship": "Relationship to account holder",
+      "age": "Age",
+      "gender": "Gender",
+      "phone": "Phone",
+      "whatsapp": "WhatsApp number",
+      "alternatePhone": "Alternate phone",
+      "email": "Email",
+      "preferredContact": "Preferred contact method",
+      "preferredTime": "Best time to contact",
+      "district": "District",
+      "city": "City",
+      "address": "Address",
+      "careNeeds": "Care needs",
+      "schedule": "Schedule",
+      "start": "Start",
+      "caregiverGender": "Caregiver gender preference",
+      "registeredOn": "Registered on",
+      "lastLogin": "Last sign-in",
+      "consent": "Data consent given",
+      "verification": "Email / WhatsApp verification",
+      "accountStatus": "Account"
+    },
+    "active": "Active",
+    "inactive": "Disabled",
+    "options": {
+      "registrantType": {
+        "SELF": "Needs care themselves",
+        "GUARDIAN": "Registered for someone else"
+      },
+      "relationship": {
+        "PARENT": "Parent",
+        "SPOUSE": "Spouse",
+        "CHILD": "Child",
+        "SIBLING": "Sibling",
+        "OTHER_RELATIVE": "Other relative",
+        "FRIEND": "Friend",
+        "OTHER": "Other"
+      },
+      "gender": {
+        "MALE": "Male",
+        "FEMALE": "Female",
+        "OTHER": "Other"
+      },
+      "contactMethod": {
+        "PHONE_CALL": "Phone call",
+        "WHATSAPP": "WhatsApp",
+        "EMAIL": "Email"
+      },
+      "contactTime": {
+        "ANYTIME": "Any time",
+        "MORNING": "Morning",
+        "AFTERNOON": "Afternoon",
+        "EVENING": "Evening"
+      },
+      "careSchedule": {
+        "DAY": "Day",
+        "NIGHT": "Night",
+        "LIVE_IN_24H": "24-hour live-in",
+        "NOT_SURE": "Not sure yet"
+      },
+      "careStart": {
+        "IMMEDIATELY": "Immediately",
+        "WITHIN_WEEK": "Within a week",
+        "WITHIN_MONTH": "Within a month",
+        "JUST_EXPLORING": "Just exploring"
+      },
+      "caregiverGender": {
+        "NO_PREFERENCE": "No preference",
+        "MALE": "Male",
+        "FEMALE": "Female"
+      }
+    },
+    "subtitle": "Patients and guardians registered through the public site.",
+    "deleteTitle": "Delete client",
+    "confirmDelete": "This permanently deletes the client account and cannot be undone.",
+    "status": {
+      "PENDING_REVIEW": "Pending review",
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive",
+      "SUSPENDED": "Suspended"
+    },
+    "account": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "never": "Never",
+    "back": "Back",
+    "actions": {
+      "activate": "Activate account",
+      "deactivate": "Deactivate account",
+      "delete": "Delete",
+      "edit": "Edit"
+    },
+    "changeStatus": "Change status",
+    "statusChanged": "Status updated.",
+    "form": {
+      "phone": "Phone",
+      "email": "Email",
+      "notes": "Staff notes",
+      "phoneHint": "Also set as the WhatsApp login number. If it changes, the client must verify WhatsApp on the new number."
+    },
+    "validation": {
+      "email": {
+        "invalid": "Enter a valid email address"
+      },
+      "phone": {
+        "tooLong": "Phone number is too long"
+      },
+      "nic": {
+        "tooLong": "NIC must be 20 characters or fewer"
+      },
+      "notes": {
+        "tooLong": "Notes must be 2000 characters or fewer"
+      },
+      "saveFailed": "Could not save the client. Please try again."
     }
   },
   "common": {
@@ -551,84 +732,6 @@
     "title": "Something went wrong",
     "body": "This page hit an unexpected error. Try again, or go back.",
     "retry": "Try again"
-  },
-  "clients": {
-    "title": "Clients",
-    "subtitle": "Patients and guardians registered through the public site.",
-    "search": "Search by name, phone or email",
-    "empty": "No clients match your search yet.",
-    "deleteTitle": "Delete client",
-    "confirmDelete": "This permanently deletes the client account and cannot be undone.",
-    "table": {
-      "name": "Name",
-      "phone": "Phone",
-      "email": "Email",
-      "status": "Status",
-      "account": "Account",
-      "registered": "Registered",
-      "lastLogin": "Last login",
-      "actions": "Actions"
-    },
-    "status": {
-      "PENDING_REVIEW": "Pending review",
-      "ACTIVE": "Active",
-      "INACTIVE": "Inactive",
-      "SUSPENDED": "Suspended"
-    },
-    "account": {
-      "active": "Active",
-      "inactive": "Inactive"
-    },
-    "never": "Never",
-    "back": "Back",
-    "detail": {
-      "contact": "Contact",
-      "account": "Account",
-      "registration": "Registration",
-      "email": "Email",
-      "emailUnverified": "Not verified",
-      "noEmail": "No email (WhatsApp only)",
-      "phone": "Phone",
-      "status": "Status",
-      "isActive": "Account status",
-      "emailVerified": "Email verified",
-      "lastLogin": "Last login",
-      "registered": "Registered",
-      "consent": "Consent to data processing",
-      "notRecorded": "Not recorded",
-      "profile": "Profile",
-      "updated": "Last updated",
-      "whatsappNumber": "WhatsApp login number",
-      "notLinked": "Not linked"
-    },
-    "actions": {
-      "activate": "Activate account",
-      "deactivate": "Deactivate account",
-      "delete": "Delete",
-      "edit": "Edit"
-    },
-    "changeStatus": "Change status",
-    "statusChanged": "Status updated.",
-    "form": {
-      "phone": "Phone",
-      "email": "Email",
-      "notes": "Staff notes",
-      "phoneHint": "Also set as the WhatsApp login number. If it changes, the client must verify WhatsApp on the new number."
-    },
-    "validation": {
-      "email": {
-        "invalid": "Enter a valid email address"
-      },
-      "phone": {
-        "tooLong": "Phone number is too long"
-      },
-      "nic": {
-        "tooLong": "NIC must be 20 characters or fewer"
-      },
-      "notes": {
-        "tooLong": "Notes must be 2000 characters or fewer"
-      },
-      "saveFailed": "Could not save the client. Please try again."
-    }
   }
+
 }

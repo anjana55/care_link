@@ -6,77 +6,14 @@
       "idx": 0,
       "version": "5",
       "when": 1789716490079,
-      "tag": "0000_far_rictor",
+      "tag": "0000_baseline",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "5",
-      "when": 1789915814801,
-      "tag": "0001_solid_quicksilver",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "5",
-      "when": 1790088185781,
-      "tag": "0002_purple_spitfire",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "5",
-      "when": 1790242523516,
-      "tag": "0003_add_public_search_support",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "5",
-      "when": 1790242570779,
-      "tag": "0004_backfill_ready_enforce_public_id_not_null",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "5",
-      "when": 1790403753585,
-      "tag": "0005_add_patient_consent",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "5",
-      "when": 1790490153585,
-      "tag": "0006_rename_height_to_inches",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "5",
-      "when": 1790878323607,
-      "tag": "0007_add_whatsapp_auth",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "5",
-      "when": 1790964180542,
-      "tag": "0008_trilingual_locations",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "5",
-      "when": 1791039467200,
-      "tag": "0009_bored_moondragon",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "5",
-      "when": 1791086691000,
-      "tag": "0010_add_client_profile",
+      "when": 1791213985875,
+      "tag": "0001_workable_scrambler",
       "breakpoints": true
     }
   ]

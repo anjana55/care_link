@@ -1,9 +1,11 @@
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq, like, ne, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, isNull, like, ne, or, sql, type SQL } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
   patients,
   users,
+  districts,
+  cities,
   refreshTokens,
   emailVerificationTokens,
   CLIENT_STATUS_TRANSITIONS,
@@ -64,6 +66,20 @@ export class PatientsService {
         userId: patients.userId,
         fullName: patients.fullName,
         phone: patients.phone,
+        alternatePhone: patients.alternatePhone,
+        // --- intake, captured at self-registration ------------------------
+        registrantType: patients.registrantType,
+        recipientName: patients.recipientName,
+        recipientRelationship: patients.recipientRelationship,
+        recipientAge: patients.recipientAge,
+        recipientGender: patients.recipientGender,
+        preferredContactMethod: patients.preferredContactMethod,
+        preferredContactTime: patients.preferredContactTime,
+        careAddress: patients.careAddress,
+        careNeeds: patients.careNeeds,
+        careSchedule: patients.careSchedule,
+        careStart: patients.careStart,
+        preferredCaregiverGender: patients.preferredCaregiverGender,
         consentAcceptedAt: patients.consentAcceptedAt,
         permanentAddress: patients.permanentAddress,
         dateOfBirth: patients.dateOfBirth,
@@ -106,13 +122,39 @@ export class PatientsService {
       // users.email is nullable (a WhatsApp-only client has none); LIKE
       // against NULL yields NULL, which OR treats as non-matching, so those
       // clients simply drop out of an email search and still match on name.
-      conditions.push(or(like(patients.fullName, term), like(patients.phone, term), like(users.email, term))!);
+      conditions.push(
+        or(
+          like(patients.fullName, term),
+          // A guardian registers under their own name but is really searching
+          // for the person they registered on behalf of.
+          like(patients.recipientName, term),
+          like(patients.phone, term),
+          like(patients.alternatePhone, term),
+          like(users.phone, term),
+          like(users.email, term),
+        )!,
+      );
     }
     if (query.status) {
       conditions.push(eq(patients.status, query.status));
     }
     if (query.isActive !== undefined) {
       conditions.push(eq(users.isActive, query.isActive));
+    }
+    // Intake facets. These match NULL for every client who registered before
+    // the intake form existed, so a filtered view legitimately drops them.
+    if (query.districtId) conditions.push(eq(patients.districtId, query.districtId));
+    if (query.cityId) conditions.push(eq(patients.cityId, query.cityId));
+    if (query.careSchedule) conditions.push(eq(patients.careSchedule, query.careSchedule));
+    if (query.careStart) conditions.push(eq(patients.careStart, query.careStart));
+    if (query.contactMethod) conditions.push(eq(patients.preferredContactMethod, query.contactMethod));
+    if (query.registrantType) conditions.push(eq(patients.registrantType, query.registrantType));
+    // Either channel counts as verified: a WhatsApp client has no email to
+    // confirm and an email client has no phone to confirm.
+    if (query.verification === 'VERIFIED') {
+      conditions.push(or(isNotNull(users.emailVerifiedAt), isNotNull(users.phoneVerifiedAt))!);
+    } else if (query.verification === 'UNVERIFIED') {
+      conditions.push(and(isNull(users.emailVerifiedAt), isNull(users.phoneVerifiedAt))!);
     }
 
     const whereClause = conditions.length ? and(...conditions) : undefined;
@@ -129,7 +171,23 @@ export class PatientsService {
       userId: patients.userId,
       fullName: patients.fullName,
       phone: patients.phone,
+      alternatePhone: patients.alternatePhone,
       status: patients.status,
+      registrantType: patients.registrantType,
+      recipientName: patients.recipientName,
+      recipientRelationship: patients.recipientRelationship,
+      recipientAge: patients.recipientAge,
+      recipientGender: patients.recipientGender,
+      preferredContactMethod: patients.preferredContactMethod,
+      preferredContactTime: patients.preferredContactTime,
+      careSchedule: patients.careSchedule,
+      careStart: patients.careStart,
+      districtId: patients.districtId,
+      cityId: patients.cityId,
+      // Resolved from the referenced rows so the list renders without a join
+      // in the client - the same display caches the staff edit writes.
+      district: districts.nameEn,
+      city: cities.nameEn,
       consentAcceptedAt: patients.consentAcceptedAt,
       createdAt: patients.createdAt,
       updatedAt: patients.updatedAt,
@@ -144,6 +202,8 @@ export class PatientsService {
         .select(columns)
         .from(patients)
         .innerJoin(users, eq(patients.userId, users.id))
+        .leftJoin(districts, eq(patients.districtId, districts.id))
+        .leftJoin(cities, eq(patients.cityId, cities.id))
         .where(whereClause)
         .orderBy(orderFn(sortColumn))
         .limit(query.pageSize)
@@ -156,8 +216,13 @@ export class PatientsService {
     ]);
 
     // Same PII split as the caregiver list: mask on the list, expose raw
-    // values only on the detail endpoint.
-    const items = rows.map((row) => ({ ...row, phone: maskPhone(row.phone) }));
+    // values only on the detail endpoint. The alternate number is a contact
+    // detail for the same reason, so it is masked alongside the primary.
+    const items = rows.map((row) => ({
+      ...row,
+      phone: maskPhone(row.phone),
+      alternatePhone: maskPhone(row.alternatePhone),
+    }));
 
     return {
       items,

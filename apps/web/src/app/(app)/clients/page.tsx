@@ -1,26 +1,47 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { useClients, useDeleteClient } from '@/lib/hooks/use-clients';
+import { useLocationTree } from '@/lib/hooks/use-caregivers';
 import { Input, Select } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/badge';
-import type { ClientStatus } from '@/lib/api/types';
+import { ClientDetailModal } from '@/components/clients/client-detail-modal';
+import type { Client, ClientStatus } from '@/lib/api/types';
 
 const STATUSES: ClientStatus[] = ['PENDING_REVIEW', 'ACTIVE', 'INACTIVE', 'SUSPENDED'];
+const SCHEDULES = ['DAY', 'NIGHT', 'LIVE_IN_24H', 'NOT_SURE'] as const;
+const STARTS = ['IMMEDIATELY', 'WITHIN_WEEK', 'WITHIN_MONTH', 'JUST_EXPLORING'] as const;
+const METHODS = ['PHONE_CALL', 'WHATSAPP', 'EMAIL'] as const;
 
+/**
+ * Staff view of self-registered patients/guardians. Laid out like the caregiver
+ * list.
+ *
+ * The list row carries the intake the staff list filters by (care schedule,
+ * start, place, verification). Clicking through opens the detail modal, which
+ * reads from the row - so it inherits the list endpoint's phone masking, and
+ * the modal links to those numbers as shown rather than the raw E.164.
+ * The full unmasked profile, and the staff edit, live on /clients/[id].
+ */
 export default function ClientsListPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [districtId, setDistrictId] = useState('');
+  const [careSchedule, setCareSchedule] = useState('');
+  const [careStart, setCareStart] = useState('');
+  const [contactMethod, setContactMethod] = useState('');
+  const [verification, setVerification] = useState('');
   const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Client | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // The API gates this module to ADMIN + STAFF (see @Roles on
@@ -34,9 +55,20 @@ export default function ClientsListPage() {
     }
   }, [authLoading, user, router]);
 
+  // The location tree is province -> district and comes back with names
+  // already resolved for the locale, so the client list flattens it the same
+  // way the caregiver advanced filters do.
+  const { data: tree } = useLocationTree(locale);
+  const districts = useMemo(() => (tree ?? []).flatMap((p) => p.districts), [tree]);
+
   const { data, isLoading } = useClients({
     search: search || undefined,
     status: status || undefined,
+    districtId: districtId ? Number(districtId) : undefined,
+    careSchedule: careSchedule || undefined,
+    careStart: careStart || undefined,
+    contactMethod: contactMethod || undefined,
+    verification: (verification || undefined) as 'VERIFIED' | 'UNVERIFIED' | undefined,
     page,
     pageSize: 15,
   });
@@ -57,6 +89,13 @@ export default function ClientsListPage() {
     );
   }
 
+  /** Any filter change resets to page 1 - staying on page 4 of a newly
+   *  narrowed result set would show an empty table that looks like no data. */
+  const filter = (setter: (v: string) => void) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setter(e.target.value);
+    setPage(1);
+  };
+
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
@@ -71,19 +110,13 @@ export default function ClientsListPage() {
             placeholder={t('clients.search')}
             className="pl-9"
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
+            onChange={filter(setSearch)}
           />
         </div>
         <Select
           className="sm:w-56"
           value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
+          onChange={filter(setStatus)}
         >
           <option value="">{t('clients.table.status')}</option>
           {STATUSES.map((s) => (
@@ -94,6 +127,48 @@ export default function ClientsListPage() {
         </Select>
       </div>
 
+      {/* Intake facets. These match nothing on rows registered before the
+          intake form existed, so a filtered list legitimately omits them. */}
+      <div className="mb-4 flex flex-wrap gap-3">
+        <Select value={districtId} onChange={filter(setDistrictId)} aria-label={t('clients.field.district')}>
+          <option value="">{t('clients.allDistricts')}</option>
+          {districts.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </Select>
+        <Select value={careSchedule} onChange={filter(setCareSchedule)} aria-label={t('clients.field.schedule')}>
+          <option value="">{t('clients.allSchedules')}</option>
+          {SCHEDULES.map((s) => (
+            <option key={s} value={s}>
+              {t(`clients.options.careSchedule.${s}`)}
+            </option>
+          ))}
+        </Select>
+        <Select value={careStart} onChange={filter(setCareStart)} aria-label={t('clients.field.start')}>
+          <option value="">{t('clients.allStarts')}</option>
+          {STARTS.map((s) => (
+            <option key={s} value={s}>
+              {t(`clients.options.careStart.${s}`)}
+            </option>
+          ))}
+        </Select>
+        <Select value={contactMethod} onChange={filter(setContactMethod)} aria-label={t('clients.field.preferredContact')}>
+          <option value="">{t('clients.allContactMethods')}</option>
+          {METHODS.map((m) => (
+            <option key={m} value={m}>
+              {t(`clients.options.contactMethod.${m}`)}
+            </option>
+          ))}
+        </Select>
+        <Select value={verification} onChange={filter(setVerification)} aria-label={t('clients.field.verification')}>
+          <option value="">{t('clients.allVerification')}</option>
+          <option value="VERIFIED">{t('clients.verified')}</option>
+          <option value="UNVERIFIED">{t('clients.unverified')}</option>
+        </Select>
+      </div>
+
       <div className="overflow-hidden rounded-lg border border-border bg-white">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-border bg-paper text-xs uppercase tracking-wide text-ink/50">
@@ -101,8 +176,8 @@ export default function ClientsListPage() {
               <th className="px-4 py-3 font-medium">{t('clients.table.name')}</th>
               <th className="px-4 py-3 font-medium">{t('clients.table.phone')}</th>
               <th className="px-4 py-3 font-medium">{t('clients.table.email')}</th>
+              <th className="px-4 py-3 font-medium">{t('clients.table.care')}</th>
               <th className="px-4 py-3 font-medium">{t('clients.table.status')}</th>
-              <th className="px-4 py-3 font-medium">{t('clients.table.account')}</th>
               <th className="px-4 py-3 font-medium">{t('clients.table.registered')}</th>
               {canEdit && <th className="px-4 py-3 font-medium">{t('clients.table.actions')}</th>}
             </tr>
@@ -125,35 +200,41 @@ export default function ClientsListPage() {
             {data?.items.map((c) => (
               <tr key={c.id} className="border-b border-border last:border-0 hover:bg-paper">
                 <td className="px-4 py-3">
-                  <Link href={`/clients/${c.id}`} className="font-medium text-brand-dark hover:underline">
+                  <button onClick={() => setSelected(c)} className="text-left font-medium text-brand-dark hover:underline">
                     {c.fullName}
-                  </Link>
+                  </button>
+                  {/* A guardian registers under their own name but is arranging
+                      care for someone else - show who it is for. */}
+                  {c.registrantType === 'GUARDIAN' && c.recipientName && (
+                    <div className="text-xs text-ink/50">
+                      {t('clients.forRecipient')} {c.recipientName}
+                    </div>
+                  )}
                 </td>
-                <td className="px-4 py-3 tabular-nums text-ink/70">{c.phone || '—'}</td>
+                <td className="px-4 py-3">
+                  <div className="tabular-nums text-ink/70">{c.phone || c.accountPhone || c.email || '—'}</div>
+                  {c.preferredContactMethod && (
+                    <div className="text-xs text-ink/50">
+                      {t(`clients.options.contactMethod.${c.preferredContactMethod}`)}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-ink/70">{c.email || '—'}</td>
+                <td className="px-4 py-3 text-ink/70">
+                  {c.careSchedule ? t(`clients.options.careSchedule.${c.careSchedule}`) : '—'}
+                  {c.careStart && (
+                    <div className="text-xs text-ink/50">{t(`clients.options.careStart.${c.careStart}`)}</div>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={c.status} label={t(`clients.status.${c.status}`)} />
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={
-                      c.isActive
-                        ? 'inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-brand-light text-brand-dark'
-                        : 'inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-ink/10 text-ink/60'
-                    }
-                  >
-                    {c.isActive ? t('clients.account.active') : t('clients.account.inactive')}
-                  </span>
                 </td>
                 <td className="px-4 py-3 text-ink/70">{new Date(c.createdAt).toLocaleDateString()}</td>
                 {canEdit && (
                   <td className="px-4 py-3">
                     {/* Editing details is a staff operation; deleting the
                         account stays admin-only, matching the API's @Roles. */}
-                    <Link
-                      href={`/clients/${c.id}?edit=1`}
-                      className="text-sm text-brand-dark hover:underline"
-                    >
+                    <Link href={`/clients/${c.id}?edit=1`} className="text-sm text-brand-dark hover:underline">
                       {t('clients.actions.edit')}
                     </Link>
                     {isAdmin && (
@@ -214,6 +295,8 @@ export default function ClientsListPage() {
           </div>
         </div>
       )}
+
+      {selected && <ClientDetailModal client={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }

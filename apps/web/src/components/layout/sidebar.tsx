@@ -12,14 +12,16 @@ import { BrandMark } from '@/components/layout/brand-mark';
 const ITEMS = [
   { href: '/dashboard', key: 'nav.dashboard', icon: LayoutDashboard },
   { href: '/caregivers', key: 'nav.caregivers', icon: Users },
-  // Clients = registered patients/guardians. Lives in ITEMS rather than
-  // ADMIN_ITEMS because the API allows ADMIN + STAFF (not just ADMIN).
-  { href: '/clients', key: 'nav.clients', icon: HeartHandshake },
   { href: '/skills', key: 'nav.skills', icon: Sparkles },
   { href: '/languages', key: 'nav.languages', icon: Languages },
   { href: '/locations', key: 'nav.locations', icon: MapPin },
   { href: '/audit-log', key: 'nav.auditLog', icon: ScrollText },
 ];
+
+// Clients = registered patients/guardians. Separate from both ITEMS and
+// ADMIN_ITEMS because the API allows ADMIN + STAFF: in ITEMS it would leak to
+// VERIFIER, in ADMIN_ITEMS it would hide from STAFF.
+const CLIENT_ITEM = { href: '/clients', key: 'nav.clients', icon: HeartHandshake };
 
 // Admin-only: rendered separately from ITEMS so they never show for STAFF/VERIFIER.
 const ADMIN_ITEMS = [
@@ -31,7 +33,10 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const items = user?.role === 'ADMIN' ? [...ITEMS, ...ADMIN_ITEMS] : ITEMS;
+  const canSeeClients = user?.role === 'ADMIN' || user?.role === 'STAFF';
+  // Clients sit straight after Caregivers, the list they mirror.
+  const base = canSeeClients ? [ITEMS[0], ITEMS[1], CLIENT_ITEM, ...ITEMS.slice(2)] : ITEMS;
+  const items = user?.role === 'ADMIN' ? [...base, ...ADMIN_ITEMS] : base;
 
   return (
     <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">

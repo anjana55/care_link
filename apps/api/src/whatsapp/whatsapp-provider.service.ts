@@ -4,7 +4,21 @@ import { toWhatsappRecipient } from '../common/utils/phone.util';
 import type { ResolvedWhatsappSettings } from './whatsapp-settings.service';
 
 export class WhatsappDeliveryError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    /**
+     * Meta's own error code and text, when the request got far enough to be
+     * rejected on its merits. Safe to surface: the Graph API error body
+     * echoes neither the access token nor the code being sent, and the only
+     * caller that shows this is the ADMIN-only settings screen.
+     *
+     * Without it a credential failure and a wrong recipient number look
+     * identical to the admin - both arrive as "could not deliver the code,
+     * check the number" - which sends them debugging the one thing that
+     * isn't broken.
+     */
+    readonly detail?: string,
+  ) {
     super(message);
     this.name = 'WhatsappDeliveryError';
   }
@@ -84,14 +98,29 @@ export class WhatsappProviderService {
 
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
+      let code: number | undefined;
       try {
         const body = (await res.json()) as { error?: { message?: string; code?: number } };
-        if (body.error) detail = `${body.error.code ?? res.status}: ${body.error.message ?? 'unknown error'}`;
+        if (body.error) {
+          code = body.error.code;
+          detail = `${code ?? res.status}: ${body.error.message ?? 'unknown error'}`;
+        }
       } catch {
         /* non-JSON error body */
       }
       this.logger.error(`WhatsApp Cloud API rejected the message (${detail})`);
-      throw new WhatsappDeliveryError('WhatsApp could not deliver the code - check the number and try again');
+
+      // 190 and 190-series are OAuth failures: the token is expired, revoked,
+      // or lacks the whatsapp_business_messaging permission. Meta rejects those
+      // before it ever looks at the recipient, so telling the admin to check
+      // the phone number would send them after the wrong problem entirely.
+      const authFailure = code === 190 || code === 191 || code === 463;
+      throw new WhatsappDeliveryError(
+        authFailure
+          ? 'WhatsApp rejected the access token - re-enter a current token in the field above and save'
+          : 'WhatsApp could not deliver the code - check the number and try again',
+        detail,
+      );
     }
 
     const body = (await res.json().catch(() => ({}))) as { messages?: { id?: string }[] };

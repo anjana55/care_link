@@ -260,6 +260,16 @@ export interface WhatsappSettings {
   updatedAt: string;
 }
 
+// --- Clients (self-registered patients/guardians) ---------------------------
+
+export type RegistrantType = 'SELF' | 'GUARDIAN';
+export type RecipientRelationship = 'PARENT' | 'SPOUSE' | 'CHILD' | 'SIBLING' | 'OTHER_RELATIVE' | 'FRIEND' | 'OTHER';
+export type ContactMethod = 'PHONE_CALL' | 'WHATSAPP' | 'EMAIL';
+export type ContactTime = 'ANYTIME' | 'MORNING' | 'AFTERNOON' | 'EVENING';
+export type CareSchedule = 'DAY' | 'NIGHT' | 'LIVE_IN_24H' | 'NOT_SURE';
+export type CareStart = 'IMMEDIATELY' | 'WITHIN_WEEK' | 'WITHIN_MONTH' | 'JUST_EXPLORING';
+export type CaregiverGenderPreference = 'NO_PREFERENCE' | 'MALE' | 'FEMALE';
+
 /**
  * A registered patient/guardian, as returned by the staff clients endpoints.
  *
@@ -273,8 +283,10 @@ export interface WhatsappSettings {
  * the edit form submits `phone` and lets the API decide what the account row
  * should become - never write `accountPhone` from here.
  *
- * The profile block below is null on any row that has not been through a staff
- * edit, since neither self-registration path populates it.
+ * The staff-editable profile block (permanentAddress, nic, ...) is null on any
+ * row that has not been through a staff edit, since only staff fill it in. The
+ * intake block (registrantType, careNeeds, ...) is nullable for the opposite
+ * reason: clients who registered before the intake form existed have none of it.
  */
 export interface Client {
   id: string;
@@ -288,6 +300,15 @@ export interface Client {
   dateOfBirth: string | null;
   gender: ClientGender | null;
   nic: string | null;
+  // --- intake, captured at self-registration -----------------------------
+  alternatePhone: string | null;
+  preferredContactMethod: ContactMethod | null;
+  preferredContactTime: ContactTime | null;
+  registrantType: RegistrantType | null;
+  recipientName: string | null;
+  recipientRelationship: RecipientRelationship | null;
+  recipientAge: number | null;
+  recipientGender: ClientGender | null;
   districtId: number | null;
   cityId: number | null;
   district: string | null;
@@ -295,6 +316,11 @@ export interface Client {
   province: string | null;
   postalCode: string | null;
   notes: string | null;
+  careAddress: string | null;
+  careNeeds: string | null;
+  careSchedule: CareSchedule | null;
+  careStart: CareStart | null;
+  preferredCaregiverGender: CaregiverGenderPreference | null;
   createdAt: string;
   updatedAt: string;
   email: string | null;

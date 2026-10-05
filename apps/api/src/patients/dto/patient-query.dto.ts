@@ -1,13 +1,25 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { clientStatusEnum } from '../../database/schema/patients.schema';
+import {
+  careScheduleEnum,
+  careStartEnum,
+  clientStatusEnum,
+  contactMethodEnum,
+  registrantTypeEnum,
+} from '../../database/schema';
 
 /**
  * Query params for the staff clients list. Trimmed from CaregiverQueryDto
  * (caregivers/dto/caregiver-query.dto.ts) to the facets a client actually has:
  * a patient/guardian has no skills, languages, locations or availability,
  * so those filters - and the ID-subquery machinery behind them - do not apply.
+ *
+ * The intake facets (districtId/cityId, careSchedule, careStart,
+ * contactMethod, registrantType) are the ones the clients list page filters
+ * by place and need first. They only match rows registered through the intake
+ * form, so every client who signed up before it has none of them and drops out
+ * of a filtered view - the same nullability the columns themselves carry.
  */
 export class PatientQueryDto {
   @ApiPropertyOptional({ description: 'Free-text search across name, phone and account email' })
@@ -24,6 +36,45 @@ export class PatientQueryDto {
   @IsOptional()
   @Type(() => Boolean)
   isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'Only clients who need care in this district' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  districtId?: number;
+
+  @ApiPropertyOptional({ description: 'Only clients who need care in this city' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  cityId?: number;
+
+  @ApiPropertyOptional({ enum: careScheduleEnum })
+  @IsOptional()
+  @IsEnum(careScheduleEnum)
+  careSchedule?: (typeof careScheduleEnum)[number];
+
+  @ApiPropertyOptional({ enum: careStartEnum })
+  @IsOptional()
+  @IsEnum(careStartEnum)
+  careStart?: (typeof careStartEnum)[number];
+
+  @ApiPropertyOptional({ enum: contactMethodEnum })
+  @IsOptional()
+  @IsEnum(contactMethodEnum)
+  contactMethod?: (typeof contactMethodEnum)[number];
+
+  @ApiPropertyOptional({ enum: registrantTypeEnum })
+  @IsOptional()
+  @IsEnum(registrantTypeEnum)
+  registrantType?: (typeof registrantTypeEnum)[number];
+
+  @ApiPropertyOptional({ enum: ['VERIFIED', 'UNVERIFIED'], description: 'Whether the client has confirmed their email address / WhatsApp number' })
+  @IsOptional()
+  @IsIn(['VERIFIED', 'UNVERIFIED'])
+  verification?: 'VERIFIED' | 'UNVERIFIED';
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

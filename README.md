@@ -119,15 +119,22 @@ recovery and logout for caregivers and customers; invalid, expired, reused and l
 codes; duplicate and existing accounts; admin settings and feature toggles; and that
 email/password authentication is unchanged). It runs against the same migrated and seeded
 database as the other e2e tests, using the Console provider so no WhatsApp account is needed.
+`test/clients.e2e-spec.ts` covers the staff Clients list against the real database: who may
+see it (ADMIN/STAFF yes; VERIFIER and clients no), what a registration stores and what staff
+are shown, search, every filter, pagination, auditing, and clients that predate the intake
+fields.
 The customer app has its own component tests: `cd apps/public-web && npx jest`.
 
 ## 5. Database
 
 - **Engine:** MySQL 8, run via `docker-compose.yml` (a named volume persists data).
 - **ORM:** Drizzle ORM. Schema lives in `apps/api/src/database/schema/*.ts`, one file
-  per domain area. `npm run db:generate` diffs the schema against the last migration
-  and writes SQL into `apps/api/src/database/migrations/`; `npm run db:migrate` applies
-  pending migrations. `npm run db:studio` opens Drizzle Studio against the local DB.
+  per domain area. `apps/api/src/database/migrations/` holds a single `0000_baseline.sql`
+  generated from that schema — the project has not shipped with real user data, so the
+  migrations were squashed into one baseline rather than kept as an incremental history.
+  Going forward, `npm run db:generate` diffs the schema against the baseline and appends
+  a new numbered migration; `npm run db:migrate` applies pending ones.
+  `npm run db:studio` opens Drizzle Studio against the local DB.
 - **Entities:** Users, Caregivers, Qualifications, Experience, Skills (+ join table),
   Languages (+ join table), Locations (+ join table), Availability, CaregiverDocuments
   (metadata only — files live on disk), References, Verifications, the **separated**
@@ -161,7 +168,9 @@ the API is running. Route groups:
 - `POST /auth/register-caregiver`, `/auth/verify-email`, `/auth/resend-verification` — public, see §7a
 - `/auth/whatsapp/*` — WhatsApp OTP registration, login and recovery, public, see §7b
 - `/settings/whatsapp` (ADMIN only) — WhatsApp sign-in configuration, see §7b
+- `POST /auth/register-patient` — public client (patient/guardian) sign-up by email, see §7c
 - `/users` (ADMIN only)
+- `/clients`, `/clients/:id` (ADMIN and STAFF) — the registered patients/guardians, see §7c
 - `/caregivers`, `/caregivers/:id`, `/caregivers/:id/status`, `/caregivers/dashboard`
 - `/caregivers/:id/qualifications`, `/experiences`, `/skills`, `/languages`,
   `/availability`, `/preferred-locations`, `/references`, `/documents`,
@@ -273,6 +282,50 @@ For local development choose the **Console** provider: no Meta account is needed
 are written to the API log and echoed to the screen (and as `devOtp` in responses). The
 Console provider is refused when `NODE_ENV=production`.
 
+### 7c. Clients (patients/guardians) and the staff Clients list
+
+A **client** is a self-registered patient or guardian: a `users` row with role
+`PATIENT_GUARDIAN` plus a 1:1 `patients` profile. They register on the public site by
+email (`POST /auth/register-patient`) or by WhatsApp (`POST /auth/whatsapp/register-patient`,
+§7b). Both flows accept the same **care intake**, defined once in
+`apps/api/src/auth/dto/patient-profile.dto.ts` and stored by one helper
+(`apps/api/src/clients/patient-profile.util.ts`), so they cannot drift apart. The public
+site's two register pages share `apps/public-web/src/lib/schemas/patient-intake.ts` and
+`components/register/patient-intake-fields.tsx` in the same way.
+
+| Group | Fields | Required |
+| --- | --- | --- |
+| Who needs care | `registrantType` (`SELF` / `GUARDIAN`) | yes |
+| | `recipientName`, `recipientRelationship` | yes, for `GUARDIAN` only (ignored for `SELF`) |
+| | `recipientAge` (0–120), `recipientGender` | yes |
+| Contact | `phone` (email sign-up) / `whatsappNumber` (WhatsApp sign-up) | yes |
+| | `preferredContactMethod` (`PHONE_CALL` / `WHATSAPP` / `EMAIL`) | yes — `EMAIL` is refused for accounts with no email address |
+| | `preferredContactTime` (default `ANYTIME`), `alternatePhone` | no |
+| Location | `districtId`, `cityId` (same reference ids as caregivers; the city must belong to the district) | yes |
+| | `careAddress` | no |
+| Care | `careNeeds` (10–1000 characters), `careSchedule` (`DAY` / `NIGHT` / `LIVE_IN_24H` / `NOT_SURE`), `careStart` | yes |
+| | `preferredCaregiverGender` (default `NO_PREFERENCE`) | no |
+
+The intake columns are **nullable in the database** because clients who registered before
+they existed have none of them; the DTOs are what make them mandatory for new sign-ups.
+Staff screens show such clients with empty fields and a note rather than hiding them.
+A bad location or contact method is rejected inside the registration transaction, so it
+never leaves a half-created account behind.
+
+**Staff access.** `GET /clients` (paginated; `search`, `districtId`, `cityId`,
+`careSchedule`, `careStart`, `contactMethod`, `registrantType`, `verification=VERIFIED|UNVERIFIED`,
+`sortBy`, `sortDir`, `page`, `pageSize`) and `GET /clients/:id` are **ADMIN and STAFF
+only**. VERIFIERs and the clients themselves get 403. Unlike the caregiver list, contact
+details are returned unmasked — calling the client is the point — so opening a record is
+audit-logged as `VIEW_CLIENT`. Passwords and verification timestamps are never returned.
+In the staff app this is **Clients** in the sidebar (`apps/web/src/app/(app)/clients`),
+laid out like the caregiver list, with a detail view with tap-to-call and WhatsApp links.
+`/users` is unchanged and still manages staff accounts only.
+
+The list is read-only for now. Linking a client to a caregiver is a later step; the
+location, schedule and gender-preference fields are shaped to line up with the caregiver
+filters (`locationIds`, `dayDuty` / `nightDuty` / `liveIn24h`, `gender`) for that.
+
 ### Caregiver search & advanced filters
 
 `GET /caregivers` accepts, all optional and combinable:
@@ -374,12 +427,10 @@ out of scope for this version. The caregiver domain (skills, qualifications, lan
 location, availability, verification status) is modelled so a future matching engine can
 query all of that without a caregiver-table redesign.
 
-**Patient/guardian self-registration** was named as a near-term follow-up but isn't
-built yet either. The `users.role` enum and the `caregivers.userId`-linking pattern
-introduced for caregiver self-registration (§7a) were deliberately chosen so it can slot
-in the same way later — a `PATIENT_GUARDIAN` role and a `patients.userId` FK, reusing
-the same `@CaregiverScope()`-style ownership guard concept — without revisiting this
-design. That table, those endpoints, and that flow don't exist yet, though.
+**Patient/guardian self-registration** is built (§7c), and staff can browse registered
+clients. What is still missing on that side is everything *after* registration: staff
+notes and contact status on a client, linking a client to a caregiver, contact requests,
+saved caregivers and bookings.
 
 A real email provider is the other explicit gap — see §7a. `AuthService.sendVerificationEmailStub`
 is the one place that needs to change; everything around it (the token table, the

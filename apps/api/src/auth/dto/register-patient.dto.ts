@@ -1,15 +1,16 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsOptional, IsPhoneNumber, IsString, Length, MinLength, Equals } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsBoolean, IsEmail, IsPhoneNumber, IsString, Length, MinLength, Equals } from 'class-validator';
+import { PatientProfileDto } from './patient-profile.dto';
 
 /**
  * Public self-registration for a patient/guardian (the person searching for
  * and hiring a caregiver, as opposed to the caregiver themselves). Mirrors
  * RegisterCaregiverDto's shape - identity fields for the login, plus the
  * small amount of profile data the `patients` table actually holds today
- * (see patients.schema.ts: kept deliberately minimal, this is not a full
- * intake form).
+ * (see patients.schema.ts) - identity and contact here, the care intake
+ * (who/where/what/when) inherited from PatientProfileDto.
  */
-export class RegisterPatientDto {
+export class RegisterPatientDto extends PatientProfileDto {
   @ApiProperty()
   @IsString()
   @Length(2, 255)
@@ -19,10 +20,9 @@ export class RegisterPatientDto {
   @IsEmail()
   email: string;
 
-  @ApiPropertyOptional({ description: 'Sri Lankan mobile/landline number, optional' })
-  @IsOptional()
+  @ApiProperty({ description: 'Sri Lankan mobile/landline number staff can reach the client on' })
   @IsPhoneNumber('LK')
-  phone?: string;
+  phone: string;
 
   @ApiProperty({ description: 'Minimum 8 characters' })
   @IsString()

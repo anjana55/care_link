@@ -40,6 +40,9 @@ describe('WhatsApp authentication (e2e)', () => {
   let http: ReturnType<typeof request>;
   let adminToken: string;
   let staffToken: string;
+  // A real district/city pair from the seeded reference data, and the care
+  // intake every customer registration must now carry.
+  let intake: Record<string, unknown>;
 
   // Unique, *valid* Sri Lankan mobile numbers (077 + 7 digits) per run, so reruns never collide.
   // They must be valid LK numbers: the email registration DTO validates phones with
@@ -75,6 +78,16 @@ describe('WhatsApp authentication (e2e)', () => {
     whatsappNumber: phone,
     consentAccepted: true,
     fullName: `WA Customer ${phone}`,
+    ...intake,
+    ...extra,
+  });
+  /** Body for POST /auth/register-patient (the email flow): same intake, plus a login and a required phone. */
+  const emailPatientBody = (extra: Record<string, unknown> = {}) => ({
+    password: 'SelfRegPass123',
+    fullName: 'Email Customer',
+    phone: newPhone(),
+    consentAccepted: true,
+    ...intake,
     ...extra,
   });
 
@@ -120,6 +133,23 @@ describe('WhatsApp authentication (e2e)', () => {
 
     adminToken = (await http.post('/auth/login').send({ email: 'admin@care-platform.local', password: SEED_PASSWORD })).body.accessToken;
     staffToken = (await http.post('/auth/login').send({ email: 'staff@care-platform.local', password: SEED_PASSWORD })).body.accessToken;
+
+    const tree = (await http.get('/public/meta/locations/tree?locale=en').expect(200)).body as { districts: { id: number }[] }[];
+    const districtId = tree.flatMap((p) => p.districts)[0].id;
+    const cityId = (await http.get(`/public/meta/locations/cities?districtId=${districtId}&locale=en`).expect(200)).body[0].id as number;
+    intake = {
+      registrantType: 'GUARDIAN',
+      recipientName: 'Sunil Fernando',
+      recipientRelationship: 'PARENT',
+      recipientAge: 78,
+      recipientGender: 'MALE',
+      preferredContactMethod: 'PHONE_CALL',
+      districtId,
+      cityId,
+      careNeeds: 'Needs help with bathing, meals and medication reminders.',
+      careSchedule: 'DAY',
+      careStart: 'WITHIN_WEEK',
+    };
 
     // Known starting point for every run: dev console provider, default policy.
     await setSettings({
@@ -420,6 +450,66 @@ describe('WhatsApp authentication (e2e)', () => {
       const ver = await verifyOtp(phone, 'REGISTER', reg.body.devOtp).expect(201);
       const claims = decodeJwt(ver.body.accessToken);
       expect(claims).toMatchObject({ role: 'PATIENT_GUARDIAN', patientId: reg.body.patientId, email: null });
+    });
+
+    it('stores the care intake on the patient profile', async () => {
+      const phone = newPhone();
+      await registerPatient(phone).expect(201);
+      const user = await userRow(phone);
+      const [profile] = await db.select().from(patients).where(eq(patients.userId, user.id)).limit(1);
+      expect(profile).toMatchObject({
+        registrantType: 'GUARDIAN',
+        recipientName: 'Sunil Fernando',
+        recipientRelationship: 'PARENT',
+        recipientAge: 78,
+        recipientGender: 'MALE',
+        preferredContactMethod: 'PHONE_CALL',
+        preferredContactTime: 'ANYTIME',
+        districtId: intake.districtId,
+        cityId: intake.cityId,
+        careSchedule: 'DAY',
+        careStart: 'WITHIN_WEEK',
+        preferredCaregiverGender: 'NO_PREFERENCE',
+      });
+    });
+
+    it('records no separate care recipient when the person registers for themselves', async () => {
+      const phone = newPhone();
+      await registerPatient(phone, { registrantType: 'SELF' }).expect(201);
+      const [profile] = await db.select().from(patients).where(eq(patients.userId, (await userRow(phone)).id)).limit(1);
+      expect(profile.registrantType).toBe('SELF');
+      expect(profile.recipientName).toBeNull();
+      expect(profile.recipientRelationship).toBeNull();
+    });
+
+    it('rejects a registration that leaves out the care intake, and creates no account', async () => {
+      for (const field of ['registrantType', 'recipientAge', 'recipientGender', 'preferredContactMethod', 'districtId', 'cityId', 'careNeeds', 'careSchedule', 'careStart']) {
+        const phone = newPhone();
+        await registerPatient(phone, { [field]: undefined }).expect(400);
+        expect(await userRow(phone)).toBeUndefined();
+      }
+    });
+
+    it('requires a guardian to say who they are caring for', async () => {
+      await registerPatient(newPhone(), { recipientName: undefined }).expect(400);
+      await registerPatient(newPhone(), { recipientRelationship: undefined }).expect(400);
+    });
+
+    it('rejects a city outside the chosen district, leaving no half-created account', async () => {
+      const phone = newPhone();
+      const other = (await http.get('/public/meta/locations/tree?locale=en')).body.flatMap((p: any) => p.districts).find((d: any) => d.id !== intake.districtId).id;
+      await registerPatient(phone, { districtId: other }).expect(400);
+      expect(await userRow(phone)).toBeUndefined();
+    });
+
+    it('refuses email as the contact method when the account has no email address', async () => {
+      const phone = newPhone();
+      await registerPatient(phone, { preferredContactMethod: 'EMAIL' }).expect(400);
+      expect(await userRow(phone)).toBeUndefined();
+    });
+
+    it('email registration now requires a phone number', async () => {
+      await api().post('/auth/register-patient').send(emailPatientBody({ email: `nophone-${runBase}@example.com`, phone: undefined })).expect(400);
     });
 
     it('validates input', async () => {
@@ -868,18 +958,18 @@ describe('WhatsApp authentication (e2e)', () => {
       const { phone } = await verifiedPatient();
       await api()
         .post('/auth/register-patient')
-        .send({ email: `dup-${phone}@example.com`, password: 'SelfRegPass123', fullName: 'Email Duplicate', phone, consentAccepted: true })
+        .send(emailPatientBody({ email: `dup-${phone}@example.com`, fullName: 'Email Duplicate', phone }))
         .expect(409);
     });
 
-    it('lets an email customer register with no phone, or an unrelated one (email flow unchanged)', async () => {
+    it('lets an email customer register with an unrelated phone (email flow unchanged)', async () => {
       await api()
         .post('/auth/register-patient')
-        .send({ email: `plain-${runBase}-a@example.com`, password: 'SelfRegPass123', fullName: 'Plain Email', consentAccepted: true })
+        .send(emailPatientBody({ email: `plain-${runBase}-a@example.com`, fullName: 'Plain Email' }))
         .expect(201);
       await api()
         .post('/auth/register-patient')
-        .send({ email: `plain-${runBase}-b@example.com`, password: 'SelfRegPass123', fullName: 'Plain Email Two', phone: newPhone(), consentAccepted: true })
+        .send(emailPatientBody({ email: `plain-${runBase}-b@example.com`, fullName: 'Plain Email Two' }))
         .expect(201);
     });
   });
@@ -902,7 +992,7 @@ describe('WhatsApp authentication (e2e)', () => {
       const email = `e2e-email-${runBase}@example.com`;
       const reg = await api()
         .post('/auth/register-patient')
-        .send({ email, password: 'SelfRegPass123', fullName: 'Email Customer', consentAccepted: true })
+        .send(emailPatientBody({ email }))
         .expect(201);
       expect(reg.body.devVerificationUrl).toContain('/verify-email?token=');
       await api().post('/auth/login').send({ email, password: 'SelfRegPass123' }).expect(401); // not verified yet
@@ -914,7 +1004,7 @@ describe('WhatsApp authentication (e2e)', () => {
 
     it('email tokens carry no phone claim, and the same change-password still works', async () => {
       const email = `e2e-pw-${runBase}@example.com`;
-      const reg = await api().post('/auth/register-patient').send({ email, password: 'SelfRegPass123', fullName: 'PW User', consentAccepted: true }).expect(201);
+      const reg = await api().post('/auth/register-patient').send(emailPatientBody({ email, fullName: 'PW User' })).expect(201);
       const ver = await api().post('/auth/verify-email').send({ token: new URL(reg.body.devVerificationUrl).searchParams.get('token') }).expect(201);
       expect(decodeJwt(ver.body.accessToken).phone).toBeUndefined();
       await api()

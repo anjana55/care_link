@@ -17,6 +17,7 @@ import { resolveLocationRefs } from '../common/utils/location.util';
 import { assertWhatsappNumberAvailable, purgeUnverifiedPhoneAccount } from './phone-accounts.util';
 import { normalizePhone } from '../common/utils/phone.util';
 import { maskPhone } from '../common/utils/masking.util';
+import { buildPatientIntake } from '../clients/patient-profile.util';
 import { RegisterCaregiverWhatsappDto, RegisterPatientWhatsappDto, RequestWhatsappOtpDto, VerifyWhatsappOtpDto } from './dto/whatsapp-auth.dto';
 
 // Same set the email flow treats as self-registering. Staff/admin/verifier
@@ -127,6 +128,7 @@ export class WhatsappAuthService {
         const txDb = tx as unknown as Database;
         await purgeUnverifiedPhoneAccount(txDb, phone);
         await assertWhatsappNumberAvailable(txDb, phone, s.defaultCountryCode);
+        const intake = await buildPatientIntake(txDb, dto, { hasEmail: false });
 
         const userId = uuid();
         await tx.insert(users).values({
@@ -146,6 +148,7 @@ export class WhatsappAuthService {
           fullName: dto.fullName,
           phone,
           consentAcceptedAt: new Date(),
+          ...intake,
           // Every self-registered client starts unreviewed; staff promote it
           // to ACTIVE from the staff app.
           status: 'PENDING_REVIEW',

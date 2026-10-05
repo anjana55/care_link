@@ -11,3 +11,4 @@ export * from './verification.schema';
 export * from './health-information.schema';
 export * from './audit-logs.schema';
 export * from './whatsapp.schema';
+export * from './social-auth.schema';

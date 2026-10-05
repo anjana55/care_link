@@ -163,7 +163,7 @@
     "formSubtitle": "It only takes a minute — searching stays free either way.",
     "fullName": "Full name",
     "email": "Email address",
-    "phone": "Phone number (optional)",
+    "phone": "Phone number",
     "password": "Password",
     "confirmPassword": "Confirm password",
     "consentLabel": "I agree to the data processing consent and terms of use.",
@@ -178,9 +178,108 @@
       "fullName": "Please enter your full name",
       "email": "Please enter a valid email address",
       "phone": "Please enter a valid phone number",
+      "phoneRequired": "Please enter your phone number",
       "password": "Password must be at least 8 characters",
       "passwordMismatch": "Passwords do not match",
       "consentRequired": "You must accept the consent to continue"
+    }
+  },
+  "patientIntake": {
+    "phoneHint": "Our team will use this number to contact you.",
+    "careNeedsPlaceholder": "e.g. help with bathing, meals and medication reminders; any medical conditions we should know about",
+    "sections": {
+      "whoNeedsCare": "Who needs care?",
+      "contact": "How should we contact you?",
+      "location": "Where is care needed?",
+      "care": "What care is needed?"
+    },
+    "fields": {
+      "recipientName": "Name of the person needing care",
+      "relationship": "Who are they to you?",
+      "recipientAge": "Their age",
+      "yourAge": "Your age",
+      "recipientGender": "Their gender",
+      "yourGender": "Your gender",
+      "alternatePhone": "Alternate phone number (optional)",
+      "contactMethod": "Preferred contact method",
+      "contactTime": "Best time to contact you",
+      "district": "District",
+      "city": "City",
+      "careAddress": "Address where care is needed (optional)",
+      "careNeeds": "Describe the care needed",
+      "careSchedule": "When is care needed?",
+      "careStart": "When should care start?",
+      "caregiverGender": "Preferred caregiver gender (optional)"
+    },
+    "validation": {
+      "registrantType": "Please choose who needs care",
+      "recipientName": "Please enter the name of the person needing care",
+      "relationship": "Please choose who they are to you",
+      "age": {
+        "required": "Please enter the age",
+        "invalid": "Please enter a valid age (0–120)"
+      },
+      "recipientGender": "Please choose a gender",
+      "alternatePhone": "Please enter a valid phone number",
+      "contactMethod": "Please choose how we should contact you",
+      "contactTime": "Please choose a contact time",
+      "district": "Please choose a district",
+      "city": "Please choose a city",
+      "careNeeds": {
+        "required": "Please describe the care needed",
+        "invalid": "Please describe the care needed in at least 10 characters"
+      },
+      "careSchedule": "Please choose when care is needed",
+      "careStart": "Please choose when care should start",
+      "caregiverGender": "Please choose a preference"
+    },
+    "options": {
+      "registrantType": {
+        "SELF": "I need care myself",
+        "GUARDIAN": "I'm arranging care for someone else"
+      },
+      "relationship": {
+        "PARENT": "My parent",
+        "SPOUSE": "My spouse",
+        "CHILD": "My child",
+        "SIBLING": "My brother or sister",
+        "OTHER_RELATIVE": "Another relative",
+        "FRIEND": "A friend",
+        "OTHER": "Other"
+      },
+      "gender": {
+        "MALE": "Male",
+        "FEMALE": "Female",
+        "OTHER": "Other"
+      },
+      "contactMethod": {
+        "PHONE_CALL": "Phone call",
+        "WHATSAPP": "WhatsApp",
+        "EMAIL": "Email"
+      },
+      "contactTime": {
+        "ANYTIME": "Any time",
+        "MORNING": "Morning",
+        "AFTERNOON": "Afternoon",
+        "EVENING": "Evening"
+      },
+      "careSchedule": {
+        "DAY": "Day",
+        "NIGHT": "Night",
+        "LIVE_IN_24H": "24-hour live-in",
+        "NOT_SURE": "Not sure yet"
+      },
+      "careStart": {
+        "IMMEDIATELY": "Immediately",
+        "WITHIN_WEEK": "Within a week",
+        "WITHIN_MONTH": "Within a month",
+        "JUST_EXPLORING": "Just exploring"
+      },
+      "caregiverGender": {
+        "NO_PREFERENCE": "No preference",
+        "MALE": "Male",
+        "FEMALE": "Female"
+      }
     }
   },
   "login": {
@@ -381,6 +480,60 @@
       "backHome": "Back to the homepage"
     },
     "registrationNumber": "Registration number"
+  },
+  "caregiverSignup": {
+    "title": "Register as a caregiver",
+    "subtitle": "Fill in your details once, then sign in with Google, Microsoft or Facebook.",
+    "otherWays": "Prefer email or WhatsApp?",
+    "phone": "Phone number",
+    "phoneHint": "The number we use to contact you about caregiver work.",
+    "email": "Email address (optional)",
+    "emailHint": "If you add one, use the same address you sign in with below.",
+    "submit": "Continue",
+    "error": "We could not complete your registration. Please try again.",
+    "useDifferentNumber": "Use a different phone number",
+    "successTitle": "Your details are saved",
+    "successBody": "Now choose how you want to sign in. Use the same email address you entered above.",
+    "regNumber": "Registration number",
+    "chooseProvider": "Sign in to finish setting up your account:",
+    "noProviders": "Google, Microsoft and Facebook sign-in are not available right now. Please register with your email address or WhatsApp instead.",
+    "providerError": "Could not start the sign-in. Please try again.",
+    "tokenExpired": "This sign-in link has expired. Please register again.",
+    "linkExpiresIn": "This link expires in about",
+    "minutes": "minute(s).",
+    "providers": {
+      "GOOGLE": "Continue with Google",
+      "MICROSOFT": "Continue with Microsoft",
+      "FACEBOOK": "Continue with Facebook"
+    },
+    "joinTitle": "Register with Google, Microsoft or Facebook",
+    "joinBody": "Fill in one form, then prove who you are with an account you already have.",
+    "joinCta": "Start registration",
+    "callbackTitle": "Sign-in could not be completed",
+    "backToSignup": "Back to registration",
+    "errors": {
+      "declined": "You cancelled the sign-in on the provider's screen.",
+      "invalidRequest": "That sign-in link is not valid. Please register again.",
+      "expired": "This sign-in link has expired. Please register again.",
+      "emailMismatch": "That account uses a different email address than the one you registered with. Use the same address, or sign in with the account you already have.",
+      "alreadyLinked": "That account is already linked to another user. Please sign in instead.",
+      "emailTaken": "An account with that email address already exists. Please sign in instead.",
+      "registrationGone": "This registration can no longer be completed. Please register again.",
+      "providerError": "The sign-in provider could not complete the request. Please try again.",
+      "exchangeFailed": "This sign-in link has expired or was already used. Please register again.",
+      "generic": "Sign-in could not be completed. Please try again."
+    },
+    "validation": {
+      "phoneRequired": "Phone number is required",
+      "phoneInvalid": "Enter a valid phone number with at least 9 digits",
+      "emailInvalid": "Enter a valid email address"
+    }
+  },
+  "caregiverDashboard": {
+    "title": "Your caregiver page",
+    "welcome": "Welcome",
+    "placeholder": "Your caregiver page is being built. Your profile, documents and shifts will appear here.",
+    "signOut": "Sign out"
   },
   "personalInfo": {
     "fields": {
