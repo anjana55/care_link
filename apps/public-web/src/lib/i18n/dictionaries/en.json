@@ -760,6 +760,17 @@
         "NURSING_CERTIFICATE": "Nursing certificate",
         "CV": "CV",
         "OTHER": "Other"
+      },
+      "pick": {
+        "identity": "Proof of identity (NIC or passport)",
+        "police": "Police clearance report",
+        "gn": "Grama Niladhari certificate",
+        "other": "Other"
+      },
+      "idKind": "Which ID is it?",
+      "idKinds": {
+        "NIC": "National ID card (NIC)",
+        "PASSPORT": "Passport"
       }
     },
     "profile": {

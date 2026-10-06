@@ -7,6 +7,10 @@ import ShiftsPage from '@/app/caregiver/(portal)/shifts/page';
 import DocumentsPage from '@/app/caregiver/(portal)/documents/page';
 import ProfilePage from '@/app/caregiver/(portal)/profile/page';
 import { I18nProvider } from '@/lib/i18n';
+import { LanguageSwitcher } from '@/components/common/language-switcher';
+import en from '@/lib/i18n/dictionaries/en.json';
+import si from '@/lib/i18n/dictionaries/si.json';
+import ta from '@/lib/i18n/dictionaries/ta.json';
 
 /**
  * The signed-in caregiver's area: who may see it, and what each page does with
@@ -120,6 +124,9 @@ function renderPage(node: ReactElement) {
 }
 
 beforeEach(() => {
+  // The language choice is remembered between renders, so a test that switches
+  // to Tamil must not leave the next one reading Tamil.
+  window.localStorage.removeItem('care-platform-public-locale');
   [get, post, put, patch, del, fetchBlob, replace, logout].forEach((m) => m.mockReset());
   pathname = '/caregiver/dashboard';
   auth = { user: CAREGIVER_USER, loading: false };
@@ -324,9 +331,11 @@ describe('documents', () => {
     renderPage(<DocumentsPage />);
     await screen.findAllByText(/nic\.pdf/); // the list has loaded
 
-    const identity = (await screen.findByText(/Proof of identity/)).closest('li')!;
+    // The checklist, not the picker: the same names appear in both.
+    const checklist = within(screen.getByText('What we need').closest('section')!);
+    const identity = checklist.getByText(/Proof of identity/).closest('li')!;
     expect(within(identity).getByText('Uploaded')).toBeDefined();
-    const police = screen.getByText(/Police clearance report/).closest('li')!;
+    const police = checklist.getByText(/Police clearance report/).closest('li')!;
     expect(within(police).getByText('Not uploaded yet')).toBeDefined();
   });
 
@@ -334,7 +343,7 @@ describe('documents', () => {
     renderPage(<DocumentsPage />);
     await screen.findByText(/have not uploaded anything/i);
 
-    fireEvent.change(screen.getByLabelText('Document type'), { target: { value: 'POLICE_CLEARANCE' } });
+    fireEvent.change(screen.getByLabelText('Document type'), { target: { value: 'police' } });
     pick(file('police.pdf'));
     fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
 
@@ -358,6 +367,96 @@ describe('documents', () => {
 
     expect((screen.getByRole('button', { name: 'Upload' }) as HTMLButtonElement).disabled).toBe(true);
     expect(post).not.toHaveBeenCalled();
+  });
+
+  describe('choosing what is being uploaded', () => {
+    const optionsOf = (select: HTMLElement) => within(select).getAllByRole('option').map((o) => o.textContent);
+
+    it('offers exactly proof of identity, police clearance, Grama Niladhari certificate and Other', async () => {
+      renderPage(<DocumentsPage />);
+      await screen.findByText(/have not uploaded anything/i);
+
+      expect(optionsOf(screen.getByLabelText('Document type'))).toEqual([
+        'Proof of identity (NIC or passport)',
+        'Police clearance report',
+        'Grama Niladhari certificate',
+        'Other',
+      ]);
+    });
+
+    const uploadAs = async (choose: (() => void) | null, expected: string) => {
+      renderPage(<DocumentsPage />);
+      await screen.findByText(/have not uploaded anything/i);
+      choose?.();
+      pick(file('scan.pdf'));
+      fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+      expect((post.mock.calls[0][1] as FormData).get('documentType')).toBe(expected);
+    };
+    const choosing = (value: string) => () => fireEvent.change(screen.getByLabelText('Document type'), { target: { value } });
+
+    it('files proof of identity as an NIC unless the caregiver says it is a passport', async () => {
+      await uploadAs(null, 'NIC');
+    });
+
+    it('asks which ID it is, and files a passport as a passport', async () => {
+      await uploadAs(() => fireEvent.change(screen.getByLabelText('Which ID is it?'), { target: { value: 'PASSPORT' } }), 'PASSPORT');
+    });
+
+    it('files each of the other choices under its own type', async () => {
+      await uploadAs(choosing('police'), 'POLICE_CLEARANCE');
+    });
+
+    it('files a Grama Niladhari certificate under its own type', async () => {
+      await uploadAs(choosing('gn'), 'GRAMA_NILADHARI_CERTIFICATE');
+    });
+
+    it('files Other as other', async () => {
+      await uploadAs(choosing('other'), 'OTHER');
+    });
+
+    it('shows the ID-kind pick only for proof of identity', async () => {
+      renderPage(<DocumentsPage />);
+      await screen.findByText(/have not uploaded anything/i);
+
+      expect(screen.getByLabelText('Which ID is it?')).toBeDefined();
+      for (const value of ['police', 'gn', 'other']) {
+        fireEvent.change(screen.getByLabelText('Document type'), { target: { value } });
+        expect(screen.queryByLabelText('Which ID is it?')).toBeNull();
+      }
+    });
+
+    it('still names documents of types the picker no longer offers, such as ones staff attached', async () => {
+      serve({ documents: [doc({ id: 'd9', documentType: 'CAREGIVER_CERTIFICATE', originalFilename: 'cert.pdf' })] });
+      renderPage(<DocumentsPage />);
+
+      await screen.findAllByText(/cert\.pdf/);
+      expect(screen.getAllByText('Caregiver certificate').length).toBeGreaterThan(0);
+    });
+
+    describe.each([
+      ['en', en, 'සිං', false],
+      ['si', si, 'සිං', true],
+      ['ta', ta, 'த', true],
+    ] as const)('in %s', (code, dict, switchLabel, needsSwitch) => {
+      it('shows the picker, the ID-kind pick and the document names in that language', async () => {
+        renderPage(<><LanguageSwitcher /><DocumentsPage /></>);
+        await screen.findByText(/have not uploaded anything/i);
+        if (needsSwitch) fireEvent.click(screen.getByRole('button', { name: switchLabel }));
+
+        const docs = (dict as typeof en).portal.documents;
+        const picker = await screen.findByLabelText(docs.type);
+        expect(optionsOf(picker)).toEqual([docs.pick.identity, docs.pick.police, docs.pick.gn, docs.pick.other]);
+
+        const kind = screen.getByLabelText(docs.idKind);
+        expect(optionsOf(kind)).toEqual([docs.idKinds.NIC, docs.idKinds.PASSPORT]);
+        // And it is genuinely translated, not English left in place.
+        if (code !== 'en') {
+          expect(docs.pick.other).not.toBe(en.portal.documents.pick.other);
+          expect(docs.pick.police).not.toBe(en.portal.documents.pick.police);
+        }
+      });
+    });
   });
 
   it('shows the server\'s reason when it rejects the upload', async () => {

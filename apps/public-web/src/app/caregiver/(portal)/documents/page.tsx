@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label, Select } from '@/components/ui/input';
 import { VerificationBadge, isWithdrawable } from '@/components/portal/status-badge';
 import { useCaregiverId, useDeleteDocument, useDocuments, useUploadDocument } from '@/lib/hooks/use-caregiver-portal';
-import { DOCUMENT_TYPES, type CaregiverDocument, type DocumentType } from '@/lib/api/portal-types';
+import type { CaregiverDocument, DocumentType } from '@/lib/api/portal-types';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp';
@@ -19,6 +19,34 @@ const CORE: { label: string; anyOf: DocumentType[] }[] = [
   { label: 'police', anyOf: ['POLICE_CLEARANCE'] },
   { label: 'gn', anyOf: ['GRAMA_NILADHARI_CERTIFICATE'] },
 ];
+
+/**
+ * What a caregiver is asked to pick when uploading. Deliberately shorter than the
+ * API's list of document types: these are the documents staff need to verify a
+ * registration, plus "Other" for anything else. Staff can still attach the other
+ * types, and those still show with their own names in the list below.
+ *
+ * "Proof of identity" is one choice because that is how the checklist reads it
+ * (NIC *or* passport), but the API stores which of the two it was, so choosing it
+ * reveals a small second pick rather than quietly filing a passport as an NIC.
+ */
+const CHOICES = ['identity', 'police', 'gn', 'other'] as const;
+type Choice = (typeof CHOICES)[number];
+const ID_KINDS = ['NIC', 'PASSPORT'] as const;
+type IdKind = (typeof ID_KINDS)[number];
+
+function documentTypeFor(choice: Choice, idKind: IdKind): DocumentType {
+  switch (choice) {
+    case 'identity':
+      return idKind;
+    case 'police':
+      return 'POLICE_CLEARANCE';
+    case 'gn':
+      return 'GRAMA_NILADHARI_CERTIFICATE';
+    case 'other':
+      return 'OTHER';
+  }
+}
 
 const size = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
@@ -41,7 +69,8 @@ export default function CaregiverDocumentsPage() {
   const remove = useDeleteDocument();
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const [type, setType] = useState<DocumentType>('NIC');
+  const [choice, setChoice] = useState<Choice>('identity');
+  const [idKind, setIdKind] = useState<IdKind>('NIC');
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -62,7 +91,7 @@ export default function CaregiverDocumentsPage() {
     if (!file) return setError(t('portal.documents.chooseFile'));
     setError(null);
     upload.mutate(
-      { file, documentType: type },
+      { file, documentType: documentTypeFor(choice, idKind) },
       {
         onSuccess: () => {
           setNotice(t('portal.documents.uploaded'));
@@ -126,9 +155,9 @@ export default function CaregiverDocumentsPage() {
         <div className="grid gap-4 sm:grid-cols-[1fr_1.5fr_auto] sm:items-end">
           <div>
             <Label htmlFor="documentType">{t('portal.documents.type')}</Label>
-            <Select id="documentType" value={type} onChange={(e) => setType(e.target.value as DocumentType)}>
-              {DOCUMENT_TYPES.map((d) => (
-                <option key={d} value={d}>{t(`portal.documents.types.${d}`)}</option>
+            <Select id="documentType" value={choice} onChange={(e) => setChoice(e.target.value as Choice)}>
+              {CHOICES.map((c) => (
+                <option key={c} value={c}>{t(`portal.documents.pick.${c}`)}</option>
               ))}
             </Select>
           </div>
@@ -147,6 +176,16 @@ export default function CaregiverDocumentsPage() {
             {upload.isPending ? t('common.loading') : t('portal.documents.upload')}
           </Button>
         </div>
+        {choice === 'identity' && (
+          <div className="mt-4 max-w-xs">
+            <Label htmlFor="idKind">{t('portal.documents.idKind')}</Label>
+            <Select id="idKind" value={idKind} onChange={(e) => setIdKind(e.target.value as IdKind)}>
+              {ID_KINDS.map((k) => (
+                <option key={k} value={k}>{t(`portal.documents.idKinds.${k}`)}</option>
+              ))}
+            </Select>
+          </div>
+        )}
         <p className="mt-2 text-xs text-ink/50">{t('portal.documents.fileHint')}</p>
         {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
         {notice && <p role="status" className="mt-3 text-sm text-brand-dark">{notice}</p>}
