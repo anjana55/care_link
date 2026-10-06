@@ -13,7 +13,7 @@
     "backToPublic": "Back to CareLink",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "clients": "Clients"
+    "settings": "Settings"
   },
   "login": {
     "title": "Sign in",
@@ -732,6 +732,53 @@
     "title": "Something went wrong",
     "body": "This page hit an unexpected error. Try again, or go back.",
     "retry": "Try again"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "How people sign in and how we reach them.",
+    "socialAuth": "Social sign-in",
+    "whatsapp": "WhatsApp"
+  },
+  "socialAdmin": {
+    "title": "Google, Microsoft and Facebook sign-in",
+    "subtitle": "Caregivers can register and sign in with these accounts. Create an OAuth client with each provider, paste its ID and secret here, and register the callback URL shown.",
+    "providers": {
+      "GOOGLE": "Google",
+      "MICROSOFT": "Microsoft",
+      "FACEBOOK": "Facebook"
+    },
+    "status": {
+      "live": "Live",
+      "incomplete": "Incomplete",
+      "off": "Off"
+    },
+    "enabled": "Offer this sign-in",
+    "enabledHint": "Shows the button on the caregiver registration and sign-in screens. Needs a client ID and secret.",
+    "redirectUri": "Callback URL (redirect URI)",
+    "redirectUriHint": "Register exactly this URL as an authorised redirect URI in the provider's console.",
+    "openConsole": "Open the provider console",
+    "copy": "Copy",
+    "copied": "Copied",
+    "clientId": {
+      "GOOGLE": "Client ID",
+      "MICROSOFT": "Application (client) ID",
+      "FACEBOOK": "App ID"
+    },
+    "clientSecret": {
+      "GOOGLE": "Client secret",
+      "MICROSOFT": "Client secret value",
+      "FACEBOOK": "App secret"
+    },
+    "secretHint": "Stored encrypted and never shown again. Leave blank to keep the current one.",
+    "secretKeep": "leave blank to keep",
+    "secretRemove": "Remove the stored secret",
+    "tenant": "Tenant",
+    "tenantHint": "common allows any Microsoft account. Use organizations, consumers, a tenant ID or a domain to restrict it.",
+    "apiVersion": "Graph API version",
+    "test": "Test credentials",
+    "testSaveFirst": "Save your changes before testing.",
+    "saved": "Saved",
+    "saveError": "Could not save these settings.",
+    "loadError": "Could not load the sign-in settings."
   }
-
 }

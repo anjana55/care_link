@@ -2,7 +2,8 @@
   "caregiverLogin": {
     "title": "Sign in as a caregiver",
     "subtitle": "Sign in to continue your caregiver profile.",
-    "noAccount": "New to CareLink?"
+    "noAccount": "New to CareLink?",
+    "orEmail": "or sign in with your email"
   },
   "nav": {
     "brand": "CareLink Finder",
@@ -483,8 +484,7 @@
   },
   "caregiverSignup": {
     "title": "Register as a caregiver",
-    "subtitle": "Fill in your details once, then sign in with Google, Microsoft or Facebook.",
-    "otherWays": "Prefer email or WhatsApp?",
+    "subtitle": "Fill in your details. Afterwards you can optionally sign in with Google, Microsoft or Facebook.",
     "phone": "Phone number",
     "phoneHint": "The number we use to contact you about caregiver work.",
     "email": "Email address (optional)",
@@ -493,10 +493,10 @@
     "error": "We could not complete your registration. Please try again.",
     "useDifferentNumber": "Use a different phone number",
     "successTitle": "Your details are saved",
-    "successBody": "Now choose how you want to sign in. Use the same email address you entered above.",
+    "successBody": "Optionally, you can now sign in with Google, Microsoft or Facebook to secure your registration. If you entered an email address, use the same one.",
     "regNumber": "Registration number",
-    "chooseProvider": "Sign in to finish setting up your account:",
-    "noProviders": "Google, Microsoft and Facebook sign-in are not available right now. Please register with your email address or WhatsApp instead.",
+    "chooseProvider": "Sign in with an account you already have (optional):",
+    "noProviders": "Google, Microsoft and Facebook sign-in are not available right now. Your registration is saved and we will contact you on your phone number.",
     "providerError": "Could not start the sign-in. Please try again.",
     "tokenExpired": "This sign-in link has expired. Please register again.",
     "linkExpiresIn": "This link expires in about",
@@ -521,13 +521,22 @@
       "registrationGone": "This registration can no longer be completed. Please register again.",
       "providerError": "The sign-in provider could not complete the request. Please try again.",
       "exchangeFailed": "This sign-in link has expired or was already used. Please register again.",
-      "generic": "Sign-in could not be completed. Please try again."
+      "generic": "Sign-in could not be completed. Please try again.",
+      "notRegistered": "No caregiver account is linked to that sign-in. Please register first.",
+      "accountDisabled": "This account cannot be used to sign in. Please contact us.",
+      "stateMismatch": "This sign-in was not started in this browser tab. Please try again from the sign-in page."
     },
     "validation": {
       "phoneRequired": "Phone number is required",
       "phoneInvalid": "Enter a valid phone number with at least 9 digits",
       "emailInvalid": "Enter a valid email address"
-    }
+    },
+    "skip": "Skip for now",
+    "skippedTitle": "Registration received",
+    "skippedBody": "We have saved your details and will use your phone number to contact you about caregiver work.",
+    "backHome": "Back to the homepage",
+    "backToLogin": "Back to sign in",
+    "registerInstead": "Register as a caregiver"
   },
   "caregiverDashboard": {
     "title": "Your caregiver page",

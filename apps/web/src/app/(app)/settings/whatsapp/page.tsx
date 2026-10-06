@@ -100,7 +100,7 @@ export default function WhatsappSettingsPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="mb-1 text-xl font-semibold text-ink">{t('whatsappAdmin.title')}</h1>
+      <h2 className="mb-1 text-lg font-semibold text-ink">{t('whatsappAdmin.title')}</h2>
       <p className="mb-6 text-sm text-ink/60">{t('whatsappAdmin.subtitle')}</p>
 
       <div className="space-y-5">

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Sparkles, Languages, MapPin, ScrollText, ShieldCheck, MessageCircle } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Sparkles, Languages, MapPin, ScrollText, ShieldCheck, Settings } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { cn } from '@/lib/utils';
@@ -26,7 +26,8 @@ const CLIENT_ITEM = { href: '/clients', key: 'nav.clients', icon: HeartHandshake
 // Admin-only: rendered separately from ITEMS so they never show for STAFF/VERIFIER.
 const ADMIN_ITEMS = [
   { href: '/users', key: 'nav.users', icon: ShieldCheck },
-  { href: '/settings/whatsapp', key: 'nav.whatsappSettings', icon: MessageCircle },
+  // One entry for the whole Settings area (social sign-in, WhatsApp); its own tabs lead to each section.
+  { href: '/settings', key: 'nav.settings', icon: Settings },
 ];
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {

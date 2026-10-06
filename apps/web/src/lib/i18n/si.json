@@ -2,7 +2,7 @@
   "nav": {
     "dashboard": "උපකරණ පුවරුව",
     "caregivers": "සාත්තු සේවකයින්",
-    "clients": "සේවාලාභීන්",
+    "clients": "ග්‍රාකීයන්",
     "skills": "කුසලතා",
     "languages": "භාෂා",
     "locations": "ස්ථාන",
@@ -13,7 +13,7 @@
     "backToPublic": "CareLink වෙත ආපසු",
     "openMenu": "මෙනුව විවෘත කරන්න",
     "closeMenu": "මෙනුව වසන්න",
-    "clients": "ග්‍රාකීයන්"
+    "settings": "සැකසුම්"
   },
   "login": {
     "title": "පුරනය වන්න",
@@ -732,6 +732,53 @@
     "title": "යම් දෝෂයක් සිදු විය",
     "body": "මෙම පිටුවේ අනපේක්ෂිත දෝෂයක් ඇති විය. නැවත උත්සාහ කරන්න හෝ ආපසු යන්න.",
     "retry": "නැවත උත්සාහ කරන්න"
+  },
+  "settings": {
+    "title": "සැකසුම්",
+    "subtitle": "පුද්ගලයින් පුරනය වන ආකාරය සහ අපි ඔවුන්ව සම්බන්ධ කරගන්නා ආකාරය.",
+    "socialAuth": "සමාජ ගිණුමෙන් පුරනය",
+    "whatsapp": "WhatsApp"
+  },
+  "socialAdmin": {
+    "title": "Google, Microsoft සහ Facebook මගින් පුරනය",
+    "subtitle": "රැකවරණ සේවකයින්ට මෙම ගිණුම් මගින් ලියාපදිංචි විය හා පුරනය විය හැක. එක් එක් සපයන්නා සමඟ OAuth සේවාදායකයක් සාදා, එහි ID සහ රහස මෙහි ඇතුළත් කර, පෙන්වා ඇති callback URL එක ලියාපදිංචි කරන්න.",
+    "providers": {
+      "GOOGLE": "Google",
+      "MICROSOFT": "Microsoft",
+      "FACEBOOK": "Facebook"
+    },
+    "status": {
+      "live": "ක්‍රියාත්මකයි",
+      "incomplete": "අසම්පූර්ණයි",
+      "off": "ක්‍රියාවිරහිතයි"
+    },
+    "enabled": "මෙම පුරනය ලබා දෙන්න",
+    "enabledHint": "රැකවරණ සේවක ලියාපදිංචි සහ පුරනය වීමේ තිරවල බොත්තම පෙන්වයි. සේවාදායක ID සහ රහස අවශ්‍යයි.",
+    "redirectUri": "Callback URL (redirect URI)",
+    "redirectUriHint": "සපයන්නාගේ කොන්සෝලයේ අනුමත redirect URI ලෙස මෙම URL එක හරියටම ලියාපදිංචි කරන්න.",
+    "openConsole": "සපයන්නාගේ කොන්සෝලය විවෘත කරන්න",
+    "copy": "පිටපත් කරන්න",
+    "copied": "පිටපත් කළා",
+    "clientId": {
+      "GOOGLE": "Client ID",
+      "MICROSOFT": "Application (client) ID",
+      "FACEBOOK": "App ID"
+    },
+    "clientSecret": {
+      "GOOGLE": "Client secret",
+      "MICROSOFT": "Client secret අගය",
+      "FACEBOOK": "App secret"
+    },
+    "secretHint": "සංකේතනය කර ගබඩා කෙරේ, නැවත පෙන්වන්නේ නැත. වත්මන් එක තබා ගැනීමට හිස්ව තබන්න.",
+    "secretKeep": "තබා ගැනීමට හිස්ව තබන්න",
+    "secretRemove": "ගබඩා කළ රහස ඉවත් කරන්න",
+    "tenant": "Tenant",
+    "tenantHint": "common මගින් ඕනෑම Microsoft ගිණුමකට ඉඩ දේ. සීමා කිරීමට organizations, consumers, tenant ID එකක් හෝ ඩොමේනයක් භාවිතා කරන්න.",
+    "apiVersion": "Graph API අනුවාදය",
+    "test": "අක්තපත්‍ර පරීක්ෂා කරන්න",
+    "testSaveFirst": "පරීක්ෂා කිරීමට පෙර වෙනස්කම් සුරකින්න.",
+    "saved": "සුරකින ලදී",
+    "saveError": "මෙම සැකසුම් සුරැකීමට නොහැකි විය.",
+    "loadError": "පුරනය වීමේ සැකසුම් පූරණය කළ නොහැකි විය."
   }
-
 }

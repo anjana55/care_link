@@ -64,13 +64,13 @@ export function LandingHero() {
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
           {/*
-            "Join as a caregiver" goes to the chooser at /caregiver/join, which
-            offers email and WhatsApp sign-up. Not /register - that is the
-            patient/guardian form - and not /staff/register, which put
+            "Join as a caregiver" goes straight to the one registration form
+            at /caregiver/signup - no chooser in between. Not /register (the
+            patient/guardian form) and not /staff/register, which put
             caregivers behind the office-staff area.
           */}
           <Link
-            href="/caregiver/join"
+            href="/caregiver/signup"
             className="inline-flex items-center rounded border border-border bg-white px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-brand hover:text-brand"
           >
             {t('landing.ctaRegister')}

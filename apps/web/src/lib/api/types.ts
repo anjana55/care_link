@@ -260,6 +260,27 @@ export interface WhatsappSettings {
   updatedAt: string;
 }
 
+export type SocialProviderName = 'GOOGLE' | 'MICROSOFT' | 'FACEBOOK';
+
+/** One provider's admin-managed OAuth settings (GET/PATCH /settings/social-auth). The secret is never returned. */
+export interface SocialProviderSettings {
+  id: SocialProviderName;
+  provider: SocialProviderName;
+  enabled: boolean;
+  clientId: string | null;
+  clientSecretSet: boolean;
+  clientSecretHint: string | null;
+  /** Microsoft only. */
+  tenant: string;
+  /** Facebook only. */
+  apiVersion: string;
+  /** The exact callback URL to register in the provider's console. */
+  redirectUri: string;
+  /** Enabled and complete: the provider is actually offered on the public screens. */
+  usable: boolean;
+  updatedAt: string | null;
+}
+
 // --- Clients (self-registered patients/guardians) ---------------------------
 
 export type RegistrantType = 'SELF' | 'GUARDIAN';

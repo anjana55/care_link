@@ -9,11 +9,7 @@ import { api, ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Input, Label, FieldError, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
-import {
-  CaregiverRegisterAlternate,
-  CaregiverRegisterHeader,
-  CaregiverRegisterShell,
-} from '@/components/caregivers/caregiver-register-layout';
+import { CaregiverRegisterHeader, CaregiverRegisterShell } from '@/components/caregivers/caregiver-register-layout';
 import { ProviderChoices } from '@/components/caregivers/provider-choices';
 import {
   makeUnifiedSignupSchema,
@@ -53,6 +49,9 @@ export default function CaregiverSignupPage() {
   const { data: locationTree, isError: locationsUnavailable } = useLocationTree(locale);
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<RegisterResponse | null>(null);
+  // The provider step is optional: the registration is already saved by the
+  // time it is shown, so a caregiver can decline it and finish here.
+  const [skipped, setSkipped] = useState(false);
 
   const schema = makeUnifiedSignupSchema(t);
   const requiredFields = unifiedSignupRequiredFields(t);
@@ -81,6 +80,23 @@ export default function CaregiverSignupPage() {
     }
   };
 
+  if (result && skipped) {
+    return (
+      <CaregiverRegisterShell narrow>
+        <div className="rounded-lg border border-border bg-white p-6 text-center">
+          <h1 className="mb-1 text-lg font-semibold text-ink">{t('caregiverSignup.skippedTitle')}</h1>
+          <p className="mb-1 text-sm text-ink/60">{t('caregiverSignup.skippedBody')}</p>
+          <p className="mb-5 text-xs text-ink/40">
+            {t('caregiverSignup.regNumber')} {result.registrationNumber}
+          </p>
+          <Link href="/" className="text-sm font-medium text-brand-dark hover:underline">
+            {t('caregiverSignup.backHome')}
+          </Link>
+        </div>
+      </CaregiverRegisterShell>
+    );
+  }
+
   if (result) {
     return (
       <CaregiverRegisterShell narrow>
@@ -95,13 +111,22 @@ export default function CaregiverSignupPage() {
             providers={result.providers}
             expiresInSeconds={result.pendingTokenExpiresInSeconds}
           />
-          <button
-            type="button"
-            onClick={() => setResult(null)}
-            className="mt-5 text-sm text-ink/60 underline hover:text-ink"
-          >
-            {t('caregiverSignup.useDifferentNumber')}
-          </button>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setSkipped(true)}
+              className="text-sm font-medium text-brand-dark hover:underline"
+            >
+              {t('caregiverSignup.skip')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setResult(null)}
+              className="text-sm text-ink/60 underline hover:text-ink"
+            >
+              {t('caregiverSignup.useDifferentNumber')}
+            </button>
+          </div>
         </div>
       </CaregiverRegisterShell>
     );
@@ -109,9 +134,7 @@ export default function CaregiverSignupPage() {
 
   return (
     <CaregiverRegisterShell>
-      <CaregiverRegisterHeader title={t('caregiverSignup.title')} subtitle={t('caregiverSignup.subtitle')}>
-        <CaregiverRegisterAlternate href="/caregiver/join" linkText={t('caregiverSignup.otherWays')} />
-      </CaregiverRegisterHeader>
+      <CaregiverRegisterHeader title={t('caregiverSignup.title')} subtitle={t('caregiverSignup.subtitle')} />
 
       <form onSubmit={handleSubmit(onSubmit)} className="rounded-lg border border-border bg-white p-6">
         <RequiredLegend label={t('common.requiredField')} />

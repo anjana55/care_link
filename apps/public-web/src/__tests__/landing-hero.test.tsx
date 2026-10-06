@@ -18,9 +18,9 @@ describe('Landing hero', () => {
     );
   }
 
-  it('sends "Join as a caregiver" to the caregiver chooser', () => {
+  it('sends "Join as a caregiver" straight to the registration form', () => {
     renderHero();
-    expect(screen.getByRole('link', { name: 'Join as a caregiver' })).toHaveAttribute('href', '/caregiver/join');
+    expect(screen.getByRole('link', { name: 'Join as a caregiver' })).toHaveAttribute('href', '/caregiver/signup');
   });
 
   it('keeps caregiver sign-up out of both the patient form and the staff area', () => {

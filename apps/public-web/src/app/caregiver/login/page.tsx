@@ -11,9 +11,13 @@ import { ApiError } from '@/lib/api/client';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
 import { Button } from '@/components/ui/button';
 import { Input, Label, RequiredLegend } from '@/components/ui/input';
+import { SocialLoginButtons } from '@/components/caregivers/social-login-buttons';
 
 /**
- * Caregiver sign-in, the counterpart to /caregiver/register.
+ * Caregiver sign-in, the counterpart to /caregiver/signup.
+ *
+ * Three ways in: Google / Microsoft / Facebook (for caregivers who linked one
+ * at registration), email + password, and WhatsApp OTP (when enabled).
  *
  * Separate from /login (patients) and from /staff/login (office staff) so a
  * caregiver never has to enter the staff area. On success the session is
@@ -58,7 +62,17 @@ export default function CaregiverLoginPage() {
           <h1 className="text-lg font-semibold text-ink">{t('caregiverLogin.title')}</h1>
           <p className="mt-1 text-sm text-ink/60">{t('caregiverLogin.subtitle')}</p>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="mt-6">
+          <div className="mt-6">
+            <SocialLoginButtons>
+              <div className="my-5 flex items-center gap-3 text-xs text-ink/40" role="separator">
+                <span className="h-px flex-1 bg-border" />
+                {t('caregiverLogin.orEmail')}
+                <span className="h-px flex-1 bg-border" />
+              </div>
+            </SocialLoginButtons>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)}>
             <RequiredLegend label={t('common.requiredField')} />
             <div className="space-y-4">
               <div>
@@ -94,7 +108,7 @@ export default function CaregiverLoginPage() {
 
           <p className="mt-4 text-center text-sm text-ink/60">
             {t('caregiverLogin.noAccount')}{' '}
-            <Link href="/caregiver/join" className="font-medium text-brand-dark hover:underline">
+            <Link href="/caregiver/signup" className="font-medium text-brand-dark hover:underline">
               {t('caregiverRegister.join.title')}
             </Link>
           </p>

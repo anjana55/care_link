@@ -7,6 +7,7 @@ import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/lib/api/auth-context';
 import { api, ApiError, type Tokens } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
+import { LOGIN_NONCE_KEY } from '@/components/caregivers/social-login-buttons';
 
 /**
  * Where the provider sends the caregiver back to.
@@ -35,6 +36,8 @@ const ERRORS: Record<string, string> = {
   email_taken: 'caregiverSignup.errors.emailTaken',
   registration_gone: 'caregiverSignup.errors.registrationGone',
   provider_error: 'caregiverSignup.errors.providerError',
+  not_registered: 'caregiverSignup.errors.notRegistered',
+  account_disabled: 'caregiverSignup.errors.accountDisabled',
 };
 
 function CallbackInner() {
@@ -42,6 +45,8 @@ function CallbackInner() {
   const { applyTokens } = useAuth();
   const params = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const isLogin = params.get('flow') === 'login';
   // React 18 StrictMode double-invokes effects in development, and this effect
   // spends the code. Without the guard the second run would present the same
   // code as already used and show a spurious failure on a working sign-in.
@@ -54,12 +59,26 @@ function CallbackInner() {
     const code = params.get('code');
     const failure = params.get('error');
     if (failure) {
+      setErrorCode(failure);
       setError(t(ERRORS[failure] ?? 'caregiverSignup.errors.generic'));
       return;
     }
     if (!code) {
       setError(t('caregiverSignup.errors.invalidRequest'));
       return;
+    }
+
+    // A sign-in must come back to the browser tab that started it. The nonce was
+    // generated there, went through the provider inside the signed state, and
+    // is compared here before the code is spent - so a callback link opened by
+    // someone else cannot sign them in as the person who started the attempt.
+    if (isLogin) {
+      const expected = window.sessionStorage.getItem(LOGIN_NONCE_KEY);
+      window.sessionStorage.removeItem(LOGIN_NONCE_KEY);
+      if (!expected || expected !== params.get('nonce')) {
+        setError(t('caregiverSignup.errors.stateMismatch'));
+        return;
+      }
     }
 
     api
@@ -74,16 +93,31 @@ function CallbackInner() {
       .catch((err) => {
         setError(err instanceof ApiError ? t('caregiverSignup.errors.exchangeFailed') : t('caregiverSignup.errors.generic'));
       });
-  }, [params, applyTokens, t]);
+  }, [params, applyTokens, t, isLogin]);
 
   if (error) {
     return (
       <div className="rounded-lg border border-border bg-white p-6 text-center">
         <h1 className="mb-2 text-lg font-semibold text-ink">{t('caregiverSignup.callbackTitle')}</h1>
         <p className="mb-5 text-sm text-danger">{error}</p>
-        <Link href="/caregiver/signup">
-          <Button>{t('caregiverSignup.backToSignup')}</Button>
-        </Link>
+        {isLogin ? (
+          <div className="flex flex-col gap-2">
+            {errorCode === 'not_registered' && (
+              <Link href="/caregiver/signup">
+                <Button className="w-full">{t('caregiverSignup.registerInstead')}</Button>
+              </Link>
+            )}
+            <Link href="/caregiver/login">
+              <Button variant={errorCode === 'not_registered' ? 'secondary' : 'primary'} className="w-full">
+                {t('caregiverSignup.backToLogin')}
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <Link href="/caregiver/signup">
+            <Button>{t('caregiverSignup.backToSignup')}</Button>
+          </Link>
+        )}
       </div>
     );
   }

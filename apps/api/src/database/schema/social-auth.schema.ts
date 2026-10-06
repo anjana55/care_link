@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, datetime, mysqlEnum, uniqueIndex, index } from 'drizzle-orm/mysql-core';
+import { mysqlTable, varchar, datetime, mysqlEnum, uniqueIndex, index, boolean, text } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -75,3 +75,29 @@ export const authHandoffCodes = mysqlTable(
     hashIdx: index('auth_handoff_codes_hash_idx').on(table.codeHash),
   }),
 );
+
+/**
+ * Admin-managed OAuth2 client settings, one row per provider.
+ *
+ * This is what the sign-in flow reads on every request, so an admin can switch a
+ * provider on or off, or rotate its secret, from Settings without a redeploy.
+ * The `GOOGLE_*` / `MICROSOFT_*` / `FACEBOOK_*` environment variables only seed
+ * a row the first time it is needed (so an existing deployment keeps working);
+ * after that the row is the source of truth.
+ *
+ * The client secret is encrypted at rest (secret-box.util.ts) and never returned
+ * by the API - the admin UI only learns that one is stored, and its last four
+ * characters.
+ */
+export const socialAuthProviderSettings = mysqlTable('social_auth_provider_settings', {
+  provider: mysqlEnum('provider', socialProviderEnum).primaryKey(),
+  enabled: boolean('enabled').notNull().default(false),
+  clientId: varchar('client_id', { length: 255 }),
+  clientSecretEncrypted: text('client_secret_encrypted'),
+  // Microsoft only: `common`, `organizations`, `consumers`, a tenant GUID or a domain.
+  tenant: varchar('tenant', { length: 128 }),
+  // Facebook only: the Graph API version the app was created against.
+  apiVersion: varchar('api_version', { length: 16 }),
+  updatedBy: varchar('updated_by', { length: 36 }),
+  updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});

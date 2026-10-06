@@ -21,8 +21,8 @@ import { Public } from '../common/decorators/public.decorator';
 import { AuditService } from '../audit/audit.service';
 
 /**
- * The unified caregiver registration and its Google/Microsoft/Facebook
- * sign-on, sitting alongside (never instead of) the email/password and WhatsApp
+ * The unified caregiver registration, its Google/Microsoft/Facebook
+ * sign-on, and the returning-caregiver sign-in with the same providers, sitting alongside (never instead of) the email/password and WhatsApp
  * OTP endpoints in AuthController and WhatsappAuthController.
  */
 @ApiTags('auth')
@@ -74,8 +74,20 @@ export class SocialAuthController {
    */
   @Public()
   @Get('social/:provider/authorize-url')
-  authorizeUrl(@Param('provider') provider: string, @Query('token') token: string) {
-    return { url: this.socialAuth.authorizeUrl(provider, token) };
+  async authorizeUrl(@Param('provider') provider: string, @Query('token') token: string) {
+    return { url: await this.socialAuth.authorizeUrl(provider, token) };
+  }
+
+  /**
+   * The consent URL for signing in with a provider that is already linked.
+   * Same shape and reasoning as `authorize-url`: JSON, not a 302, so the
+   * frontend can report a refusal in its own words.
+   */
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Get('social/:provider/login-url')
+  async loginUrl(@Param('provider') provider: string, @Query('nonce') nonce: string) {
+    return { url: await this.socialAuth.loginAuthorizeUrl(provider, nonce) };
   }
 
   /**
@@ -97,17 +109,27 @@ export class SocialAuthController {
   ) {
     const frontend = this.frontendUrl();
 
+    // Known before anything can fail, so a failure lands on the page for the
+    // flow the caregiver was actually in (sign-in vs registration).
+    const flow = this.socialAuth.flowOf(state);
+
     if (providerError || !code || !state) {
-      return this.fail(res, frontend, providerError ? 'declined' : 'invalid_request');
+      return this.fail(res, frontend, providerError ? 'declined' : 'invalid_request', undefined, flow);
     }
     try {
-      const handoffCode = await this.socialAuth.completeLink({ provider, code, pendingToken: state });
-      await this.audit.record({
-        action: 'LINK_SOCIAL_ACCOUNT',
-        entityType: 'User',
-        ipAddress: req.ip,
-      });
-      return res.redirect(`${frontend}/caregiver/social/callback?code=${encodeURIComponent(handoffCode)}`);
+      const result = await this.socialAuth.completeCallback({ provider, code, state });
+      if (result.flow === 'signup') {
+        await this.audit.record({
+          action: 'LINK_SOCIAL_ACCOUNT',
+          entityType: 'User',
+          ipAddress: req.ip,
+        });
+        return res.redirect(`${frontend}/caregiver/social/callback?code=${encodeURIComponent(result.handoffCode)}`);
+      }
+      // The nonce goes back to the browser that generated it, which compares
+      // it with the copy in its sessionStorage before spending the code.
+      const params = new URLSearchParams({ code: result.handoffCode, flow: 'login', nonce: result.nonce });
+      return res.redirect(`${frontend}/caregiver/social/callback?${params.toString()}`);
     } catch (err) {
       // Only a short code travels in the URL. The provider's own error
       // payload can contain the client secret, and a message is far too much
@@ -116,7 +138,7 @@ export class SocialAuthController {
       const reason =
         err instanceof SocialLinkError ? err.code : err instanceof HttpException ? 'provider_error' : 'unknown';
       this.logger.error(`Social link failed for ${provider}`, err instanceof Error ? err.stack : undefined);
-      return this.fail(res, frontend, reason, provider);
+      return this.fail(res, frontend, reason, provider, flow);
     }
   }
 
@@ -134,9 +156,10 @@ export class SocialAuthController {
     return tokens;
   }
 
-  private fail(res: Response, frontend: string, reason: string, provider?: string) {
+  private fail(res: Response, frontend: string, reason: string, provider?: string, flow: 'login' | 'signup' = 'signup') {
     const params = new URLSearchParams({ error: reason });
     if (provider) params.set('provider', provider);
+    if (flow === 'login') params.set('flow', 'login');
     return res.redirect(`${frontend}/caregiver/social/callback?${params.toString()}`);
   }
 

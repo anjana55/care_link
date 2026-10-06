@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { socialProviderEnum, type SocialProvider } from '../../database/schema';
+import { parseSocialProvider, SocialAuthSettingsService, type ResolvedProviderConfig } from './social-settings.service';
 
 /**
  * What a provider tells us about the person who just authenticated.
@@ -32,7 +32,42 @@ export interface SocialProviderClient {
   exchangeCode(code: string, redirectUri: string): Promise<string>;
   /** Reads the signed-in person's id and verified email. */
   fetchProfile(accessToken: string): Promise<SocialProfile>;
+  /**
+   * Asks the provider's token endpoint to authenticate this client with a code
+   * that cannot be valid, and reports whether the *client* was accepted.
+   */
+  probeCredentials(redirectUri: string): Promise<CredentialCheck>;
 }
+
+/** Outcome of an admin's "test credentials" click. `message` never echoes provider text. */
+export interface CredentialCheck {
+  ok: boolean;
+  message: string;
+}
+
+/** A deliberately invalid code: the provider must reject it, and *how* it rejects tells us about the client. */
+const PROBE_CODE = 'carelink-credential-check';
+
+async function rawPost(url: string, body: Record<string, string>): Promise<{ status: number; json: any }> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(body).toString(),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const text = await res.text();
+  return { status: res.status, json: text ? safeParse(text) : {} };
+}
+
+const unreachable: CredentialCheck = { ok: false, message: 'Could not reach the provider. Check the server\'s internet access and try again.' };
+const accepted = (name: string): CredentialCheck => ({
+  ok: true,
+  message: `${name} did not reject the client ID and secret. (The sign-in itself is only exercised by a real sign-in.)`,
+});
+const rejected = (name: string, what: string): CredentialCheck => ({
+  ok: false,
+  message: `${name} rejected ${what}. Check it against the provider's console.`,
+});
 
 /** Reads a JSON body, turning a provider's error payload into a readable failure. */
 async function postJson(url: string, body: Record<string, string>, headers: Record<string, string> = {}): Promise<any> {
@@ -71,24 +106,19 @@ function safeParse(text: string): any {
 }
 
 /** Google Identity: OIDC, `openid email` scopes, verified `email` claim. */
-@Injectable()
 export class GoogleProviderClient implements SocialProviderClient {
   readonly provider = 'GOOGLE' as const;
-  private readonly clientId: string | undefined;
-  private readonly clientSecret: string | undefined;
+  private readonly clientId: string;
+  private readonly clientSecret: string;
 
-  constructor(config: ConfigService) {
-    this.clientId = config.get<string>('GOOGLE_CLIENT_ID');
-    this.clientSecret = config.get<string>('GOOGLE_CLIENT_SECRET');
-  }
-
-  get configured() {
-    return Boolean(this.clientId && this.clientSecret);
+  constructor(cfg: ResolvedProviderConfig) {
+    this.clientId = cfg.clientId ?? '';
+    this.clientSecret = cfg.clientSecret ?? '';
   }
 
   authorizeUrl(state: string, redirectUri: string) {
     const params = new URLSearchParams({
-      client_id: this.clientId!,
+      client_id: this.clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
       // 'consent' rather than 'select_account': the address must be the one the
@@ -104,8 +134,8 @@ export class GoogleProviderClient implements SocialProviderClient {
   async exchangeCode(code: string, redirectUri: string) {
     const json = await postJson('https://oauth2.googleapis.com/token', {
       code,
-      client_id: this.clientId!,
-      client_secret: this.clientSecret!,
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     });
@@ -121,24 +151,38 @@ export class GoogleProviderClient implements SocialProviderClient {
     }
     return { accountId: String(json.sub), email: String(json.email).toLowerCase(), name: json.name };
   }
+
+  async probeCredentials(redirectUri: string): Promise<CredentialCheck> {
+    try {
+      const { json } = await rawPost('https://oauth2.googleapis.com/token', {
+        code: PROBE_CODE,
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      });
+      // A good client is told the *code* is bad (invalid_grant); a bad one is
+      // told it is not a client at all (invalid_client).
+      if (json?.error === 'invalid_client') return rejected('Google', 'the client ID or secret');
+      if (json?.error === 'invalid_grant') return accepted('Google');
+      return { ok: false, message: 'Google returned an unexpected answer. Check the client ID and secret.' };
+    } catch {
+      return unreachable;
+    }
+  }
 }
 
 /** Microsoft Entra ID (Azure AD) v2 endpoint, `openid email profile` scopes. */
-@Injectable()
 export class MicrosoftProviderClient implements SocialProviderClient {
   readonly provider = 'MICROSOFT' as const;
-  private readonly clientId: string | undefined;
-  private readonly clientSecret: string | undefined;
+  private readonly clientId: string;
+  private readonly clientSecret: string;
   private readonly tenant: string;
 
-  constructor(config: ConfigService) {
-    this.clientId = config.get<string>('MICROSOFT_CLIENT_ID');
-    this.clientSecret = config.get<string>('MICROSOFT_CLIENT_SECRET');
-    this.tenant = config.get<string>('MICROSOFT_TENANT') ?? 'common';
-  }
-
-  get configured() {
-    return Boolean(this.clientId && this.clientSecret);
+  constructor(cfg: ResolvedProviderConfig) {
+    this.clientId = cfg.clientId ?? '';
+    this.clientSecret = cfg.clientSecret ?? '';
+    this.tenant = cfg.tenant;
   }
 
   private base() {
@@ -147,7 +191,7 @@ export class MicrosoftProviderClient implements SocialProviderClient {
 
   authorizeUrl(state: string, redirectUri: string) {
     const params = new URLSearchParams({
-      client_id: this.clientId!,
+      client_id: this.clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
       response_mode: 'query',
@@ -160,8 +204,8 @@ export class MicrosoftProviderClient implements SocialProviderClient {
   async exchangeCode(code: string, redirectUri: string) {
     const json = await postJson(`${this.base()}/token`, {
       code,
-      client_id: this.clientId!,
-      client_secret: this.clientSecret!,
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
       scope: 'openid email profile',
@@ -179,29 +223,49 @@ export class MicrosoftProviderClient implements SocialProviderClient {
     }
     return { accountId: String(json.sub), email: String(email).toLowerCase(), name: json.name };
   }
+
+  async probeCredentials(redirectUri: string): Promise<CredentialCheck> {
+    try {
+      const { json } = await rawPost(`${this.base()}/token`, {
+        code: PROBE_CODE,
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+        scope: 'openid email profile',
+      });
+      const codes: number[] = Array.isArray(json?.error_codes) ? json.error_codes : [];
+      // 700016: no such application in this tenant. 7000215 / 7000222: wrong or
+      // expired secret. 90002 / 90023: unknown tenant. All say the *client* is bad.
+      if (codes.includes(700016)) return rejected('Microsoft', 'the application (client) ID');
+      if (codes.includes(7000215) || codes.includes(7000222) || json?.error === 'invalid_client') {
+        return rejected('Microsoft', 'the client secret');
+      }
+      if (codes.includes(90002) || codes.includes(90023)) return rejected('Microsoft', 'the tenant');
+      if (json?.error) return accepted('Microsoft');
+      return { ok: false, message: 'Microsoft returned an unexpected answer. Check the client ID and secret.' };
+    } catch {
+      return unreachable;
+    }
+  }
 }
 
 /** Facebook Login: `email` scope so the address is returned, `id` is the key. */
-@Injectable()
 export class FacebookProviderClient implements SocialProviderClient {
   readonly provider = 'FACEBOOK' as const;
-  private readonly clientId: string | undefined;
-  private readonly clientSecret: string | undefined;
+  private readonly clientId: string;
+  private readonly clientSecret: string;
   private readonly apiVersion: string;
 
-  constructor(config: ConfigService) {
-    this.clientId = config.get<string>('FACEBOOK_CLIENT_ID');
-    this.clientSecret = config.get<string>('FACEBOOK_CLIENT_SECRET');
-    this.apiVersion = config.get<string>('FACEBOOK_API_VERSION') ?? 'v21.0';
-  }
-
-  get configured() {
-    return Boolean(this.clientId && this.clientSecret);
+  constructor(cfg: ResolvedProviderConfig) {
+    this.clientId = cfg.clientId ?? '';
+    this.clientSecret = cfg.clientSecret ?? '';
+    this.apiVersion = cfg.apiVersion;
   }
 
   authorizeUrl(state: string, redirectUri: string) {
     const params = new URLSearchParams({
-      client_id: this.clientId!,
+      client_id: this.clientId,
       redirect_uri: redirectUri,
       // Facebook has no `state` of its own to verify; ours round-trips and is
       // checked on the way back exactly as it is for the other two.
@@ -215,8 +279,8 @@ export class FacebookProviderClient implements SocialProviderClient {
   async exchangeCode(code: string, redirectUri: string) {
     const json = await postJson(`https://graph.facebook.com/${this.apiVersion}/oauth/access_token`, {
       code,
-      client_id: this.clientId!,
-      client_secret: this.clientSecret!,
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     });
@@ -235,46 +299,71 @@ export class FacebookProviderClient implements SocialProviderClient {
     }
     return { accountId: String(json.id), email: String(json.email).toLowerCase(), name: json.name };
   }
+
+  async probeCredentials(redirectUri: string): Promise<CredentialCheck> {
+    try {
+      const { json } = await rawPost(`https://graph.facebook.com/${this.apiVersion}/oauth/access_token`, {
+        code: PROBE_CODE,
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        redirect_uri: redirectUri,
+      });
+      const message = String(json?.error?.message ?? '').toLowerCase();
+      const code = Number(json?.error?.code);
+      if (message.includes('client secret')) return rejected('Facebook', 'the app secret');
+      if (code === 101 || message.includes('app id') || message.includes('application')) {
+        return rejected('Facebook', 'the app ID');
+      }
+      if (json?.error) return accepted('Facebook');
+      return { ok: false, message: 'Facebook returned an unexpected answer. Check the app ID and secret.' };
+    } catch {
+      return unreachable;
+    }
+  }
 }
 
 /**
- * Looks a provider up by name and reports which are usable in this environment.
+ * Looks a provider up by name and builds a client from the admin-managed
+ * settings, which are read on every call so an admin's change applies at once.
  *
- * A provider counts as available only when its client id AND secret are both
- * set - so a half-finished configuration hides the button instead of offering
- * a sign-in that fails.
+ * A provider counts as available only when it is switched on AND has both a
+ * client id and a secret - so a half-finished configuration hides the button
+ * instead of offering a sign-in that fails.
  */
 @Injectable()
 export class SocialProviderRegistry {
-  private readonly logger = new Logger(SocialProviderRegistry.name);
-  private readonly clients: SocialProviderClient[];
+  constructor(private readonly settings: SocialAuthSettingsService) {}
 
-  constructor(google: GoogleProviderClient, microsoft: MicrosoftProviderClient, facebook: FacebookProviderClient) {
-    this.clients = [google, microsoft, facebook];
+  static build(cfg: ResolvedProviderConfig): SocialProviderClient {
+    switch (cfg.provider) {
+      case 'GOOGLE':
+        return new GoogleProviderClient(cfg);
+      case 'MICROSOFT':
+        return new MicrosoftProviderClient(cfg);
+      case 'FACEBOOK':
+        return new FacebookProviderClient(cfg);
+    }
   }
 
-  get(provider: string): SocialProviderClient {
-    const match = this.clients.find((c) => c.provider === provider);
-    if (!match) {
-      throw new BadRequestException(`Unknown sign-in provider: ${provider}`);
+  /** The client for a usable provider. Accepts any casing, since it comes from a URL segment. */
+  async get(provider: string): Promise<SocialProviderClient> {
+    const name = parseSocialProvider(provider);
+    const cfg = await this.settings.getResolved(name);
+    if (!cfg.usable) {
+      throw new BadRequestException(`${name} sign-in is not available right now`);
     }
-    if (!(match as any).configured) {
-      throw new BadRequestException(`${match.provider} sign-in is not available right now`);
-    }
-    return match;
+    return SocialProviderRegistry.build(cfg);
   }
 
   /** Which buttons the frontend should render, keyed by provider. */
-  available(): Record<SocialProvider, boolean> {
+  async available(): Promise<Record<SocialProvider, boolean>> {
     const out = Object.fromEntries(socialProviderEnum.map((p) => [p, false])) as Record<SocialProvider, boolean>;
-    for (const client of this.clients) {
-      out[client.provider] = Boolean((client as any).configured);
-    }
+    for (const cfg of await this.settings.getAllResolved()) out[cfg.provider] = cfg.usable;
     return out;
   }
 
-  /** True when at least one provider is configured - guards a dead-end screen. */
-  anyAvailable(): boolean {
-    return this.clients.some((c) => (c as any).configured);
+  /** True when at least one provider is usable - guards a dead-end screen. */
+  async anyAvailable(): Promise<boolean> {
+    return Object.values(await this.available()).some(Boolean);
   }
 }

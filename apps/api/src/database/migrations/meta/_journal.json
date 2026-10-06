@@ -15,6 +15,13 @@
       "when": 1791213985875,
       "tag": "0001_workable_scrambler",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1791256579361,
+      "tag": "0002_tiny_morlun",
+      "breakpoints": true
     }
   ]
 }

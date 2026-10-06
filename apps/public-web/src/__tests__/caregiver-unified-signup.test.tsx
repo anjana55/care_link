@@ -204,3 +204,60 @@ describe('the provider choice screen', () => {
     expect(screen.getByText(/not available right now/i)).toBeDefined();
   });
 });
+
+describe('the registration flow around the provider step', () => {
+  async function fillAndSubmit(client: QueryClient) {
+    await locationsSettled(client);
+    change(/^Phone number/, '0771234567');
+    change(/full name/i, 'Nimal Perera');
+    change(/permanent address/i, '12 Temple Road, Colombo');
+    change(/date of birth/i, '1990-04-12');
+    change(/^gender/i, 'MALE');
+    change(/civil status/i, 'SINGLE');
+    change(/^district/i, '1');
+    await waitFor(() =>
+      expect((document.getElementById('city') as HTMLSelectElement).querySelectorAll('option').length).toBeGreaterThan(1),
+    );
+    change(/^city/i, '10');
+    change(/emergency contact name/i, 'Sunil Perera');
+    change(/emergency contact number/i, '0771111111');
+    change(/emergency contact relationship/i, 'Son');
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+  }
+
+  it('never asks for a password', async () => {
+    const { container, client } = renderPage(<CaregiverSignupPage />);
+    await locationsSettled(client);
+
+    expect(container.querySelectorAll('input[type="password"]')).toHaveLength(0);
+  });
+
+  it('shows no provider buttons until the form has been submitted', async () => {
+    const { client } = renderPage(<CaregiverSignupPage />);
+    await locationsSettled(client);
+
+    expect(screen.queryByRole('button', { name: /google|microsoft|facebook/i })).toBeNull();
+  });
+
+  it('offers Google, Microsoft and Facebook after submission, as an optional step', async () => {
+    const { client } = renderPage(<CaregiverSignupPage />);
+    await fillAndSubmit(client);
+
+    expect(await screen.findByRole('button', { name: /continue with google/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /continue with microsoft/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /continue with facebook/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /skip for now/i })).toBeDefined();
+  });
+
+  it('lets the caregiver finish without signing in with a provider', async () => {
+    const { client } = renderPage(<CaregiverSignupPage />);
+    await fillAndSubmit(client);
+
+    fireEvent.click(await screen.findByRole('button', { name: /skip for now/i }));
+
+    expect(await screen.findByText(/registration received/i)).toBeDefined();
+    expect(screen.getByText(/CG-2026-0001/)).toBeDefined();
+    expect(screen.queryByRole('button', { name: /continue with google/i })).toBeNull();
+  });
+});

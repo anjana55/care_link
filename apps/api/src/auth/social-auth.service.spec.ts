@@ -71,6 +71,7 @@ function makeService(
     authorizeUrl: () => 'https://accounts.google.com/x',
     exchangeCode: async () => 'access-token',
     fetchProfile: async () => profile,
+    probeCredentials: async () => ({ ok: true, message: 'ok' }),
   };
   const registry = {
     get: () => client,
@@ -114,6 +115,32 @@ describe('SocialAuthService.completeLink', () => {
 
     expect(code).toMatch(/^[0-9a-f]{64}$/);
     expect(authService.startSession).not.toHaveBeenCalled();
+  });
+
+  it('accepts the lowercase provider name that appears in the callback URL', async () => {
+    // The browser is sent back to /auth/social/google/callback, so the service
+    // receives `google`, not `GOOGLE`. Using the raw value broke every real
+    // sign-in while a test that passed the canonical name stayed green.
+    const { service, jwt } = makeService(
+      { lookups: [[CAREGIVER], [], []] },
+      { accountId: 'g-1', email: 'care@x.com' },
+    );
+
+    const code = await service.completeLink({
+      provider: 'google',
+      code: 'auth-code',
+      pendingToken: pendingToken(jwt, 'u1'),
+    });
+
+    expect(code).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('rejects a provider name it does not know', async () => {
+    const { service, jwt } = makeService({ lookups: [[CAREGIVER]] }, { accountId: 'g-1', email: 'care@x.com' });
+
+    await expect(
+      service.completeLink({ provider: 'twitter', code: 'c', pendingToken: pendingToken(jwt, 'u1') }),
+    ).rejects.toThrow(/unknown sign-in provider/i);
   });
 
   it('compares the address case-insensitively', async () => {
@@ -288,5 +315,106 @@ describe('SocialAuthService.exchangeHandoffCode', () => {
     // Delegating is what keeps this route's session identical to an email or
     // WhatsApp login - same claims, same refresh rotation, same logout.
     expect(authService.startSession).toHaveBeenCalledWith(expect.objectContaining({ id: 'u1' }));
+  });
+});
+
+/**
+ * Returning-caregiver sign-in.
+ *
+ * The rules that matter: the lookup key is the provider's account id (never the
+ * email), nothing is ever created here, and the state that comes back through
+ * the provider must be a login state - not a registration token or an ordinary
+ * access token.
+ */
+describe('SocialAuthService sign-in', () => {
+  const NONCE = 'abcdefghijklmnop1234';
+  const loginState = (jwt: JwtService, nonce = NONCE) =>
+    jwt.sign({ typ: 'caregiver-social-login', nonce }, { secret: SECRET, expiresIn: '10m' });
+
+  it('signs in a linked caregiver and returns the browser nonce with the handoff code', async () => {
+    const { service, jwt } = makeService(
+      { lookups: [[{ userId: 'u1' }], [CAREGIVER]] },
+      { accountId: 'g-1', email: 'anything@x.com' },
+    );
+
+    const result = await service.completeCallback({ provider: 'GOOGLE', code: 'c', state: loginState(jwt) });
+
+    expect(result.flow).toBe('login');
+    expect((result as any).handoffCode).toMatch(/^[0-9a-f]{64}$/);
+    expect((result as any).nonce).toBe(NONCE);
+  });
+
+  it('does not use the email to find the account', async () => {
+    // The provider reports an address unrelated to the one on file; the link is
+    // still found by account id, so sign-in succeeds. An email-keyed lookup
+    // would have refused it - or worse, matched the wrong person.
+    const { service, jwt } = makeService(
+      { lookups: [[{ userId: 'u1' }], [{ ...CAREGIVER, email: 'old@x.com' }]] },
+      { accountId: 'g-1', email: 'new-owner-of-address@x.com' },
+    );
+
+    const result = await service.completeCallback({ provider: 'GOOGLE', code: 'c', state: loginState(jwt) });
+    expect(result.flow).toBe('login');
+  });
+
+  it('tells an unlinked provider account to register instead of creating one', async () => {
+    const { service, jwt, chain } = makeService({ lookups: [[]] }, { accountId: 'g-9', email: 'new@x.com' });
+
+    await expect(
+      service.completeCallback({ provider: 'GOOGLE', code: 'c', state: loginState(jwt) }),
+    ).rejects.toMatchObject({ code: 'not_registered' });
+    expect(chain.insert).not.toHaveBeenCalled();
+  });
+
+  it('refuses a linked account that is disabled or not a caregiver', async () => {
+    for (const user of [{ ...CAREGIVER, isActive: false }, { ...CAREGIVER, role: 'ADMIN' }]) {
+      const { service, jwt } = makeService(
+        { lookups: [[{ userId: 'u1' }], [user]] },
+        { accountId: 'g-1', email: 'care@x.com' },
+      );
+      await expect(
+        service.completeCallback({ provider: 'GOOGLE', code: 'c', state: loginState(jwt) }),
+      ).rejects.toMatchObject({ code: 'account_disabled' });
+    }
+  });
+
+  it('rejects an expired or foreign-signed login state', async () => {
+    const { service } = makeService({ lookups: [] }, { accountId: 'g-1', email: 'care@x.com' });
+    const foreign = new JwtService({ secret: 'other' }).sign({ typ: 'caregiver-social-login', nonce: NONCE });
+    // A forged state is not recognised as a login state, so it falls to the
+    // registration path, which rejects it on the signature.
+    await expect(service.completeCallback({ provider: 'GOOGLE', code: 'c', state: foreign })).rejects.toBeInstanceOf(
+      SocialLinkError,
+    );
+  });
+
+  it('does not accept a registration token as a login state, or the reverse', async () => {
+    const { service, jwt } = makeService({ lookups: [] }, { accountId: 'g-1', email: 'care@x.com' });
+    expect(service.flowOf(pendingToken(jwt, 'u1'))).toBe('signup');
+    expect(service.flowOf(loginState(jwt))).toBe('login');
+    expect(service.flowOf(jwt.sign({ sub: 'u1' }, { secret: SECRET }))).toBe('signup');
+    expect(service.flowOf('garbage')).toBe('signup');
+  });
+
+  describe('loginAuthorizeUrl', () => {
+    it('refuses a missing or malformed nonce', async () => {
+      const { service } = makeService({}, { accountId: 'g', email: 'a@b.c' });
+      await expect(service.loginAuthorizeUrl('GOOGLE', '')).rejects.toThrow();
+      await expect(service.loginAuthorizeUrl('GOOGLE', 'short')).rejects.toThrow();
+      await expect(service.loginAuthorizeUrl('GOOGLE', 'has spaces and !! chars 123')).rejects.toThrow();
+    });
+
+    it('produces a state that the callback recognises as a login', async () => {
+      const { service } = makeService({}, { accountId: 'g', email: 'a@b.c' });
+      let captured = '';
+      (service as any).registry.get = () => ({
+        authorizeUrl: (state: string) => {
+          captured = state;
+          return 'https://accounts.google.com/x';
+        },
+      });
+      await service.loginAuthorizeUrl('google', NONCE);
+      expect(service.flowOf(captured)).toBe('login');
+    });
   });
 });

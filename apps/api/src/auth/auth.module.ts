@@ -12,12 +12,9 @@ import { WhatsappAuthService } from './whatsapp-auth.service';
 import { WhatsappAuthController } from './whatsapp-auth.controller';
 import { SocialAuthService } from './social-auth.service';
 import { SocialAuthController } from './social-auth.controller';
-import {
-  FacebookProviderClient,
-  GoogleProviderClient,
-  MicrosoftProviderClient,
-  SocialProviderRegistry,
-} from './social/social-provider';
+import { SocialProviderRegistry } from './social/social-provider';
+import { SocialAuthSettingsService } from './social/social-settings.service';
+import { SocialAuthSettingsController } from './social/social-settings.controller';
 
 @Module({
   imports: [
@@ -42,14 +39,11 @@ import {
     WhatsappAuthService,
     SocialAuthService,
     JwtStrategy,
-    // Registry only - the three clients are constructed with the ConfigService
-    // and are not useful to anything outside this file.
-    GoogleProviderClient,
-    MicrosoftProviderClient,
-    FacebookProviderClient,
+    // The registry builds a client per request from the admin-managed settings.
+    SocialAuthSettingsService,
     SocialProviderRegistry,
   ],
-  controllers: [AuthController, WhatsappAuthController, SocialAuthController],
+  controllers: [AuthController, WhatsappAuthController, SocialAuthController, SocialAuthSettingsController],
   exports: [AuthService],
 })
 export class AuthModule {}
