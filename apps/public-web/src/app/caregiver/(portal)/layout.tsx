@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/api/auth-context';
 import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
+import { LanguageSwitcher } from '@/components/common/language-switcher';
 
 const SECTIONS = [
   { href: '/caregiver/dashboard', key: 'portal.nav.overview' },
@@ -54,7 +55,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             CareLink
           </Link>
           <div className="flex items-center gap-3">
-            <span className="hidden text-xs text-ink/50 sm:inline">{user.email ?? user.phone}</span>
+            <LanguageSwitcher />
+            <span className="hidden text-xs text-ink/50 lg:inline">{user.email ?? user.phone}</span>
             <Button
               variant="secondary"
               size="sm"

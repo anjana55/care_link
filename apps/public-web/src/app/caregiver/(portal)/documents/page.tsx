@@ -62,7 +62,7 @@ const size = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024)
  * the Authorization header, which a link cannot send.
  */
 export default function CaregiverDocumentsPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const caregiverId = useCaregiverId();
   const { data: documents, isLoading, isError } = useDocuments();
   const upload = useUploadDocument();
@@ -202,7 +202,7 @@ export default function CaregiverDocumentsPage() {
               <div className="min-w-0">
                 <p className="text-sm font-medium text-ink">{t(`portal.documents.types.${doc.documentType}`)}</p>
                 <p className="truncate text-xs text-ink/50">
-                  {doc.originalFilename} · {size(doc.sizeBytes)} · {new Date(doc.createdAt).toLocaleDateString()}
+                  {doc.originalFilename} · {size(doc.sizeBytes)} · {new Date(doc.createdAt).toLocaleDateString(locale)}
                 </p>
                 {doc.verificationStatus === 'REJECTED' && (
                   <p className="mt-1 text-xs text-red-700">{t('portal.documents.rejectedHint')}</p>

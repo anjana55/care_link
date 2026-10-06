@@ -6,10 +6,10 @@ import { cn } from '@/lib/utils';
 const LABELS: Record<Locale, string> = { en: 'EN', si: 'සිං', ta: 'த' };
 
 export function LanguageSwitcher() {
-  const { locale, setLocale } = useTranslation();
+  const { t, locale, setLocale } = useTranslation();
 
   return (
-    <div className="flex items-center gap-1 rounded-lg border border-border bg-white p-1" role="group" aria-label="Language">
+    <div className="flex items-center gap-1 rounded-lg border border-border bg-white p-1" role="group" aria-label={t('common.language')}>
       {SUPPORTED_LOCALES.map((code) => (
         <button
           key={code}

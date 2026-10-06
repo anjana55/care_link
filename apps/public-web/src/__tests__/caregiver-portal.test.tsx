@@ -174,6 +174,26 @@ describe('who may see the area', () => {
     expect(screen.getByText('inside')).toBeDefined();
   });
 
+  it('lets the caregiver switch language, and the whole area follows', () => {
+    pathname = '/caregiver/profile';
+    renderPage(<PortalLayout><p>inside</p></PortalLayout>);
+    const nav = () => within(screen.getByRole('navigation'));
+
+    expect(nav().getByRole('link', { name: en.portal.nav.documents })).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'සිං' }));
+    expect(nav().getAllByRole('link').map((l) => l.textContent)).toEqual([
+      si.portal.nav.overview, si.portal.nav.profile, si.portal.nav.documents, si.portal.nav.shifts,
+    ]);
+    expect(screen.getByRole('button', { name: si.caregiverDashboard.signOut })).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'த' }));
+    expect(nav().getByRole('link', { name: ta.portal.nav.shifts })).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+    expect(nav().getByRole('link', { name: en.portal.nav.shifts })).toBeDefined();
+  });
+
   it('signs out and returns to the sign-in page', () => {
     const assign = jest.fn();
     Object.defineProperty(window, 'location', { value: { assign }, writable: true });
@@ -680,6 +700,30 @@ describe('profile', () => {
       fireEvent.click(within(screen.getByRole('region', { name: 'Qualifications' })).getByRole('button', { name: 'Save' }));
 
       expect(await screen.findByText('name must be a string')).toBeDefined();
+    });
+  });
+});
+
+describe('every page speaks the chosen language', () => {
+  type Dict = typeof en;
+  // One string that only appears once the page has loaded, per page.
+  const pages: [string, ReactElement, (d: Dict) => string][] = [
+    ['overview', <DashboardPage key="o" />, (d) => d.portal.checklist.title],
+    ['profile', <ProfilePage key="p" />, (d) => d.portal.profile.title],
+    ['documents', <DocumentsPage key="d" />, (d) => d.portal.documents.title],
+    ['shifts', <ShiftsPage key="s" />, (d) => d.portal.shifts.title],
+  ];
+
+  describe.each(pages)('%s', (_name, page, heading) => {
+    it.each([['සිං', si], ['த', ta]] as const)('shows its translated heading and no raw keys (%s)', async (label, dict) => {
+      renderPage(<><LanguageSwitcher />{page}</>);
+      fireEvent.click(screen.getByRole('button', { name: label }));
+
+      expect(await screen.findByText(heading(dict as Dict))).toBeDefined();
+      // A raw key on screen means a string was used that no dictionary defines.
+      expect(document.body.textContent).not.toMatch(/\b(portal|common|caregiverDashboard|personalInfo)\.[a-zA-Z]+/);
+      // And it really is not the English heading left in place.
+      expect(heading(dict as Dict)).not.toBe(heading(en));
     });
   });
 });

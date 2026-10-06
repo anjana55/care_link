@@ -625,7 +625,8 @@
     "loading": "Loading...",
     "locationsUnavailable": "Districts and cities could not be loaded. Check your connection and reload the page.",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "language": "Language"
   },
   "portal": {
     "nav": {
