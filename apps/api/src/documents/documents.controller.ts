@@ -81,10 +81,13 @@ export class DocumentsController {
     return this.documentsService.setVerificationStatus(caregiverId, id, status, user.userId);
   }
 
+  // Admin as before; a caregiver may also withdraw their own document, but only
+  // while staff have not started on it (enforced in the service, which knows the
+  // document's status - the scope guard only knows whose record it is).
   @Delete(':id')
-  @Roles('ADMIN')
+  @CaregiverScope('ADMIN')
   @Audit({ action: 'DELETE_DOCUMENT', entityType: 'CaregiverDocument' })
-  remove(@Param('caregiverId') caregiverId: string, @Param('id') id: string) {
-    return this.documentsService.remove(caregiverId, id);
+  remove(@Param('caregiverId') caregiverId: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.documentsService.remove(caregiverId, id, user.role);
   }
 }

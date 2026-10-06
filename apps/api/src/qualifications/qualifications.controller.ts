@@ -2,9 +2,11 @@ import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/commo
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { QualificationsService } from './qualifications.service';
 import { CreateQualificationDto } from './dto/create-qualification.dto';
+import { UpdateQualificationDto } from './dto/update-qualification.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CaregiverScope } from '../common/decorators/caregiver-scope.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
+import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('qualifications')
 @ApiBearerAuth()
@@ -28,8 +30,13 @@ export class QualificationsController {
   @Patch(':id')
   @CaregiverScope()
   @Audit({ action: 'UPDATE_QUALIFICATION', entityType: 'Qualification' })
-  update(@Param('caregiverId') caregiverId: string, @Param('id') id: string, @Body() dto: Partial<CreateQualificationDto>) {
-    return this.qualificationsService.update(caregiverId, id, dto);
+  update(
+    @Param('caregiverId') caregiverId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateQualificationDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.qualificationsService.update(caregiverId, id, dto, user.role);
   }
 
   // Verification stays staff/verifier-only, regardless of ownership - a
@@ -46,10 +53,12 @@ export class QualificationsController {
     return this.qualificationsService.setVerificationStatus(caregiverId, id, status);
   }
 
+  // Admin as before; a caregiver may also withdraw their own entry while it is
+  // still unchecked (the service enforces that - the guard only knows ownership).
   @Delete(':id')
-  @Roles('ADMIN')
+  @CaregiverScope('ADMIN')
   @Audit({ action: 'DELETE_QUALIFICATION', entityType: 'Qualification' })
-  remove(@Param('caregiverId') caregiverId: string, @Param('id') id: string) {
-    return this.qualificationsService.remove(caregiverId, id);
+  remove(@Param('caregiverId') caregiverId: string, @Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.qualificationsService.remove(caregiverId, id, user.role);
   }
 }

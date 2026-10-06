@@ -98,13 +98,17 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const url = `${API_URL}${withParams(path, params)}`;
   const tokens = getStoredTokens();
 
+  // A FormData body (a file upload) must not get a JSON content type: the
+  // browser has to set multipart/form-data itself, boundary included.
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+
   const doFetch = async (accessToken: string | undefined) => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = isForm ? {} : { 'Content-Type': 'application/json' };
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
     return fetch(url, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      body: isForm ? (body as FormData) : body ? JSON.stringify(body) : undefined,
     });
   };
 
@@ -138,6 +142,30 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 export const api = {
   get: <T,>(path: string, params?: RequestOptions['params']) => apiRequest<T>(path, { params }),
   post: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'POST', body }),
+  put: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PUT', body }),
+  patch: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
+  delete: <T,>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
 };
+
+/**
+ * Fetches a protected file (a caregiver's own document) as a Blob.
+ *
+ * Not `apiRequest`: that parses JSON, and a plain link cannot be used because
+ * the file route needs the Authorization header, which a link cannot send.
+ * Retries once through the same token refresh as every other call.
+ */
+export async function fetchBlob(path: string): Promise<Blob> {
+  const send = (token?: string) =>
+    fetch(`${API_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const tokens = getStoredTokens();
+  let res = await send(tokens?.accessToken);
+  if (res.status === 401 && tokens) {
+    if (!refreshPromise) refreshPromise = refreshStoredTokens().finally(() => (refreshPromise = null));
+    const refreshed = await refreshPromise;
+    if (refreshed) res = await send(refreshed.accessToken);
+  }
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  return res.blob();
+}
 
 export { API_URL };

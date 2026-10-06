@@ -539,9 +539,6 @@
     "registerInstead": "Register as a caregiver"
   },
   "caregiverDashboard": {
-    "title": "Your caregiver page",
-    "welcome": "Welcome",
-    "placeholder": "Your caregiver page is being built. Your profile, documents and shifts will appear here.",
     "signOut": "Sign out"
   },
   "personalInfo": {
@@ -626,6 +623,194 @@
   "common": {
     "requiredField": "Required field",
     "loading": "Loading...",
-    "locationsUnavailable": "Districts and cities could not be loaded. Check your connection and reload the page."
+    "locationsUnavailable": "Districts and cities could not be loaded. Check your connection and reload the page.",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "portal": {
+    "nav": {
+      "label": "Your caregiver area",
+      "overview": "Overview",
+      "profile": "Profile",
+      "documents": "Documents",
+      "shifts": "Shifts"
+    },
+    "loadError": "We could not load this page. Please refresh and try again.",
+    "saveError": "We could not save that. Please try again.",
+    "saved": "Saved",
+    "welcome": "Welcome back",
+    "registrationNumber": "Registration number",
+    "requiredField": "This field is required",
+    "edit": "Edit",
+    "remove": "Remove",
+    "editResetsVerification": "This entry has been verified. Changing it sends it back to staff to be checked again.",
+    "status": {
+      "DRAFT": "Draft",
+      "REGISTERED": "Submitted",
+      "DOCUMENTS_PENDING": "Documents needed",
+      "UNDER_VERIFICATION": "Being verified",
+      "VERIFIED": "Verified",
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive",
+      "SUSPENDED": "Suspended",
+      "REJECTED": "Not accepted"
+    },
+    "statusHelp": {
+      "DRAFT": "Your registration is not submitted yet. Complete the steps below, then submit it for review.",
+      "REGISTERED": "Thank you - your registration has been submitted. Our staff will review it and ask for anything missing.",
+      "DOCUMENTS_PENDING": "We need more documents from you before we can continue. Please check the Documents page.",
+      "UNDER_VERIFICATION": "Our staff are checking your details and documents. You will be contacted if anything is needed.",
+      "VERIFIED": "Your details have been verified. We will contact you when your profile goes live.",
+      "ACTIVE": "Your profile is live and families can find you.",
+      "INACTIVE": "Your profile is currently hidden. Contact us if you would like to be listed again.",
+      "SUSPENDED": "Your account has been suspended. Please contact us for details.",
+      "REJECTED": "We were not able to accept this registration. Please contact us if you think this is a mistake."
+    },
+    "verification": {
+      "PENDING": "Pending",
+      "IN_PROGRESS": "Being checked",
+      "VERIFIED": "Verified",
+      "REJECTED": "Rejected"
+    },
+    "checklist": {
+      "title": "Getting your profile ready",
+      "review": "Review",
+      "start": "Start",
+      "profile": {
+        "title": "Skills and languages",
+        "hint": "Choose the care skills you have and the languages you speak."
+      },
+      "documents": {
+        "title": "Documents",
+        "hint": "Upload your ID and the certificates staff need to verify you."
+      },
+      "shifts": {
+        "title": "Shifts",
+        "hint": "Tell us which shifts you can work and when you can start."
+      }
+    },
+    "submit": {
+      "ready": "Everything is in place. Submit your registration and our staff will start reviewing it.",
+      "notReady": "Finish the steps above, then you can submit your registration for review.",
+      "button": "Submit for review"
+    },
+    "shifts": {
+      "title": "Your shifts",
+      "subtitle": "Families searching for care see you for the shifts you choose here.",
+      "canWork": "Shifts I can work",
+      "dayDuty": "Day shifts",
+      "dayDutyHint": "Work during the day and go home at night.",
+      "nightDuty": "Night shifts",
+      "nightDutyHint": "Overnight care.",
+      "liveIn24h": "24-hour live-in",
+      "liveIn24hHint": "Stay with the family for the whole day.",
+      "noneSelected": "No shift is selected, so families will not be able to find you. Choose at least one.",
+      "preferred": "Preferred shift",
+      "availableFrom": "Available from",
+      "terms": "Pay and leave (optional)",
+      "dailyRate": "Expected daily rate (LKR)",
+      "monthlyRate": "Expected monthly rate (LKR)",
+      "leaveDays": "Leave days per month",
+      "leavePattern": "Preferred leave pattern",
+      "termsHint": "Only shown to our staff. Leave anything blank that you would rather discuss later.",
+      "invalidAmount": "Enter an amount using digits only, for example 6500",
+      "invalidDays": "Enter a whole number of days",
+      "preference": {
+        "DAY": "Day",
+        "NIGHT": "Night",
+        "TWENTY_FOUR_HOUR_LIVE_IN": "24-hour live-in",
+        "FLEXIBLE": "Flexible"
+      }
+    },
+    "documents": {
+      "title": "Your documents",
+      "subtitle": "Staff check these before your profile can go live. Only you and our verification team can see them.",
+      "needed": "What we need",
+      "core": {
+        "identity": "Proof of identity (NIC or passport)",
+        "police": "Police clearance report",
+        "gn": "Grama Niladhari certificate"
+      },
+      "haveIt": "Uploaded",
+      "missing": "Not uploaded yet",
+      "add": "Upload a document",
+      "type": "Document type",
+      "file": "File",
+      "upload": "Upload",
+      "fileHint": "PDF, JPG, PNG or WEBP, up to 10 MB. Make sure the whole document is clear and readable.",
+      "badType": "That file type is not supported. Choose a PDF, JPG, PNG or WEBP file.",
+      "tooLarge": "That file is larger than 10 MB. Choose a smaller one.",
+      "chooseFile": "Choose a file first.",
+      "uploaded": "Document uploaded.",
+      "removed": "Document removed.",
+      "openError": "We could not open that file. Please try again.",
+      "confirmRemove": "Remove this document?",
+      "yours": "Uploaded documents",
+      "none": "You have not uploaded anything yet.",
+      "rejectedHint": "This document was not accepted. Please upload a clearer or corrected copy.",
+      "view": "View",
+      "remove": "Remove",
+      "types": {
+        "NIC": "National ID card (NIC)",
+        "PASSPORT": "Passport",
+        "GRAMA_NILADHARI_CERTIFICATE": "Grama Niladhari certificate",
+        "POLICE_CLEARANCE": "Police clearance",
+        "CAREGIVER_CERTIFICATE": "Caregiver certificate",
+        "NVQ_CERTIFICATE": "NVQ certificate",
+        "NURSING_CERTIFICATE": "Nursing certificate",
+        "CV": "CV",
+        "OTHER": "Other"
+      }
+    },
+    "profile": {
+      "title": "Your profile",
+      "subtitle": "Keep your details up to date. Changes you make here are what staff and families see.",
+      "personal": "Personal details",
+      "loginPhone": "Phone number (used to sign in)",
+      "loginPhoneHint": "To change this number, please contact our staff.",
+      "identityLocked": "Your name, date of birth, gender and ID numbers are locked while we verify your registration. Contact our staff if one of them needs correcting.",
+      "skills": "Care skills",
+      "skillsHint": "Tick everything you can do. This is saved as you tick.",
+      "languages": "Languages",
+      "languagesHint": "Tick the languages you can speak with a client."
+    },
+    "qualifications": {
+      "title": "Qualifications",
+      "add": "Add a qualification",
+      "none": "No qualifications added yet.",
+      "confirmRemove": "Remove this qualification?",
+      "fields": {
+        "name": "Qualification",
+        "type": "Type",
+        "institution": "Institution",
+        "certificateNumber": "Certificate number",
+        "issueDate": "Issued on",
+        "expiryDate": "Expires on"
+      },
+      "types": {
+        "NVQ": "NVQ",
+        "NURSING_DIPLOMA": "Nursing diploma",
+        "NURSING_DEGREE": "Nursing degree",
+        "CAREGIVER_CERTIFICATE": "Caregiver certificate",
+        "FIRST_AID": "First aid",
+        "OTHER": "Other"
+      }
+    },
+    "experience": {
+      "title": "Work experience",
+      "add": "Add experience",
+      "none": "No experience added yet.",
+      "confirmRemove": "Remove this experience?",
+      "present": "present",
+      "fields": {
+        "employerOrClient": "Employer or client",
+        "role": "Role",
+        "country": "Country",
+        "location": "Location",
+        "startDate": "Started",
+        "endDate": "Ended",
+        "description": "What you did"
+      }
+    }
   }
 }

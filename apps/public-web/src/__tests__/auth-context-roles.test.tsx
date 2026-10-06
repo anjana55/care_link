@@ -76,7 +76,7 @@ describe('public-site auth context', () => {
 
 describe('postLoginPath', () => {
   it('sends caregivers to their profile and everyone else home', () => {
-    expect(postLoginPath({ userId: 'a', email: null, role: 'CAREGIVER' })).toBe('/me');
+    expect(postLoginPath({ userId: 'a', email: null, role: 'CAREGIVER' })).toBe('/caregiver/dashboard');
     expect(postLoginPath({ userId: 'b', email: null, role: 'PATIENT_GUARDIAN' })).toBe('/');
   });
 });

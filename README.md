@@ -395,6 +395,32 @@ Caregivers who skip the provider step have no way to sign
 in with a provider later; they can still be reached by phone, and email/password and
 WhatsApp sign-in are unchanged.
 
+### 7e. The signed-in caregiver's area
+
+After any caregiver sign-in (email, WhatsApp, Google/Microsoft/Facebook) the caregiver lands on
+`/caregiver/dashboard` in the public site. Four pages, all under one guarded layout:
+
+| Page | What it does |
+|---|---|
+| **Overview** `/caregiver/dashboard` | Registration status, a checklist (skills & languages, documents, shifts) and "Submit for review" (DRAFT → REGISTERED, the one transition a caregiver may make) |
+| **Profile** `/caregiver/profile` | Personal details, skills, languages, qualifications and work experience |
+| **Documents** `/caregiver/documents` | Upload (PDF/JPG/PNG/WEBP, 10 MB), see each document's verification status, open it, withdraw an unchecked one |
+| **Shifts** `/caregiver/shifts` | Day / night / 24-hour live-in, preferred shift, start date, expected rates and leave. These are the flags the public caregiver search filters on |
+
+Rules the API enforces (and the UI mirrors), all under `/caregivers/:id/...` via `@CaregiverScope`
+(a caregiver reaches only their own record):
+
+- `PATCH /caregivers/:id/profile` - a short allowlist; never the login phone, status or ownership.
+  Identity fields (name, date of birth, gender, NIC/passport) lock once verification starts.
+- Documents: the file's first bytes must match its declared type; at most 20 per caregiver;
+  a caregiver may delete only `PENDING`/`REJECTED` documents.
+- Qualifications and experience: a caregiver's edit sets the entry back to `PENDING`; they cannot
+  set verification status, and may delete only `PENDING`/`REJECTED` entries.
+- Staff keep their existing endpoints and powers.
+
+"Shifts" here means the caregiver's shift *availability*. There is no scheduled-shift or booking
+table in the data model, so assigned work for a given date is not part of this area.
+
 ## 8. Security
 
 - JWT access tokens (15 min) + rotating refresh tokens (7 days, hashed before storage,

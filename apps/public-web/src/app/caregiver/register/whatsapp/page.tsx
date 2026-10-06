@@ -22,12 +22,11 @@ import { useLocationTree } from '@/lib/hooks/use-public-search';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
 
 /**
- * Where a caregiver lands once the OTP verifies. The profile wizard is still
- * served by the staff container (/staff/me) until it is relocated, so this
- * needs a full-page navigation rather than a client-side route change -
- * next/link and router.push only resolve routes inside this app.
+ * Where a caregiver lands once the OTP verifies: their own area in this app.
+ * A full-page navigation, so the session just written to localStorage is read
+ * fresh on arrival.
  */
-const POST_VERIFY_PATH = '/staff/me';
+const POST_VERIFY_PATH = '/caregiver/dashboard';
 
 interface RegisterResponse {
   caregiverId: string;
@@ -87,7 +86,7 @@ export default function CaregiverRegisterWhatsappPage() {
 
   const onVerified = (tokens: Tokens) => {
     // The returned user tells us whether this decoded to a caregiver. If it
-    // did not, something is wrong with the session and /staff/me would bounce
+    // did not, something is wrong with the session and the dashboard would bounce
     // us to a login page we have not reached yet - so go to ours instead.
     const user = applyTokens(tokens);
     if (user?.role === 'CAREGIVER') {

@@ -40,10 +40,10 @@ export default function CaregiverLoginPage() {
     setServerError(null);
     try {
       await login(values.email, values.password);
-      // A full navigation rather than router.push: the profile wizard is
-      // served by the staff container until it is moved, and client-side
-      // routing only resolves pages inside this app.
-      window.location.assign('/staff/me');
+      // The caregiver's own area is in this app (the old /staff/me wizard reads
+      // its tokens from a different localStorage key, so it would have opened
+      // signed out).
+      window.location.assign('/caregiver/dashboard');
     } catch (err) {
       // Surface the server's actual message. The API returns one message for
       // both "no such user" and "wrong password", so this leaks nothing about

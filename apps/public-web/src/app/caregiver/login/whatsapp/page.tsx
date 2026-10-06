@@ -64,7 +64,7 @@ function WhatsappCaregiverLoginInner() {
     // caregiver URL should land on their own home, not be pushed into the
     // caregiver wizard. Both destinations need a full navigation today.
     const user = applyTokens(tokens);
-    window.location.assign(user?.role === 'CAREGIVER' ? '/staff/me' : '/');
+    window.location.assign(user?.role === 'CAREGIVER' ? '/caregiver/dashboard' : '/');
   }
 
   return (

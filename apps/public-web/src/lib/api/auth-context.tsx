@@ -11,7 +11,7 @@ export interface AuthUser {
   /**
    * Caregivers are a separate category from office staff, but both have a
    * legitimate presence on the public site: patients search and book, and
-   * caregivers register and fill in their own profile at /me. Office-staff
+   * caregivers register and then manage their own profile, documents and shifts. Office-staff
    * roles are deliberately absent - they belong to the /staff app.
    */
   role: 'PATIENT_GUARDIAN' | 'CAREGIVER';
@@ -21,10 +21,10 @@ export interface AuthUser {
 
 /**
  * Where each role lands after signing in. Mirrors apps/web's postLoginPath,
- * but a caregiver's home is now /me in THIS app rather than /staff/me.
+ * but a caregiver's home is their own area in THIS app (/caregiver/dashboard), not /staff/me.
  */
 export function postLoginPath(user: AuthUser): string {
-  return user.role === 'CAREGIVER' ? '/me' : '/';
+  return user.role === 'CAREGIVER' ? '/caregiver/dashboard' : '/';
 }
 
 function decodeJwt(token: string): AuthUser | null {

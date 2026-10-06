@@ -42,7 +42,9 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
   /** Field names the schema enforces, from requiredFieldsOf(). */
   requiredFields: ReadonlySet<string>;
   /**
-   * Field names to leave out entirely.
+   * Field names to leave out entirely: `primaryPhone` and the identity fields
+   * (`fullName`, `nic`, `passportNumber`, `dateOfBirth`, `gender`). The profile
+   * page uses the latter when verification has locked them.
    *
    * The unified sign-up renders its own `phone` input in the account section,
    * because on that form the number is called a phone number rather than a
@@ -53,6 +55,8 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
   omitFields?: ReadonlySet<string>;
 }) {
   const { t, locale } = useTranslation();
+  // Anything the caller lists in `omitFields` is not rendered at all.
+  const show = (field: string) => !omitFields?.has(field);
 
   // District and city are a dependent pair, so they can't stay uncontrolled
   // like the rest of the form: the city options are derived from the selected
@@ -117,11 +121,13 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <div className="sm:col-span-2">
-        <Label htmlFor="fullName" required={requiredFields.has('fullName')}>{t('personalInfo.fields.fullName')}</Label>
-        <Input id="fullName" {...register('fullName' as any)} />
-        <FieldError message={errors.fullName?.message as string | undefined} />
-      </div>
+      {show('fullName') && (
+        <div className="sm:col-span-2">
+          <Label htmlFor="fullName" required={requiredFields.has('fullName')}>{t('personalInfo.fields.fullName')}</Label>
+          <Input id="fullName" {...register('fullName' as any)} />
+          <FieldError message={errors.fullName?.message as string | undefined} />
+        </div>
+      )}
 
       <div className="sm:col-span-2">
         <Label htmlFor="permanentAddress" required={requiredFields.has('permanentAddress')}>{t('personalInfo.fields.permanentAddress')}</Label>
@@ -201,31 +207,39 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
         </p>
       </div>
 
-      <div>
-        <Label htmlFor="nic" required={requiredFields.has('nic')}>{t('personalInfo.fields.nic')}</Label>
-        <Input id="nic" {...register('nic' as any)} />
-      </div>
-      <div>
-        <Label htmlFor="passportNumber" required={requiredFields.has('passportNumber')}>{t('personalInfo.fields.passportNumber')}</Label>
-        <Input id="passportNumber" {...register('passportNumber' as any)} />
-      </div>
+      {show('nic') && (
+        <div>
+          <Label htmlFor="nic" required={requiredFields.has('nic')}>{t('personalInfo.fields.nic')}</Label>
+          <Input id="nic" {...register('nic' as any)} />
+        </div>
+      )}
+      {show('passportNumber') && (
+        <div>
+          <Label htmlFor="passportNumber" required={requiredFields.has('passportNumber')}>{t('personalInfo.fields.passportNumber')}</Label>
+          <Input id="passportNumber" {...register('passportNumber' as any)} />
+        </div>
+      )}
 
-      <div>
-        <Label htmlFor="dateOfBirth" required={requiredFields.has('dateOfBirth')}>{t('personalInfo.fields.dateOfBirth')}</Label>
-        <Input id="dateOfBirth" type="date" {...register('dateOfBirth' as any)} />
-        <FieldError message={errors.dateOfBirth?.message as string | undefined} />
-      </div>
-      <div>
-        <Label htmlFor="gender" required={requiredFields.has('gender')}>{t('personalInfo.fields.gender')}</Label>
-        <Select id="gender" {...register('gender' as any)}>
-          {genderOptions.map(opt => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </Select>
-        <FieldError message={errors.gender?.message as string | undefined} />
-      </div>
+      {show('dateOfBirth') && (
+        <div>
+          <Label htmlFor="dateOfBirth" required={requiredFields.has('dateOfBirth')}>{t('personalInfo.fields.dateOfBirth')}</Label>
+          <Input id="dateOfBirth" type="date" {...register('dateOfBirth' as any)} />
+          <FieldError message={errors.dateOfBirth?.message as string | undefined} />
+        </div>
+      )}
+      {show('gender') && (
+        <div>
+          <Label htmlFor="gender" required={requiredFields.has('gender')}>{t('personalInfo.fields.gender')}</Label>
+          <Select id="gender" {...register('gender' as any)}>
+            {genderOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </Select>
+          <FieldError message={errors.gender?.message as string | undefined} />
+        </div>
+      )}
 
       <div>
         <Label htmlFor="civilStatus" required={requiredFields.has('civilStatus')}>{t('personalInfo.fields.civilStatus')}</Label>

@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, isNull, like, or, sql } from 'drizzle-orm';
 import { randomUUID as uuid } from 'crypto';
 import { DRIZZLE, type Database } from '../database/database.module';
@@ -17,6 +17,7 @@ import {
 } from '../database/schema';
 import { CreateCaregiverDto } from './dto/create-caregiver.dto';
 import { UpdateCaregiverDto } from './dto/update-caregiver.dto';
+import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
 import { CaregiverQueryDto } from './dto/caregiver-query.dto';
 import { maskIdentifier, maskPhone } from '../common/utils/masking.util';
 import { generateRegistrationNumber, assertUniqueContactFields } from './caregiver-creation.util';
@@ -51,6 +52,15 @@ const UPDATABLE_COLUMNS: ReadonlySet<string> = new Set([
   'policeDivision',
   'policeStation',
 ]);
+
+/**
+ * Fields that establish *who* a caregiver is. A caregiver may correct them while
+ * their registration is still being assembled; once staff have started checking
+ * documents against them, a self-service edit would silently invalidate that
+ * check, so they are locked and a change goes through staff.
+ */
+const IDENTITY_FIELDS = ['fullName', 'dateOfBirth', 'gender', 'nic', 'passportNumber'] as const;
+const IDENTITY_EDITABLE_STATUSES: ReadonlySet<string> = new Set(['DRAFT', 'REGISTERED', 'DOCUMENTS_PENDING']);
 
 @Injectable()
 export class CaregiversService {
@@ -336,6 +346,25 @@ export class CaregiversService {
       await this.db.update(caregivers).set(updateData).where(eq(caregivers.id, id));
     }
     return this.findOne(id);
+  }
+
+  /**
+   * A caregiver editing their own details. Contact and location fields are always
+   * editable; identity fields only until verification starts (see IDENTITY_FIELDS).
+   * Everything is then written by the same path staff edits use, so uniqueness
+   * checks and location resolution cannot diverge between the two.
+   */
+  async updateOwnProfile(id: string, dto: UpdateOwnProfileDto) {
+    const current = await this.findOne(id);
+    if (!IDENTITY_EDITABLE_STATUSES.has(current.status)) {
+      const touched = IDENTITY_FIELDS.filter((f) => dto[f] !== undefined && String(dto[f]) !== String(current[f] ?? ''));
+      if (touched.length) {
+        throw new ForbiddenException(
+          'Your identity details are locked while your registration is being verified. Contact our staff to change them.',
+        );
+      }
+    }
+    return this.update(id, dto);
   }
 
   async updateStatus(id: string, nextStatus: CaregiverStatus, requesterRole?: string) {

@@ -5,6 +5,7 @@ import { CreateCaregiverDto } from './dto/create-caregiver.dto';
 import { UpdateCaregiverDto } from './dto/update-caregiver.dto';
 import { CaregiverQueryDto } from './dto/caregiver-query.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { UpdateOwnProfileDto } from './dto/update-own-profile.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CaregiverScope } from '../common/decorators/caregiver-scope.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
@@ -52,6 +53,15 @@ export class CaregiversController {
   @Audit({ action: 'UPDATE_CAREGIVER', entityType: 'Caregiver' })
   update(@Param('id') id: string, @Body() dto: UpdateCaregiverDto) {
     return this.caregiversService.update(id, dto);
+  }
+
+  // The caregiver's own edit. Separate from the staff PATCH above on purpose:
+  // that one can touch anything on the record, this one a short allowlist.
+  @Patch(':id/profile')
+  @CaregiverScope()
+  @Audit({ action: 'UPDATE_OWN_PROFILE', entityType: 'Caregiver' })
+  updateProfile(@Param('id') id: string, @Body() dto: UpdateOwnProfileDto) {
+    return this.caregiversService.updateOwnProfile(id, dto);
   }
 
   // A caregiver may submit their own DRAFT -> REGISTERED; every other
