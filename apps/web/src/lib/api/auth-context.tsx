@@ -59,7 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const tokens = await api.post<Tokens>('/auth/login', { email, password });
+      // This is the staff sign-in: the API refuses a caregiver's or a client's
+      // credentials here with the same "Invalid credentials" as a wrong password.
+      const tokens = await api.post<Tokens>('/auth/login', { email, password, portal: 'staff' });
       const decoded = applyTokens(tokens);
       router.push(decoded ? postLoginPath(decoded) : '/login');
     },

@@ -292,7 +292,13 @@
     "noAccount": "Don't have an account?",
     "signUp": "Sign up",
     "error": "Invalid email or password.",
-    "unverifiedHint": "If you haven't verified your email yet, check your inbox for the verification link."
+    "unverifiedHint": "If you haven't verified your email yet, check your inbox for the verification link.",
+    "staffPrompt": "Office staff?",
+    "staffLink": "Sign in to the staff area",
+    "caregiverPrompt": "Are you a caregiver?",
+    "caregiverLink": "Sign in here",
+    "clientPrompt": "Looking for care?",
+    "clientLink": "Client sign in"
   },
   "verifyEmail": {
     "verifying": "Verifying your email...",

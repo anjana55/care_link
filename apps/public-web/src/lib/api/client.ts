@@ -36,6 +36,22 @@ export function clearTokens() {
   window.localStorage.removeItem(TOKEN_KEY);
 }
 
+/**
+ * The language the visitor chose in the language switcher, sent on every call so
+ * the API answers - errors included - in that language. Read per request from
+ * the same place the switcher persists it, so a change applies immediately
+ * without any state being threaded through.
+ */
+const LOCALE_STORAGE_KEY = 'care-platform-public-locale';
+function currentLanguage(): string {
+  try {
+    const stored = typeof window === 'undefined' ? null : window.localStorage.getItem(LOCALE_STORAGE_KEY);
+    return stored === 'si' || stored === 'ta' ? stored : 'en';
+  } catch {
+    return 'en';
+  }
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -104,6 +120,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   const doFetch = async (accessToken: string | undefined) => {
     const headers: Record<string, string> = isForm ? {} : { 'Content-Type': 'application/json' };
+    headers['Accept-Language'] = currentLanguage();
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
     return fetch(url, {
       method,
@@ -156,7 +173,9 @@ export const api = {
  */
 export async function fetchBlob(path: string): Promise<Blob> {
   const send = (token?: string) =>
-    fetch(`${API_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    fetch(`${API_URL}${path}`, {
+      headers: { 'Accept-Language': currentLanguage(), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
   const tokens = getStoredTokens();
   let res = await send(tokens?.accessToken);
   if (res.status === 401 && tokens) {

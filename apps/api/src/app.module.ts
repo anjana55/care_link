@@ -1,6 +1,6 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './common/env.validation';
 import { DatabaseModule } from './database/database.module';
@@ -8,6 +8,9 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { CaregiverScopeGuard } from './common/guards/caregiver-scope.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
+import { LocalizeResponseInterceptor } from './common/interceptors/localize-response.interceptor';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { LanguageMiddleware } from './common/i18n/language.middleware';
 
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -74,6 +77,16 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     { provide: APP_GUARD, useClass: CaregiverScopeGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: LocalizeResponseInterceptor },
+    // Registered here rather than in main.ts so the end-to-end tests, which build
+    // the app from this module, exercise the same error shape and translation.
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Every route: the language is needed by errors from guards, pipes and
+    // services alike, which all run after this.
+    consumer.apply(LanguageMiddleware).forRoutes('*');
+  }
+}

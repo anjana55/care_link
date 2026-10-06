@@ -27,6 +27,21 @@ export function clearTokens() {
   window.localStorage.removeItem(TOKEN_KEY);
 }
 
+/**
+ * The language chosen in the staff app's language switcher, sent on every call so
+ * the API answers - errors included - in it. Read per request from where the
+ * switcher persists it, so a change applies at once.
+ */
+const LOCALE_STORAGE_KEY = 'care-platform-locale';
+function currentLanguage(): string {
+  try {
+    const stored = typeof window === 'undefined' ? null : window.localStorage.getItem(LOCALE_STORAGE_KEY);
+    return stored === 'si' || stored === 'ta' ? stored : 'en';
+  } catch {
+    return 'en';
+  }
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -84,6 +99,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const doFetch = async (accessToken: string | undefined) => {
     const headers: Record<string, string> = {};
     if (!isFormData) headers['Content-Type'] = 'application/json';
+    headers['Accept-Language'] = currentLanguage();
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
     return fetch(url, {

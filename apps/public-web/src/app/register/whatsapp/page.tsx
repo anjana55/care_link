@@ -111,6 +111,7 @@ export default function RegisterWhatsappPage() {
             <p className="mb-4 mt-1 text-sm text-ink/60">{t('whatsapp.register.verifyBody')}</p>
             {!result.res.otpSent && <p role="alert" className="mb-4 text-sm text-danger">{t('whatsapp.register.notSent')}</p>}
             <WhatsappOtpForm
+            portal="customer"
               phone={result.phone}
               purpose="REGISTER"
               codeLength={config.otpLength}

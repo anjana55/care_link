@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { WrongPortalException } from '../common/auth/login-portal';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterCaregiverDto } from './dto/register-caregiver.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
@@ -24,7 +25,23 @@ export class AuthController {
   @Public()
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: Request) {
-    const tokens = await this.authService.login(dto.email, dto.password);
+    let tokens;
+    try {
+      tokens = await this.authService.login(dto.email, dto.password, dto.portal);
+    } catch (err) {
+      // The caller sees an ordinary failed sign-in; the audit log shows staff
+      // that real credentials were used on the wrong portal.
+      if (err instanceof WrongPortalException) {
+        await this.auditService.record({
+          userId: err.userId,
+          action: 'LOGIN_WRONG_PORTAL',
+          entityType: 'User',
+          entityId: err.userId,
+          ipAddress: req.ip,
+        });
+      }
+      throw err;
+    }
     await this.auditService.record({
       action: 'LOGIN',
       entityType: 'User',

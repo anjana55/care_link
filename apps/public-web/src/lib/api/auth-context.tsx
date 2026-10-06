@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { api, clearTokens, getStoredTokens, storeTokens, type Tokens } from './client';
+import { api, ApiError, clearTokens, getStoredTokens, storeTokens, type Tokens } from './client';
 
 export interface AuthUser {
   userId: string;
@@ -47,10 +47,21 @@ function decodeJwt(token: string): AuthUser | null {
   }
 }
 
+/**
+ * What /auth/login says for a wrong email or password. The API now refuses an
+ * account that belongs to another portal with this very message; this constant
+ * is only the fallback for an older API that still hands back a session, so the
+ * visitor sees the same words either way. Keep in step with AuthService.login.
+ */
+export const INVALID_CREDENTIALS_MESSAGE = 'Invalid credentials';
+
+/** The two sign-in screens on this site. The API refuses credentials that belong to the other one. */
+export type LoginPortal = 'caregiver' | 'customer';
+
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, portal: LoginPortal) => Promise<void>;
   /** Used by the verify-email page, which receives tokens directly rather than calling /auth/login. */
   applyTokens: (tokens: Tokens) => AuthUser | null;
   logout: () => void;
@@ -68,17 +79,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  /**
+   * Starts a session from a token pair - but only for a role this site serves.
+   *
+   * The role is checked BEFORE anything is written. Storing first (as this used
+   * to) left an office-staff access and refresh token in this site's
+   * localStorage even though nobody was "signed in", where it would be sent with
+   * every later API call from a site with far more third-party surface than the
+   * staff app. A pair that is refused is simply dropped; it is not revoked
+   * server-side, because the API's logout revokes every session of that user and
+   * would sign the staff member out of the staff app as well.
+   */
   const applyTokens = useCallback((tokens: Tokens) => {
-    storeTokens(tokens);
     const decoded = decodeJwt(tokens.accessToken);
+    if (!decoded) return null;
+    storeTokens(tokens);
     setUser(decoded);
     return decoded;
   }, []);
 
   const login = useCallback(
-    async (email: string, password: string) => {
-      const tokens = await api.post<Tokens>('/auth/login', { email, password });
-      applyTokens(tokens);
+    async (email: string, password: string, portal: LoginPortal) => {
+      // The API holds the sign-in to the portal named here: a staff account, or
+      // the other kind of customer account, is refused with "Invalid credentials"
+      // before any session exists.
+      const tokens = await api.post<Tokens>('/auth/login', { email, password, portal });
+      // Belt and braces for an API that predates portal enforcement: correct
+      // credentials for an account this site does not serve are still reported
+      // exactly as a wrong password (see INVALID_CREDENTIALS_MESSAGE), and the
+      // session is not kept.
+      if (!applyTokens(tokens)) throw new ApiError(401, INVALID_CREDENTIALS_MESSAGE);
     },
     [applyTokens],
   );

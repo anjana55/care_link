@@ -50,7 +50,7 @@ function WhatsappCaregiverLoginInner() {
     try {
       // Deliberately the same screen whether or not the number has an account -
       // the API answers identically, so this can't be used to find out who is registered.
-      setSent(await api.post<OtpRequestResult>('/auth/whatsapp/request-otp', { phone, purpose }));
+      setSent(await api.post<OtpRequestResult>('/auth/whatsapp/request-otp', { phone, purpose, portal: 'caregiver' }));
       setStep('code');
     } catch (err) {
       setError(err instanceof ApiError && err.message ? err.message : t('whatsapp.login.error'));
@@ -105,6 +105,7 @@ function WhatsappCaregiverLoginInner() {
               </form>
             ) : (
               <WhatsappOtpForm
+              portal="caregiver"
                 phone={phone}
                 purpose={purpose}
                 codeLength={config?.otpLength ?? 6}

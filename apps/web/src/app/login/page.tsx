@@ -80,6 +80,24 @@ export default function LoginPage() {
             {t('register.title')}
           </a>
         </p>
+
+        {/*
+          Always shown, so it says nothing about any account. This sign-in only
+          accepts office staff (the API refuses everyone else with "Invalid
+          credentials"), so a caregiver or client who landed here needs a way to
+          their own sign-in that does not depend on being told why they were turned
+          away. Plain <a>: those pages belong to the public site, not this app.
+        */}
+        <div className="mt-6 space-y-1 border-t border-border pt-4 text-center text-xs text-ink/50">
+          <p>
+            {t('login.caregiverPrompt')}{' '}
+            <a href="/caregiver/login" className="font-medium text-brand-dark hover:underline">{t('login.caregiverLink')}</a>
+          </p>
+          <p>
+            {t('login.clientPrompt')}{' '}
+            <a href="/login" className="font-medium text-brand-dark hover:underline">{t('login.clientLink')}</a>
+          </p>
+        </div>
         </div>
       </div>
     </div>

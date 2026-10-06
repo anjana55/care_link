@@ -62,13 +62,13 @@ describe('WhatsApp login page (customers)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
 
     expect(await screen.findByLabelText('Verification code')).toBeInTheDocument();
-    expect(post).toHaveBeenNthCalledWith(1, '/auth/whatsapp/request-otp', { phone: '0771234567', purpose: 'LOGIN' });
+    expect(post).toHaveBeenNthCalledWith(1, '/auth/whatsapp/request-otp', { phone: '0771234567', purpose: 'LOGIN', portal: 'customer' });
 
     fireEvent.change(screen.getByLabelText('Verification code'), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
 
     await waitFor(() => expect(applyTokens).toHaveBeenCalledWith({ accessToken: 'a', refreshToken: 'r' }));
-    expect(post).toHaveBeenNthCalledWith(2, '/auth/whatsapp/verify-otp', { phone: '0771234567', purpose: 'LOGIN', code: '123456' });
+    expect(post).toHaveBeenNthCalledWith(2, '/auth/whatsapp/verify-otp', { phone: '0771234567', purpose: 'LOGIN', portal: 'customer', code: '123456' });
     expect(push).toHaveBeenCalledWith('/');
   });
 
@@ -98,7 +98,7 @@ describe('WhatsApp login page (customers)', () => {
     fireEvent.change(await screen.findByLabelText('WhatsApp number'), { target: { value: '0771234567' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
     await screen.findByLabelText('Verification code');
-    expect(post).toHaveBeenCalledWith('/auth/whatsapp/request-otp', { phone: '0771234567', purpose: 'RECOVERY' });
+    expect(post).toHaveBeenCalledWith('/auth/whatsapp/request-otp', { phone: '0771234567', purpose: 'RECOVERY', portal: 'customer' });
   });
 
   it('shows an error if the code cannot be requested', async () => {

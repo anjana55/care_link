@@ -22,7 +22,11 @@
     "password": "මුරපදය",
     "submit": "පුරනය වන්න",
     "error": "විද්‍යුත් තැපෑල හෝ මුරපදය නිවැරදි නොවේ.",
-    "newCaregiver": "නව සාත්තු සේවකයෙක්ද?"
+    "newCaregiver": "නව සාත්තු සේවකයෙක්ද?",
+    "caregiverPrompt": "ඔබ රැකවරණ සේවකයෙක්ද?",
+    "caregiverLink": "මෙතැනින් පුරනය වන්න",
+    "clientPrompt": "රැකවරණයක් සොයනවාද?",
+    "clientLink": "සේවාලාභී පුරනය"
   },
   "dashboard": {
     "title": "උපකරණ පුවරුව",

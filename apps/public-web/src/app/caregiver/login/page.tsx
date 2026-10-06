@@ -39,7 +39,7 @@ export default function CaregiverLoginPage() {
   const onSubmit = async (values: { email: string; password: string }) => {
     setServerError(null);
     try {
-      await login(values.email, values.password);
+      await login(values.email, values.password, 'caregiver');
       // The caregiver's own area is in this app (the old /staff/me wizard reads
       // its tokens from a different localStorage key, so it would have opened
       // signed out).
@@ -112,6 +112,25 @@ export default function CaregiverLoginPage() {
               {t('caregiverRegister.join.title')}
             </Link>
           </p>
+
+          {/*
+            Always shown to everyone, so it says nothing about any account. Each
+            sign-in only accepts its own kind of account (the API refuses the
+            others with "Invalid credentials"), so someone who picked the wrong
+            one needs a way to the right one that does not depend on being told
+            why they were refused. Plain <a> for the staff area: it is a
+            different app, which this router cannot resolve.
+          */}
+          <div className="mt-6 space-y-1 border-t border-border pt-4 text-center text-xs text-ink/50">
+            <p>
+              {t('login.clientPrompt')}{' '}
+              <Link href="/login" className="font-medium text-brand-dark hover:underline">{t('login.clientLink')}</Link>
+            </p>
+            <p>
+              {t('login.staffPrompt')}{' '}
+              <a href="/staff/login" className="font-medium text-brand-dark hover:underline">{t('login.staffLink')}</a>
+            </p>
+          </div>
         </div>
       </div>
 

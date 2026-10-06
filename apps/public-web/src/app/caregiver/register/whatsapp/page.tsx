@@ -123,6 +123,7 @@ export default function CaregiverRegisterWhatsappPage() {
           </p>
           {!result.res.otpSent && <p className="mb-4 text-sm text-danger">{t('whatsapp.register.notSent')}</p>}
           <WhatsappOtpForm
+            portal="caregiver"
             phone={result.phone}
             purpose="REGISTER"
             codeLength={config.otpLength}

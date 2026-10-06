@@ -8,6 +8,7 @@ import { DRIZZLE, type Database } from '../database/database.module';
 import { refreshTokens, users, caregivers, patients, emailVerificationTokens, type UserRole } from '../database/schema';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { RegisterCaregiverDto } from './dto/register-caregiver.dto';
+import { canUsePortal, WrongPortalException, type LoginPortal } from '../common/auth/login-portal';
 import { RegisterPatientDto } from './dto/register-patient.dto';
 import {
   generateRegistrationNumber,
@@ -54,8 +55,24 @@ export class AuthService {
     return user;
   }
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string, portal?: LoginPortal) {
+    // A client that does not say which portal it is cannot be held to one. That
+    // is tolerated by default so a rolling deploy (API first, web apps after)
+    // does not lock everyone out; once every client sends it, setting
+    // AUTH_REQUIRE_LOGIN_PORTAL=true closes the gap. Checked before the password
+    // so the answer does not depend on whether the credentials were good.
+    if (!portal && this.config.get<string>('AUTH_REQUIRE_LOGIN_PORTAL') === 'true') {
+      throw new BadRequestException('portal is required');
+    }
+
     const user = await this.validateUser(email, password);
+
+    // After the password is proven and BEFORE anything else is said about the
+    // account (such as "verify your email"), so nothing about an account that
+    // belongs to another portal is ever revealed here.
+    if (portal && !canUsePortal(user.role, portal)) {
+      throw new WrongPortalException(user.id, portal);
+    }
 
     if (SELF_REGISTERED_ROLES.includes(user.role) && !user.emailVerifiedAt) {
       throw new UnauthorizedException('Please verify your email before logging in - check your inbox for the verification link.');

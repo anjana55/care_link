@@ -421,6 +421,52 @@ Rules the API enforces (and the UI mirrors), all under `/caregivers/:id/...` via
 "Shifts" here means the caregiver's shift *availability*. There is no scheduled-shift or booking
 table in the data model, so assigned work for a given date is not part of this area.
 
+### 7f. Sign-in portals and message language
+
+**Portals.** There are three places to sign in, and each only serves its own kind of account:
+
+| Portal | Screen | Accounts |
+|---|---|---|
+| `staff` | `/staff/login` | ADMIN, STAFF, VERIFIER |
+| `caregiver` | `/caregiver/login` (+ WhatsApp, Google/Microsoft/Facebook) | CAREGIVER |
+| `customer` | `/login` (+ WhatsApp) | PATIENT_GUARDIAN |
+
+`POST /auth/login` takes an optional `portal`. Correct credentials for an account that belongs to a
+different portal are refused **exactly like a wrong password** - same status, same
+`"Invalid credentials"`, same body - and no session is created. The attempt is written to the audit log
+as `LOGIN_WRONG_PORTAL` (with the account's user id), which is where staff can see it. The check runs
+after the password is proven and before anything else is said about the account (for example "verify
+your email"), so nothing about an account on another portal is revealed. WhatsApp
+`request-otp`/`verify-otp` take the same `portal` (`caregiver` or `customer`): a number that belongs to
+the other kind of account is treated as not registered. Google/Microsoft/Facebook sign-in is
+caregiver-only by construction.
+
+Each login screen also shows a fixed "Are you a caregiver? / Looking for care? / Office staff?" set of
+links to the other sign-ins, to everyone, whatever they type, so a refusal never has to explain itself.
+
+`portal` is optional so web apps that predate it keep working during a rollout (API first, web apps
+after). Once every client sends it, set `AUTH_REQUIRE_LOGIN_PORTAL=true` and a sign-in without one is
+rejected with 400.
+
+**Language.** Every response that carries a message - errors from services, guards and validation, and
+the `message` of a success body - can be requested in English, Sinhala or Tamil:
+
+- `?lang=en|si|ta` on any request, or
+- the standard `Accept-Language` header (`si-LK,si;q=0.9,en;q=0.8` is understood, in order of preference).
+
+`lang` wins over the header; anything unsupported falls back to English rather than failing. Responses
+carry `Content-Language` (what was chosen) and `Vary: Accept-Language`. Both web apps send
+`Accept-Language` from their language switcher on every call.
+
+The messages live in `apps/api/src/common/i18n/messages.ts` (English text -> Sinhala, Tamil), applied by
+one global exception filter and one response interceptor. Services keep throwing plain English. A
+message with no translation is returned in English. **A unit test scans the source and fails when a new
+user-facing message is added without a translation** (or without being listed as exempt, with a reason,
+in `messages.coverage.spec.ts`). Not translated: the administrator configuration screens' messages,
+validation field names that the API itself receives (`email`, `password`), email bodies, and the text of
+WhatsApp messages (those are templates approved in Meta's console, one language per template). The
+Sinhala and Tamil wording is machine-drafted and needs a native speaker's review.
+
 ## 8. Security
 
 - JWT access tokens (15 min) + rotating refresh tokens (7 days, hashed before storage,

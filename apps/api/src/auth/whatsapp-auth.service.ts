@@ -16,6 +16,7 @@ import {
 import { resolveLocationRefs } from '../common/utils/location.util';
 import { assertWhatsappNumberAvailable, purgeUnverifiedPhoneAccount } from './phone-accounts.util';
 import { normalizePhone } from '../common/utils/phone.util';
+import { canUsePortal, type LoginPortal } from '../common/auth/login-portal';
 import { maskPhone } from '../common/utils/masking.util';
 import { buildPatientIntake } from '../clients/patient-profile.util';
 import { RegisterCaregiverWhatsappDto, RegisterPatientWhatsappDto, RequestWhatsappOtpDto, VerifyWhatsappOtpDto } from './dto/whatsapp-auth.dto';
@@ -185,7 +186,7 @@ export class WhatsappAuthService {
     };
 
     const [user] = await this.db.select().from(users).where(eq(users.phone, phone)).limit(1);
-    if (!user || !this.isEligible(user, dto.purpose, s)) return generic;
+    if (!user || !this.isEligible(user, dto.purpose, s, dto.portal)) return generic;
 
     const issued = await this.otp.issue(phone, dto.purpose, s);
     if (!issued.issued) return generic;
@@ -208,7 +209,7 @@ export class WhatsappAuthService {
     }
 
     const [user] = await this.db.select().from(users).where(eq(users.phone, phone)).limit(1);
-    if (!user || !this.isEligible(user, dto.purpose, s)) {
+    if (!user || !this.isEligible(user, dto.purpose, s, dto.portal)) {
       throw new UnauthorizedException(BAD_CODE);
     }
 
@@ -249,8 +250,12 @@ export class WhatsappAuthService {
     user: { role: UserRole; isActive: boolean; phoneVerifiedAt: Date | null },
     purpose: WhatsappOtpPurpose,
     s: ResolvedWhatsappSettings,
+    portal?: LoginPortal,
   ): boolean {
     if (!SELF_REGISTERED_ROLES.includes(user.role) || !user.isActive || !this.roleEnabled(s, user.role)) return false;
+    // A caregiver's number on the client screen (or the reverse) is "not
+    // registered" - the same answer, and the same silence, as any other number.
+    if (portal && !canUsePortal(user.role, portal)) return false;
     return purpose === 'REGISTER' ? !user.phoneVerifiedAt : !!user.phoneVerifiedAt;
   }
 

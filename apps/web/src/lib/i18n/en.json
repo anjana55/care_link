@@ -22,7 +22,11 @@
     "password": "Password",
     "submit": "Sign in",
     "error": "Incorrect email or password.",
-    "newCaregiver": "New caregiver?"
+    "newCaregiver": "New caregiver?",
+    "caregiverPrompt": "Are you a caregiver?",
+    "caregiverLink": "Sign in here",
+    "clientPrompt": "Looking for care?",
+    "clientLink": "Client sign in"
   },
   "dashboard": {
     "title": "Dashboard",

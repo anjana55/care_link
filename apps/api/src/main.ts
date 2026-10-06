@@ -4,7 +4,6 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -37,13 +36,22 @@ async function bootstrap() {
       forbidNonWhitelisted: false,
     }),
   );
-  app.useGlobalFilters(new AllExceptionsFilter());
+  // The exception filter and language handling are registered in AppModule.
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Care Platform API')
     .setDescription('Caregiver registration, management and verification API')
     .setVersion('0.1.0')
     .addBearerAuth()
+    // Documented once for every operation: error and message texts come back in
+    // this language (see common/i18n). The Accept-Language header works too.
+    .addGlobalParameters({
+      name: 'lang',
+      in: 'query',
+      required: false,
+      description: 'Language for messages: en, si or ta. Overrides the Accept-Language header; defaults to English.',
+      schema: { type: 'string', enum: ['en', 'si', 'ta'] },
+    })
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   // Mounted at the root, NOT at "api/docs". nginx proxies this app under

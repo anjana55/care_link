@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OmitType } from '@nestjs/swagger';
 import { Equals, IsIn, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 import { CreateCaregiverDto } from '../../caregivers/dto/create-caregiver.dto';
@@ -62,6 +62,9 @@ export class RegisterPatientWhatsappDto extends PatientProfileDto {
   consentAccepted: boolean;
 }
 
+/** Staff have no WhatsApp sign-in, so only the two self-registered kinds of account. */
+export const WHATSAPP_PORTALS = ['caregiver', 'customer'] as const;
+
 export class RequestWhatsappOtpDto {
   @ApiProperty({ description: WHATSAPP_NUMBER_HELP })
   @IsString()
@@ -71,6 +74,15 @@ export class RequestWhatsappOtpDto {
   @ApiProperty({ enum: whatsappOtpPurposeEnum, description: 'REGISTER re-sends the sign-up code; LOGIN and RECOVERY are for existing accounts' })
   @IsIn(whatsappOtpPurposeEnum)
   purpose: WhatsappOtpPurpose;
+
+  @ApiPropertyOptional({
+    enum: WHATSAPP_PORTALS,
+    description:
+      'Which sign-in screen this is. A number that belongs to the other kind of account is treated as not registered (no code is sent, and a code cannot be verified).',
+  })
+  @IsOptional()
+  @IsIn(WHATSAPP_PORTALS)
+  portal?: (typeof WHATSAPP_PORTALS)[number];
 }
 
 export class VerifyWhatsappOtpDto extends RequestWhatsappOtpDto {

@@ -47,6 +47,18 @@ describe('WhatsappOtpForm', () => {
     expect(post).toHaveBeenCalledWith('/auth/whatsapp/verify-otp', { phone: '0771234567', purpose: 'REGISTER', code: '123456' });
   });
 
+  it('names the portal on the verify call, and again on resend, so the API can hold both to it', async () => {
+    post.mockResolvedValueOnce({ resendAfterSeconds: 30 }).mockResolvedValueOnce(tokens);
+    setup({ portal: 'caregiver', resendAfterSeconds: 0 });
+
+    fireEvent.click(screen.getByRole('button', { name: /send a new code|resend/i }));
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/auth/whatsapp/request-otp', { phone: '0771234567', purpose: 'LOGIN', portal: 'caregiver' }));
+
+    fireEvent.change(codeInput(), { target: { value: '123456' } });
+    fireEvent.click(verifyButton());
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/auth/whatsapp/verify-otp', { phone: '0771234567', purpose: 'LOGIN', portal: 'caregiver', code: '123456' }));
+  });
+
   it('shows the server message for an invalid or expired code and does not sign in', async () => {
     post.mockRejectedValueOnce(new ApiError(401, 'This code is invalid or has expired. Request a new one and try again.'));
     const { onVerified } = setup();

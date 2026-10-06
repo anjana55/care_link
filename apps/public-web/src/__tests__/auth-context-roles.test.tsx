@@ -74,6 +74,36 @@ describe('public-site auth context', () => {
   });
 });
 
+describe('a token for a role this site does not serve', () => {
+  const PUBLIC_KEY = 'care-platform-patient-tokens';
+
+  it.each(['ADMIN', 'STAFF', 'VERIFIER'])('is never written to storage (%s)', (role) => {
+    decoded({ sub: 'u3', role });
+
+    // Not under the public site's key, and not under the staff app's either.
+    expect(window.localStorage.getItem(PUBLIC_KEY)).toBeNull();
+    expect(window.localStorage.length).toBe(0);
+  });
+
+  it('leaves an existing caregiver session alone rather than signing it out', () => {
+    render(<AuthProvider><Probe /></AuthProvider>);
+    act(() => {
+      auth!.applyTokens({ accessToken: tokenWith({ sub: 'c1', role: 'CAREGIVER', caregiverId: 'cg-1' }), refreshToken: 'keep' });
+    });
+    act(() => {
+      expect(auth!.applyTokens({ accessToken: tokenWith({ sub: 's1', role: 'STAFF' }), refreshToken: 'staff' })).toBeNull();
+    });
+
+    expect(auth!.user).toMatchObject({ userId: 'c1', role: 'CAREGIVER' });
+    expect(JSON.parse(window.localStorage.getItem(PUBLIC_KEY)!).refreshToken).toBe('keep');
+  });
+
+  it('still stores a caregiver token', () => {
+    decoded({ sub: 'u1', role: 'CAREGIVER', caregiverId: 'cg-1' });
+    expect(JSON.parse(window.localStorage.getItem(PUBLIC_KEY)!).refreshToken).toBe('r');
+  });
+});
+
 describe('postLoginPath', () => {
   it('sends caregivers to their profile and everyone else home', () => {
     expect(postLoginPath({ userId: 'a', email: null, role: 'CAREGIVER' })).toBe('/caregiver/dashboard');

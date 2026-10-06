@@ -33,7 +33,7 @@ export default function LoginPage() {
   const onSubmit = async (values: LoginValues) => {
     setServerError(null);
     try {
-      await login(values.email, values.password);
+      await login(values.email, values.password, 'customer');
       router.push('/');
     } catch (err) {
       // Fall back to the generic string only when there is no message to
@@ -75,7 +75,7 @@ export default function LoginPage() {
 
             {serverError && (
               <div>
-                <p className="text-sm text-danger">{serverError}</p>
+                <p role="alert" className="text-sm text-danger">{serverError}</p>
                 <p className="mt-1 text-xs text-ink/40">{t('login.unverifiedHint')}</p>
               </div>
             )}
@@ -103,6 +103,18 @@ export default function LoginPage() {
                 {t('login.signUp')}
               </Link>
             </p>
+
+            {/* Always shown, so it reveals nothing; see the caregiver sign-in page. */}
+            <div className="space-y-1 border-t border-border pt-4 text-center text-xs text-ink/50">
+              <p>
+                {t('login.caregiverPrompt')}{' '}
+                <Link href="/caregiver/login" className="font-medium text-brand-dark hover:underline">{t('login.caregiverLink')}</Link>
+              </p>
+              <p>
+                {t('login.staffPrompt')}{' '}
+                <a href="/staff/login" className="font-medium text-brand-dark hover:underline">{t('login.staffLink')}</a>
+              </p>
+            </div>
           </form>
         </div>
       </div>

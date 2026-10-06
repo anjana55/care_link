@@ -10,6 +10,8 @@ interface Props {
   /** The number exactly as the user typed it - the API normalises it. */
   phone: string;
   purpose: WhatsappOtpPurpose;
+  /** Which sign-in screen this is; the API treats a number that belongs to the other kind of account as unregistered. */
+  portal?: 'caregiver' | 'customer';
   codeLength: number;
   /** Seconds before "send a new code" unlocks. */
   resendAfterSeconds: number;
@@ -24,7 +26,7 @@ interface Props {
  * code entry, resend and the countdown; what happens with the tokens once the
  * code is accepted is up to the page that mounted it.
  */
-export function WhatsappOtpForm({ phone, purpose, codeLength, resendAfterSeconds, devOtp, onVerified, onChangeNumber }: Props) {
+export function WhatsappOtpForm({ phone, purpose, portal, codeLength, resendAfterSeconds, devOtp, onVerified, onChangeNumber }: Props) {
   const { t } = useTranslation();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export function WhatsappOtpForm({ phone, purpose, codeLength, resendAfterSeconds
     setInfo(null);
     setLoading(true);
     try {
-      const tokens = await api.post<Tokens>('/auth/whatsapp/verify-otp', { phone, purpose, code: code.trim() });
+      const tokens = await api.post<Tokens>('/auth/whatsapp/verify-otp', { phone, purpose, portal, code: code.trim() });
       onVerified(tokens);
     } catch (err) {
       setError(err instanceof ApiError && err.message ? err.message : t('whatsapp.otp.error'));
@@ -58,7 +60,7 @@ export function WhatsappOtpForm({ phone, purpose, codeLength, resendAfterSeconds
     setError(null);
     setInfo(null);
     try {
-      const res = await api.post<{ resendAfterSeconds: number; devOtp?: string }>('/auth/whatsapp/request-otp', { phone, purpose });
+      const res = await api.post<{ resendAfterSeconds: number; devOtp?: string }>('/auth/whatsapp/request-otp', { phone, purpose, portal });
       setCode('');
       setShownDevOtp(res.devOtp);
       setSecondsLeft(res.resendAfterSeconds);

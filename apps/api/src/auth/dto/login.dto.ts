@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { LOGIN_PORTALS, type LoginPortal } from '../../common/auth/login-portal';
 
 export class LoginDto {
   // Examples are placeholders, not seeded credentials. Swagger UI is served
@@ -13,4 +14,14 @@ export class LoginDto {
   @IsString()
   @MinLength(8)
   password: string;
+
+  @ApiPropertyOptional({
+    enum: LOGIN_PORTALS,
+    description:
+      'Which sign-in screen this is. Credentials for an account that belongs to a different portal are refused with the same "Invalid credentials" as a wrong password. ' +
+      'Omit only for older clients; the server can be set to require it (AUTH_REQUIRE_LOGIN_PORTAL).',
+  })
+  @IsOptional()
+  @IsIn(LOGIN_PORTALS)
+  portal?: LoginPortal;
 }

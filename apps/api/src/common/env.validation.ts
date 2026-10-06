@@ -65,6 +65,12 @@ class EnvironmentVariables {
   @IsString()
   SETTINGS_ENCRYPTION_KEY?: string;
 
+  // When "true", POST /auth/login without a `portal` is rejected. Off by
+  // default so web apps that predate the field keep working during a rollout.
+  @IsOptional()
+  @IsBooleanString()
+  AUTH_REQUIRE_LOGIN_PORTAL?: string;
+
   @IsOptional()
   @IsBooleanString()
   WHATSAPP_ENABLED?: string;
