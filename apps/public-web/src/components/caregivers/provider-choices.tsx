@@ -20,11 +20,18 @@ export function ProviderChoices({
   pendingToken,
   providers,
   expiresInSeconds,
+  expiredMessage,
 }: {
   pendingToken: string;
   providers: Record<Provider, boolean>;
   /** Surfaced as a countdown, because the token that authorises this step expires. */
   expiresInSeconds: number;
+  /**
+   * What to tell someone whose link ran out. The registration page and the
+   * finish-your-account page give different advice, but neither should send
+   * them back to register again: their details are already saved.
+   */
+  expiredMessage?: string;
 }) {
   const { t } = useTranslation();
   const [pending, setPending] = useState<Provider | null>(null);
@@ -83,7 +90,7 @@ export function ProviderChoices({
         ))}
       </div>
 
-      {expired && <p className="mt-3 text-sm text-danger">{t('caregiverSignup.tokenExpired')}</p>}
+      {expired && <p className="mt-3 text-sm text-danger">{expiredMessage ?? t('caregiverSignup.tokenExpired')}</p>}
 
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 

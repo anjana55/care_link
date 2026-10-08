@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { verificationEmail } from './templates/verification-email';
+import { claimCodeEmail } from './templates/claim-code-email';
 
 const VERIFICATION_TOKEN_TTL_HOURS = 24; // must match AuthService's VERIFICATION_TOKEN_TTL_MS
 
@@ -88,6 +89,23 @@ export class EmailService implements OnModuleInit {
       this.logger.log(`Verification email sent to ${to}`);
     } catch (err) {
       this.logger.error(`Failed to send verification email to ${to}: ${(err as Error).message}`);
+    }
+  }
+
+  /** The six-digit code for finishing an unsecured caregiver account (AccountClaimService). */
+  async sendClaimCodeEmail(to: string, code: string, registrationNumber: string, expiresInMinutes: number): Promise<void> {
+    const { subject, html, text } = claimCodeEmail({ code, registrationNumber, expiresInMinutes });
+
+    if (!this.transporter) {
+      this.logger.log(`[EMAIL NOT CONFIGURED] Claim code for ${to} (${registrationNumber}): ${code}`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({ from: this.from, to, subject, html, text });
+      this.logger.log(`Claim code email sent to ${to}`);
+    } catch (err) {
+      this.logger.error(`Failed to send claim code email to ${to}: ${(err as Error).message}`);
     }
   }
 }

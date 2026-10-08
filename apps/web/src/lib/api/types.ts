@@ -360,3 +360,32 @@ export interface ClientListResponse {
   total: number;
   totalPages: number;
 }
+
+/** GET /caregivers/:id/sign-in - how this caregiver can sign in, for the staff "Sign-in" tab. */
+export interface CaregiverSignInMethods {
+  hasAccount: boolean;
+  isActive: boolean;
+  email: string | null;
+  emailVerified: boolean;
+  phone: string | null;
+  phoneVerified: boolean;
+  hasPassword: boolean;
+  providers: { provider: SocialProviderName; providerEmail: string; linkedAt: string }[];
+  lastLoginAt: string | null;
+  /** True while the caregiver can finish the account with their registration number. */
+  claimable: boolean;
+  staffClaimCodeExpiresAt: string | null;
+}
+
+export interface ResetSignInRequest {
+  providers?: SocialProviderName[];
+  password?: boolean;
+  phone?: boolean;
+  email?: boolean;
+}
+
+export interface IssuedClaimCode {
+  code: string;
+  expiresAt: string;
+  registrationNumber: string;
+}

@@ -107,6 +107,13 @@ export default function CaregiverLoginPage() {
           )}
 
           <p className="mt-4 text-center text-sm text-ink/60">
+            {t('caregiverClaim.loginPrompt')}{' '}
+            <Link href="/caregiver/claim" className="font-medium text-brand-dark hover:underline">
+              {t('caregiverClaim.finishCta')}
+            </Link>
+          </p>
+
+          <p className="mt-2 text-center text-sm text-ink/60">
             {t('caregiverLogin.noAccount')}{' '}
             <Link href="/caregiver/signup" className="font-medium text-brand-dark hover:underline">
               {t('caregiverRegister.join.title')}

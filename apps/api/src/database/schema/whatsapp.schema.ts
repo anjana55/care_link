@@ -1,7 +1,9 @@
 import { mysqlTable, varchar, int, boolean, datetime, mysqlEnum, text, index } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
 
-export const whatsappOtpPurposeEnum = ['REGISTER', 'LOGIN', 'RECOVERY'] as const;
+// CLAIM: a caregiver finishing an account they registered but never secured
+// (see AccountClaimService). Keyed by the phone on their caregiver record.
+export const whatsappOtpPurposeEnum = ['REGISTER', 'LOGIN', 'RECOVERY', 'CLAIM'] as const;
 export type WhatsappOtpPurpose = (typeof whatsappOtpPurposeEnum)[number];
 
 export const whatsappProviderEnum = ['META_CLOUD', 'CONSOLE'] as const;

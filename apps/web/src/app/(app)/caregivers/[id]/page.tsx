@@ -46,6 +46,7 @@ import { makePersonalInfoSchema, requiredFieldsOf, UNSET_ID, type PersonalInfoVa
 import { Trash2 } from 'lucide-react';
 import { DocumentViewButton } from '@/components/caregivers/document-view-button';
 import { IconButton } from '@/components/ui/icon-button';
+import { SignInAccessPanel } from '@/components/caregivers/sign-in-access-panel';
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
@@ -316,6 +317,7 @@ export default function CaregiverProfilePage() {
           <TabsTrigger value="references">{t('caregivers.profile.tabs.references')}</TabsTrigger>
           <TabsTrigger value="verification">{t('caregivers.profile.tabs.verification')}</TabsTrigger>
           {canSeeHealth && <TabsTrigger value="restricted">{t('caregivers.profile.tabs.restricted')}</TabsTrigger>}
+          {isAdminOrStaff && <TabsTrigger value="signIn">{t('caregivers.profile.tabs.signIn')}</TabsTrigger>}
           {user?.role === 'ADMIN' && <TabsTrigger value="audit">{t('caregivers.profile.tabs.audit')}</TabsTrigger>}
         </TabsList>
 
@@ -1084,6 +1086,16 @@ export default function CaregiverProfilePage() {
               </CardContent>
             </Card>
             <p className="mt-3 text-xs text-ink/40">Access to this tab is restricted and every view is recorded in the audit log.</p>
+          </TabsContent>
+        )}
+
+        {isAdminOrStaff && (
+          <TabsContent value="signIn">
+            <SignInAccessPanel
+              caregiverId={id}
+              registrationNumber={caregiver.registrationNumber}
+              canReset={user?.role === 'ADMIN'}
+            />
           </TabsContent>
         )}
 

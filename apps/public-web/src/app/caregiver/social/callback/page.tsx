@@ -114,9 +114,17 @@ function CallbackInner() {
             </Link>
           </div>
         ) : (
-          <Link href="/caregiver/signup">
-            <Button>{t('caregiverSignup.backToSignup')}</Button>
-          </Link>
+          // The details are already saved by the time a provider step fails, so
+          // registering again would only hit "already exists". Finishing the
+          // saved registration is the way forward; a fresh form is the fallback.
+          <div className="flex flex-col gap-2">
+            <Link href="/caregiver/claim">
+              <Button className="w-full">{t('caregiverClaim.finishCta')}</Button>
+            </Link>
+            <Link href="/caregiver/signup">
+              <Button variant="secondary" className="w-full">{t('caregiverSignup.backToSignup')}</Button>
+            </Link>
+          </div>
         )}
       </div>
     );

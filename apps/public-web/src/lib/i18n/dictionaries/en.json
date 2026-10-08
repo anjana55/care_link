@@ -504,7 +504,7 @@
     "chooseProvider": "Sign in with an account you already have (optional):",
     "noProviders": "Google, Microsoft and Facebook sign-in are not available right now. Your registration is saved and we will contact you on your phone number.",
     "providerError": "Could not start the sign-in. Please try again.",
-    "tokenExpired": "This sign-in link has expired. Please register again.",
+    "tokenExpired": "This sign-in link has expired. Your details are saved - use “Finish setting up your account” with your registration number.",
     "linkExpiresIn": "This link expires in about",
     "minutes": "minute(s).",
     "providers": {
@@ -519,14 +519,14 @@
     "backToSignup": "Back to registration",
     "errors": {
       "declined": "You cancelled the sign-in on the provider's screen.",
-      "invalidRequest": "That sign-in link is not valid. Please register again.",
-      "expired": "This sign-in link has expired. Please register again.",
-      "emailMismatch": "That account uses a different email address than the one you registered with. Use the same address, or sign in with the account you already have.",
+      "invalidRequest": "That sign-in link is not valid. If you have already registered, finish setting up your account with your registration number.",
+      "expired": "This sign-in link has expired. Your details are saved - finish setting up your account with your registration number.",
+      "emailMismatch": "That account uses a different email address than the one you registered with. Use an account with the same address, or ask the CareLink office to clear the address on your registration.",
       "alreadyLinked": "That account is already linked to another user. Please sign in instead.",
       "emailTaken": "An account with that email address already exists. Please sign in instead.",
       "registrationGone": "This registration can no longer be completed. Please register again.",
       "providerError": "The sign-in provider could not complete the request. Please try again.",
-      "exchangeFailed": "This sign-in link has expired or was already used. Please register again.",
+      "exchangeFailed": "This sign-in link has expired or was already used. If you have already registered, finish setting up your account with your registration number.",
       "generic": "Sign-in could not be completed. Please try again.",
       "notRegistered": "No caregiver account is linked to that sign-in. Please register first.",
       "accountDisabled": "This account cannot be used to sign in. Please contact us.",
@@ -542,7 +542,8 @@
     "skippedBody": "We have saved your details and will use your phone number to contact you about caregiver work.",
     "backHome": "Back to the homepage",
     "backToLogin": "Back to sign in",
-    "registerInstead": "Register as a caregiver"
+    "registerInstead": "Register as a caregiver",
+    "finishLaterHint": "Want to sign in with Google, Microsoft or Facebook later? Keep your registration number and use"
   },
   "caregiverDashboard": {
     "signOut": "Sign out"
@@ -830,5 +831,32 @@
         "description": "What you did"
       }
     }
+  },
+  "caregiverClaim": {
+    "title": "Finish setting up your account",
+    "finishCta": "Finish setting up your account",
+    "loginPrompt": "Registered but never signed in?",
+    "intro": "Enter the registration number you received when you submitted your details. We will send a code to the phone number or email address you gave us.",
+    "numberLabel": "Registration number",
+    "numberHint": "It looks like CG-2026-123456.",
+    "numberRequired": "Enter your registration number",
+    "sendCode": "Send me a code",
+    "haveStaffCode": "I have a code from the CareLink office",
+    "codeSentBody": "If this registration can be finished online, we have sent a code by WhatsApp to the phone number on it, or by email. Enter it below.",
+    "staffCodeBody": "Enter the code the CareLink office gave you.",
+    "forNumber": "Registration number:",
+    "devCode": "Development mode - your code is",
+    "codeLabel": "Code",
+    "codeRequired": "Enter the code you received",
+    "verify": "Continue",
+    "resend": "Send a new code",
+    "sendCodeInstead": "Send me a code instead",
+    "resendIn": "Send a new code in",
+    "differentNumber": "Use a different registration number",
+    "noAccessHint": "No longer have that phone or email? Contact the CareLink office. After checking who you are, they can give you a code to enter here.",
+    "verifiedBody": "Code accepted. Now sign in with Google, Microsoft or Facebook - that is how you will sign in from now on.",
+    "linkExpired": "This step has timed out. Start again with your registration number - your details are still saved.",
+    "startOver": "Start again",
+    "genericError": "Something went wrong. Please try again."
   }
 }

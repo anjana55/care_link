@@ -22,6 +22,8 @@ import { CaregiverQueryDto } from './dto/caregiver-query.dto';
 import { maskIdentifier, maskPhone } from '../common/utils/masking.util';
 import { generateRegistrationNumber, assertUniqueContactFields } from './caregiver-creation.util';
 import { resolveLocationRefs } from '../common/utils/location.util';
+import { releaseCaregiverIdentity } from '../account-access/identity.util';
+import { AuditService } from '../audit/audit.service';
 
 /** A condition that always evaluates to false - used to short-circuit a
  * filter to "no results" without ever building an invalid `IN ()` clause. */
@@ -64,7 +66,10 @@ const IDENTITY_EDITABLE_STATUSES: ReadonlySet<string> = new Set(['DRAFT', 'REGIS
 
 @Injectable()
 export class CaregiversService {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly audit: AuditService,
+  ) {}
 
 
   async create(dto: CreateCaregiverDto) {
@@ -386,9 +391,37 @@ export class CaregiversService {
     return this.findOne(id);
   }
 
-  async remove(id: string) {
+  /**
+   * Soft-deletes the caregiver and releases everything that identifies the
+   * person to sign-up and sign-in, in one transaction:
+   *
+   * - the record's NIC, passport and phone stop counting as taken (the live_*
+   *   unique columns go NULL with deleted_at) but stay on the row;
+   * - the login is deactivated and its email, phone, password and
+   *   Google/Microsoft/Facebook links are removed, and every session and
+   *   outstanding code is voided (releaseCaregiverIdentity).
+   *
+   * Without the second half a "deleted" caregiver could still sign in with a
+   * linked provider, and could not register again because their email and
+   * phone were still held by the old login.
+   *
+   * What was released is returned for the audit log and not sent to the client.
+   */
+  async remove(id: string, actorUserId?: string | null, ipAddress?: string | null) {
     await this.findOne(id);
-    await this.db.update(caregivers).set({ deletedAt: new Date() }).where(eq(caregivers.id, id));
+    const [{ userId }] = await this.db.select({ userId: caregivers.userId }).from(caregivers).where(eq(caregivers.id, id)).limit(1);
+    const released = await this.db.transaction(async (tx) => {
+      await tx.update(caregivers).set({ deletedAt: new Date() }).where(eq(caregivers.id, id));
+      return releaseCaregiverIdentity(tx as unknown as Database, { caregiverId: id, userId: userId ?? null });
+    });
+    await this.audit.record({
+      userId: actorUserId ?? null,
+      action: 'DELETE_CAREGIVER',
+      entityType: 'Caregiver',
+      entityId: id,
+      metadata: { ...released },
+      ipAddress: ipAddress ?? null,
+    });
     return { success: true };
   }
 

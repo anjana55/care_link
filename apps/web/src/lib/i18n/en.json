@@ -43,7 +43,7 @@
     "search": "Search by name, phone or registration number",
     "addNew": "Register caregiver",
     "delete": "Delete caregiver",
-    "confirmDelete": "Are you sure you want to delete this caregiver? This action cannot be undone.",
+    "confirmDelete": "Delete this caregiver? Their sign-in is removed at once, and their email, phone number and NIC become free to register again. Their record stays in the audit history.",
     "confirmDeleteDocument": "Delete this document? This action cannot be undone.",
     "confirmDeleteReference": "Delete this reference? This action cannot be undone.",
     "deleteTitle": "Confirm Delete",
@@ -175,7 +175,8 @@
         "references": "References",
         "verification": "Verification",
         "restricted": "Restricted information",
-        "audit": "Audit history"
+        "audit": "Audit history",
+        "signIn": "Sign-in"
       }
     },
     "edit": {
@@ -221,6 +222,41 @@
       "inProgress": "In progress",
       "verified": "Verified",
       "rejected": "Rejected"
+    },
+    "signIn": {
+      "noAccount": "No sign-in yet. This caregiver was added by staff and has never set up an account.",
+      "linked": "Linked",
+      "notLinked": "Not linked",
+      "linkedOn": "linked",
+      "phone": "Phone (WhatsApp sign-in)",
+      "email": "Email",
+      "password": "Password",
+      "none": "None",
+      "set": "Set",
+      "verified": "Verified",
+      "unverified": "Not verified",
+      "lastSignIn": "Last signed in:",
+      "resetButton": "Reset sign-in…",
+      "unsecuredTitle": "Account not secured",
+      "unsecuredBody": "Nothing proves who owns this account yet. The caregiver can finish setting it up from “Finish setting up your account” on the caregiver sign-in page, using registration number",
+      "issueHint": "A code is normally sent to their phone or email. If they no longer have either, check who they are yourself, then issue a code to give them. It works for 48 hours.",
+      "existingCode": "A code you issued earlier is valid until",
+      "issueButton": "Issue a one-time code",
+      "issueError": "Could not issue a code. Please try again.",
+      "codeLabel": "One-time code",
+      "codeExpires": "Valid until",
+      "codeShownOnce": "This code is shown only once - give it to the caregiver now. Issuing another cancels this one.",
+      "resetTitle": "Reset sign-in",
+      "resetBody": "Choose what to remove. Afterwards the caregiver can set up a new sign-in with their registration number.",
+      "unlink": "Unlink",
+      "removePassword": "Remove the password",
+      "releasePhone": "Release the phone number",
+      "releasePhoneHint": "WhatsApp sign-in stops. Update the phone number on the profile first if it has changed.",
+      "clearEmail": "Clear the email address",
+      "clearEmailHint": "Needed when they will sign in with a Google, Microsoft or Facebook account that uses a different address.",
+      "resetSessionsNote": "Every session on their devices ends immediately, whatever you choose.",
+      "resetConfirm": "Reset sign-in",
+      "resetError": "Could not reset sign-in. Please try again."
     }
   },
   "clients": {

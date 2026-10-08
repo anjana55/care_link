@@ -205,6 +205,22 @@ export class SocialAuthService {
     };
   }
 
+  /**
+   * The same grant the end of the registration form returns - a pending token
+   * that authorises linking one provider to this login, plus which providers
+   * are on. Also handed out by AccountClaimService once someone has proved,
+   * with their registration number and a code, that a never-secured record is
+   * theirs. The token is unchanged either way, so the provider round trip and
+   * every check in completeLink apply identically to both.
+   */
+  async pendingLinkGrant(userId: string) {
+    return {
+      pendingToken: this.signPendingToken(userId),
+      pendingTokenExpiresInSeconds: 15 * 60,
+      providers: await this.registry.available(),
+    };
+  }
+
   private signPendingToken(userId: string) {
     return this.jwtService.sign(
       { sub: userId, typ: PENDING_TOKEN_TYPE },

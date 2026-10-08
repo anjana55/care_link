@@ -82,8 +82,9 @@ export async function assertWhatsappNumberAvailable(
   if (byLogin) throw new ConflictException('An account with this WhatsApp number already exists');
 
   // Never excluded: a clients PATIENT_GUARDIAN login has no caregivers row, so
-  // a hit here is always a genuine collision.
-  const [byCaregiver] = await db.select({ id: caregivers.id }).from(caregivers).where(inArray(caregivers.primaryPhone, variants)).limit(1);
+  // a hit here is always a genuine collision. live_primary_phone is NULL on a
+  // deleted caregiver, so a deleted record does not hold the number hostage.
+  const [byCaregiver] = await db.select({ id: caregivers.id }).from(caregivers).where(inArray(caregivers.livePrimaryPhone, variants)).limit(1);
   if (byCaregiver) throw new ConflictException('An account with this phone number already exists');
 
   const [byPatient] = await db

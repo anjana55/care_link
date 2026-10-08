@@ -37,6 +37,8 @@ const LABELS: Record<string, { si: string; ta: string }> = {
   'Police division': { si: 'පොලිස් කොට්ඨාසය', ta: 'காவல் பிரிவு' },
   'Police station': { si: 'පොලිස් ස්ථානය', ta: 'காவல் நிலையம்' },
   Password: { si: 'මුරපදය', ta: 'கடவுச்சொல்' },
+  'Registration number': { si: 'ලියාපදිංචි අංකය', ta: 'பதிவு எண்' },
+  Code: { si: 'කේතය', ta: 'குறியீடு' },
   'Sign-in code': { si: 'පුරනය වීමේ කේතය', ta: 'உள்நுழைவுக் குறியீடு' },
   'Name of the person needing care': { si: 'රැකවරණය අවශ්‍ය පුද්ගලයාගේ නම', ta: 'பராமரிப்பு தேவைப்படுபவரின் பெயர்' },
   'Care needs': { si: 'රැකවරණ අවශ්‍යතා', ta: 'பராமரிப்புத் தேவைகள்' },
@@ -81,6 +83,17 @@ const ENTRIES: Triple[] = [
   ['You cannot deactivate your own account', 'ඔබට ඔබේම ගිණුම අක්‍රිය කළ නොහැක', 'உங்கள் சொந்தக் கணக்கை முடக்க முடியாது'],
   ['You cannot delete your own account', 'ඔබට ඔබේම ගිණුම මකා දැමිය නොහැක', 'உங்கள் சொந்தக் கணக்கை நீக்க முடியாது'],
   ['Cannot {action} the last remaining active admin', 'ඉතිරිව ඇති අවසාන සක්‍රීය පරිපාලකයා සම්බන්ධයෙන් මෙය ({action}) කළ නොහැක', 'எஞ்சியுள்ள கடைசிச் செயலில் உள்ள நிர்வாகியை {action} செய்ய முடியாது'],
+
+  // --- finishing an account with a registration number; staff sign-in resets ---
+  ['If this registration can be finished online, we have sent a code to the phone number or email address on it.', 'මෙම ලියාපදිංචිය මාර්ගගතව සම්පූර්ණ කළ හැකි නම්, එහි ඇති දුරකථන අංකයට හෝ විද්‍යුත් ලිපිනයට අපි කේතයක් යවා ඇත.', 'இந்தப் பதிவை இணையத்தில் நிறைவு செய்ய முடியுமானால், அதிலுள்ள தொலைபேசி எண்ணுக்கு அல்லது மின்னஞ்சல் முகவரிக்கு ஒரு குறியீட்டை அனுப்பியுள்ளோம்.'],
+  ['Code accepted. Sign in with Google, Microsoft or Facebook to finish setting up your account.', 'කේතය පිළිගත්තා. ඔබේ ගිණුම සකසා අවසන් කිරීමට Google, Microsoft හෝ Facebook මගින් පුරනය වන්න.', 'குறியீடு ஏற்கப்பட்டது. உங்கள் கணக்கை அமைத்து முடிக்க Google, Microsoft அல்லது Facebook மூலம் உள்நுழையவும்.'],
+  ['Enter your registration number', 'ඔබේ ලියාපදිංචි අංකය ඇතුළත් කරන්න', 'உங்கள் பதிவு எண்ணை உள்ளிடவும்'],
+  ['Enter the code you received', 'ඔබට ලැබුණු කේතය ඇතුළත් කරන්න', 'நீங்கள் பெற்ற குறியீட்டை உள்ளிடவும்'],
+  ['Unknown sign-in provider', 'නොදන්නා පුරනය වීමේ සපයන්නෙක්', 'தெரியாத உள்நுழைவு வழங்குநர்'],
+  ['Choose at least one sign-in method to reset', 'යළි සැකසීමට අවම වශයෙන් එක් පුරනය වීමේ ක්‍රමයක් තෝරන්න', 'மீட்டமைக்க குறைந்தது ஒரு உள்நுழைவு முறையைத் தேர்ந்தெடுக்கவும்'],
+  ['This caregiver has not set up a sign-in yet - there is nothing to reset', 'මෙම රැකවරණ සේවකයා තවම පුරනය වීමක් සකසා නැත - යළි සැකසීමට කිසිවක් නැත', 'இந்தப் பராமரிப்பாளர் இன்னும் உள்நுழைவை அமைக்கவில்லை - மீட்டமைக்க எதுவும் இல்லை'],
+  ['This caregiver can already sign in. Reset their sign-in methods first, then issue a code.', 'මෙම රැකවරණ සේවකයාට දැනටමත් පුරනය විය හැක. පළමුව ඔවුන්ගේ පුරනය වීමේ ක්‍රම යළි සකසා, පසුව කේතයක් නිකුත් කරන්න.', 'இந்தப் பராமரிப்பாளர் ஏற்கனவே உள்நுழைய முடியும். முதலில் அவர்களின் உள்நுழைவு முறைகளை மீட்டமைத்து, பின்னர் குறியீட்டை வழங்கவும்.'],
+  ['Please wait a moment before issuing another code', 'තවත් කේතයක් නිකුත් කිරීමට පෙර මොහොතක් රැඳී සිටින්න', 'மற்றொரு குறியீட்டை வழங்குவதற்கு முன் சிறிது நேரம் காத்திருக்கவும்'],
 
   // --- WhatsApp and phone numbers ------------------------------------------
   ['WhatsApp sign-in is not available right now', 'WhatsApp මගින් පුරනය වීම දැන් ලබාගත නොහැක', 'WhatsApp உள்நுழைவு தற்போது கிடைக்கவில்லை'],

@@ -84,7 +84,7 @@ describe('CaregiversService location writes', () => {
   }
 
   function serviceWith(db: Database) {
-    return new CaregiversService(db);
+    return new CaregiversService(db, { record: async () => undefined } as never);
   }
 
   it('writes the display columns from the referenced rows, not from the request', async () => {

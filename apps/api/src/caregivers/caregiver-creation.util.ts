@@ -21,6 +21,12 @@ export async function generateRegistrationNumber(db: Database): Promise<string> 
   throw new Error('Failed to generate a unique registration number, please retry');
 }
 
+/**
+ * Uniqueness is checked against the live_* columns, which are NULL on a
+ * soft-deleted caregiver - so a deleted record never blocks the same NIC,
+ * passport or phone being registered again, and the check agrees exactly with
+ * the unique indexes that back it.
+ */
 export async function assertUniqueContactFields(
   db: Database,
   fields: { nic?: string | null; passportNumber?: string | null; primaryPhone?: string },
@@ -33,7 +39,7 @@ export async function assertUniqueContactFields(
       db
         .select({ id: caregivers.id })
         .from(caregivers)
-        .where(eq(caregivers.nic, fields.nic))
+        .where(eq(caregivers.liveNic, fields.nic))
         .limit(1)
         .then(([row]) => {
           if (row && row.id !== excludeId) throw new ConflictException('A caregiver with this NIC already exists');
@@ -45,7 +51,7 @@ export async function assertUniqueContactFields(
       db
         .select({ id: caregivers.id })
         .from(caregivers)
-        .where(eq(caregivers.passportNumber, fields.passportNumber))
+        .where(eq(caregivers.livePassportNumber, fields.passportNumber))
         .limit(1)
         .then(([row]) => {
           if (row && row.id !== excludeId) throw new ConflictException('A caregiver with this passport number already exists');
@@ -57,7 +63,7 @@ export async function assertUniqueContactFields(
       db
         .select({ id: caregivers.id })
         .from(caregivers)
-        .where(eq(caregivers.primaryPhone, fields.primaryPhone))
+        .where(eq(caregivers.livePrimaryPhone, fields.primaryPhone))
         .limit(1)
         .then(([row]) => {
           if (row && row.id !== excludeId) throw new ConflictException('A caregiver with this phone number already exists');

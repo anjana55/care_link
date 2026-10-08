@@ -86,8 +86,14 @@ export default function CaregiverSignupPage() {
         <div className="rounded-lg border border-border bg-white p-6 text-center">
           <h1 className="mb-1 text-lg font-semibold text-ink">{t('caregiverSignup.skippedTitle')}</h1>
           <p className="mb-1 text-sm text-ink/60">{t('caregiverSignup.skippedBody')}</p>
-          <p className="mb-5 text-xs text-ink/40">
+          <p className="mb-3 text-xs text-ink/40">
             {t('caregiverSignup.regNumber')} {result.registrationNumber}
+          </p>
+          <p className="mb-5 text-xs text-ink/60">
+            {t('caregiverSignup.finishLaterHint')}{' '}
+            <Link href="/caregiver/claim" className="font-medium text-brand-dark hover:underline">
+              {t('caregiverClaim.finishCta')}
+            </Link>
           </p>
           <Link href="/" className="text-sm font-medium text-brand-dark hover:underline">
             {t('caregiverSignup.backHome')}
@@ -110,6 +116,7 @@ export default function CaregiverSignupPage() {
             pendingToken={result.pendingToken}
             providers={result.providers}
             expiresInSeconds={result.pendingTokenExpiresInSeconds}
+            expiredMessage={t('caregiverSignup.tokenExpired')}
           />
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <button

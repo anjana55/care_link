@@ -8,6 +8,7 @@ import {
   datetime,
   mysqlEnum,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
 
@@ -60,8 +61,11 @@ export const caregivers = mysqlTable(
     registrationNumber: varchar('registration_number', { length: 32 }).notNull().unique(),
     fullName: varchar('full_name', { length: 255 }).notNull(),
     permanentAddress: text('permanent_address').notNull(),
-    nic: varchar('nic', { length: 20 }).unique(),
-    passportNumber: varchar('passport_number', { length: 20 }).unique(),
+    // NIC, passport and primary phone are unique among *live* caregivers only -
+    // see the live_* columns below. A deleted caregiver keeps their values for
+    // the record, but must not stop the same person registering again.
+    nic: varchar('nic', { length: 20 }),
+    passportNumber: varchar('passport_number', { length: 20 }),
     dateOfBirth: date('date_of_birth').notNull(),
     gender: mysqlEnum('gender', genderEnum).notNull(),
     civilStatus: mysqlEnum('civil_status', civilStatusEnum).notNull(),
@@ -70,7 +74,7 @@ export const caregivers = mysqlTable(
     // driver handing back a JS number - decimal columns default to string.
     heightIn: decimal('height_in', { precision: 5, scale: 1, mode: 'number' }),
     weightKg: int('weight_kg'),
-    primaryPhone: varchar('primary_phone', { length: 20 }).notNull().unique(),
+    primaryPhone: varchar('primary_phone', { length: 20 }).notNull(),
     secondaryPhone: varchar('secondary_phone', { length: 20 }),
     emergencyContactName: varchar('emergency_contact_name', { length: 255 }).notNull(),
     emergencyContactNumber: varchar('emergency_contact_number', { length: 20 }).notNull(),
@@ -95,6 +99,21 @@ export const caregivers = mysqlTable(
     createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     deletedAt: datetime('deleted_at'),
+    // Stored generated copies that are NULL once the row is soft-deleted. The
+    // unique indexes sit on these rather than on the raw columns: MySQL allows
+    // any number of NULLs in a UNIQUE index, so a deleted caregiver's NIC,
+    // passport and phone stop counting the moment deleted_at is set, while the
+    // values themselves stay on the row for history and audit. Never written by
+    // the app (Drizzle leaves generated columns out of inserts and updates).
+    liveNic: varchar('live_nic', { length: 20 }).generatedAlwaysAs(sql`IF(deleted_at IS NULL, nic, NULL)`, { mode: 'stored' }),
+    livePassportNumber: varchar('live_passport_number', { length: 20 }).generatedAlwaysAs(
+      sql`IF(deleted_at IS NULL, passport_number, NULL)`,
+      { mode: 'stored' },
+    ),
+    livePrimaryPhone: varchar('live_primary_phone', { length: 20 }).generatedAlwaysAs(
+      sql`IF(deleted_at IS NULL, primary_phone, NULL)`,
+      { mode: 'stored' },
+    ),
   },
   (table) => ({
     statusIdx: index('caregivers_status_idx').on(table.status),
@@ -102,5 +121,8 @@ export const caregivers = mysqlTable(
     publicIdIdx: index('caregivers_public_id_idx').on(table.publicId),
     // Public search's most common shape: ACTIVE caregivers filtered by location.
     publicSearchIdx: index('caregivers_public_search_idx').on(table.status, table.districtId, table.cityId),
+    liveNicIdx: uniqueIndex('caregivers_live_nic_unique').on(table.liveNic),
+    livePassportIdx: uniqueIndex('caregivers_live_passport_number_unique').on(table.livePassportNumber),
+    livePrimaryPhoneIdx: uniqueIndex('caregivers_live_primary_phone_unique').on(table.livePrimaryPhone),
   }),
 );

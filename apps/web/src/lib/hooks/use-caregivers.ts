@@ -16,6 +16,9 @@ import type {
   LocationProvince,
   PagedCities,
   Qualification,
+  CaregiverSignInMethods,
+  ResetSignInRequest,
+  IssuedClaimCode,
 } from '../api/types';
 
 export function useDashboardStats() {
@@ -387,6 +390,40 @@ export function useDeleteCaregiver(id: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['caregivers'] });
       router.push('/caregivers');
+    },
+  });
+}
+
+// --- sign-in access (staff "Sign-in" tab) -----------------------------------
+
+export function useCaregiverSignIn(id: string, enabled = true) {
+  return useQuery({
+    queryKey: ['caregiver-sign-in', id],
+    queryFn: () => api.get<CaregiverSignInMethods>(`/caregivers/${id}/sign-in`),
+    enabled: Boolean(id) && enabled,
+  });
+}
+
+/** Admin only on the API. Revokes every session whatever is chosen. */
+export function useResetCaregiverSignIn(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ResetSignInRequest) => api.post<CaregiverSignInMethods>(`/caregivers/${id}/sign-in/reset`, body),
+    onSuccess: (methods) => {
+      queryClient.setQueryData(['caregiver-sign-in', id], methods);
+      queryClient.invalidateQueries({ queryKey: ['audit', id] });
+    },
+  });
+}
+
+/** The code is returned once and never again - the caller must show it immediately. */
+export function useIssueClaimCode(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<IssuedClaimCode>(`/caregivers/${id}/sign-in/claim-code`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['caregiver-sign-in', id] });
+      queryClient.invalidateQueries({ queryKey: ['audit', id] });
     },
   });
 }

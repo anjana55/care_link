@@ -33,6 +33,7 @@ import { HealthInformationModule } from './health-information/health-information
 import { VerificationModule } from './verification/verification.module';
 import { PublicSearchModule } from './public-search/public-search.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { AccountAccessModule } from './account-access/account-access.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
     VerificationModule,
     PublicSearchModule,
     WhatsappModule,
+    AccountAccessModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

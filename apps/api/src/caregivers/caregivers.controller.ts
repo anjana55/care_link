@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CaregiversService } from './caregivers.service';
 import { CreateCaregiverDto } from './dto/create-caregiver.dto';
@@ -75,10 +76,12 @@ export class CaregiversController {
     return this.caregiversService.updateStatus(id, dto.status, user.role);
   }
 
+  // Audited by the service rather than @Audit, because the entry has to carry
+  // what the deletion released (email, phone, provider links) and only the
+  // service knows that.
   @Delete(':id')
   @Roles('ADMIN', 'STAFF')
-  @Audit({ action: 'DELETE_CAREGIVER', entityType: 'Caregiver' })
-  remove(@Param('id') id: string) {
-    return this.caregiversService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Req() req: Request) {
+    return this.caregiversService.remove(id, user?.userId ?? null, req.ip ?? null);
   }
 }

@@ -955,6 +955,37 @@ command with the same `INITIAL_ADMIN_EMAIL`/`INITIAL_ADMIN_PASSWORD`
 values you used the first time - it's a no-op for the admin account at
 that point and only refreshes the reference data.
 
+### 16.1 The caregiver sign-in recovery update (migration 0003)
+
+This update **includes database changes** - run the migrate command above.
+Take a database backup first (Part 15.1): migration 0003 also changes
+existing data, once:
+
+- every caregiver that was deleted *before* this update has their login
+  deactivated, their email and phone cleared from it, their
+  Google/Microsoft/Facebook links removed and their sessions revoked. What
+  was cleared is written to the audit log first (action
+  `RELEASE_CAREGIVER_IDENTITY`). Until now a deleted caregiver could still
+  sign in with a linked provider, and could not register again because their
+  email and phone were still taken;
+- NIC, passport and phone numbers stop being unique across deleted
+  caregivers (they stay unique among everyone who is not deleted).
+
+What staff and caregivers get afterwards:
+
+- **Staff app -> a caregiver -> "Sign-in" tab.** Shows how the caregiver
+  signs in. Admins can reset it (unlink a provider, remove the password,
+  release the phone number, clear the email); every reset also signs them out
+  everywhere. When the account is not secured, staff can issue a one-time
+  code (valid 48 hours) to give to a caregiver who no longer has their phone
+  or email - check who they are first.
+- **Caregiver sign-in page -> "Finish setting up your account".** A caregiver
+  who submitted the registration form but never linked Google, Microsoft or
+  Facebook enters their registration number, receives a code by WhatsApp (or
+  by email when WhatsApp is off), and then links a provider. It works only
+  for accounts with no provider link and no password, so it can never be used
+  to take over an account that already signs in.
+
 ---
 
 ## Part 16b - Taking the whole thing down

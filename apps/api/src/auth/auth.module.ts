@@ -44,6 +44,6 @@ import { SocialAuthSettingsController } from './social/social-settings.controlle
     SocialProviderRegistry,
   ],
   controllers: [AuthController, WhatsappAuthController, SocialAuthController, SocialAuthSettingsController],
-  exports: [AuthService],
+  exports: [AuthService, SocialAuthService],
 })
 export class AuthModule {}
