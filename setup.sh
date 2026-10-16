@@ -92,7 +92,58 @@ done
 # 1. Preflight checks
 # ---------------------------------------------------------------------------
 [ -f "$COMPOSE_FILE" ] || die "Run this from the repo root (couldn't find $COMPOSE_FILE here)."
-command -v docker >/dev/null 2>&1 || die "Docker isn't installed - see DEPLOYMENT.md Part 4."
+
+# Install Docker Engine + the Compose plugin if Docker is missing.
+# Supports Ubuntu/Debian using Docker's official apt repository. Installation
+# requires root/sudo and network access; other distributions must install
+# Docker manually before re-running this script.
+ensure_docker() {
+  if command -v docker >/dev/null 2>&1; then
+    log "Docker is already installed"
+    return 0
+  fi
+
+  log "Docker is not installed; attempting to install Docker Engine and Compose"
+  command -v apt-get >/dev/null 2>&1 || die "Automatic Docker installation supports Ubuntu/Debian only. Install Docker and the Compose plugin manually, then re-run."
+
+  local SUDO=""
+  if [ "$(id -u)" -ne 0 ]; then
+    command -v sudo >/dev/null 2>&1 || die "Docker installation needs root privileges. Re-run as root or install sudo, then retry."
+    SUDO="sudo"
+  fi
+
+  . /etc/os-release
+  local DOCKER_REPO_OS="$ID"
+  case "$DOCKER_REPO_OS" in
+    ubuntu|debian) ;;
+    *) die "Unsupported OS '$DOCKER_REPO_OS' for automatic Docker installation. Install Docker manually, then re-run." ;;
+  esac
+  local DOCKER_CODENAME="${VERSION_CODENAME:-}"
+  [ -n "$DOCKER_CODENAME" ] || die "Couldn't determine OS codename for Docker's apt repository."
+
+  $SUDO apt-get update
+  $SUDO apt-get install -y ca-certificates curl
+  $SUDO install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL "https://download.docker.com/linux/$DOCKER_REPO_OS/gpg" | $SUDO tee /etc/apt/keyrings/docker.asc >/dev/null
+  $SUDO chmod a+r /etc/apt/keyrings/docker.asc
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/$DOCKER_REPO_OS $DOCKER_CODENAME stable" | $SUDO tee /etc/apt/sources.list.d/docker.list >/dev/null
+
+  $SUDO apt-get update
+  $SUDO apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  if command -v systemctl >/dev/null 2>&1; then
+    $SUDO systemctl enable --now docker
+  fi
+
+  command -v docker >/dev/null 2>&1 || die "Docker installation finished but the docker command is still unavailable."
+  docker compose version >/dev/null 2>&1 || die "Docker Compose plugin installation failed."
+  if ! docker info >/dev/null 2>&1; then
+    die "Docker is installed, but this user cannot access the Docker daemon. Re-run as root or configure Docker permissions, then retry."
+  fi
+  log "Docker Engine and Compose are installed and ready"
+}
+
+ensure_docker
 docker compose version >/dev/null 2>&1 || die "The 'docker compose' plugin isn't available - see DEPLOYMENT.md Part 4."
 command -v openssl >/dev/null 2>&1 || die "openssl isn't installed (needed to generate secrets)."
 
