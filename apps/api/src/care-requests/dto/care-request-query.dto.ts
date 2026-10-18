@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsEnum, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
-import { careRequestStatusEnum, type CareRequestStatus } from '../../database/schema';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { careRequestSourceEnum, careRequestStatusEnum, type CareRequestSource, type CareRequestStatus } from '../../database/schema';
 
 /** Query for the staff Requests queue. */
 export class CareRequestQueryDto {
@@ -35,6 +35,17 @@ export class CareRequestQueryDto {
   @IsOptional()
   @IsUUID()
   caregiverId?: string;
+
+  @ApiPropertyOptional({ description: 'Only requests with no caregiver attached yet' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  unmatched?: boolean;
+
+  @ApiPropertyOptional({ enum: careRequestSourceEnum })
+  @IsOptional()
+  @IsEnum(careRequestSourceEnum)
+  source?: CareRequestSource;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

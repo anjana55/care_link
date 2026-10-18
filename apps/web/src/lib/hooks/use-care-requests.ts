@@ -8,6 +8,7 @@ import type {
   CareRequestListResponse,
   CareRequestStatus,
   CareRequestSummary,
+  CreatePhoneRequestInput,
   StaffRef,
 } from '../api/types';
 
@@ -18,6 +19,8 @@ export interface CareRequestFilters {
   assigned?: 'me' | 'unassigned';
   patientId?: string;
   caregiverId?: string;
+  unmatched?: boolean;
+  source?: 'WEB' | 'PHONE';
   page?: number;
   pageSize?: number;
 }
@@ -93,4 +96,23 @@ export function useAddCareRequestNote(id: string) {
 
 export function useAssignCareRequest(id: string) {
   return useRequestWrite(id, (userId: string | null) => api.patch<CareRequestDetail>(`/care-requests/${id}/assign`, { userId }));
+}
+
+/** A request taken during a phone call (POST /care-requests). */
+export function useCreatePhoneRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreatePhoneRequestInput) => api.post<CareRequestDetail>('/care-requests', input),
+    onSuccess: (detail) => {
+      queryClient.setQueryData(['care-requests', 'detail', detail.id], detail);
+      queryClient.invalidateQueries({ queryKey: ['care-requests', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['care-requests', 'summary'] });
+      // A new caller is a new client.
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+    },
+  });
+}
+
+export function useSetCareRequestCaregiver(id: string) {
+  return useRequestWrite(id, (caregiverId: string | null) => api.patch<CareRequestDetail>(`/care-requests/${id}/caregiver`, { caregiverId }));
 }

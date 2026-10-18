@@ -879,7 +879,8 @@
       "INTRODUCED": "Introduced",
       "CLOSED": "Closed",
       "CANCELLED": "Cancelled",
-      "all": "All"
+      "all": "All",
+      "unmatched": "Needs a caregiver"
     },
     "search": "Search by reference, client or caregiver",
     "table": {
@@ -986,9 +987,72 @@
         "STATUS_CHANGED": "{from} → {to}",
         "ASSIGNED": "Assigned to {name}",
         "UNASSIGNED": "Unassigned",
-        "NOTE": "Note"
+        "NOTE": "Note",
+        "CAREGIVER_CHANGED": "Caregiver set to {name}",
+        "CAREGIVER_REMOVED": "Caregiver removed",
+        "CREATED_PHONE": "Request taken over the phone"
       },
-      "by": "by {name}"
+      "by": "by {name}",
+      "takenByPhone": "Taken by phone by {name}",
+      "phoneMessage": "What the caller asked for",
+      "noCaregiver": "No caregiver yet - the caller left it to us to find a match.",
+      "pickCaregiverHint": "Search for a caregiver to attach. Any caregiver whose record has not been removed can be chosen.",
+      "caregiverLocked": "The caregiver can only be changed while the request is open.",
+      "changeCaregiver": "Change caregiver",
+      "removeCaregiver": "Remove caregiver"
+    },
+    "newPhoneRequest": "New phone request",
+    "newRequestForClient": "New request",
+    "notMatched": "Not matched yet",
+    "source": {
+      "PHONE": "By phone",
+      "WEB": "Website"
+    },
+    "picker": {
+      "caregiverSearch": "Search caregivers by name, registration no. or phone",
+      "clientSearch": "Search clients by name, phone or email",
+      "noMatches": "No caregivers match.",
+      "noClientMatches": "No clients match - add them as a new caller."
+    },
+    "new": {
+      "title": "New phone request",
+      "subtitle": "Take down a request from a caller. It joins the queue like one sent from the website, and the caller gets the same confirmation and updates.",
+      "callerTitle": "Who is calling?",
+      "existingClient": "Existing client",
+      "newCaller": "New caller",
+      "changeClient": "Change",
+      "searchFirstHint": "Search first - if the caller already has an account, use it rather than adding them again.",
+      "fullName": "Caller's full name",
+      "phone": "Mobile number",
+      "phoneHint": "They can sign in later with a WhatsApp code sent to this number.",
+      "email": "Email (optional)",
+      "alternatePhone": "Other phone (optional)",
+      "contactTime": "Best time to call",
+      "whoNeedsCare": "Who needs care?",
+      "registrant": {
+        "GUARDIAN": "Someone else (a family member or friend)",
+        "SELF": "The caller themselves"
+      },
+      "recipientName": "Name of the person needing care",
+      "relationship": "Relationship to the caller",
+      "age": "Age",
+      "gender": "Gender",
+      "careTitle": "Care needed",
+      "city": "City",
+      "start": "When should care start?",
+      "consent": "The caller agreed to us keeping their details",
+      "consentHint": "Ask before saving: we store these details to arrange care and contact them about this request.",
+      "caregiverTitle": "Caregiver (optional)",
+      "caregiverHint": "If they asked about a particular caregiver, find them here. Otherwise leave this empty and match later.",
+      "matchLater": "Match later",
+      "notListedWarning": "Not live on the public site - make sure they are ready to take work.",
+      "requestTitle": "The request",
+      "messagePlaceholder": "Their words: what kind of help, when, anything to watch out for",
+      "language": "Send updates in",
+      "languageHint": "The caller's confirmation and updates go out in this language.",
+      "submit": "Create request",
+      "needClient": "Choose the client first.",
+      "needFields": "{count} required details still missing."
     }
   }
 }

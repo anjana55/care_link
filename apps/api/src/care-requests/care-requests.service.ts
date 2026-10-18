@@ -32,6 +32,11 @@ import { CareRequestNotifier } from './care-request-notifier.service';
 import { CreateCareRequestDto } from './dto/create-care-request.dto';
 import { CareRequestQueryDto } from './dto/care-request-query.dto';
 import { UpdateCareRequestStatusDto } from './dto/update-care-request-status.dto';
+import { CreateStaffCareRequestDto, PhoneClientDto } from './dto/create-staff-care-request.dto';
+import { normalizePhone } from '../common/utils/phone.util';
+import { assertWhatsappNumberAvailable } from '../auth/phone-accounts.util';
+import { buildPatientIntake } from '../clients/patient-profile.util';
+import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
 
 /** How many open requests one client may have at once - enough for a real search, too few to spam staff. */
 export const MAX_OPEN_REQUESTS_PER_CLIENT = 10;
@@ -65,6 +70,7 @@ export class CareRequestsService {
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly publicSearch: PublicSearchService,
     private readonly notifier: CareRequestNotifier,
+    private readonly whatsappSettings: WhatsappSettingsService,
   ) {}
 
   // --- client side ----------------------------------------------------------
@@ -174,13 +180,14 @@ export class CareRequestsService {
         caregiverPublicId: caregivers.publicId,
       })
       .from(careRequests)
-      .innerJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
+      // Left join: a request staff took over the phone may have no caregiver yet.
+      .leftJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
       .where(and(...conditions))
       .orderBy(desc(careRequests.createdAt))
       .limit(200);
 
     const profiles = await this.publicSearch.profilesFor(
-      rows.map((r) => r.caregiverId),
+      rows.map((r) => r.caregiverId).filter((v): v is string => Boolean(v)),
       locale,
     );
     return rows.map((r) => ({
@@ -190,8 +197,8 @@ export class CareRequestsService {
       createdAt: new Date(r.createdAt).toISOString(),
       updatedAt: new Date(r.updatedAt).toISOString(),
       closedAt: r.closedAt ? new Date(r.closedAt).toISOString() : null,
-      caregiverPublicId: r.caregiverPublicId,
-      caregiver: profiles.get(r.caregiverId) ?? null,
+      caregiverPublicId: r.caregiverPublicId ?? null,
+      caregiver: r.caregiverId ? (profiles.get(r.caregiverId) ?? null) : null,
     }));
   }
 
@@ -280,6 +287,8 @@ export class CareRequestsService {
     if (query.assigned === 'unassigned') conditions.push(isNull(careRequests.assignedToUserId));
     if (query.patientId) conditions.push(eq(careRequests.patientId, query.patientId));
     if (query.caregiverId) conditions.push(eq(careRequests.caregiverId, query.caregiverId));
+    if (query.unmatched) conditions.push(isNull(careRequests.caregiverId));
+    if (query.source) conditions.push(eq(careRequests.source, query.source));
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
       conditions.push(
@@ -299,7 +308,7 @@ export class CareRequestsService {
       .select({ total: count() })
       .from(careRequests)
       .innerJoin(patients, eq(careRequests.patientId, patients.id))
-      .innerJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
+      .leftJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
       .where(where);
 
     const rows = await this.db
@@ -317,6 +326,7 @@ export class CareRequestsService {
         recipientName: patients.recipientName,
         registrantType: patients.registrantType,
         careStart: patients.careStart,
+        source: careRequests.source,
         caregiverId: caregivers.id,
         caregiverName: caregivers.fullName,
         caregiverRegistrationNumber: caregivers.registrationNumber,
@@ -325,7 +335,7 @@ export class CareRequestsService {
       })
       .from(careRequests)
       .innerJoin(patients, eq(careRequests.patientId, patients.id))
-      .innerJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
+      .leftJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
       .where(where)
       // New work first, then oldest-waiting first within a status, so the
       // queue reads top-down as "what to do next".
@@ -361,7 +371,11 @@ export class CareRequestsService {
       .groupBy(careRequests.status);
     const byStatus = Object.fromEntries(careRequestStatusEnum.map((s) => [s, 0])) as Record<CareRequestStatus, number>;
     for (const r of rows) byStatus[r.status] = r.n;
-    return { byStatus, open: byStatus.NEW + byStatus.IN_PROGRESS, new: byStatus.NEW };
+    const [{ unmatched }] = await this.db
+      .select({ unmatched: count() })
+      .from(careRequests)
+      .where(and(isNull(careRequests.caregiverId), inArray(careRequests.status, [...OPEN_CARE_REQUEST_STATUSES])));
+    return { byStatus, open: byStatus.NEW + byStatus.IN_PROGRESS, new: byStatus.NEW, unmatched };
   }
 
   private async userNames(ids: (string | null)[]) {
@@ -391,13 +405,13 @@ export class CareRequestsService {
       .select({ request: careRequests, patient: patients, caregiver: caregivers })
       .from(careRequests)
       .innerJoin(patients, eq(careRequests.patientId, patients.id))
-      .innerJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
+      .leftJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
       .where(eq(careRequests.id, id))
       .limit(1);
     if (!row) throw new NotFoundException('Request not found');
     const { request, patient, caregiver } = row;
 
-    const accountIds = [patient.userId, caregiver.userId].filter((v): v is string => Boolean(v));
+    const accountIds = [patient.userId, caregiver?.userId ?? null].filter((v): v is string => Boolean(v));
     const [accounts, events] = await Promise.all([
       accountIds.length
         ? this.db.select({ id: users.id, email: users.email, phone: users.phone }).from(users).where(inArray(users.id, accountIds))
@@ -406,19 +420,22 @@ export class CareRequestsService {
     ]);
     const account = (uid: string | null) => accounts.find((a) => a.id === uid);
     const [names, places] = await Promise.all([
-      this.userNames([request.assignedToUserId, ...events.map((e) => e.actorUserId)]),
-      this.placeNames([patient.cityId, caregiver.cityId], [patient.districtId, caregiver.districtId]),
+      this.userNames([request.assignedToUserId, request.createdByUserId, ...events.map((e) => e.actorUserId)]),
+      this.placeNames([patient.cityId, caregiver?.cityId ?? null], [patient.districtId, caregiver?.districtId ?? null]),
     ]);
     // The ids are the source of truth; the English caches on the row are only
     // filled by some write paths (self-registration stores ids alone).
     const city = (id: number | null, cache: string | null) => (id ? (places.cities.get(id) ?? cache) : cache);
     const district = (id: number | null, cache: string | null) => (id ? (places.districts.get(id) ?? cache) : cache);
 
-    const { openPairKey, assignedToUserId, ...rest } = request;
+    const { openPairKey, assignedToUserId, createdByUserId, ...rest } = request;
     return {
       ...rest,
       assignedTo: assignedToUserId ? (names.get(assignedToUserId) ?? null) : null,
-      allowedNextStatuses: CARE_REQUEST_STATUS_TRANSITIONS[request.status],
+      createdBy: createdByUserId ? (names.get(createdByUserId) ?? null) : null,
+      // INTRODUCED needs a caregiver; the UI hides it until one is attached.
+      allowedNextStatuses: CARE_REQUEST_STATUS_TRANSITIONS[request.status].filter((st) => st !== 'INTRODUCED' || Boolean(caregiver)),
+      canChangeCaregiver: OPEN_CARE_REQUEST_STATUSES.includes(request.status),
       client: {
         id: patient.id,
         fullName: patient.fullName,
@@ -442,7 +459,7 @@ export class CareRequestsService {
         careStart: patient.careStart,
         preferredCaregiverGender: patient.preferredCaregiverGender,
       },
-      caregiver: {
+      caregiver: caregiver && {
         id: caregiver.id,
         publicId: caregiver.publicId,
         fullName: caregiver.fullName,
@@ -471,11 +488,14 @@ export class CareRequestsService {
 
   async updateStatus(id: string, dto: UpdateCareRequestStatusDto, actor: AuthenticatedUser) {
     const [current] = await this.db
-      .select({ status: careRequests.status, assignedToUserId: careRequests.assignedToUserId })
+      .select({ status: careRequests.status, assignedToUserId: careRequests.assignedToUserId, caregiverId: careRequests.caregiverId })
       .from(careRequests)
       .where(eq(careRequests.id, id))
       .limit(1);
     if (!current) throw new NotFoundException('Request not found');
+    if (dto.status === 'INTRODUCED' && !current.caregiverId) {
+      throw new BadRequestException('Choose a caregiver before marking the request introduced');
+    }
     if (!CARE_REQUEST_STATUS_TRANSITIONS[current.status].includes(dto.status)) {
       throw new BadRequestException('This request cannot be moved to that status');
     }
@@ -560,6 +580,194 @@ export class CareRequestsService {
         actorUserId: actor.userId,
       });
     });
+    return this.findOne(id);
+  }
+
+  /**
+   * A request taken down during a phone call. The caller is either an existing
+   * client or a first-time caller, created here in the same transaction so a
+   * failed request never leaves a half-made client behind.
+   *
+   * Differences from a web request, all deliberate:
+   * - any caregiver not removed can be attached (staff may know someone not yet
+   *   live on the site), or none at all - "match later";
+   * - the client's account status is not a gate: staff are talking to them;
+   * - staff are not alerted by email (one of them just logged it), but the
+   *   client still gets the usual confirmation and updates.
+   */
+  async createByStaff(dto: CreateStaffCareRequestDto, actor: AuthenticatedUser) {
+    if (dto.patientId && dto.newClient) {
+      throw new BadRequestException('Choose an existing client or add a new caller, not both');
+    }
+    const caregiverId = dto.caregiverId ? (await this.staffSelectableCaregiver(dto.caregiverId)).id : null;
+    const defaultCountryCode = await this.whatsappSettings.getDefaultCountryCode();
+    const id = uuid();
+
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await this.db.transaction(async (tx) => {
+          const txDb = tx as unknown as Database;
+          let patientId = dto.patientId ?? null;
+          if (patientId) {
+            const [existing] = await tx.select({ id: patients.id }).from(patients).where(eq(patients.id, patientId)).limit(1);
+            if (!existing) throw new NotFoundException('Client not found');
+          } else {
+            patientId = await this.createPhoneClient(txDb, dto.newClient!, defaultCountryCode);
+          }
+
+          await tx.insert(careRequests).values({
+            id,
+            reference: generateReference(),
+            patientId,
+            caregiverId,
+            status: 'NEW',
+            source: 'PHONE',
+            createdByUserId: actor.userId,
+            message: dto.message ?? null,
+            language: dto.language,
+          });
+          await tx.insert(careRequestEvents).values({ id: uuid(), requestId: id, type: 'CREATED', toStatus: 'NEW', actorUserId: actor.userId });
+          if (caregiverId) {
+            await tx.insert(careRequestEvents).values({
+              id: uuid(),
+              requestId: id,
+              type: 'CAREGIVER_CHANGED',
+              note: await this.caregiverLabel(txDb, caregiverId),
+              actorUserId: actor.userId,
+            });
+          }
+        });
+        break;
+      } catch (err) {
+        if (isDuplicate(err, 'care_requests_open_pair_unique')) {
+          throw new ConflictException('The client already has another open request for this caregiver');
+        }
+        if (isDuplicate(err, 'care_requests_reference_unique') && attempt < 3) continue;
+        // users.phone / users.email are unique: two staff adding the same caller at once.
+        if (isDuplicate(err)) throw new ConflictException('A client with this phone number or email already exists - search for them instead');
+        throw err;
+      }
+    }
+
+    void this.notifier.requestCreated(id);
+    return this.findOne(id);
+  }
+
+  /**
+   * The client record for a first-time caller. The number they called from
+   * becomes their WhatsApp sign-in, already confirmed (staff are speaking to
+   * them on it), so they can sign in later with a code sent to it - no
+   * password is ever set. A number or email that already belongs to anyone is
+   * refused, so staff pick the existing client instead of making a duplicate.
+   */
+  private async createPhoneClient(db: Database, dto: PhoneClientDto, defaultCountryCode: string): Promise<string> {
+    const phone = normalizePhone(dto.phone, defaultCountryCode);
+    if (!phone) throw new BadRequestException('Enter a valid phone number');
+    try {
+      await assertWhatsappNumberAvailable(db, phone, defaultCountryCode);
+    } catch (err) {
+      if (err instanceof ConflictException) {
+        throw new ConflictException('A client with this phone number or email already exists - search for them instead');
+      }
+      throw err;
+    }
+    const email = dto.email?.toLowerCase() ?? null;
+    if (email) {
+      const [taken] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+      if (taken) throw new ConflictException('A client with this phone number or email already exists - search for them instead');
+    }
+    const intake = await buildPatientIntake(db, dto, { hasEmail: Boolean(email) });
+
+    const userId = uuid();
+    const now = new Date();
+    await db.insert(users).values({
+      id: userId,
+      email,
+      passwordHash: null,
+      phone,
+      phoneVerifiedAt: now,
+      fullName: dto.fullName.trim(),
+      role: 'PATIENT_GUARDIAN',
+      isActive: true,
+    });
+    const patientId = uuid();
+    await db.insert(patients).values({
+      id: patientId,
+      userId,
+      fullName: dto.fullName.trim(),
+      phone,
+      // Verbal consent, confirmed by the staff member on the form.
+      consentAcceptedAt: now,
+      ...intake,
+      // Unlike a self-registration there is nothing to review: staff took
+      // these details down themselves.
+      status: 'ACTIVE',
+    });
+    return patientId;
+  }
+
+  /** Staff may attach any caregiver whose record has not been removed. */
+  private async staffSelectableCaregiver(caregiverId: string) {
+    const [row] = await this.db
+      .select({ id: caregivers.id })
+      .from(caregivers)
+      .where(and(eq(caregivers.id, caregiverId), isNull(caregivers.deletedAt)))
+      .limit(1);
+    if (!row) throw new NotFoundException('Caregiver not found');
+    return row;
+  }
+
+  private async caregiverLabel(db: Database, caregiverId: string) {
+    const [row] = await db
+      .select({ registrationNumber: caregivers.registrationNumber, fullName: caregivers.fullName })
+      .from(caregivers)
+      .where(eq(caregivers.id, caregiverId))
+      .limit(1);
+    return row ? `${row.registrationNumber} - ${row.fullName}` : null;
+  }
+
+  /**
+   * Attach, swap or detach the caregiver while a request is still open. Works
+   * for web requests too - when the caregiver a client chose is unavailable,
+   * staff can offer another without making the client start again.
+   */
+  async setCaregiver(id: string, caregiverId: string | null, actor: AuthenticatedUser) {
+    const [current] = await this.db
+      .select({ status: careRequests.status, caregiverId: careRequests.caregiverId })
+      .from(careRequests)
+      .where(eq(careRequests.id, id))
+      .limit(1);
+    if (!current) throw new NotFoundException('Request not found');
+    if (!OPEN_CARE_REQUEST_STATUSES.includes(current.status)) {
+      throw new BadRequestException('The caregiver can only be changed while the request is open');
+    }
+    const next = caregiverId ? (await this.staffSelectableCaregiver(caregiverId)).id : null;
+    if (next === current.caregiverId) return this.findOne(id);
+
+    try {
+      await this.db.transaction(async (tx) => {
+        await tx
+          .update(careRequests)
+          .set({ caregiverId: next, updatedAt: new Date() })
+          .where(and(eq(careRequests.id, id), eq(careRequests.status, current.status)));
+        await tx.insert(careRequestEvents).values({
+          id: uuid(),
+          requestId: id,
+          type: 'CAREGIVER_CHANGED',
+          note: next ? await this.caregiverLabel(tx as unknown as Database, next) : null,
+          actorUserId: actor.userId,
+        });
+      });
+    } catch (err) {
+      if (isDuplicate(err, 'care_requests_open_pair_unique')) {
+        throw new ConflictException('The client already has another open request for this caregiver');
+      }
+      throw err;
+    }
+
+    // A caregiver joining a request staff are already working on hears about it
+    // now; one attached to a NEW request hears when it is picked up.
+    if (next && current.status === 'IN_PROGRESS') void this.notifier.statusChanged(id, 'IN_PROGRESS', { caregiverOnly: true });
     return this.findOne(id);
   }
 

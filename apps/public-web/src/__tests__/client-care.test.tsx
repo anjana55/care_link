@@ -181,16 +181,19 @@ describe('client account', () => {
     get.mockResolvedValue([
       { id: 'r1', reference: 'CR-7K2QM9', status: 'NEW', createdAt: '2026-10-18T10:00:00Z', updatedAt: '2026-10-18T10:00:00Z', closedAt: null, caregiverPublicId: PUBLIC_ID, caregiver: profile },
       { id: 'r2', reference: 'CR-ABC234', status: 'INTRODUCED', createdAt: '2026-10-10T10:00:00Z', updatedAt: '2026-10-12T10:00:00Z', closedAt: null, caregiverPublicId: '22222222-2222-4222-8222-222222222222', caregiver: null },
+      // Taken over the phone, no caregiver chosen yet.
+      { id: 'r3', reference: 'CR-PHN234', status: 'IN_PROGRESS', createdAt: '2026-10-09T10:00:00Z', updatedAt: '2026-10-09T10:00:00Z', closedAt: null, caregiverPublicId: null, caregiver: null },
     ]);
     post.mockResolvedValue({});
     renderUi(<MyRequestsPage />);
 
     expect(await screen.findByText('Reference CR-7K2QM9')).toBeInTheDocument();
     expect(screen.getByText('Introduced')).toBeInTheDocument();
-    expect(screen.getByText('This caregiver is no longer listed.')).toBeInTheDocument();
-    // Only the open request can be cancelled.
+    expect(screen.getByText(/profile isn't shown online/)).toBeInTheDocument();
+    expect(screen.getByText('Our team is finding a caregiver for you')).toBeInTheDocument();
+    // Only the open requests can be cancelled.
     const cancels = screen.getAllByRole('button', { name: 'Cancel request' });
-    expect(cancels).toHaveLength(1);
+    expect(cancels).toHaveLength(2);
     fireEvent.click(cancels[0]);
     fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel it' }));
     await waitFor(() => expect(post).toHaveBeenCalledWith('/me/care-requests/r1/cancel', {}));

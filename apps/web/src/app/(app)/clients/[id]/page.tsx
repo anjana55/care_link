@@ -156,6 +156,14 @@ export default function ClientDetailPage() {
           <div className="flex items-center gap-3">
             <StatusBadge status={client.status} label={t(`clients.status.${client.status}`)} />
             {canEdit && (
+              <Link
+                href={`/requests/new?patientId=${client.id}`}
+                className="inline-flex h-8 items-center rounded border border-border bg-white px-3 text-sm font-medium text-ink hover:bg-paper"
+              >
+                {t('requests.newRequestForClient')}
+              </Link>
+            )}
+            {canEdit && (
               <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>
                 {t('clients.actions.edit')}
               </Button>

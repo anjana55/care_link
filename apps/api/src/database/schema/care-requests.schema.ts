@@ -23,6 +23,13 @@ import { sql } from 'drizzle-orm';
 export const careRequestStatusEnum = ['NEW', 'IN_PROGRESS', 'INTRODUCED', 'CLOSED', 'CANCELLED'] as const;
 export type CareRequestStatus = (typeof careRequestStatusEnum)[number];
 
+/**
+ * Where a request came from: the client pressing Contact on the public site, or
+ * a staff member taking it down during a phone call.
+ */
+export const careRequestSourceEnum = ['WEB', 'PHONE'] as const;
+export type CareRequestSource = (typeof careRequestSourceEnum)[number];
+
 /** Statuses in which a request still counts as open for the one-open-request-per-pair rule. */
 export const OPEN_CARE_REQUEST_STATUSES: readonly CareRequestStatus[] = ['NEW', 'IN_PROGRESS'];
 
@@ -64,7 +71,12 @@ export const careRequests = mysqlTable(
     // ("request CR-7K2Q9M"). Not a secret and not used for lookups by clients.
     reference: varchar('reference', { length: 16 }).notNull().unique(),
     patientId: varchar('patient_id', { length: 36 }).notNull(),
-    caregiverId: varchar('caregiver_id', { length: 36 }).notNull(),
+    // Null while staff are still finding a match - a caller may ask for "a
+    // caregiver" rather than a particular one. Required before INTRODUCED.
+    caregiverId: varchar('caregiver_id', { length: 36 }),
+    source: mysqlEnum('source', careRequestSourceEnum).notNull().default('WEB'),
+    // The staff member who logged a PHONE request; null for WEB.
+    createdByUserId: varchar('created_by_user_id', { length: 36 }),
     status: mysqlEnum('status', careRequestStatusEnum).notNull().default('NEW'),
     // What the client wrote when sending it. Shown to staff only.
     message: text('message'),
@@ -77,7 +89,9 @@ export const careRequests = mysqlTable(
     closedAt: datetime('closed_at'),
     createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-    // "patient:caregiver" while the request is open, NULL once it isn't. The
+    // "patient:caregiver" while the request is open, NULL once it isn't (and
+    // while no caregiver is attached - CONCAT with NULL is NULL, so any number
+    // of unmatched requests can be open at once). The
     // unique index on it is what stops a double-click or two tabs from opening
     // two requests for the same caregiver - a service-level check alone would
     // race. MySQL allows any number of NULLs in a unique index, so closed and
@@ -99,7 +113,9 @@ export const careRequests = mysqlTable(
  * The staff-side history of a request: status moves, notes, assignment. Notes
  * are internal and never shown to the client or the caregiver.
  */
-export const careRequestEventTypeEnum = ['CREATED', 'STATUS_CHANGED', 'NOTE', 'ASSIGNED', 'CANCELLED'] as const;
+// CAREGIVER_CHANGED: staff attached or swapped the caregiver; `note` records
+// who, as "registration number - name", at the time.
+export const careRequestEventTypeEnum = ['CREATED', 'STATUS_CHANGED', 'NOTE', 'ASSIGNED', 'CANCELLED', 'CAREGIVER_CHANGED'] as const;
 export type CareRequestEventType = (typeof careRequestEventTypeEnum)[number];
 
 export const careRequestEvents = mysqlTable(

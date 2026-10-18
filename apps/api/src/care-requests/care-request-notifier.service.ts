@@ -28,11 +28,13 @@ interface NoticeContext {
     preferredContactMethod: 'PHONE_CALL' | 'WHATSAPP' | 'EMAIL' | null;
     careStart: string | null;
   };
+  /** Null while no caregiver is attached (a phone request staff will match later). */
   caregiver: {
     email: string | null;
     phone: string | null; // E.164, best effort
     registrationNumber: string;
-  };
+  } | null;
+  source: 'WEB' | 'PHONE';
 }
 
 /**
@@ -87,20 +89,21 @@ export class CareRequestNotifier {
     await this.safely('new request', async () => {
       const ctx = await this.load(requestId);
       if (!ctx) return;
-      await Promise.all([this.alertStaff(ctx), this.notifyClient(ctx, 'RECEIVED')]);
+      // A phone request was logged by staff themselves - no need to alert them.
+      await Promise.all([ctx.source === 'WEB' ? this.alertStaff(ctx) : Promise.resolve(), this.notifyClient(ctx, 'RECEIVED')]);
     });
   }
 
   /** Staff moved a request into `status`. */
-  async statusChanged(requestId: string, status: CareRequestStatus): Promise<void> {
+  async statusChanged(requestId: string, status: CareRequestStatus, opts: { caregiverOnly?: boolean } = {}): Promise<void> {
     await this.safely(`status change to ${status}`, async () => {
       const ctx = await this.load(requestId);
       if (!ctx) return;
-      const forClient = clientNoticeFor(status);
+      const forClient = opts.caregiverOnly ? null : clientNoticeFor(status);
       const forCaregiver = caregiverNoticeFor(status);
       await Promise.all([
         forClient ? this.notifyClient(ctx, forClient) : Promise.resolve(),
-        forCaregiver ? this.notifyCaregiver(ctx, forCaregiver) : Promise.resolve(),
+        forCaregiver && ctx.caregiver ? this.notifyCaregiver(ctx, forCaregiver) : Promise.resolve(),
       ]);
     });
   }
@@ -119,6 +122,7 @@ export class CareRequestNotifier {
         id: careRequests.id,
         reference: careRequests.reference,
         language: careRequests.language,
+        source: careRequests.source,
         patientUserId: patients.userId,
         patientPhone: patients.phone,
         preferredContactMethod: patients.preferredContactMethod,
@@ -129,7 +133,7 @@ export class CareRequestNotifier {
       })
       .from(careRequests)
       .innerJoin(patients, eq(careRequests.patientId, patients.id))
-      .innerJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
+      .leftJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
       .where(eq(careRequests.id, requestId))
       .limit(1);
     if (!row) return null;
@@ -155,11 +159,14 @@ export class CareRequestNotifier {
         preferredContactMethod: row.preferredContactMethod,
         careStart: row.careStart,
       },
-      caregiver: {
-        email: caregiverAccount?.email ?? null,
-        phone: caregiverAccount?.phone ?? normalizePhone(row.caregiverPhone, cc),
-        registrationNumber: row.registrationNumber,
-      },
+      caregiver: row.registrationNumber
+        ? {
+            email: caregiverAccount?.email ?? null,
+            phone: caregiverAccount?.phone ?? normalizePhone(row.caregiverPhone, cc),
+            registrationNumber: row.registrationNumber,
+          }
+        : null,
+      source: row.source,
     };
   }
 
@@ -207,7 +214,7 @@ export class CareRequestNotifier {
             lang: 'en',
             heading: `New care request ${ctx.reference}`,
             paragraphs: [
-              `A client has asked to be put in touch with caregiver ${ctx.caregiver.registrationNumber}.${start}`,
+              `A client has asked to be put in touch with caregiver ${ctx.caregiver?.registrationNumber ?? '(not chosen yet)'}.${start}`,
               'Open the request in the staff portal to see the client and caregiver details and pick it up.',
             ],
           },
@@ -249,10 +256,12 @@ export class CareRequestNotifier {
   }
 
   private async notifyCaregiver(ctx: NoticeContext, notice: Parameters<typeof caregiverNotice>[0]) {
+    const caregiver = ctx.caregiver;
+    if (!caregiver) return;
     const msg = caregiverNotice(notice, ctx.reference);
-    if (ctx.caregiver.email) {
+    if (caregiver.email) {
       await this.email.sendNotificationEmail(
-        ctx.caregiver.email,
+        caregiver.email,
         {
           subject: msg.subject,
           blocks: msg.blocks.map((b) => ({ lang: b.lang, heading: b.heading, paragraphs: [b.body] })),
@@ -263,8 +272,8 @@ export class CareRequestNotifier {
       return;
     }
     const wa = await this.whatsappSettings.getResolved();
-    if (ctx.caregiver.phone && this.whatsapp.canSendUpdates(wa)) {
-      await this.sendWhatsapp(wa, ctx.caregiver.phone, 'en', msg.whatsappText, `caregiver update ${ctx.reference}`);
+    if (caregiver.phone && this.whatsapp.canSendUpdates(wa)) {
+      await this.sendWhatsapp(wa, caregiver.phone, 'en', msg.whatsappText, `caregiver update ${ctx.reference}`);
       return;
     }
     this.logger.warn(`Care request ${ctx.reference}: the caregiver has no email and WhatsApp updates are off, so "${notice}" was not sent.`);
