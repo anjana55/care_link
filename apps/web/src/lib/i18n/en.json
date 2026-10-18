@@ -246,6 +246,8 @@
       "codeLabel": "One-time code",
       "codeExpires": "Valid until",
       "codeShownOnce": "This code is shown only once - give it to the caregiver now. Issuing another cancels this one.",
+      "claimUrlLabel": "Where the caregiver enters it",
+      "claimUrlHint": "The caregiver opens this page and enters the code with their registration number",
       "resetTitle": "Reset sign-in",
       "resetBody": "Choose what to remove. Afterwards the caregiver can set up a new sign-in with their registration number.",
       "unlink": "Unlink",

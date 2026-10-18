@@ -138,6 +138,19 @@ export function SignInAccessPanel({
               <div className="mt-4 rounded border border-brand/30 bg-brand-light p-4">
                 <div className="text-xs text-ink/60">{t('caregivers.signIn.codeLabel')}</div>
                 <div className="mt-1 select-all font-semibold tracking-[0.2em] text-2xl text-brand-dark">{issued.code}</div>
+                <div className="mt-3 text-xs text-ink/60">{t('caregivers.signIn.claimUrlLabel')}</div>
+                <a
+                  href={issued.claimUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 block select-all break-all text-sm font-medium text-brand-dark underline"
+                >
+                  {issued.claimUrl}
+                </a>
+                <p className="mt-1 text-xs text-ink/60">
+                  {t('caregivers.signIn.claimUrlHint')}{' '}
+                  <span className="font-medium text-ink">{issued.registrationNumber}</span>
+                </p>
                 <p className="mt-2 text-xs text-ink/60">
                   {t('caregivers.signIn.codeExpires')} {formatDate(issued.expiresAt)}. {t('caregivers.signIn.codeShownOnce')}
                 </p>

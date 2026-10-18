@@ -406,4 +406,6 @@ export interface IssuedClaimCode {
   code: string;
   expiresAt: string;
   registrationNumber: string;
+  /** The public-site page where the caregiver enters the code. */
+  claimUrl: string;
 }

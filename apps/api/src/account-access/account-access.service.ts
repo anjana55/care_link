@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { and, eq, inArray } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { caregivers, socialAccounts, users, type SocialProvider } from '../database/schema';
@@ -21,6 +22,7 @@ export class AccountAccessService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly claimCodes: ClaimCodesService,
+    private readonly config: ConfigService,
   ) {}
 
   async getSignInMethods(caregiverId: string): Promise<SignInMethods> {
@@ -119,7 +121,23 @@ export class AccountAccessService {
       // STAFF codes have no cooldown, so this cannot happen; kept for the type.
       throw new BadRequestException('Please wait a moment before issuing another code');
     }
-    return { code: issued.code, expiresAt: issued.expiresAt, registrationNumber: caregiver.registrationNumber };
+    return {
+      code: issued.code,
+      expiresAt: issued.expiresAt,
+      registrationNumber: caregiver.registrationNumber,
+      claimUrl: this.claimUrl(),
+    };
+  }
+
+  /**
+   * Where the caregiver enters the code: the claim page on the public site
+   * (apps/public-web), e.g. https://find.caregivers.lk/caregiver/claim. Staff
+   * read it out or write it down with the code, so it comes from the same
+   * PUBLIC_WEB_URL the API already uses for public-site links.
+   */
+  private claimUrl(): string {
+    const base = (this.config.get<string>('PUBLIC_WEB_URL') ?? 'http://localhost:3002').replace(/\/+$/, '');
+    return `${base}/caregiver/claim`;
   }
 
   private async findLiveCaregiver(caregiverId: string) {
