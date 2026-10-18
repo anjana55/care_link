@@ -9,6 +9,7 @@ import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { useAuth } from '@/lib/api/auth-context';
 import { api, type Tokens } from '@/lib/api/client';
+import { takeReturnTo } from '@/lib/return-to';
 
 function VerifyEmailInner() {
   const { t } = useTranslation();
@@ -27,9 +28,12 @@ function VerifyEmailInner() {
     api
       .post<Tokens>('/auth/verify-email', { token })
       .then((tokens) => {
-        applyTokens(tokens);
+        const user = applyTokens(tokens);
         setStatus('success');
-        setTimeout(() => router.push('/'), 1200);
+        // Only a client returns to where they left off; a caregiver who
+        // verifies here goes on to their own area as before.
+        const next = user?.role === 'PATIENT_GUARDIAN' ? takeReturnTo('/') : '/';
+        setTimeout(() => router.push(next), 1200);
       })
       .catch(() => setStatus('error'));
     // Only run once, on mount - token comes from the URL and doesn't change.

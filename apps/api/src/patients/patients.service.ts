@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq, isNotNull, isNull, like, ne, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, like, ne, or, sql, type SQL } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
   patients,
@@ -8,6 +8,9 @@ import {
   cities,
   refreshTokens,
   emailVerificationTokens,
+  careRequests,
+  careRequestEvents,
+  savedCaregivers,
   CLIENT_STATUS_TRANSITIONS,
   type ClientStatus,
 } from '../database/schema';
@@ -422,6 +425,15 @@ export class PatientsService {
     const target = await this.findOrThrow(id);
 
     await this.db.transaction(async (tx) => {
+      // The client's requests and shortlist go with them. Request history is
+      // the client's own data (what they asked for, staff notes about them),
+      // so it is not kept once the account is erased.
+      const requestIds = (await tx.select({ id: careRequests.id }).from(careRequests).where(eq(careRequests.patientId, id))).map((r) => r.id);
+      if (requestIds.length) {
+        await tx.delete(careRequestEvents).where(inArray(careRequestEvents.requestId, requestIds));
+        await tx.delete(careRequests).where(inArray(careRequests.id, requestIds));
+      }
+      await tx.delete(savedCaregivers).where(eq(savedCaregivers.patientId, id));
       await tx.delete(refreshTokens).where(eq(refreshTokens.userId, target.userId));
       await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, target.userId));
       await tx.delete(users).where(eq(users.id, target.userId));

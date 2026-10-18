@@ -188,6 +188,26 @@ export default function WhatsappSettingsPage() {
         </Card>
 
         <Card>
+          <CardHeader><CardTitle>{t('whatsappAdmin.updatesTitle')}</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Toggle
+                id="notificationsEnabled"
+                label={t('whatsappAdmin.updatesEnabled')}
+                hint={t('whatsappAdmin.updatesHint')}
+                checked={draft.notificationsEnabled}
+                onChange={(v) => set('notificationsEnabled', v)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="notificationTemplateName">{t('whatsappAdmin.updatesTemplate')}</Label>
+              <Input id="notificationTemplateName" value={draft.notificationTemplateName} onChange={(e) => set('notificationTemplateName', e.target.value)} />
+            </div>
+            <p className="self-end text-xs text-ink/50 sm:col-span-2">{t('whatsappAdmin.updatesTemplateHint')}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader><CardTitle>{t('whatsappAdmin.otpTitle')}</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div>

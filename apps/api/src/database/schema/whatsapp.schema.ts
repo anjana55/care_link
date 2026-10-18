@@ -63,6 +63,15 @@ export const whatsappAuthSettings = mysqlTable('whatsapp_auth_settings', {
   templateLanguage: varchar('template_language', { length: 16 }).notNull().default('en'),
   templateHasCopyCodeButton: boolean('template_has_copy_code_button').notNull().default(true),
 
+  // Care request updates ("our team is working on your request"). Separate
+  // from the sign-in switch: a deployment can send updates over WhatsApp
+  // without offering WhatsApp sign-in, and the reverse. Uses the same Cloud
+  // API credentials as above, but a *utility* template whose body has one
+  // text parameter ({{1}}) carrying the update. It must be approved in each
+  // language it is sent in (en, si, ta) - the recipient's language picks it.
+  notificationsEnabled: boolean('notifications_enabled').notNull().default(false),
+  notificationTemplateName: varchar('notification_template_name', { length: 128 }).notNull().default('carelink_update'),
+
   // OTP policy.
   otpLength: int('otp_length').notNull().default(6),
   otpTtlSeconds: int('otp_ttl_seconds').notNull().default(300),

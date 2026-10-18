@@ -63,16 +63,51 @@ export class WhatsappProviderService {
     return this.sendViaCloudApi(settings, toE164, code);
   }
 
-  private async sendViaCloudApi(s: ResolvedWhatsappSettings, toE164: string, code: string): Promise<SendResult> {
-    if (!s.phoneNumberId || !s.accessToken) {
-      throw new WhatsappDeliveryError('WhatsApp delivery is not configured');
-    }
+  /** True when request updates can go out over WhatsApp (or be logged, in development). */
+  canSendUpdates(s: ResolvedWhatsappSettings): boolean {
+    if (!s.notificationsEnabled) return false;
+    if (s.provider === 'CONSOLE') return this.isDevConsole(s);
+    return Boolean(s.phoneNumberId && s.accessToken && s.notificationTemplateName);
+  }
 
+  /**
+   * A care request update, through the admin-configured utility template
+   * (body: one text parameter). WhatsApp only lets a business start a
+   * conversation with an approved template, so this cannot be free text.
+   * Template parameters may not contain line breaks or tabs, or more than four
+   * consecutive spaces, so the text is flattened first.
+   */
+  async sendUpdate(s: ResolvedWhatsappSettings, toE164: string, language: string, text: string): Promise<SendResult> {
+    const flat = text.replace(/[\r\n\t]+/g, ' ').replace(/ {2,}/g, ' ').trim().slice(0, 1000);
+    if (s.provider === 'CONSOLE') {
+      if (!this.isDevConsole(s)) throw new WhatsappDeliveryError('WhatsApp delivery is not configured');
+      this.logger.log(`[WHATSAPP CONSOLE] Update for ${toE164} (${language}): ${flat}`);
+      return { provider: 'CONSOLE' };
+    }
+    return this.postTemplate(s, toE164, s.notificationTemplateName, language, [
+      { type: 'body', parameters: [{ type: 'text', text: flat }] },
+    ]);
+  }
+
+  private async sendViaCloudApi(s: ResolvedWhatsappSettings, toE164: string, code: string): Promise<SendResult> {
     // Authentication templates carry the code in the body and, when the
     // template has a "copy code" button, again as that button's parameter.
     const components: unknown[] = [{ type: 'body', parameters: [{ type: 'text', text: code }] }];
     if (s.templateHasCopyCodeButton) {
       components.push({ type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: code }] });
+    }
+    return this.postTemplate(s, toE164, s.templateName, s.templateLanguage, components);
+  }
+
+  private async postTemplate(
+    s: ResolvedWhatsappSettings,
+    toE164: string,
+    templateName: string,
+    templateLanguage: string,
+    components: unknown[],
+  ): Promise<SendResult> {
+    if (!s.phoneNumberId || !s.accessToken) {
+      throw new WhatsappDeliveryError('WhatsApp delivery is not configured');
     }
 
     const url = `${s.apiBaseUrl}/${s.apiVersion}/${s.phoneNumberId}/messages`;
@@ -86,7 +121,7 @@ export class WhatsappProviderService {
           recipient_type: 'individual',
           to: toWhatsappRecipient(toE164),
           type: 'template',
-          template: { name: s.templateName, language: { code: s.templateLanguage }, components },
+          template: { name: templateName, language: { code: templateLanguage }, components },
         }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });

@@ -3,7 +3,8 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Sparkles, Languages, MapPin, ScrollText, ShieldCheck, Settings } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Inbox, Sparkles, Languages, MapPin, ScrollText, ShieldCheck, Settings } from 'lucide-react';
+import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,8 @@ const ITEMS = [
 // ADMIN_ITEMS because the API allows ADMIN + STAFF: in ITEMS it would leak to
 // VERIFIER, in ADMIN_ITEMS it would hide from STAFF.
 const CLIENT_ITEM = { href: '/clients', key: 'nav.clients', icon: HeartHandshake };
+// Requests sit with Clients for the same reason: ADMIN + STAFF only.
+const REQUESTS_ITEM = { href: '/requests', key: 'nav.requests', icon: Inbox };
 
 // Admin-only: rendered separately from ITEMS so they never show for STAFF/VERIFIER.
 const ADMIN_ITEMS = [
@@ -35,8 +38,11 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const canSeeClients = user?.role === 'ADMIN' || user?.role === 'STAFF';
+  // New, unhandled requests - the number staff should act on.
+  const { data: summary } = useCareRequestSummary(canSeeClients);
+  // Requests lead for the roles that work them: it is the day's worklist.
   // Clients sit straight after Caregivers, the list they mirror.
-  const base = canSeeClients ? [ITEMS[0], ITEMS[1], CLIENT_ITEM, ...ITEMS.slice(2)] : ITEMS;
+  const base = canSeeClients ? [ITEMS[0], REQUESTS_ITEM, ITEMS[1], CLIENT_ITEM, ...ITEMS.slice(2)] : ITEMS;
   const items = user?.role === 'ADMIN' ? [...base, ...ADMIN_ITEMS] : base;
 
   return (
@@ -56,7 +62,15 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             )}
           >
             <Icon size={17} strokeWidth={2} />
-            {t(item.key)}
+            <span className="flex-1">{t(item.key)}</span>
+            {item.href === '/requests' && summary && summary.new > 0 && (
+              <span
+                className="min-w-[1.25rem] rounded-full bg-accent px-1.5 text-center text-xs font-semibold tabular-nums text-white"
+                aria-label={t('requests.newCount', { count: summary.new })}
+              >
+                {summary.new}
+              </span>
+            )}
           </Link>
         );
       })}

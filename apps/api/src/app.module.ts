@@ -34,6 +34,7 @@ import { VerificationModule } from './verification/verification.module';
 import { PublicSearchModule } from './public-search/public-search.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { AccountAccessModule } from './account-access/account-access.module';
+import { CareRequestsModule } from './care-requests/care-requests.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { AccountAccessModule } from './account-access/account-access.module';
     PublicSearchModule,
     WhatsappModule,
     AccountAccessModule,
+    CareRequestsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

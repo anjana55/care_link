@@ -1,13 +1,12 @@
 'use client';
 
-import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { BadgeCheck, MapPin, Languages as LanguagesIcon } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useCaregiverProfile } from '@/lib/hooks/use-public-search';
 import { ApiError } from '@/lib/api/client';
 import { LoadingState, ErrorState } from '@/components/common/states';
-import { RegistrationGate } from '@/components/common/registration-gate';
+import { CaregiverActions } from '@/components/care/caregiver-actions';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 
@@ -17,7 +16,6 @@ export default function CaregiverProfilePage() {
   // Locale in the query key: the profile renders the caregiver's district and
   // city, and those names have to change with the language the visitor picked.
   const { data: caregiver, isLoading, isError, error, refetch } = useCaregiverProfile(params.publicId, locale);
-  const [gateOpen, setGateOpen] = useState(false);
   const isNotFound = error instanceof ApiError && error.status === 404;
 
   return (
@@ -122,29 +120,12 @@ export default function CaregiverProfilePage() {
               </div>
             )}
 
-            <div className="mt-8 flex flex-col gap-2 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => setGateOpen(true)}
-                className="flex-1 rounded-DEFAULT bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"
-              >
-                {t('profile.contactCta')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setGateOpen(true)}
-                className="flex-1 rounded-DEFAULT border border-border px-4 py-2.5 text-sm font-medium text-ink/70 hover:bg-paper"
-              >
-                {t('profile.saveCta')}
-              </button>
-            </div>
+            <CaregiverActions publicId={caregiver.publicId} caregiverLabel={caregiver.publicId.slice(0, 8)} />
           </article>
         )}
       </main>
 
       <SiteFooter />
-
-      <RegistrationGate open={gateOpen} onClose={() => setGateOpen(false)} reason="contact" />
     </div>
   );
 }

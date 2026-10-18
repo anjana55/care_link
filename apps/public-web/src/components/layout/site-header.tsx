@@ -54,10 +54,10 @@ export function SiteHeader({
         {showBackLink ? (
           <Link
             href={backHref}
-            className="flex items-center gap-1.5 text-sm font-medium text-ink/60 transition-colors hover:text-brand"
+            className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-ink/60 transition-colors hover:text-brand"
           >
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-            {backLabel ?? t('nav.backHome')}
+            <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="truncate">{backLabel ?? t('nav.backHome')}</span>
           </Link>
         ) : (
           <span className="text-sm font-semibold text-brand-dark">{t('nav.brand')}</span>
@@ -68,13 +68,25 @@ export function SiteHeader({
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
           {user ? (
-            <button
-              type="button"
-              onClick={logout}
-              className="text-sm font-medium text-ink/60 transition-colors hover:text-ink"
-            >
-              {user.email ?? user.phone}
-            </button>
+            <>
+              <Link
+                href={user.role === 'PATIENT_GUARDIAN' ? '/account/requests' : '/caregiver/dashboard'}
+                className="whitespace-nowrap text-sm font-medium text-brand-dark transition-colors hover:text-brand"
+                title={user.email ?? user.phone ?? undefined}
+              >
+                {t('nav.myAccount')}
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  window.location.assign('/');
+                }}
+                className="whitespace-nowrap text-sm font-medium text-ink/60 transition-colors hover:text-ink"
+              >
+                {t('nav.signOut')}
+              </button>
+            </>
           ) : (
             <Link href="/login" className="text-sm font-medium text-ink/60 transition-colors hover:text-ink">
               {t('nav.signIn')}

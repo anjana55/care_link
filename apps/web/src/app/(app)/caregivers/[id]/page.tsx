@@ -36,6 +36,7 @@ import { useAuth } from '@/lib/api/auth-context';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { RelatedRequests } from '@/components/requests/related-requests';
 import { StatusBadge, VerificationBadge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -318,6 +319,7 @@ export default function CaregiverProfilePage() {
           <TabsTrigger value="verification">{t('caregivers.profile.tabs.verification')}</TabsTrigger>
           {canSeeHealth && <TabsTrigger value="restricted">{t('caregivers.profile.tabs.restricted')}</TabsTrigger>}
           {isAdminOrStaff && <TabsTrigger value="signIn">{t('caregivers.profile.tabs.signIn')}</TabsTrigger>}
+          {isAdminOrStaff && <TabsTrigger value="requests">{t('requests.related.title')}</TabsTrigger>}
           {user?.role === 'ADMIN' && <TabsTrigger value="audit">{t('caregivers.profile.tabs.audit')}</TabsTrigger>}
         </TabsList>
 
@@ -1086,6 +1088,12 @@ export default function CaregiverProfilePage() {
               </CardContent>
             </Card>
             <p className="mt-3 text-xs text-ink/40">Access to this tab is restricted and every view is recorded in the audit log.</p>
+          </TabsContent>
+        )}
+
+        {isAdminOrStaff && (
+          <TabsContent value="requests">
+            <RelatedRequests caregiverId={caregiver.id} />
           </TabsContent>
         )}
 

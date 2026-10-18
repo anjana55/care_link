@@ -197,3 +197,19 @@ screen – no redeploy needed.
 | Stored access token seems lost after changing secrets | The token is encrypted with `SETTINGS_ENCRYPTION_KEY` (or `JWT_REFRESH_SECRET` if unset). Changing it makes the token unreadable; re-enter it in the admin screen. |
 | `migrate.js` fails | Make sure the `mysql` container is healthy (`$COMPOSE ps`) and run it again; send the error text if it persists. |
 | WhatsApp links don't appear | The feature is off, or that role/flow is switched off; check `GET https://YOUR-DOMAIN/api/auth/whatsapp/config`. |
+
+## Care request updates over WhatsApp (optional)
+
+Separate from sign-in. When on, clients who prefer WhatsApp (or have no email) and
+caregivers with no email get request updates on WhatsApp, using the Cloud API
+credentials above.
+
+1. In WhatsApp Manager, create a **Utility** template (default name
+   `carelink_update`) whose body has one variable, for example
+   `CareLink: {{1}}`. Add and get it approved in **English (en)**, **Sinhala (si)**
+   and **Tamil (ta)** — clients receive it in the language they used on the site.
+2. In **Settings › WhatsApp › Care request updates**, tick *Send request updates
+   over WhatsApp*, check the template name, and save.
+
+With the Console provider (development only) the update text is written to the API
+log instead.

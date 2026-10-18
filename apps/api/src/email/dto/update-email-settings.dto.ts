@@ -42,6 +42,16 @@ export class UpdateEmailSettingsDto {
   @ApiPropertyOptional({ example: 'support@example.com' })
   @IsOptional() @ValidateIf((_, v) => v !== '') @IsEmail({}, { message: 'Enter a valid reply-to address' }) @MaxLength(255)
   replyTo?: string;
+
+  @ApiPropertyOptional({
+    example: 'bookings@example.com, ops@example.com',
+    description: 'Where new care request alerts go. Empty = every active admin and staff account with an email.',
+  })
+  @IsOptional() @IsString() @MaxLength(1000)
+  @Matches(/^\s*$|^\s*[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+(\s*[,;\s]\s*[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+)*\s*$/, {
+    message: 'Enter one or more email addresses, separated by commas',
+  })
+  requestAlertsTo?: string;
 }
 
 export class SendTestEmailDto {

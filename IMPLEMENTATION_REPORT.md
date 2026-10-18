@@ -325,3 +325,60 @@ were chosen so it slots in the same way (`PATIENT_GUARDIAN` role, a `patients.us
 FK) without revisiting this design - but that table, those endpoints, and that flow
 don't exist yet.
 
+
+## 17. Changelog — contact and save caregivers (staff-mediated requests)
+
+**What a client can do now.** A signed-in client (patient/guardian) can press
+**Contact this caregiver** on a public profile, add an optional note, and send a
+request; and **Save** caregivers to a shortlist (heart on result cards, button on
+profiles). Their account area at `/account/requests` and `/account/saved` shows
+each request's status in plain words and lets them cancel one that staff have not
+yet introduced. A signed-out visitor who presses either button goes through the
+existing sign-up/sign-in gate and is brought back to the same profile afterwards.
+
+**Contact is staff-mediated.** Neither side ever sees the other's name, phone or
+email through the app. The client addresses caregivers by public id only and sees
+only the anonymous public profile; requests land in a new staff **Requests** queue
+(ADMIN + STAFF, like Clients) where staff see both parties in full, call them, and
+move the request on: `NEW → IN_PROGRESS → INTRODUCED`, or `CLOSED` with a reason
+(reopenable). The client can cancel from `NEW`/`IN_PROGRESS`. Staff can assign a
+request, add internal notes, and see the full history. A client's and a
+caregiver's records each list their requests.
+
+**Rules enforced by the API** (`apps/api/src/care-requests/`):
+- one *open* request per client–caregiver pair, enforced by a unique index on a
+  generated `open_pair_key` column (race-safe, same technique as `live_nic`);
+- at most 10 open requests per client, 100 saved caregivers;
+- only publicly visible caregivers (ACTIVE, not deleted) can be contacted or saved,
+  with the same 404 for "doesn't exist" and "not public";
+- PENDING_REVIEW clients may send requests (staff see the review status);
+  SUSPENDED/INACTIVE clients may not;
+- deleting a client removes their requests and shortlist.
+
+**Notifications** (`CareRequestNotifier`, fire-and-forget, never block a request):
+- new request → email to staff: the new **Settings › Email › Care request alerts**
+  list, or every active admin/staff account when it is empty;
+- client → confirmation, then every staff move, in the language they were using,
+  by WhatsApp if they prefer it (or have no email) and WhatsApp updates are on,
+  otherwise email;
+- caregiver → when staff pick a request up and when they introduce, in English,
+  Sinhala and Tamil together, by email, else WhatsApp.
+Notices carry only the reference number and generic wording — no names, numbers
+or care details. WhatsApp updates have their own switch under **Settings ›
+WhatsApp › Care request updates** and need an approved *utility* template with one
+body parameter (`{{1}}`), approved in `en`, `si` and `ta`.
+
+**Migration** `0005_care_requests`: new `care_requests`, `care_request_events`,
+`saved_caregivers` tables; `email_settings.request_alerts_to`;
+`whatsapp_auth_settings.notifications_enabled` and `notification_template_name`.
+Additive only.
+
+**Tests**: `test/care-requests.e2e-spec.ts` (20 cases: privacy of the client view,
+duplicate and concurrent sends, visibility, client status, ownership, the staff
+status ladder, notes/assignment, deletion cascade, saved list); unit tests for the
+notifier's channel choice and wording; `apps/public-web/src/__tests__/client-care.test.tsx`
+(10 cases). The staff app's `t()` now fills `{name}` placeholders.
+
+**Honest gaps**: Sinhala/Tamil strings are machine-drafted like the rest of the
+platform; the platform does not store a caregiver's language, so their notices go
+out in all three. Hiring/bookings build on `INTRODUCED` in the next phase.

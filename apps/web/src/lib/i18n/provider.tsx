@@ -16,7 +16,8 @@ const STORAGE_KEY = 'care-platform-locale';
 interface I18nContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: string) => string;
+  /** `{name}` placeholders in the text are filled from `vars`; a missing one is left as written. */
+  t: (key: string, vars?: Record<string, string | number>) => string;
   fontClass: string;
 }
 
@@ -46,8 +47,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const t = useCallback(
-    (key: string) => {
-      return resolve(DICTIONARIES[locale], key) ?? resolve(DICTIONARIES.en, key) ?? key;
+    (key: string, vars?: Record<string, string | number>) => {
+      const text = resolve(DICTIONARIES[locale], key) ?? resolve(DICTIONARIES.en, key) ?? key;
+      if (!vars) return text;
+      return text.replace(/\{(\w+)\}/g, (match, name: string) => (name in vars ? String(vars[name]) : match));
     },
     [locale],
   );

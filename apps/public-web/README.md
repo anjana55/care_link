@@ -46,6 +46,13 @@ straight to running all migrations.
   contact/save actions, loading/empty/error states, and English/Sinhala/Tamil
   i18n switchable without a reload.
 
+## Contacting and saving caregivers
+
+Signed-in clients can contact a caregiver (a staff-mediated request - see
+`IMPLEMENTATION_REPORT.md` §17) and save caregivers; their requests and shortlist
+live under `/account/requests` and `/account/saved`. Signed-out visitors meet the
+sign-up gate and are returned to the profile they came from afterwards.
+
 ## Known limitations / what's intentionally not real yet
 
 - **AI Search is a client-side mock.** `src/lib/ai/mock-extract.ts` does
@@ -56,10 +63,6 @@ straight to running all migrations.
   real server-side extraction/ranking pipeline (Ollama-backed, per the agreed
   architecture) is built. To try the AI tab locally, temporarily hardcode
   `aiSearchEnabled: true` in `PublicSearchController.searchConfig()`.
-- **Registration/login isn't real.** The registration-gate modal is the UI
-  contract for where sign-up/sign-in happens; the buttons don't yet call an
-  auth endpoint (`patients` table + `PATIENT_GUARDIAN` role exist in the
-  schema, ready for that phase).
 - **Sinhala/Tamil strings are a good-faith translation**, not reviewed by a
   native speaker — worth a pass before this goes live.
 - **`minimumExperienceYears` filtering is approximate** (checks whether any

@@ -37,6 +37,18 @@ export function parseFromHeader(raw: string | undefined): { name: string | null;
 }
 
 /**
+ * Tidies the "request alerts" list into `a@x.com, b@y.com`, or null when empty.
+ * The DTO has already checked each entry is an address.
+ */
+export function normalizeAddressList(raw: string): string | null {
+  const list = raw
+    .split(/[,;\s]+/)
+    .map((a) => a.trim())
+    .filter(Boolean);
+  return list.length ? [...new Set(list.map((a) => a.toLowerCase()))].join(', ') : null;
+}
+
+/**
  * Owns the single admin-managed outgoing-mail row (Settings > Email).
  *
  * Read on every send rather than cached, like the WhatsApp and social sign-in
@@ -122,6 +134,7 @@ export class EmailSettingsService {
       fromName: text(dto.fromName, current.fromName) ?? DEFAULT_FROM_NAME,
       fromAddress: text(dto.fromAddress, current.fromAddress),
       replyTo: text(dto.replyTo, current.replyTo),
+      requestAlertsTo: dto.requestAlertsTo === undefined ? current.requestAlertsTo : normalizeAddressList(dto.requestAlertsTo),
     };
     const newPassword = dto.password ? dto.password : null; // not trimmed: spaces can be part of a password
     // A password only means something alongside a username, so clearing the
