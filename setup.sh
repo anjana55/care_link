@@ -41,6 +41,7 @@ ADMIN_PASSWORD=""
 ADMIN_NAME="Platform Administrator"
 TLS_EMAIL=""
 SKIP_TLS=0
+SKIP_SWAP=0
 ASSUME_YES=0
 PASSWORD_SOURCE="generated"
 TLS_ENABLED=0
@@ -65,6 +66,9 @@ Options:
   --skip-tls              Deploy over plain HTTP and don't attempt a certificate.
                            Use this when the domain isn't pointing at this server
                            yet; re-run later without it to add HTTPS.
+  --skip-swap             Don't create a swap file on a small server (under 4 GB
+                           of RAM). Only use this if you manage swap yourself -
+                           without enough memory the image build stalls.
   -y, --yes               Don't pause for confirmation before starting.
   -h, --help              Show this help.
 EOF
@@ -81,6 +85,7 @@ for arg in "$@"; do
     --admin-password=*) ADMIN_PASSWORD="${arg#*=}" ;;
     --tls-email=*) TLS_EMAIL="${arg#*=}" ;;
     --skip-tls) SKIP_TLS=1 ;;
+    --skip-swap) SKIP_SWAP=1 ;;
     -y|--yes) ASSUME_YES=1 ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $arg (see --help)" ;;
@@ -146,6 +151,130 @@ ensure_docker() {
 ensure_docker
 docker compose version >/dev/null 2>&1 || die "The 'docker compose' plugin isn't available - see DEPLOYMENT.md Part 4."
 command -v openssl >/dev/null 2>&1 || die "openssl isn't installed (needed to generate secrets)."
+
+# ---------------------------------------------------------------------------
+# 1b. Small servers (t3.micro / t3.small and similar).
+#
+# Building the images is by far the most memory-hungry thing this script
+# does: each Next.js build (web, public-web) peaks around 1.3 GB on its own,
+# and `docker compose build` runs all three images AT ONCE. On a 1-2 GB
+# instance with no swap - which is how EC2's Ubuntu images come - that
+# doesn't fail cleanly. The kernel thrashes the page cache, the build stops
+# making progress, and SSH barely responds: the script just looks stuck in
+# the middle. MySQL 8 then wants another ~400 MB on top at runtime.
+#
+# So on a server with under 4 GB of RAM this:
+#   - adds a swap file so memory + swap reaches ~4 GB (persisted in fstab),
+#   - builds the images one at a time instead of all together,
+#   - gives the Next.js builds an explicit heap limit that uses that swap
+#     (Node otherwise sizes its heap from physical RAM and dies with
+#     "JavaScript heap out of memory"), and
+#   - runs MySQL without performance_schema, which saves ~250 MB.
+# A larger server is left exactly as it was.
+# ---------------------------------------------------------------------------
+SUDO=""
+if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+  SUDO="sudo"
+fi
+
+LOW_MEMORY=0
+BUILD_TARGET_MB=4096
+MEM_MB="$(awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)"
+SWAP_MB="$(awk '/^SwapTotal:/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)"
+if [ "${MEM_MB:-0}" -gt 0 ] && [ "$MEM_MB" -lt 3800 ]; then
+  LOW_MEMORY=1
+fi
+
+ensure_swap() {
+  [ "$LOW_MEMORY" -eq 1 ] || return 0
+  log "Small server detected (${MEM_MB} MB RAM, ${SWAP_MB} MB swap) - preparing it for the build"
+
+  local need_mb=$(( BUILD_TARGET_MB - MEM_MB - SWAP_MB ))
+  if [ "$need_mb" -le 0 ]; then
+    echo "  Memory + swap is already $(( MEM_MB + SWAP_MB )) MB - enough for the build."
+    return 0
+  fi
+  if [ "$SKIP_SWAP" -eq 1 ]; then
+    warn "--skip-swap given, but this server has only $(( MEM_MB + SWAP_MB )) MB of memory + swap."
+    warn "The image build needs about ${BUILD_TARGET_MB} MB and may stall without more swap."
+    return 0
+  fi
+
+  # Round up to a whole GB, minimum 1 GB - small odd sizes buy nothing.
+  local size_mb=$(( (need_mb + 1023) / 1024 * 1024 ))
+  [ "$size_mb" -lt 1024 ] && size_mb=1024
+  local swapfile="/swapfile"
+  local how_to="Add swap yourself (e.g. a ${size_mb} MB file: sudo fallocate -l ${size_mb}M /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile), or use an instance with at least 4 GB of RAM, then re-run. See DEPLOYMENT.md Part 17.14."
+
+  if [ "$(id -u)" -ne 0 ] && [ -z "$SUDO" ]; then
+    warn "Can't create a swap file without root or sudo. $how_to"
+    return 0
+  fi
+  if [ -e "$swapfile" ]; then
+    # Exists but isn't active (a previous run, or the operator's own) - turn
+    # it on rather than overwrite something we didn't create.
+    if ! swapon --show=NAME --noheadings 2>/dev/null | grep -qx "$swapfile"; then
+      $SUDO swapon "$swapfile" 2>/dev/null && echo "  Re-enabled the existing $swapfile." \
+        || warn "$swapfile exists but couldn't be enabled. $how_to"
+    fi
+    return 0
+  fi
+
+  # The swap file and ~4 GB of images + build cache share the root volume,
+  # and EC2's default 8 GB volume is tight. Shrink the swap file to what
+  # leaves room for the images rather than filling the disk; below 1 GB it
+  # isn't worth having, so say what to do instead.
+  local free_mb fit_mb
+  free_mb="$(df -Pm / | awk 'NR==2 {print $4}')"
+  fit_mb=$(( (${free_mb:-0} - 4096) / 1024 * 1024 ))
+  if [ "$fit_mb" -lt "$size_mb" ]; then
+    if [ "$fit_mb" -lt 1024 ]; then
+      warn "Only ${free_mb} MB free on / - not enough room for a swap file as well as the images."
+      warn "Grow the EBS volume to 20 GB or more (DEPLOYMENT.md Part 17.14) and re-run, or: $how_to"
+      return 0
+    fi
+    warn "Only ${free_mb} MB free on / - creating a ${fit_mb} MB swap file instead of ${size_mb} MB."
+    warn "The build may be slow; growing the EBS volume to 20 GB or more is recommended (DEPLOYMENT.md Part 17.14)."
+    size_mb="$fit_mb"
+  fi
+
+  echo "  Creating a ${size_mb} MB swap file at $swapfile"
+  if ! $SUDO fallocate -l "${size_mb}M" "$swapfile" 2>/dev/null; then
+    # fallocate isn't supported on every filesystem; dd always works.
+    $SUDO dd if=/dev/zero of="$swapfile" bs=1M count="$size_mb" status=none
+  fi
+  $SUDO chmod 600 "$swapfile"
+  $SUDO mkswap "$swapfile" >/dev/null
+  $SUDO swapon "$swapfile"
+  # Persist across reboots - MySQL and the API still benefit from it at runtime.
+  if ! grep -qE "^[[:space:]]*${swapfile}[[:space:]]" /etc/fstab 2>/dev/null; then
+    echo "${swapfile} none swap sw 0 0" | $SUDO tee -a /etc/fstab >/dev/null
+  fi
+  # Prefer keeping the running app in RAM; swap is the safety net for the
+  # build, not somewhere to park MySQL's working set.
+  $SUDO sysctl -q vm.swappiness=10 >/dev/null 2>&1 || true
+  if [ -d /etc/sysctl.d ]; then
+    echo 'vm.swappiness=10' | $SUDO tee /etc/sysctl.d/99-carelink-swap.conf >/dev/null || true
+  fi
+  SWAP_MB="$(awk '/^SwapTotal:/ {print int($2/1024)}' /proc/meminfo)"
+  echo "  Swap is now ${SWAP_MB} MB (memory + swap: $(( MEM_MB + SWAP_MB )) MB)."
+}
+
+check_disk_space() {
+  # Three node images plus build cache need roughly 6 GB; a full disk shows up
+  # as a confusing "no space left on device" deep inside an npm install.
+  local root free_mb
+  root="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)"
+  [ -d "$root" ] || root="/"
+  free_mb="$(df -Pm "$root" 2>/dev/null | awk 'NR==2 {print $4}')"
+  if [ -n "$free_mb" ] && [ "$free_mb" -lt 6144 ]; then
+    warn "Only ${free_mb} MB of disk free for Docker ($root). The build needs about 6 GB and may fail with"
+    warn "'no space left on device'. Grow the volume to 20 GB or more, or free space with: docker system prune"
+  fi
+}
+
+ensure_swap
+check_disk_space
 
 # Can this Docker actually publish port 80?
 #
@@ -263,11 +392,9 @@ if grep -v '^\s*#' "$ENV_FILE" | grep -qE '(yourdomain\.example|^(MYSQL_PASSWORD
   die "$ENV_FILE still has placeholder or blank values - open it and fill in every line (see DEPLOYMENT.md Part 8), then re-run."
 fi
 
-# SMTP is the one deliberate exception to the check above (DEPLOYMENT.md
-# Part 8.4): the app runs fine without it, so this warns rather than dies.
-if grep -v '^\s*#' "$ENV_FILE" | grep -qE '^(SMTP_HOST|SMTP_FROM)=$'; then
-  warn "SMTP_HOST/SMTP_FROM aren't set in $ENV_FILE - registrations will work, but nobody gets a verification email until you fill these in and restart (see DEPLOYMENT.md Part 8.4)."
-fi
+# Email isn't configured here any more: an admin sets up the mail server in
+# the app, under Settings > Email (DEPLOYMENT.md Part 8.4). SMTP_* in the env
+# file still work, but only to pre-fill that screen on the very first start.
 
 # ---------------------------------------------------------------------------
 # 3. Work out the initial admin's email/password (persisted into
@@ -304,6 +431,13 @@ fi
 grep -q '^INITIAL_ADMIN_EMAIL=' "$ENV_FILE" || echo "INITIAL_ADMIN_EMAIL=${ADMIN_EMAIL}" >> "$ENV_FILE"
 grep -q '^INITIAL_ADMIN_PASSWORD=' "$ENV_FILE" || echo "INITIAL_ADMIN_PASSWORD=${ADMIN_PASSWORD}" >> "$ENV_FILE"
 grep -q '^INITIAL_ADMIN_NAME=' "$ENV_FILE" || echo "INITIAL_ADMIN_NAME=${ADMIN_NAME}" >> "$ENV_FILE"
+
+# MySQL's performance_schema costs ~250 MB of RAM for diagnostics this app
+# never reads. Switched off on small servers only, and only if the operator
+# hasn't chosen a value themselves - an explicit line in the env file wins.
+if [ "$LOW_MEMORY" -eq 1 ] && ! grep -q '^MYSQL_PERFORMANCE_SCHEMA=' "$ENV_FILE"; then
+  echo "MYSQL_PERFORMANCE_SCHEMA=OFF" >> "$ENV_FILE"
+fi
 
 # ---------------------------------------------------------------------------
 # 3b. Decide whether HTTPS is possible at all.
@@ -361,8 +495,24 @@ fi
 # ---------------------------------------------------------------------------
 # 4. Build the images (DEPLOYMENT.md Part 9) - slow the first time.
 # ---------------------------------------------------------------------------
-log "Building images (this can take 5-15 minutes the first time)"
-compose build
+if [ "$LOW_MEMORY" -eq 1 ]; then
+  # One image at a time (see 1b): three builds side by side need ~4 GB, one
+  # at a time fits in RAM + swap. Slower, but it finishes. The heap limit
+  # lets Node use that swap instead of aborting at its RAM-based default.
+  log "Building images one at a time for this small server (allow 15-30 minutes the first time)"
+  export NODE_BUILD_HEAP_MB=2048
+  for service in api web public-web; do
+    echo "  Building $service ..."
+    compose build "$service"
+  done
+else
+  log "Building images (this can take 5-15 minutes the first time)"
+  compose build
+fi
+# Each rebuild leaves the previous image behind untagged; on an 8 GB volume
+# a few re-runs are enough to fill the disk. Build cache is kept, so the
+# next build is still fast.
+docker image prune -f >/dev/null 2>&1 || true
 
 # `compose build` only refreshes the image; it does not recreate containers
 # that are already running. `up -d` then sees the same container and leaves
@@ -422,7 +572,9 @@ log "Waiting for mysql and api to be healthy/running"
 ATTEMPTS=0
 until [ "$(docker inspect -f '{{.State.Health.Status}}' "$(compose ps -q mysql)" 2>/dev/null)" = "healthy" ]; do
   ATTEMPTS=$((ATTEMPTS + 1))
-  [ "$ATTEMPTS" -ge 30 ] && die "mysql never became healthy - run 'docker compose -f $COMPOSE_FILE --env-file $ENV_FILE logs mysql' and see DEPLOYMENT.md Part 17."
+  # 60 x 5s: first-time initialisation of MySQL 8 on a burstable 1-2 GB
+  # instance can take several minutes.
+  [ "$ATTEMPTS" -ge 60 ] && die "mysql never became healthy - run 'docker compose -f $COMPOSE_FILE --env-file $ENV_FILE logs mysql' and see DEPLOYMENT.md Part 17."
   sleep 5
 done
 ATTEMPTS=0
@@ -731,6 +883,8 @@ case "$PASSWORD_SOURCE" in
 esac
 echo
 echo "  Log in and change that password immediately (top bar -> key icon)."
+echo "  Then set up email under Settings > Email, or nobody receives their"
+echo "  verification email (they are written to 'docker compose logs api' until then)."
 if [ "$TLS_ENABLED" -eq 1 ]; then
   echo "  HTTPS is on and renews itself twice daily. Back up the certbot-conf"
   echo "  volume along with your database - see DEPLOYMENT.md Part 15."

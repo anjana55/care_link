@@ -24,7 +24,11 @@ RUN npm run build -w @care-platform/shared
 # See apps/public-web/Dockerfile - same NEXT_PUBLIC_* build-time caveat.
 ARG NEXT_PUBLIC_API_URL=http://localhost:3001
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-RUN npm run build -w @care-platform/web
+# A heap limit for the Next.js build, passed by setup.sh on small servers.
+# Node sizes its default heap from physical RAM, so on a 1-2 GB instance the
+# build dies with "JavaScript heap out of memory" even though swap exists.
+ARG NODE_BUILD_HEAP_MB=
+RUN NODE_OPTIONS="${NODE_BUILD_HEAP_MB:+--max-old-space-size=$NODE_BUILD_HEAP_MB}" npm run build -w @care-platform/web
 
 # ---- runtime image ----
 FROM node:20-alpine AS runner

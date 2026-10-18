@@ -29,6 +29,13 @@
       "when": 1791432663974,
       "tag": "0003_account_access",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1792299468315,
+      "tag": "0004_email_settings",
+      "breakpoints": true
     }
   ]
 }

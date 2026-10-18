@@ -24,6 +24,9 @@ const EXEMPT_FILES: Record<string, string> = {
   'whatsapp/whatsapp-settings.service.ts': 'admin configuration screen (staff UI)',
   'whatsapp/whatsapp-settings.controller.ts': 'admin configuration screen (staff UI)',
   'whatsapp/dto/update-whatsapp-settings.dto.ts': 'admin configuration screen (staff UI)',
+  'email/email-settings.service.ts': 'admin configuration screen (staff UI)',
+  'email/email-settings.controller.ts': 'admin configuration screen (staff UI); relays the SMTP server\'s own diagnostics',
+  'email/dto/update-email-settings.dto.ts': 'admin configuration screen (staff UI)',
 };
 
 /** Single messages that are developer-facing. */

@@ -281,6 +281,24 @@ export interface SocialProviderSettings {
   updatedAt: string | null;
 }
 
+/** Admin-managed outgoing mail server (GET/PATCH /settings/email). The password is never returned. */
+export interface EmailSettings {
+  /** Deliver email through this server; off = emails are only written to the API log. */
+  enabled: boolean;
+  host: string | null;
+  port: number;
+  /** true = TLS from the first byte (usually 465); false = STARTTLS (usually 587). */
+  secure: boolean;
+  username: string | null;
+  passwordSet: boolean;
+  fromName: string;
+  fromAddress: string | null;
+  replyTo: string | null;
+  /** Enabled and complete: emails are actually being sent. */
+  usable: boolean;
+  updatedAt: string;
+}
+
 // --- Clients (self-registered patients/guardians) ---------------------------
 
 export type RegistrantType = 'SELF' | 'GUARDIAN';

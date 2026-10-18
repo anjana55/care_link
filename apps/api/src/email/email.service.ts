@@ -1,11 +1,25 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { EmailSettingsService, type ResolvedEmailSettings } from './email-settings.service';
 import { verificationEmail } from './templates/verification-email';
 import { claimCodeEmail } from './templates/claim-code-email';
+import { testEmail } from './templates/test-email';
 
 const VERIFICATION_TOKEN_TTL_HOURS = 24; // must match AuthService's VERIFICATION_TOKEN_TTL_MS
+
+/**
+ * Bounds on every SMTP conversation. nodemailer's own defaults wait up to two
+ * minutes to connect, which turns a firewalled port into a "Send test" button
+ * that just spins. A real server answers well inside these.
+ */
+const SMTP_TIMEOUTS = { connectionTimeout: 15_000, greetingTimeout: 10_000, socketTimeout: 30_000 };
+
+interface Message {
+  subject: string;
+  html: string;
+  text: string;
+}
 
 /**
  * Real SMTP delivery for transactional email. Works with any SMTP provider
@@ -13,55 +27,109 @@ const VERIFICATION_TOKEN_TTL_HOURS = 24; // must match AuthService's VERIFICATIO
  * Mailgun, Gmail, ...) rather than locking this self-hosted app into one
  * vendor's SDK.
  *
- * When SMTP_HOST isn't set (local dev, or a prod deploy that hasn't
- * configured email yet), falls back to logging the email to the console -
- * the same behavior the old sendVerificationEmailStub had - so the rest of
- * the app keeps working and registration/verification stays testable
- * without a mailbox. See DEPLOYMENT.md's "Email (SMTP)" section.
+ * The server is configured by an admin under Settings > Email
+ * (EmailSettingsService), and read on every send - so a change applies
+ * immediately, with no restart. While delivery is off or incomplete, emails
+ * are logged to the console instead, so the rest of the app keeps working and
+ * registration/verification stays testable without a mailbox.
  */
 @Injectable()
-export class EmailService implements OnModuleInit {
+export class EmailService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: Transporter | null = null;
-  private readonly from: string;
+  /** The pooled transporter for the current settings, rebuilt when they change. */
+  private pooled: { key: string; transporter: Transporter } | null = null;
 
-  constructor(private readonly config: ConfigService) {
-    const host = this.config.get<string>('SMTP_HOST');
-    this.from = this.config.get<string>('SMTP_FROM') || 'CareLink <no-reply@care-platform.local>';
+  constructor(private readonly settings: EmailSettingsService) {}
 
-    if (host) {
-      const user = this.config.get<string>('SMTP_USER');
-      const pass = this.config.get<string>('SMTP_PASSWORD');
-      this.transporter = nodemailer.createTransport({
-        host,
-        port: this.config.get<number>('SMTP_PORT') ?? 587,
-        secure: this.config.get<string>('SMTP_SECURE') === 'true',
-        // Only some relays require auth - an internal unauthenticated relay
-        // is a legitimate setup, so this stays undefined rather than sending
-        // an empty {user: '', pass: ''} that some servers reject outright.
-        auth: user && pass ? { user, pass } : undefined,
-        pool: true,
-      });
-    }
+  /**
+   * Reports the mail setup at boot, without ever holding boot up: on a fresh
+   * deploy the API starts before migrations have created the settings table,
+   * and an unreachable SMTP server must not delay or crash startup either.
+   */
+  onModuleInit() {
+    void this.reportStatus().catch(() => {
+      // Table not there yet (pre-migration) or the database is still coming
+      // up - the first real send reads the settings again anyway.
+    });
   }
 
-  async onModuleInit() {
-    if (!this.transporter) {
-      if (this.config.get<string>('NODE_ENV') === 'production') {
-        this.logger.error(
-          'SMTP_HOST is not set - verification emails will be logged to the console instead of delivered. ' +
-            'Set SMTP_HOST/SMTP_FROM (and restart) once you have real SMTP credentials - see DEPLOYMENT.md.',
-        );
-      } else {
-        this.logger.warn('SMTP_HOST is not set - verification emails will be logged to the console instead of sent.');
-      }
+  onModuleDestroy() {
+    this.pooled?.transporter.close();
+    this.pooled = null;
+  }
+
+  private async reportStatus() {
+    const s = await this.settings.getResolved();
+    if (!s.usable) {
+      this.logger.warn(
+        'Email delivery is not set up - verification emails will be written to this log instead of sent. ' +
+          'An admin can configure the mail server under Settings > Email.',
+      );
       return;
     }
     try {
-      await this.transporter.verify();
-      this.logger.log(`SMTP connection verified (${this.config.get<string>('SMTP_HOST')}) - email delivery is live.`);
+      await this.transporterFor(s).verify();
+      this.logger.log(`SMTP connection verified (${s.host}:${s.port}) - email delivery is live.`);
     } catch (err) {
       this.logger.error(`SMTP connection check failed - emails will fail to send until this is fixed: ${(err as Error).message}`);
+    }
+  }
+
+  private static key(s: ResolvedEmailSettings) {
+    return JSON.stringify([s.host, s.port, s.secure, s.username, s.password]);
+  }
+
+  private static transportOptions(s: ResolvedEmailSettings) {
+    return {
+      host: s.host!,
+      port: s.port,
+      secure: s.secure,
+      // Only some relays require auth - an internal unauthenticated relay
+      // is a legitimate setup, so this stays undefined rather than sending
+      // an empty {user: '', pass: ''} that some servers reject outright.
+      auth: s.username && s.password ? { user: s.username, pass: s.password } : undefined,
+      ...SMTP_TIMEOUTS,
+    };
+  }
+
+  /** The pooled transporter for these settings, replacing (and closing) a stale one. */
+  private transporterFor(s: ResolvedEmailSettings): Transporter {
+    const key = EmailService.key(s);
+    if (this.pooled?.key === key) return this.pooled.transporter;
+    this.pooled?.transporter.close();
+    const transporter = nodemailer.createTransport({ ...EmailService.transportOptions(s), pool: true });
+    this.pooled = { key, transporter };
+    return transporter;
+  }
+
+  private static from(s: ResolvedEmailSettings) {
+    return { name: s.fromName || 'CareLink', address: s.fromAddress! };
+  }
+
+  /**
+   * Delivers one message, or logs it when delivery isn't set up. Never throws:
+   * the callers fire-and-forget (see sendVerificationEmail).
+   */
+  private async deliver(to: string, message: Message, label: string, consoleLine: string): Promise<void> {
+    let s: ResolvedEmailSettings;
+    try {
+      s = await this.settings.getResolved();
+    } catch (err) {
+      this.logger.error(`Couldn't read the email settings, so the ${label} for ${to} was not sent: ${(err as Error).message}`);
+      this.logger.log(`[EMAIL NOT SENT] ${consoleLine}`);
+      return;
+    }
+
+    if (!s.usable) {
+      this.logger.log(`[EMAIL NOT CONFIGURED] ${consoleLine}`);
+      return;
+    }
+
+    try {
+      await this.transporterFor(s).sendMail({ from: EmailService.from(s), replyTo: s.replyTo || undefined, to, ...message });
+      this.logger.log(`${label[0].toUpperCase()}${label.slice(1)} sent to ${to}`);
+    } catch (err) {
+      this.logger.error(`Failed to send ${label} to ${to}: ${(err as Error).message}`);
     }
   }
 
@@ -73,39 +141,40 @@ export class EmailService implements OnModuleInit {
    * arrives, so a delivery failure must not surface as a registration error.
    */
   async sendVerificationEmail(to: string, verificationUrl: string, audience: 'CAREGIVER' | 'PATIENT_GUARDIAN'): Promise<void> {
-    const { subject, html, text } = verificationEmail({
-      verificationUrl,
-      audience,
-      expiresInHours: VERIFICATION_TOKEN_TTL_HOURS,
-    });
-
-    if (!this.transporter) {
-      this.logger.log(`[EMAIL NOT CONFIGURED] Verification link for ${to}: ${verificationUrl}`);
-      return;
-    }
-
-    try {
-      await this.transporter.sendMail({ from: this.from, to, subject, html, text });
-      this.logger.log(`Verification email sent to ${to}`);
-    } catch (err) {
-      this.logger.error(`Failed to send verification email to ${to}: ${(err as Error).message}`);
-    }
+    const message = verificationEmail({ verificationUrl, audience, expiresInHours: VERIFICATION_TOKEN_TTL_HOURS });
+    await this.deliver(to, message, 'verification email', `Verification link for ${to}: ${verificationUrl}`);
   }
 
   /** The six-digit code for finishing an unsecured caregiver account (AccountClaimService). */
   async sendClaimCodeEmail(to: string, code: string, registrationNumber: string, expiresInMinutes: number): Promise<void> {
-    const { subject, html, text } = claimCodeEmail({ code, registrationNumber, expiresInMinutes });
+    const message = claimCodeEmail({ code, registrationNumber, expiresInMinutes });
+    await this.deliver(to, message, 'claim code email', `Claim code for ${to} (${registrationNumber}): ${code}`);
+  }
 
-    if (!this.transporter) {
-      this.logger.log(`[EMAIL NOT CONFIGURED] Claim code for ${to} (${registrationNumber}): ${code}`);
-      return;
-    }
+  /**
+   * Settings > Email's "Send test email". Unlike the senders above this one
+   * THROWS, with the server's own reason, because explaining a failure is the
+   * whole point of the button. It uses the saved settings even while delivery
+   * is switched off, so an admin can prove a server works before turning it on,
+   * and a fresh, unpooled connection so the result reflects the server now.
+   */
+  async sendTestEmail(to: string): Promise<{ accepted: boolean; response: string }> {
+    const s = await this.settings.getResolved();
+    if (!s.host) throw new Error('Save a server host first.');
+    if (!s.fromAddress) throw new Error('Save a sender address first.');
+    if (s.username && !s.password) throw new Error('A username is saved without a password - enter the password and save.');
 
+    const transporter = nodemailer.createTransport(EmailService.transportOptions(s));
     try {
-      await this.transporter.sendMail({ from: this.from, to, subject, html, text });
-      this.logger.log(`Claim code email sent to ${to}`);
-    } catch (err) {
-      this.logger.error(`Failed to send claim code email to ${to}: ${(err as Error).message}`);
+      const info = await transporter.sendMail({
+        from: EmailService.from(s),
+        replyTo: s.replyTo || undefined,
+        to,
+        ...testEmail({ host: s.host, port: s.port, deliveryEnabled: s.usable }),
+      });
+      return { accepted: info.accepted.length > 0, response: String(info.response ?? '') };
+    } finally {
+      transporter.close();
     }
   }
 }

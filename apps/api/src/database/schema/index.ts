@@ -13,3 +13,4 @@ export * from './audit-logs.schema';
 export * from './whatsapp.schema';
 export * from './social-auth.schema';
 export * from './account-claim.schema';
+export * from './email.schema';

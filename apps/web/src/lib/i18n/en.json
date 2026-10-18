@@ -759,6 +759,42 @@
     "testSend": "Send test",
     "testSaveFirst": "Save your changes before sending a test."
   },
+  "emailAdmin": {
+    "title": "Email server",
+    "subtitle": "The mail server CareLink sends verification emails and sign-in codes through. Works with any SMTP provider, such as Amazon SES, SendGrid, Mailgun, Gmail or your own relay. Changes apply immediately, with no restart.",
+    "statusLive": "Email delivery is on: verification emails and codes are being sent through this server.",
+    "statusOff": "Email delivery is off. Emails are written to the API server log instead of being sent, so people who register will not receive their verification link.",
+    "deliveryTitle": "Delivery",
+    "enabled": "Send emails through this server",
+    "enabledHint": "Needs a server host and a sender address. Use \"Send a test email\" below to check the settings before switching this on.",
+    "serverTitle": "SMTP server",
+    "host": "Server host",
+    "hostHint": "Only the host name, e.g. email-smtp.ap-south-1.amazonaws.com - no https:// and no port.",
+    "security": "Connection security",
+    "securityStarttls": "STARTTLS (usually port 587)",
+    "securityTls": "SSL/TLS (usually port 465)",
+    "port": "Port",
+    "username": "Username",
+    "usernameHint": "Leave blank only if your relay accepts mail without signing in.",
+    "password": "Password",
+    "passwordKeep": "Saved - leave blank to keep",
+    "passwordHint": "Stored encrypted and never shown again after saving.",
+    "passwordRemove": "Remove the stored password",
+    "senderTitle": "Sender",
+    "fromName": "Sender name",
+    "fromAddress": "Sender address",
+    "replyTo": "Reply-to address (optional)",
+    "senderHint": "Use a sender address on a domain your provider has verified (SPF/DKIM), or emails may land in spam or be rejected.",
+    "saved": "Saved",
+    "saveError": "Something went wrong",
+    "testTitle": "Send a test email",
+    "testHint": "Sends a real email using the saved settings - even while delivery is switched off - and shows the mail server's reply if it fails.",
+    "testTo": "Send to",
+    "testSend": "Send test",
+    "testSending": "Sending…",
+    "testSaveFirst": "Save your changes before sending a test.",
+    "testNeedsServer": "Save a server host and a sender address first."
+  },
   "brand": {
     "name": "CareLink"
   },
@@ -777,7 +813,8 @@
     "title": "Settings",
     "subtitle": "How people sign in and how we reach them.",
     "socialAuth": "Social sign-in",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "email": "Email"
   },
   "socialAdmin": {
     "title": "Google, Microsoft and Facebook sign-in",
