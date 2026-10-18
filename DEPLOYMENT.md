@@ -107,6 +107,12 @@ Tick these off. Don't move to Part 2 until every box is true.
       test, never for anything real.
 - [ ] **This app's source code**, either as the `.zip` you were given, or
       as a link to its git repository.
+- [ ] **Enough memory and disk.** 4 GB of RAM (e.g. EC2 `t3.medium`) and a
+      20 GB disk is comfortable. A 1-2 GB server (`t3.micro`, `t3.small`)
+      works too, but only with swap: `setup.sh` adds it automatically and
+      builds more slowly; by hand, see Part 17.14 *before* Part 9. Either
+      way, give it a 20 GB disk - EC2's default 8 GB is too tight for the
+      images.
 - [ ] About **45-60 minutes**, mostly spent waiting for downloads/builds,
       not typing.
 
@@ -451,6 +457,30 @@ This prints the file's contents back to you. Read through it once -
 does every line have a real value, with no leftover `yourdomain.example`
 or blank `=` at the end of any line? If yes, move on.
 
+### 8.4 Email (set up in the app, after deploying)
+
+Nothing to fill in here. The mail server CareLink sends verification emails and sign-in
+codes through is configured **inside the app**, by an admin, under
+**Settings > Email** - host, port, security, username/password and the sender address,
+with a **Send test email** button that shows the mail server's own error if something is
+wrong. Changes apply immediately; no restart, no editing files on the server.
+
+Until it is set up the app works normally, except that emails are **written to the API log
+instead of being sent** (`docker compose -f docker-compose.prod.yml --env-file .env.production logs api`),
+so people who register don't receive their verification link. Set it up right after your
+first login (Part 12).
+
+Any SMTP provider works: Amazon SES (its SMTP interface), SendGrid, Mailgun, Gmail /
+Google Workspace, or your own relay. Use a sender address on a domain the provider has
+verified, or mail lands in spam.
+
+The `SMTP_*` lines in `.env.production` still exist for older deployments: if they are
+filled in, they **pre-fill** Settings > Email the first time the API starts, so an
+upgraded server keeps sending without anyone touching it. After that the Settings screen is
+the source of truth and the `SMTP_*` lines have no effect. The password is stored encrypted
+with `SETTINGS_ENCRYPTION_KEY` (see 8.5) - don't change that key later, or you will need to
+re-enter the password.
+
 ### 8.5 WhatsApp sign-in (optional)
 
 You can skip this whole section: WhatsApp sign-in is **off by default** and the app works
@@ -519,6 +549,16 @@ that's normal.
 You'll know it worked when the command finishes and returns you to a
 normal prompt (`ubuntu@...:~/care_link$`) with **no red error text** at
 the end. If you see red text ending the command, go to Part 17.
+
+**On a server with less than 4 GB of RAM** (`t3.micro`, `t3.small`), do
+Part 17.14 first and build one image at a time instead - otherwise this
+step appears to freeze partway through:
+
+```bash
+for s in api web public-web; do
+  NODE_BUILD_HEAP_MB=2048 docker compose -f docker-compose.prod.yml --env-file .env.production build $s
+done
+```
 
 ---
 
@@ -1214,9 +1254,8 @@ memory:
 free -h
 ```
 
-If this is a very small server (1 GB RAM or less), the build may simply
-need more memory than you have - consider a larger server size, at
-least temporarily for the build.
+If this is a small server (under 4 GB of RAM), see 17.14 - it needs
+swap and a one-at-a-time build.
 
 ### 17.8 The site loads on the server itself but not in my browser
 
@@ -1339,3 +1378,51 @@ timeout 600 docker compose -f docker-compose.prod.yml --env-file .env.production
 ```
 
 Exit code 124 means it timed out.
+
+### 17.14 The build or `setup.sh` gets stuck partway through on a small server (`t3.micro`, `t3.small`)
+
+**Symptom:** the build stops printing anything for a long time (often during
+`npm run build` / "Creating an optimized production build"), and SSH becomes
+slow or unresponsive. Nothing fails - it just never finishes.
+
+**Cause:** the server ran out of memory. Each of the two Next.js builds needs
+about 1.3 GB on its own, `docker compose build` runs all three images at the
+same time, and EC2's Ubuntu images come with **no swap**. On 1-2 GB of RAM the
+kernel spends all its time paging instead of building.
+
+**Fix:** `setup.sh` now handles this by itself on servers with under 4 GB:
+it adds a swap file (so memory + swap reaches about 4 GB), builds the images
+one at a time, and runs MySQL without `performance_schema` (saves ~250 MB).
+If a run is stuck right now, press `Ctrl+C` (or reboot the instance from the
+EC2 console if SSH won't respond), then just re-run `./setup.sh` - it is safe
+to re-run.
+
+To do it by hand instead:
+
+```bash
+# 4 GB swap file, kept across reboots
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h    # the Swap line should now show about 4.0Gi
+
+# MySQL without performance_schema
+echo 'MYSQL_PERFORMANCE_SCHEMA=OFF' >> .env.production
+
+# build one image at a time (see Part 9)
+for s in api web public-web; do
+  NODE_BUILD_HEAP_MB=2048 docker compose -f docker-compose.prod.yml --env-file .env.production build $s
+done
+```
+
+**Disk:** the swap file and the images both live on the root volume. If
+`df -h /` shows less than about 8 GB free, grow the EBS volume first (EC2
+console > Volumes > Modify volume, then on the server
+`sudo growpart /dev/nvme0n1 1 && sudo resize2fs /dev/nvme0n1p1` - check the
+device names with `lsblk`). 20 GB is a comfortable size.
+
+The site runs fine on a `t3.small` once built. A `t3.micro` works but is
+tight; if you can, build on a `t3.medium` and downsize the instance
+afterwards (stop, change instance type, start).

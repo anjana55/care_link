@@ -26,10 +26,11 @@ class EnvironmentVariables {
   @IsString()
   STORAGE_LOCAL_ROOT!: string;
 
-  // All optional, even in production: EmailService degrades to logging
-  // verification links to the console when SMTP_HOST is unset, rather than
-  // the whole app refusing to boot over an unrelated feature. It does log
-  // an error at startup in production if left unset - see EmailService.
+  // All optional, and only *bootstrap* the admin-managed mail settings
+  // (Settings > Email, EmailSettingsService) the first time the API needs
+  // them - after that the database row is the source of truth. Until a
+  // server is configured, EmailService logs verification links to the
+  // console rather than the whole app refusing to boot.
   @IsOptional()
   @IsString()
   SMTP_HOST?: string;

@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 const SECTIONS = [
   { href: '/settings/social-auth', key: 'settings.socialAuth' },
   { href: '/settings/whatsapp', key: 'settings.whatsapp' },
+  { href: '/settings/email', key: 'settings.email' },
 ];
 
 /**

@@ -11,6 +11,10 @@ services:
   mysql:
     image: mysql:8.0
     restart: unless-stopped
+    # performance_schema costs ~250 MB of RAM. setup.sh writes
+    # MYSQL_PERFORMANCE_SCHEMA=OFF into .env.production on servers with under
+    # 4 GB (t3.micro / t3.small); everywhere else it stays on, as MySQL ships.
+    command: ['--performance-schema=${MYSQL_PERFORMANCE_SCHEMA:-ON}']
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-care_platform}
       MYSQL_USER: ${MYSQL_USER:-care_app}
@@ -52,9 +56,9 @@ services:
       STORAGE_MAX_FILE_SIZE_BYTES: ${STORAGE_MAX_FILE_SIZE_BYTES:-10485760}
       THROTTLE_TTL: ${THROTTLE_TTL:-60}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
-      # Optional: the app runs fine without these, but verification emails
-      # only get logged (see `docker compose logs api`), never delivered,
-      # until they're set - see DEPLOYMENT.md Part 8.4 and EmailService.
+      # Optional, and only pre-fill Settings > Email the first time the API
+      # starts. After that an admin manages the mail server in the app and
+      # these have no effect - see DEPLOYMENT.md Part 8.4.
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -87,6 +91,8 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL in .env.production, e.g. https://yourdomain.example/api}
+        # Set by setup.sh on small servers (see its step 1b); blank = Node's default.
+        NODE_BUILD_HEAP_MB: ${NODE_BUILD_HEAP_MB:-}
     restart: unless-stopped
     depends_on:
       - api
@@ -99,6 +105,8 @@ services:
       dockerfile: apps/public-web/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?}
+        # Set by setup.sh on small servers (see its step 1b); blank = Node's default.
+        NODE_BUILD_HEAP_MB: ${NODE_BUILD_HEAP_MB:-}
     restart: unless-stopped
     depends_on:
       - api
