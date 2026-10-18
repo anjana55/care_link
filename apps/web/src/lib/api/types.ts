@@ -573,3 +573,113 @@ export interface CreatePhoneRequestInput {
   message?: string;
   language: 'en' | 'si' | 'ta';
 }
+
+// --- bookings and shifts --------------------------------------------------------
+export type BookingStatus = 'DRAFT' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+export type ShiftStatus = 'DRAFT' | 'SCHEDULED' | 'COMPLETED' | 'MISSED' | 'CANCELLED';
+export type ScheduleType = 'DAY' | 'NIGHT' | 'LIVE_IN' | 'CUSTOM';
+export type RateType = 'HOURLY' | 'DAILY' | 'MONTHLY';
+
+export interface BookingListItem {
+  id: string;
+  reference: string;
+  status: BookingStatus;
+  scheduleType: ScheduleType;
+  startDate: string;
+  endDate: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  daysOfWeek: string;
+  clientId: string;
+  clientName: string;
+  recipientName: string | null;
+  caregiverId: string;
+  caregiverName: string;
+  caregiverRegistrationNumber: string;
+  nextShiftAt: string | null;
+  createdAt: string;
+}
+
+export interface BookingListResponse {
+  items: BookingListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface BookingCaregiverRef {
+  id: string;
+  fullName: string;
+  registrationNumber: string;
+  status: CaregiverStatus;
+  deleted: boolean;
+}
+
+export interface BookingShift {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  hours: number;
+  status: ShiftStatus;
+  note: string | null;
+  caregiver: BookingCaregiverRef | null;
+  isCover: boolean;
+  conflicts: { shiftId: string; withShiftId: string; withBookingId: string; withBookingReference: string; kind: 'BLOCKING' | 'DRAFT' }[];
+  allowedStatuses: ShiftStatus[];
+  updatedBy: StaffRef | null;
+}
+
+export interface BookingDetail {
+  id: string;
+  reference: string;
+  status: BookingStatus;
+  scheduleType: ScheduleType;
+  daysOfWeek: number[];
+  shiftStartTime: string;
+  shiftEndTime: string;
+  startDate: string;
+  endDate: string;
+  rateType: RateType | null;
+  rateAmount: string | null;
+  language: 'en' | 'si' | 'ta';
+  notes: string | null;
+  cancelReason: string | null;
+  confirmedAt: string | null;
+  cancelledAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  createdBy: StaffRef | null;
+  confirmedBy: StaffRef | null;
+  careRequest: { id: string; reference: string; status: CareRequestStatus } | null;
+  client: { id: string; fullName: string; phone: string | null; recipientName: string | null; city: string | null; district: string | null; careAddress: string | null } | null;
+  caregiver: (BookingCaregiverRef & { primaryPhone: string | null }) | null;
+  shifts: BookingShift[];
+  estimate: { shifts: number; hours: number; rateType: RateType | null; rateAmount: string | null; units: number | null; total: string | null };
+  blockingConflicts: number;
+  events: { id: string; type: string; note: string | null; createdAt: string; actor: StaffRef | null }[];
+}
+
+export interface BookingSummary {
+  byStatus: Record<BookingStatus, number>;
+  shiftsToday: number;
+}
+
+export interface BookingPatternInput {
+  scheduleType: ScheduleType;
+  daysOfWeek: number[];
+  shiftStartTime: string;
+  shiftEndTime: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface CreateBookingInput extends BookingPatternInput {
+  careRequestId?: string;
+  patientId?: string;
+  caregiverId?: string;
+  rateType?: RateType;
+  rateAmount?: string;
+  language?: 'en' | 'si' | 'ta';
+  notes?: string;
+}

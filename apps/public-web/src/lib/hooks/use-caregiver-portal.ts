@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CaregiverShift } from '@care-platform/shared';
 import { api } from '../api/client';
 import { useAuth } from '../api/auth-context';
 import type {
@@ -156,3 +157,13 @@ function useRecords<T>(kind: 'qualifications' | 'experiences') {
 
 export const useQualifications = () => useRecords<Qualification>('qualifications');
 export const useExperiences = () => useRecords<Experience>('experiences');
+
+/** The caregiver's own confirmed shifts - covers included - from a week ago to two months ahead. */
+export function useMyShifts() {
+  const id = useCaregiverId();
+  return useQuery({
+    queryKey: ['portal', id, 'booked-shifts'],
+    queryFn: () => api.get<CaregiverShift[]>('/me/shifts'),
+    enabled: Boolean(id),
+  });
+}

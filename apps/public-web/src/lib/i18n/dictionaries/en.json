@@ -705,7 +705,7 @@
       "button": "Submit for review"
     },
     "shifts": {
-      "title": "Your shifts",
+      "title": "Shifts",
       "subtitle": "Families searching for care see you for the shifts you choose here.",
       "canWork": "Shifts I can work",
       "dayDuty": "Day shifts",
@@ -730,7 +730,12 @@
         "NIGHT": "Night",
         "TWENTY_FOUR_HOUR_LIVE_IN": "24-hour live-in",
         "FLEXIBLE": "Flexible"
-      }
+      },
+      "availabilityTitle": "When you can work",
+      "bookedTitle": "Your booked shifts",
+      "bookedSubtitle": "Shifts our team has confirmed for you, in Sri Lanka time. To change one, call us.",
+      "noBooked": "No booked shifts yet. Our team will call you when a family books you.",
+      "cover": "(cover)"
     },
     "documents": {
       "title": "Your documents",
@@ -890,7 +895,8 @@
     "navLabel": "Account sections",
     "nav": {
       "requests": "My requests",
-      "saved": "Saved caregivers"
+      "saved": "Saved caregivers",
+      "bookings": "Bookings"
     },
     "findCaregivers": "Find caregivers",
     "requests": {
@@ -931,6 +937,37 @@
       "remove": "Remove",
       "savedOn": "Saved {date}",
       "unavailable": "This caregiver is no longer listed."
+    },
+    "bookings": {
+      "title": "Bookings",
+      "subtitle": "Care our team has arranged for you, with every scheduled shift in Sri Lanka time. To change anything, call us and quote the reference.",
+      "empty": "No bookings yet. Once our team arranges care, it will appear here.",
+      "reference": "Reference",
+      "dates": "Dates",
+      "rate": "Agreed rate",
+      "shifts": "Shifts",
+      "noShifts": "No upcoming shifts.",
+      "cover": "(another caregiver covering)",
+      "status": {
+        "DRAFT": "Draft",
+        "CONFIRMED": "Confirmed",
+        "COMPLETED": "Completed",
+        "CANCELLED": "Cancelled"
+      },
+      "rateUnit": {
+        "HOURLY": "per hour",
+        "DAILY": "per day",
+        "MONTHLY": "per month"
+      }
+    }
+  },
+  "bookings": {
+    "shiftStatus": {
+      "DRAFT": "Draft",
+      "SCHEDULED": "Scheduled",
+      "COMPLETED": "Done",
+      "MISSED": "Missed",
+      "CANCELLED": "Cancelled"
     }
   }
 }

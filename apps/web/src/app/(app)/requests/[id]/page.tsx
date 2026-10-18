@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, ExternalLink, Phone } from 'lucide-react';
+import { CalendarPlus, ChevronLeft, ExternalLink, Phone } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
@@ -16,6 +16,7 @@ import {
   useUpdateCareRequestStatus,
 } from '@/lib/hooks/use-care-requests';
 import { CaregiverPicker } from '@/components/requests/caregiver-picker';
+import { RelatedBookings } from '@/components/bookings/related-bookings';
 import { Button } from '@/components/ui/button';
 import { Label, Select } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -114,6 +115,26 @@ export default function RequestDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Bookings: once an introduction is made (or while staff are arranging
+          it), the next step is to book the caregiver's shifts. */}
+      {(request.status === 'INTRODUCED' || request.status === 'IN_PROGRESS' || request.status === 'CLOSED') && (
+        <div className="mt-4 space-y-3">
+          {request.caregiver && (request.status === 'INTRODUCED' || request.status === 'IN_PROGRESS') && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand/30 bg-brand-light px-4 py-3">
+              <p className="text-sm text-brand-dark">{t('bookings.fromRequest.hint')}</p>
+              <Link
+                href={`/bookings/new?requestId=${request.id}`}
+                className="inline-flex h-9 items-center gap-2 rounded bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
+              >
+                <CalendarPlus size={16} aria-hidden />
+                {t('bookings.fromRequest.create')}
+              </Link>
+            </div>
+          )}
+          <RelatedBookings careRequestId={request.id} />
+        </div>
+      )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <StatusActions request={request} />

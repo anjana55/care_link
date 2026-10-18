@@ -14,7 +14,8 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "settings": "Settings",
-    "requests": "Requests"
+    "requests": "Requests",
+    "bookings": "Bookings"
   },
   "login": {
     "title": "Sign in",
@@ -39,7 +40,9 @@
     "suspended": "Suspended",
     "documentsRequiringAttention": "Documents needing attention",
     "newRequests": "New requests",
-    "openRequests": "Open requests"
+    "openRequests": "Open requests",
+    "shiftsToday": "Shifts today",
+    "draftBookings": "Draft bookings"
   },
   "caregivers": {
     "title": "Caregivers",
@@ -1053,6 +1056,149 @@
       "submit": "Create request",
       "needClient": "Choose the client first.",
       "needFields": "{count} required details still missing."
+    }
+  },
+  "bookings": {
+    "title": "Bookings",
+    "subtitle": "Caregivers placed with clients, and the shifts they work. Draft bookings are only visible to staff until confirmed.",
+    "newBooking": "New booking",
+    "back": "Back to bookings",
+    "notFound": "This booking doesn't exist or has been removed.",
+    "empty": "No bookings here.",
+    "search": "Search by reference, client or caregiver",
+    "tabs": {
+      "CONFIRMED": "Confirmed",
+      "DRAFT": "Drafts",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled",
+      "all": "All"
+    },
+    "status": {
+      "DRAFT": "Draft",
+      "CONFIRMED": "Confirmed",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled"
+    },
+    "scheduleType": {
+      "DAY": "Day",
+      "NIGHT": "Night",
+      "LIVE_IN": "24-hour live-in",
+      "CUSTOM": "Custom"
+    },
+    "rateType": {
+      "HOURLY": "Per hour",
+      "DAILY": "Per day (per shift)",
+      "MONTHLY": "Per month"
+    },
+    "rateUnit": {
+      "HOURLY": "per hour",
+      "DAILY": "per day",
+      "MONTHLY": "per month"
+    },
+    "shiftStatus": {
+      "DRAFT": "Draft",
+      "SCHEDULED": "Scheduled",
+      "COMPLETED": "Done",
+      "MISSED": "Missed",
+      "CANCELLED": "Cancelled"
+    },
+    "shiftAction": {
+      "SCHEDULED": "Back to scheduled",
+      "COMPLETED": "Mark done",
+      "MISSED": "Mark missed",
+      "CANCELLED": "Cancel shift"
+    },
+    "table": {
+      "reference": "Reference",
+      "client": "Client",
+      "caregiver": "Caregiver",
+      "schedule": "Schedule",
+      "dates": "Dates",
+      "next": "Next shift",
+      "status": "Status"
+    },
+    "related": {
+      "title": "Bookings",
+      "empty": "No bookings yet."
+    },
+    "fromRequest": {
+      "hint": "Introduced and ready? Book the caregiver's shifts.",
+      "create": "Create booking"
+    },
+    "new": {
+      "title": "New booking",
+      "subtitle": "Choose the client and caregiver, then the pattern. The shifts it makes are saved as drafts - adjust any of them before you confirm.",
+      "whoTitle": "Who",
+      "patternTitle": "Shift pattern",
+      "days": "Days of the week",
+      "startTime": "Starts",
+      "endTime": "Ends",
+      "startDate": "First day",
+      "endDate": "Last day",
+      "hoursHint": "{hours} hours per shift.",
+      "overnightHint": "Runs overnight - {hours} hours per shift, ending the next day.",
+      "timesHint": "All times are Sri Lanka time.",
+      "willCreate": "This will create {count} draft shifts.",
+      "none": "These days and dates make no shifts.",
+      "tooMany": "That is more than a year of shifts - choose a shorter range and extend it later.",
+      "andMore": "…and {count} more",
+      "rateTitle": "Agreed rate",
+      "rateType": "Charged",
+      "noRate": "No rate recorded",
+      "rateAmount": "Amount (LKR)",
+      "notes": "Notes for staff",
+      "submit": "Create draft booking",
+      "draftHint": "Nothing is sent to the client or caregiver until you confirm."
+    },
+    "detail": {
+      "nextDay": "ends next day",
+      "fromRequest": "From request",
+      "draftBanner": "Draft - the client and caregiver can't see this yet. Adjust the shifts below, then confirm.",
+      "cancelledBecause": "Cancelled: {reason}",
+      "confirm": "Confirm booking",
+      "confirmHint": "Confirming schedules every shift and tells the client and caregiver.",
+      "resolveFirst": "Resolve the overlapping shifts first",
+      "extend": "Extend",
+      "complete": "Mark completed",
+      "cancel": "Cancel booking",
+      "newEndDate": "New last day",
+      "cancelReason": "Why is it being cancelled?",
+      "cancelConfirm": "Cancel booking",
+      "cancelHint": "Future shifts are cancelled; the client and caregiver are told.",
+      "totals": "{shifts} shifts · {hours} hours",
+      "estimate": "About {total}",
+      "estimateHint": "Recorded only - CareLink does not invoice.",
+      "roster": "Shifts",
+      "showPast": "Show {count} past shifts",
+      "hidePast": "Hide past shifts",
+      "noUpcoming": "No upcoming shifts.",
+      "weekOf": "Week of {date}",
+      "conflictsBanner": "{count} shifts overlap shifts this caregiver already has. Change their times or give them to a cover caregiver before confirming.",
+      "conflictBlocking": "Overlaps a confirmed shift ({refs})",
+      "conflictDraft": "Overlaps a draft shift ({refs}) - whichever is confirmed first wins",
+      "hours": "{hours} h",
+      "coveredBy": "Covered by {name}",
+      "editTimes": "Change times",
+      "cover": "Cover caregiver",
+      "setStatus": "Set status…",
+      "removeShift": "Remove draft shift",
+      "backToBooked": "Give it back to {name}",
+      "addShift": "Add a shift",
+      "shiftNote": "Note (optional)",
+      "addShiftDraftHint": "Added as a draft, like the rest.",
+      "addShiftHint": "Added as scheduled - it must not overlap the caregiver's other shifts."
+    },
+    "event": {
+      "CREATED": "Booking created",
+      "REGENERATED": "Shifts regenerated from a new pattern",
+      "CONFIRMED": "Booking confirmed",
+      "EXTENDED": "Booking extended",
+      "SHIFT_ADDED": "Shift added",
+      "SHIFT_CHANGED": "Shift changed",
+      "SHIFT_REMOVED": "Draft shift removed",
+      "NOTE": "Note",
+      "COMPLETED": "Booking completed",
+      "CANCELLED": "Booking cancelled"
     }
   }
 }

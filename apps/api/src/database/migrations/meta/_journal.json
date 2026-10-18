@@ -50,6 +50,13 @@
       "when": 1792338607079,
       "tag": "0006_phone_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1792341733629,
+      "tag": "0007_bookings",
+      "breakpoints": true
     }
   ]
 }

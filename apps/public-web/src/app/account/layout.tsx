@@ -11,6 +11,7 @@ import { SiteFooter } from '@/components/layout/site-footer';
 
 const SECTIONS = [
   { href: '/account/requests', key: 'account.nav.requests' },
+  { href: '/account/bookings', key: 'account.nav.bookings' },
   { href: '/account/saved', key: 'account.nav.saved' },
 ];
 

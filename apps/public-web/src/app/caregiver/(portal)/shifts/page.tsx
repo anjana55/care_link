@@ -1,5 +1,6 @@
 'use client';
 
+import { BookedShifts } from '@/components/care/booked-shifts';
 import { useEffect, useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
@@ -113,9 +114,12 @@ export default function CaregiverShiftsPage() {
   const noShift = !form.dayDuty && !form.nightDuty && !form.liveIn24h;
 
   return (
+    <div className="space-y-8">
+      <h1 className="text-xl font-semibold text-ink">{t('portal.shifts.title')}</h1>
+      <BookedShifts />
     <form onSubmit={onSubmit} className="space-y-5" noValidate>
       <div>
-        <h1 className="text-xl font-semibold text-ink">{t('portal.shifts.title')}</h1>
+        <h2 className="text-base font-semibold text-ink">{t('portal.shifts.availabilityTitle')}</h2>
         <p className="mt-1 text-sm text-ink/60">{t('portal.shifts.subtitle')}</p>
       </div>
 
@@ -187,5 +191,6 @@ export default function CaregiverShiftsPage() {
         {saved && <span role="status" className="text-sm text-brand-dark">{t('portal.saved')}</span>}
       </div>
     </form>
+    </div>
   );
 }

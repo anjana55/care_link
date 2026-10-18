@@ -11,6 +11,9 @@ import {
   careRequests,
   careRequestEvents,
   savedCaregivers,
+  bookings,
+  bookingShifts,
+  bookingEvents,
   CLIENT_STATUS_TRANSITIONS,
   type ClientStatus,
 } from '../database/schema';
@@ -434,6 +437,13 @@ export class PatientsService {
         await tx.delete(careRequests).where(inArray(careRequests.id, requestIds));
       }
       await tx.delete(savedCaregivers).where(eq(savedCaregivers.patientId, id));
+      // Bookings go too - shifts and history with them.
+      const bookingIds = (await tx.select({ id: bookings.id }).from(bookings).where(eq(bookings.patientId, id))).map((r) => r.id);
+      if (bookingIds.length) {
+        await tx.delete(bookingShifts).where(inArray(bookingShifts.bookingId, bookingIds));
+        await tx.delete(bookingEvents).where(inArray(bookingEvents.bookingId, bookingIds));
+        await tx.delete(bookings).where(inArray(bookings.id, bookingIds));
+      }
       await tx.delete(refreshTokens).where(eq(refreshTokens.userId, target.userId));
       await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, target.userId));
       await tx.delete(users).where(eq(users.id, target.userId));

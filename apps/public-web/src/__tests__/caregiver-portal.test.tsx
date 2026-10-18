@@ -727,3 +727,23 @@ describe('every page speaks the chosen language', () => {
     });
   });
 });
+
+describe('booked shifts on the Shifts page', () => {
+  it("lists the caregiver's confirmed shifts with booking and area, read-only", async () => {
+    auth = { user: CAREGIVER_USER, loading: false };
+    pathname = '/caregiver/shifts';
+    get.mockImplementation((path: string) =>
+      Promise.resolve(
+        path === '/me/shifts'
+          ? [{ id: 's1', startsAt: '2026-11-02T02:30:00.000Z', endsAt: '2026-11-02T11:30:00.000Z', status: 'SCHEDULED', isCover: true, bookingReference: 'BK-AB2345', scheduleType: 'DAY', area: 'Dehiwala, Colombo' }]
+          : path.endsWith('/availability')
+            ? null
+            : caregiver(),
+      ),
+    );
+    renderPage(<ShiftsPage />);
+    expect(await screen.findByText(/BK-AB2345 · Dehiwala, Colombo/)).toBeInTheDocument();
+    expect(screen.getByText('08:00–17:00')).toBeInTheDocument();
+    expect(screen.getByText('(cover)')).toBeInTheDocument();
+  });
+});

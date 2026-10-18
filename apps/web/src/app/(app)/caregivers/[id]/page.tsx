@@ -37,6 +37,7 @@ import { useTranslation } from '@/lib/i18n/provider';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { RelatedRequests } from '@/components/requests/related-requests';
+import { RelatedBookings } from '@/components/bookings/related-bookings';
 import { StatusBadge, VerificationBadge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1093,7 +1094,10 @@ export default function CaregiverProfilePage() {
 
         {isAdminOrStaff && (
           <TabsContent value="requests">
-            <RelatedRequests caregiverId={caregiver.id} />
+            <div className="space-y-4">
+              <RelatedRequests caregiverId={caregiver.id} />
+              <RelatedBookings caregiverId={caregiver.id} />
+            </div>
           </TabsContent>
         )}
 

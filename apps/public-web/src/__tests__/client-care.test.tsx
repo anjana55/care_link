@@ -6,6 +6,7 @@ import { CaregiverActions } from '@/components/care/caregiver-actions';
 import AccountLayout from '@/app/account/layout';
 import MyRequestsPage from '@/app/account/requests/page';
 import SavedCaregiversPage from '@/app/account/saved/page';
+import MyBookingsPage from '@/app/account/bookings/page';
 
 /**
  * Contact and Save on the public site, and the client's account pages. The API
@@ -215,5 +216,29 @@ describe('client account', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(del).toHaveBeenCalledWith(`/me/saved-caregivers/${PUBLIC_ID}`));
     expect(screen.getByRole('link', { name: 'Contact this caregiver' })).toHaveAttribute('href', `/caregivers/${PUBLIC_ID}`);
+  });
+
+  it('shows confirmed bookings with their shifts in Sri Lanka time', async () => {
+    auth = { user: CLIENT, loading: false };
+    pathname = '/account/bookings';
+    get.mockResolvedValue([
+      {
+        id: 'b1', reference: 'BK-7K2QM9', status: 'CONFIRMED', scheduleType: 'NIGHT', startDate: '2026-11-02', endDate: '2026-11-30',
+        rateType: 'DAILY', rateAmount: '4000.00', caregiverPublicId: PUBLIC_ID, caregiver: profile,
+        shifts: [
+          // 20:00 Colombo -> 08:00 next day.
+          { id: 's1', startsAt: '2026-11-02T14:30:00.000Z', endsAt: '2026-11-03T02:30:00.000Z', status: 'SCHEDULED', isCover: false },
+          { id: 's2', startsAt: '2026-11-03T14:30:00.000Z', endsAt: '2026-11-04T02:30:00.000Z', status: 'SCHEDULED', isCover: true },
+        ],
+      },
+    ]);
+    renderUi(<MyBookingsPage />);
+
+    expect(await screen.findByText('BK-7K2QM9')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledWith('/me/bookings');
+    expect(screen.getAllByText(/20:00–08:00/)).toHaveLength(2);
+    expect(screen.getAllByText('(+1)')).toHaveLength(2);
+    expect(screen.getByText(/another caregiver covering/)).toBeInTheDocument();
+    expect(screen.getByText(/LKR 4,000.00 per day/)).toBeInTheDocument();
   });
 });

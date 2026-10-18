@@ -1,0 +1,76 @@
+import type { CareRequestLanguage } from '../database/schema';
+
+/**
+ * What booking notices say, in English, Sinhala and Tamil. Like the request
+ * notices they carry only the booking reference and a start date - no names,
+ * numbers or addresses; staff share those on the phone. Sinhala and Tamil are
+ * machine-drafted and want a native speaker's review.
+ */
+type Lang = CareRequestLanguage;
+type Notice = 'CONFIRMED' | 'CANCELLED';
+
+const fill = (t: string, v: Record<string, string>) => t.replace(/\{(\w+)\}/g, (_, k: string) => v[k] ?? '');
+
+const CLIENT: Record<Notice, Record<Lang, { subject: string; heading: string; body: string }>> = {
+  CONFIRMED: {
+    en: {
+      subject: 'Your booking {ref} is confirmed',
+      heading: 'Your booking is confirmed',
+      body: 'Booking {ref} is confirmed and care starts on {date}. You can see every scheduled shift in your CareLink account.',
+    },
+    si: {
+      subject: 'ඔබගේ වෙන්කිරීම {ref} තහවුරු කර ඇත',
+      heading: 'ඔබගේ වෙන්කිරීම තහවුරු කර ඇත',
+      body: 'වෙන්කිරීම {ref} තහවුරු කර ඇති අතර රැකවරණය {date} දින ආරම්භ වේ. සැලසුම් කළ සෑම වාරයක්ම ඔබගේ CareLink ගිණුමෙන් බලන්න.',
+    },
+    ta: {
+      subject: 'உங்கள் முன்பதிவு {ref} உறுதிசெய்யப்பட்டது',
+      heading: 'உங்கள் முன்பதிவு உறுதிசெய்யப்பட்டது',
+      body: 'முன்பதிவு {ref} உறுதிசெய்யப்பட்டது; பராமரிப்பு {date} அன்று தொடங்கும். திட்டமிடப்பட்ட ஒவ்வொரு பணிநேரத்தையும் உங்கள் CareLink கணக்கில் பார்க்கலாம்.',
+    },
+  },
+  CANCELLED: {
+    en: {
+      subject: 'Your booking {ref} has been cancelled',
+      heading: 'Your booking has been cancelled',
+      body: 'Booking {ref} has been cancelled and its remaining shifts will not go ahead. Our team will contact you about what happens next.',
+    },
+    si: {
+      subject: 'ඔබගේ වෙන්කිරීම {ref} අවලංගු කර ඇත',
+      heading: 'ඔබගේ වෙන්කිරීම අවලංගු කර ඇත',
+      body: 'වෙන්කිරීම {ref} අවලංගු කර ඇති අතර එහි ඉතිරි වාර සිදු නොවේ. ඊළඟට කුමක් සිදුවේද යන්න ගැන අපගේ කණ්ඩායම ඔබව සම්බන්ධ කර ගනු ඇත.',
+    },
+    ta: {
+      subject: 'உங்கள் முன்பதிவு {ref} ரத்து செய்யப்பட்டது',
+      heading: 'உங்கள் முன்பதிவு ரத்து செய்யப்பட்டது',
+      body: 'முன்பதிவு {ref} ரத்து செய்யப்பட்டது; மீதமுள்ள பணிநேரங்கள் நடைபெறாது. அடுத்து என்ன என்பது பற்றி எங்கள் குழு உங்களைத் தொடர்புகொள்ளும்.',
+    },
+  },
+};
+
+const CAREGIVER: Record<Notice, Record<Lang, { heading: string; body: string }>> = {
+  CONFIRMED: {
+    en: { heading: 'You have a confirmed booking', body: 'Booking {ref} is confirmed, starting on {date}. Your shifts are in your CareLink account.' },
+    si: { heading: 'ඔබට තහවුරු කළ වෙන්කිරීමක් ඇත', body: 'වෙන්කිරීම {ref} තහවුරු කර ඇත, {date} දින ආරම්භ වේ. ඔබගේ වාර ඔබගේ CareLink ගිණුමේ ඇත.' },
+    ta: { heading: 'உங்களுக்கு உறுதிசெய்யப்பட்ட முன்பதிவு உள்ளது', body: 'முன்பதிவு {ref} உறுதிசெய்யப்பட்டது, {date} அன்று தொடங்குகிறது. உங்கள் பணிநேரங்கள் உங்கள் CareLink கணக்கில் உள்ளன.' },
+  },
+  CANCELLED: {
+    en: { heading: 'A booking has been cancelled', body: 'Booking {ref} has been cancelled and your remaining shifts for it are cancelled too.' },
+    si: { heading: 'වෙන්කිරීමක් අවලංගු කර ඇත', body: 'වෙන්කිරීම {ref} අවලංගු කර ඇති අතර ඒ සඳහා ඔබගේ ඉතිරි වාරද අවලංගු කර ඇත.' },
+    ta: { heading: 'ஒரு முன்பதிவு ரத்து செய்யப்பட்டது', body: 'முன்பதிவு {ref} ரத்து செய்யப்பட்டது; அதற்கான உங்கள் மீதமுள்ள பணிநேரங்களும் ரத்து செய்யப்பட்டன.' },
+  },
+};
+
+export function bookingClientNotice(notice: Notice, lang: Lang, vars: { ref: string; date: string }) {
+  const t = CLIENT[notice][lang] ?? CLIENT[notice].en;
+  return { subject: fill(t.subject, vars), heading: fill(t.heading, vars), body: fill(t.body, vars) };
+}
+
+export function bookingCaregiverNotice(notice: Notice, vars: { ref: string; date: string }) {
+  const blocks = (['en', 'si', 'ta'] as const).map((lang) => ({
+    lang,
+    heading: fill(CAREGIVER[notice][lang].heading, vars),
+    body: fill(CAREGIVER[notice][lang].body, vars),
+  }));
+  return { subject: `CareLink - ${blocks[0].heading} (${vars.ref})`, blocks, whatsappText: blocks.map((b) => b.body).join(' / ') };
+}
