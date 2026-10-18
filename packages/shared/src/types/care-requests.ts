@@ -27,8 +27,16 @@ export interface ClientCareRequest {
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
-  caregiverPublicId: string;
-  /** Null when the caregiver is no longer publicly listed. */
+  /**
+   * Null while our team is still finding a caregiver - a request taken over
+   * the phone can start without one.
+   */
+  caregiverPublicId: string | null;
+  /**
+   * The caregiver's public profile, or null when there is no caregiver yet or
+   * the one chosen is not shown on the public site (staff may match someone
+   * who is not listed).
+   */
   caregiver: PublicCaregiverProfile | null;
 }
 

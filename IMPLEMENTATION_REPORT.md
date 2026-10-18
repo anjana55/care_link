@@ -382,3 +382,38 @@ notifier's channel choice and wording; `apps/public-web/src/__tests__/client-car
 **Honest gaps**: Sinhala/Tamil strings are machine-drafted like the rest of the
 platform; the platform does not store a caregiver's language, so their notices go
 out in all three. Hiring/bookings build on `INTRODUCED` in the next phase.
+
+## 18. Changelog — phone requests taken by staff
+
+Staff can now log a care request during a phone call: **Requests › New phone
+request** (or **New request** on a client's record).
+
+- **Caller**: pick an existing client, or add a first-time caller with the same
+  intake the public sign-up asks for, plus a required "the caller agreed to us
+  keeping their details" confirmation (stored as `consentAcceptedAt`). A new
+  caller becomes an ACTIVE client whose number is their WhatsApp sign-in, already
+  confirmed, so a WhatsApp code to that number signs them in later; no password is
+  set. A number or email that already belongs to anyone is refused (409) so staff
+  pick the existing record instead of creating a duplicate, and a later
+  self-registration with the same number is refused rather than overwriting it.
+- **Caregiver is optional** ("match later"). Staff may attach any caregiver whose
+  record has not been removed, including ones not yet live on the site (the form
+  warns). While a request is NEW/IN_PROGRESS staff can attach, swap or detach the
+  caregiver from the request page — this works for web requests too. A request
+  cannot be marked INTRODUCED without a caregiver.
+- **Notifications** as for web requests, in the language staff choose for the
+  caller — except no staff alert email (staff logged it). A caregiver attached to a
+  request already IN_PROGRESS is notified then.
+- **Queue**: a *Needs a caregiver* tab, a "By phone" marker, and "Not matched yet"
+  in the caregiver column. The client's account page shows "Our team is finding a
+  caregiver for you", or a neutral line when the caregiver is not shown online.
+
+API: `POST /care-requests` (`patientId` or `newClient`, optional `caregiverId`,
+`message`, `language`), `PATCH /care-requests/:id/caregiver`, `unmatched` and
+`source` filters, `summary.unmatched`. Migration `0006_phone_requests`:
+`care_requests.caregiver_id` nullable, new `source` and `created_by_user_id`,
+`CAREGIVER_CHANGED` history event. Additive; existing rows become `source = WEB`.
+
+Tests: 5 new e2e cases (existing and new callers, sign-in with WhatsApp afterwards,
+validation and no half-made clients, roles, caregiver swap/duplicate), client page
+test for the new states.

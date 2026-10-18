@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Phone } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
@@ -12,8 +12,10 @@ import {
   useAssignableStaff,
   useAssignCareRequest,
   useCareRequest,
+  useSetCareRequestCaregiver,
   useUpdateCareRequestStatus,
 } from '@/lib/hooks/use-care-requests';
+import { CaregiverPicker } from '@/components/requests/caregiver-picker';
 import { Button } from '@/components/ui/button';
 import { Label, Select } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -84,6 +86,12 @@ export default function RequestDetailPage() {
             {t('requests.detail.received', { date: new Date(request.createdAt).toLocaleString() })}
             {' · '}
             {t('requests.detail.updatesIn', { language: t(`requests.detail.language.${request.language}`) })}
+            {request.source === 'PHONE' && (
+              <span className="ml-2 inline-flex items-center gap-1 rounded bg-paper px-1.5 py-0.5 text-xs text-ink/70">
+                <Phone size={12} aria-hidden />
+                {request.createdBy ? t('requests.detail.takenByPhone', { name: request.createdBy.fullName }) : t('requests.source.PHONE')}
+              </span>
+            )}
           </p>
         </div>
         <AssignControl request={request} />
@@ -96,7 +104,7 @@ export default function RequestDetailPage() {
 
       <Card className="mt-4">
         <CardHeader>
-          <CardTitle>{t('requests.detail.message')}</CardTitle>
+          <CardTitle>{request.source === 'PHONE' ? t('requests.detail.phoneMessage') : t('requests.detail.message')}</CardTitle>
         </CardHeader>
         <CardContent>
           {request.message ? (
@@ -236,9 +244,44 @@ function ClientPanel({ request }: { request: CareRequestDetail }) {
   );
 }
 
+/**
+ * The caregiver half of the request. While the request is open staff can
+ * attach one (a phone request may start without), swap to another, or detach.
+ */
 function CaregiverPanel({ request }: { request: CareRequestDetail }) {
   const { t } = useTranslation();
+  const setCaregiver = useSetCareRequestCaregiver(request.id);
+  const [picking, setPicking] = useState(false);
   const g = request.caregiver;
+
+  const pick = (id: string | null) => setCaregiver.mutate(id, { onSuccess: () => setPicking(false) });
+  const error = setCaregiver.isError ? (setCaregiver.error instanceof ApiError ? setCaregiver.error.message : t('requests.detail.saveFailed')) : null;
+
+  if (!g || picking) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('requests.detail.caregiver')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!g && <p className="mb-3 rounded bg-accent-light px-3 py-2 text-sm text-accent">{t('requests.detail.noCaregiver')}</p>}
+          {request.canChangeCaregiver ? (
+            <>
+              <p className="mb-2 text-sm text-ink/60">{t('requests.detail.pickCaregiverHint')}</p>
+              <CaregiverPicker autoFocus={picking} onPick={(c) => pick(c.id)} onCancel={g ? () => setPicking(false) : undefined} />
+            </>
+          ) : (
+            <p className="text-sm text-ink/60">{t('requests.detail.caregiverLocked')}</p>
+          )}
+          {error && (
+            <p role="alert" className="mt-2 text-sm text-danger">
+              {error}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -279,6 +322,21 @@ function CaregiverPanel({ request }: { request: CareRequestDetail }) {
           )}
         </Row>
         <Row label={t('requests.detail.location')}>{[g.city, g.district].filter(Boolean).join(', ') || '—'}</Row>
+        {request.canChangeCaregiver && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setPicking(true)}>
+              {t('requests.detail.changeCaregiver')}
+            </Button>
+            <Button size="sm" variant="secondary" disabled={setCaregiver.isPending} onClick={() => pick(null)}>
+              {t('requests.detail.removeCaregiver')}
+            </Button>
+          </div>
+        )}
+        {error && (
+          <p role="alert" className="mt-2 text-sm text-danger">
+            {error}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -391,7 +449,7 @@ function History({ request }: { request: CareRequestDetail }) {
   const describe = (e: CareRequestEvent) => {
     switch (e.type) {
       case 'CREATED':
-        return t('requests.detail.event.CREATED');
+        return request.source === 'PHONE' ? t('requests.detail.event.CREATED_PHONE') : t('requests.detail.event.CREATED');
       case 'CANCELLED':
         return t('requests.detail.event.CANCELLED');
       case 'STATUS_CHANGED':
@@ -401,6 +459,8 @@ function History({ request }: { request: CareRequestDetail }) {
         });
       case 'ASSIGNED':
         return e.note ? t('requests.detail.event.ASSIGNED', { name: e.note }) : t('requests.detail.event.UNASSIGNED');
+      case 'CAREGIVER_CHANGED':
+        return e.note ? t('requests.detail.event.CAREGIVER_CHANGED', { name: e.note }) : t('requests.detail.event.CAREGIVER_REMOVED');
       case 'NOTE':
         return t('requests.detail.event.NOTE');
     }
@@ -445,7 +505,7 @@ function History({ request }: { request: CareRequestDetail }) {
               <p className="text-sm text-ink">{describe(e)}</p>
               {e.closeReason && <p className="mt-0.5 text-sm text-ink/70">{t(`requests.closeReason.${e.closeReason}`)}</p>}
               {/* An ASSIGNED event's note is the assignee's name, already in the line above. */}
-              {e.note && e.type !== 'ASSIGNED' && <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink/70">{e.note}</p>}
+              {e.note && e.type !== 'ASSIGNED' && e.type !== 'CAREGIVER_CHANGED' && <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink/70">{e.note}</p>}
               <p className="mt-0.5 text-xs text-ink/50">
                 {new Date(e.createdAt).toLocaleString()}
                 {e.actor && ` · ${t('requests.detail.by', { name: e.actor.fullName })}`}

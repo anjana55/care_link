@@ -32,7 +32,7 @@ export function RelatedRequests({ patientId, caregiverId }: { patientId?: string
                     {r.reference}
                   </Link>
                   <span className="ml-2 text-sm text-ink/60">
-                    {patientId ? `${r.caregiverName} (${r.caregiverRegistrationNumber})` : r.clientName}
+                    {patientId ? (r.caregiverId ? `${r.caregiverName} (${r.caregiverRegistrationNumber})` : t('requests.notMatched')) : r.clientName}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">

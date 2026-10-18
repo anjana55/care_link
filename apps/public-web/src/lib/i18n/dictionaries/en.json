@@ -919,7 +919,10 @@
         "INTRODUCED": "We have put you in touch with the caregiver.",
         "CLOSED": "This request is closed. You can contact another caregiver at any time.",
         "CANCELLED": "You cancelled this request."
-      }
+      },
+      "notOnline": "This caregiver's profile isn't shown online. Our team will tell you about them.",
+      "noCaregiverLabel": "Caregiver",
+      "matching": "Our team is finding a caregiver for you"
     },
     "saved": {
       "title": "Saved caregivers",

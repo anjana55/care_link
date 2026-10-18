@@ -9,7 +9,16 @@ import { useTranslation } from '@/lib/i18n';
  * The one-line anonymous view of a caregiver used in the client's account
  * lists - the same public facts the search results show, nothing more.
  */
-export function CaregiverSummary({ publicId, caregiver }: { publicId: string; caregiver: PublicCaregiverProfile | null }) {
+export function CaregiverSummary({
+  publicId,
+  caregiver,
+  unavailableText,
+}: {
+  publicId: string;
+  caregiver: PublicCaregiverProfile | null;
+  /** Shown instead of the profile when there is none to show. */
+  unavailableText?: string;
+}) {
   const { t } = useTranslation();
   const label = t('profile.anonymousId', { id: publicId.slice(0, 8) });
 
@@ -17,7 +26,7 @@ export function CaregiverSummary({ publicId, caregiver }: { publicId: string; ca
     return (
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-ink/40">{label}</p>
-        <p className="mt-0.5 text-sm text-ink/60">{t('account.requests.unavailable')}</p>
+        <p className="mt-0.5 text-sm text-ink/60">{unavailableText ?? t('account.requests.unavailable')}</p>
       </div>
     );
   }

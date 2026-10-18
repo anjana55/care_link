@@ -65,7 +65,18 @@ function RequestRow({ request }: { request: ClientCareRequest }) {
   return (
     <li className="rounded-lg border border-border bg-white p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <CaregiverSummary publicId={request.caregiverPublicId} caregiver={request.caregiver} />
+        {request.caregiverPublicId ? (
+          <CaregiverSummary
+            publicId={request.caregiverPublicId}
+            caregiver={request.caregiver}
+            unavailableText={t('account.requests.notOnline')}
+          />
+        ) : (
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink/40">{t('account.requests.noCaregiverLabel')}</p>
+            <p className="mt-0.5 text-base font-semibold text-ink">{t('account.requests.matching')}</p>
+          </div>
+        )}
         <span className={`self-start whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE[request.status]}`}>
           {t(`account.requests.status.${request.status}`)}
         </span>

@@ -418,6 +418,8 @@ export interface IssuedClaimCode {
 // --- care requests (staff Requests queue) ------------------------------------
 /** Mirrors careRequestStatusEnum on the API. */
 export type CareRequestStatus = 'NEW' | 'IN_PROGRESS' | 'INTRODUCED' | 'CLOSED' | 'CANCELLED';
+/** WEB: the client pressed Contact on the site. PHONE: staff logged it during a call. */
+export type CareRequestSource = 'WEB' | 'PHONE';
 export type CareRequestCloseReason =
   | 'CLIENT_NOT_PROCEEDING'
   | 'CLIENT_UNREACHABLE'
@@ -447,10 +449,12 @@ export interface CareRequestListItem {
   recipientName: string | null;
   registrantType: 'SELF' | 'GUARDIAN' | null;
   careStart: string | null;
-  caregiverId: string;
-  caregiverName: string;
-  caregiverRegistrationNumber: string;
-  caregiverStatus: CaregiverStatus;
+  source: CareRequestSource;
+  /** All null while no caregiver is attached yet. */
+  caregiverId: string | null;
+  caregiverName: string | null;
+  caregiverRegistrationNumber: string | null;
+  caregiverStatus: CaregiverStatus | null;
   caregiverDeleted: boolean;
 }
 
@@ -464,7 +468,7 @@ export interface CareRequestListResponse {
 
 export interface CareRequestEvent {
   id: string;
-  type: 'CREATED' | 'STATUS_CHANGED' | 'NOTE' | 'ASSIGNED' | 'CANCELLED';
+  type: 'CREATED' | 'STATUS_CHANGED' | 'NOTE' | 'ASSIGNED' | 'CANCELLED' | 'CAREGIVER_CHANGED';
   fromStatus: CareRequestStatus | null;
   toStatus: CareRequestStatus | null;
   closeReason: CareRequestCloseReason | null;
@@ -484,7 +488,12 @@ export interface CareRequestDetail {
   createdAt: string;
   updatedAt: string;
   assignedTo: StaffRef | null;
+  source: CareRequestSource;
+  /** The staff member who logged a PHONE request. */
+  createdBy: StaffRef | null;
   allowedNextStatuses: CareRequestStatus[];
+  /** Whether the caregiver can still be attached or swapped (NEW / IN_PROGRESS). */
+  canChangeCaregiver: boolean;
   client: {
     id: string;
     fullName: string;
@@ -508,6 +517,7 @@ export interface CareRequestDetail {
     careStart: string | null;
     preferredCaregiverGender: string | null;
   };
+  /** Null while no caregiver is attached yet. */
   caregiver: {
     id: string;
     publicId: string;
@@ -521,7 +531,7 @@ export interface CareRequestDetail {
     email: string | null;
     district: string | null;
     city: string | null;
-  };
+  } | null;
   events: CareRequestEvent[];
 }
 
@@ -529,4 +539,37 @@ export interface CareRequestSummary {
   byStatus: Record<CareRequestStatus, number>;
   open: number;
   new: number;
+  /** Open requests with no caregiver attached yet. */
+  unmatched: number;
+}
+
+/** A first-time caller, as POST /care-requests `newClient` expects. */
+export interface PhoneClientInput {
+  fullName: string;
+  phone: string;
+  email?: string;
+  consentConfirmed: boolean;
+  registrantType: 'SELF' | 'GUARDIAN';
+  recipientName?: string;
+  recipientRelationship?: string;
+  recipientAge: number;
+  recipientGender: string;
+  alternatePhone?: string;
+  preferredContactMethod: string;
+  preferredContactTime?: string;
+  districtId: number;
+  cityId: number;
+  careAddress?: string;
+  careNeeds: string;
+  careSchedule: string;
+  careStart: string;
+  preferredCaregiverGender?: string;
+}
+
+export interface CreatePhoneRequestInput {
+  patientId?: string;
+  newClient?: PhoneClientInput;
+  caregiverId?: string;
+  message?: string;
+  language: 'en' | 'si' | 'ta';
 }

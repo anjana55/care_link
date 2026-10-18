@@ -3,7 +3,7 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search } from 'lucide-react';
+import { Phone, PhoneCall, Search } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { useCareRequests, useCareRequestSummary, type CareRequestFilters } from '@/lib/hooks/use-care-requests';
@@ -15,8 +15,10 @@ import { cn } from '@/lib/utils';
 import type { CareRequestStatus } from '@/lib/api/types';
 
 /** The queue's tabs: open work first, then each finished state, then everything. */
-const TABS: { key: string; filter: Pick<CareRequestFilters, 'scope' | 'status'> }[] = [
+const TABS: { key: string; filter: Pick<CareRequestFilters, 'scope' | 'status' | 'unmatched'> }[] = [
   { key: 'open', filter: { scope: 'open' } },
+  // Open requests with no caregiver yet - usually phone requests waiting for a match.
+  { key: 'unmatched', filter: { scope: 'open', unmatched: true } },
   { key: 'INTRODUCED', filter: { status: 'INTRODUCED' } },
   { key: 'CLOSED', filter: { status: 'CLOSED' } },
   { key: 'CANCELLED', filter: { status: 'CANCELLED' } },
@@ -70,13 +72,23 @@ export default function RequestsPage() {
   const count = (key: string) => {
     if (!summary) return null;
     if (key === 'open') return summary.open;
+    if (key === 'unmatched') return summary.unmatched;
     if (key === 'all') return null;
     return summary.byStatus[key as CareRequestStatus];
   };
 
   return (
     <div>
-      <h1 className="mb-2 text-xl font-semibold text-ink">{t('requests.title')}</h1>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold text-ink">{t('requests.title')}</h1>
+        <Link
+          href="/requests/new"
+          className="inline-flex h-9 items-center gap-2 rounded bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark"
+        >
+          <PhoneCall size={16} aria-hidden />
+          {t('requests.newPhoneRequest')}
+        </Link>
+      </div>
       <p className="mb-6 text-sm text-ink/60">{t('requests.subtitle')}</p>
 
       <div className="mb-4 flex gap-1 overflow-x-auto border-b border-border" role="tablist">
@@ -149,6 +161,12 @@ export default function RequestsPage() {
                   <Link href={`/requests/${r.id}`} className="font-medium tabular-nums text-brand-dark hover:underline">
                     {r.reference}
                   </Link>
+                  {r.source === 'PHONE' && (
+                    <span className="mt-0.5 flex items-center gap-1 text-xs text-ink/50">
+                      <Phone size={12} aria-hidden />
+                      {t('requests.source.PHONE')}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <div className="font-medium text-ink">{r.clientName}</div>
@@ -162,11 +180,17 @@ export default function RequestsPage() {
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="text-ink">{r.caregiverName}</div>
-                  <div className="text-xs tabular-nums text-ink/50">
-                    {r.caregiverRegistrationNumber}
-                    {r.caregiverDeleted && <span className="ml-2 text-danger">{t('requests.caregiverRemoved')}</span>}
-                  </div>
+                  {r.caregiverId ? (
+                    <>
+                      <div className="text-ink">{r.caregiverName}</div>
+                      <div className="text-xs tabular-nums text-ink/50">
+                        {r.caregiverRegistrationNumber}
+                        {r.caregiverDeleted && <span className="ml-2 text-danger">{t('requests.caregiverRemoved')}</span>}
+                      </div>
+                    </>
+                  ) : (
+                    <span className="rounded bg-accent-light px-2 py-0.5 text-xs font-medium text-accent">{t('requests.notMatched')}</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <RequestStatusBadge status={r.status} label={t(`requests.status.${r.status}`)} />

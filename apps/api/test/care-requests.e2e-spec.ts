@@ -7,7 +7,7 @@ import { eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
-import { caregivers, careRequests, patients } from '../src/database/schema';
+import { caregivers, careRequests, patients, users } from '../src/database/schema';
 import { SEED_PASSWORD } from './seed-password';
 
 /**
@@ -345,6 +345,142 @@ describe('Care requests and saved caregivers (e2e)', () => {
       await api().put(`/me/saved-caregivers/${cg.publicId}`).set(bearer(client.token)).expect(200);
       await api().delete(`/patients/${client.patientId}`).set(bearer(adminToken)).expect(200);
       await api().get(`/care-requests/${req.body.id}`).set(bearer(staffToken)).expect(404);
+    });
+  });
+
+  describe('phone requests taken by staff', () => {
+    const phoneCaller = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
+      fullName: 'Kamala Silva',
+      phone: newPhone(),
+      consentConfirmed: true,
+      ...intake,
+      ...extra,
+    });
+    const logCall = (body: Record<string, unknown>, token = staffToken) =>
+      api().post('/care-requests').set(bearer(token)).send({ language: 'en', ...body });
+
+    it('logs a request for an existing client with no caregiver yet, and will not introduce until one is chosen', async () => {
+      const client = await newClient();
+      const res = await logCall({ patientId: client.patientId, message: 'Needs someone for nights, from Monday' }).expect(201);
+
+      expect(res.body.source).toBe('PHONE');
+      expect(res.body.caregiver).toBeNull();
+      expect(res.body.createdBy?.fullName).toBeTruthy();
+      expect(res.body.message).toBe('Needs someone for nights, from Monday');
+      expect(res.body.events.map((e: { type: string }) => e.type)).toEqual(['CREATED']);
+
+      // The client sees it too, with no caregiver.
+      const own = await api().get('/me/care-requests').set(bearer(client.token)).expect(200);
+      const mine = own.body.find((r: { id: string }) => r.id === res.body.id);
+      expect(mine.caregiverPublicId).toBeNull();
+
+      const unmatched = await api().get('/care-requests?unmatched=true&scope=open').set(bearer(staffToken)).expect(200);
+      expect(unmatched.body.items.map((i: { id: string }) => i.id)).toContain(res.body.id);
+      expect((await api().get('/care-requests/summary').set(bearer(staffToken))).body.unmatched).toBeGreaterThan(0);
+
+      await move(res.body.id, { status: 'IN_PROGRESS' }).expect(200);
+      const blocked = await move(res.body.id, { status: 'INTRODUCED' }).expect(400);
+      expect(blocked.body.message).toMatch(/caregiver/i);
+      expect((await api().get(`/care-requests/${res.body.id}`).set(bearer(staffToken))).body.allowedNextStatuses).not.toContain('INTRODUCED');
+
+      // Staff may attach a caregiver who is not on the public site.
+      const unlisted = await newCaregiver('VERIFIED');
+      const attached = await api().patch(`/care-requests/${res.body.id}/caregiver`).set(bearer(staffToken)).send({ caregiverId: unlisted.id }).expect(200);
+      expect(attached.body.caregiver.id).toBe(unlisted.id);
+      expect(attached.body.events.at(-1)).toMatchObject({ type: 'CAREGIVER_CHANGED' });
+      expect(attached.body.events.at(-1).note).toContain(unlisted.fullName);
+
+      // The client learns a caregiver was chosen, but nothing about who.
+      const after = await api().get('/me/care-requests').set(bearer(client.token)).expect(200);
+      const row = after.body.find((r: { id: string }) => r.id === res.body.id);
+      expect(row.caregiverPublicId).toBe(unlisted.publicId);
+      expect(row.caregiver).toBeNull();
+      expect(JSON.stringify(after.body)).not.toContain(unlisted.fullName);
+
+      await move(res.body.id, { status: 'INTRODUCED' }).expect(200);
+      // Not once the introduction is made.
+      await api().patch(`/care-requests/${res.body.id}/caregiver`).set(bearer(staffToken)).send({ caregiverId: null }).expect(400);
+    });
+
+    it('adds a first-time caller as an active client who can later sign in with that number', async () => {
+      const cg = await newCaregiver();
+      const body = phoneCaller({ email: `caller-${run}-${++n}@example.com` });
+      const res = await logCall({ newClient: body, caregiverId: cg.id, language: 'si' }).expect(201);
+
+      expect(res.body.client.fullName).toBe('Kamala Silva');
+      expect(res.body.client.status).toBe('ACTIVE');
+      expect(res.body.caregiver.id).toBe(cg.id);
+      expect(res.body.language).toBe('si');
+
+      const [patient] = await db.select().from(patients).where(eq(patients.id, res.body.client.id));
+      expect(patient.consentAcceptedAt).toBeTruthy();
+      expect(patient.careNeeds).toMatch(/bathing/);
+      const [user] = await db.select().from(users).where(eq(users.id, patient.userId));
+      expect(user.role).toBe('PATIENT_GUARDIAN');
+      expect(user.passwordHash).toBeNull();
+      expect(user.phone).toMatch(/^\+94/);
+      expect(user.phoneVerifiedAt).toBeTruthy(); // so a WhatsApp code to that number signs them in
+
+      // The same caller again is refused, so staff pick the existing record.
+      const dupPhone = await logCall({ newClient: { ...phoneCaller(), phone: body.phone } }).expect(409);
+      expect(dupPhone.body.message).toMatch(/already exists/);
+      await logCall({ newClient: { ...phoneCaller(), email: body.email } }).expect(409);
+
+      // And their number cannot be taken over by a later self-registration.
+      await api().patch('/settings/whatsapp').set(bearer(adminToken)).send({ enabled: true, provider: 'CONSOLE', customerEnabled: true, registrationEnabled: true }).expect(200);
+      await api()
+        .post('/auth/whatsapp/register-patient')
+        .send({ whatsappNumber: body.phone, consentAccepted: true, fullName: 'Someone Else', ...intake })
+        .expect(409);
+      expect((await db.select().from(patients).where(eq(patients.id, res.body.client.id))).length).toBe(1);
+
+      // ...but they can sign in with a WhatsApp code and see the request staff logged for them.
+      await api().patch('/settings/whatsapp').set(bearer(adminToken)).send({ loginEnabled: true, otpResendCooldownSeconds: 15, otpMaxSendsPerHour: 20 }).expect(200);
+      const otp = await api().post('/auth/whatsapp/request-otp').send({ phone: body.phone, purpose: 'LOGIN', portal: 'customer' }).expect(201);
+      expect(otp.body.devOtp).toBeTruthy();
+      const session = await api()
+        .post('/auth/whatsapp/verify-otp')
+        .send({ phone: body.phone, purpose: 'LOGIN', code: otp.body.devOtp, portal: 'customer' })
+        .expect(201);
+      const own = await api().get('/me/care-requests').set(bearer(session.body.accessToken)).expect(200);
+      expect(own.body.map((r: { id: string }) => r.id)).toContain(res.body.id);
+    });
+
+    it('validates what it is sent', async () => {
+      const client = await newClient();
+      await logCall({}).expect(400); // neither client nor caller
+      await logCall({ patientId: client.patientId, newClient: phoneCaller() }).expect(400);
+      await logCall({ newClient: phoneCaller({ consentConfirmed: false }) }).expect(400);
+      await logCall({ newClient: phoneCaller({ careNeeds: '' }) }).expect(400);
+      await logCall({ newClient: phoneCaller({ phone: 'abc' }) }).expect(400);
+      await logCall({ patientId: client.patientId, language: 'fr' }).expect(400);
+      await logCall({ patientId: '00000000-0000-4000-8000-000000000000' }).expect(404);
+
+      const removed = await newCaregiver();
+      await db.execute(sql`UPDATE caregivers SET deleted_at = NOW() WHERE id = ${removed.id}`);
+      await logCall({ patientId: client.patientId, caregiverId: removed.id }).expect(404);
+      // Nothing half-made: a failed request leaves no new client behind.
+      const before = (await db.select().from(patients)).length;
+      await logCall({ newClient: phoneCaller(), caregiverId: removed.id }).expect(404);
+      expect((await db.select().from(patients)).length).toBe(before);
+    });
+
+    it('is for admin and staff only', async () => {
+      const client = await newClient();
+      await logCall({ patientId: client.patientId }, verifierToken).expect(403);
+      await logCall({ patientId: client.patientId }, client.token).expect(403);
+    });
+
+    it('lets staff swap the caregiver on a web request, but not into a duplicate', async () => {
+      const [a, b] = [await newCaregiver(), await newCaregiver()];
+      const client = await newClient();
+      const first = await send(client, a.publicId).expect(201);
+      await send(client, b.publicId).expect(201);
+
+      await api().patch(`/care-requests/${first.body.id}/caregiver`).set(bearer(staffToken)).send({ caregiverId: b.id }).expect(409);
+      const c = await newCaregiver();
+      const swapped = await api().patch(`/care-requests/${first.body.id}/caregiver`).set(bearer(staffToken)).send({ caregiverId: c.id }).expect(200);
+      expect(swapped.body.caregiver.id).toBe(c.id);
     });
   });
 

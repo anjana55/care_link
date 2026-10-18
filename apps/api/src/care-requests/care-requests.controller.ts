@@ -6,6 +6,7 @@ import { CurrentUser, type AuthenticatedUser } from '../common/decorators/curren
 import { CareRequestsService } from './care-requests.service';
 import { CareRequestQueryDto } from './dto/care-request-query.dto';
 import { AddCareRequestNoteDto, AssignCareRequestDto, UpdateCareRequestStatusDto } from './dto/update-care-request-status.dto';
+import { CreateStaffCareRequestDto, SetCareRequestCaregiverDto } from './dto/create-staff-care-request.dto';
 
 /**
  * The staff Requests queue. ADMIN and STAFF, like the Clients list it sits
@@ -22,6 +23,13 @@ export class CareRequestsController {
   @Get()
   findAll(@Query() query: CareRequestQueryDto, @CurrentUser() user: AuthenticatedUser) {
     return this.requests.findAll(query, user);
+  }
+
+  /** A request taken down during a phone call - see CareRequestsService.createByStaff. */
+  @Post()
+  @Audit({ action: 'CREATE_PHONE_CARE_REQUEST', entityType: 'CareRequest' })
+  create(@Body() dto: CreateStaffCareRequestDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.requests.createByStaff(dto, user);
   }
 
   @Get('summary')
@@ -50,6 +58,12 @@ export class CareRequestsController {
   @Audit({ action: 'ADD_CARE_REQUEST_NOTE', entityType: 'CareRequest' })
   addNote(@Param('id', ParseUUIDPipe) id: string, @Body() dto: AddCareRequestNoteDto, @CurrentUser() user: AuthenticatedUser) {
     return this.requests.addNote(id, dto.note, user);
+  }
+
+  @Patch(':id/caregiver')
+  @Audit({ action: 'SET_CARE_REQUEST_CAREGIVER', entityType: 'CareRequest' })
+  setCaregiver(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetCareRequestCaregiverDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.requests.setCaregiver(id, dto.caregiverId ?? null, user);
   }
 
   @Patch(':id/assign')
