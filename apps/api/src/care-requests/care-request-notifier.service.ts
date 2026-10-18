@@ -1,0 +1,280 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { DRIZZLE, type Database } from '../database/database.module';
+import { careRequests, caregivers, patients, users, type CareRequestLanguage, type CareRequestStatus } from '../database/schema';
+import { EmailService } from '../email/email.service';
+import { EmailSettingsService } from '../email/email-settings.service';
+import { WhatsappSettingsService, type ResolvedWhatsappSettings } from '../whatsapp/whatsapp-settings.service';
+import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
+import { normalizePhone } from '../common/utils/phone.util';
+import {
+  CLIENT_CTA,
+  CLIENT_FOOTER,
+  caregiverNotice,
+  caregiverNoticeFor,
+  clientNotice,
+  clientNoticeFor,
+} from './notification-messages';
+
+/** Everything a notice needs about one request, read fresh at send time. */
+interface NoticeContext {
+  id: string;
+  reference: string;
+  language: CareRequestLanguage;
+  client: {
+    email: string | null;
+    phone: string | null; // E.164, best effort
+    preferredContactMethod: 'PHONE_CALL' | 'WHATSAPP' | 'EMAIL' | null;
+    careStart: string | null;
+  };
+  caregiver: {
+    email: string | null;
+    phone: string | null; // E.164, best effort
+    registrationNumber: string;
+  };
+}
+
+/**
+ * How a client hears about their request: their own preference first
+ * (WhatsApp, if they chose it and updates can go out that way), otherwise
+ * whichever channel they have, email before WhatsApp. PHONE_CALL as a
+ * preference means staff call them - updates still need a written channel.
+ */
+export function chooseClientChannel(opts: {
+  hasEmail: boolean;
+  canWhatsapp: boolean;
+  preferred: 'PHONE_CALL' | 'WHATSAPP' | 'EMAIL' | null;
+}): 'EMAIL' | 'WHATSAPP' | null {
+  if (opts.preferred === 'WHATSAPP' && opts.canWhatsapp) return 'WHATSAPP';
+  if (opts.hasEmail) return 'EMAIL';
+  if (opts.canWhatsapp) return 'WHATSAPP';
+  return null;
+}
+
+/**
+ * Tells the three parties to a care request what happened to it:
+ *
+ * - staff, by email, when a new request arrives (the Requests queue is the
+ *   real worklist - this is the nudge to look at it);
+ * - the client, by email or WhatsApp, when it is received and whenever staff
+ *   move it on;
+ * - the caregiver, by email or WhatsApp, when staff pick it up and when they
+ *   make the introduction.
+ *
+ * Never throws and is never awaited by a request handler: a mail server being
+ * down must not turn "send request" or "mark introduced" into an error, because
+ * the request itself has already been saved. Failures are logged.
+ *
+ * Notices carry only the reference number and generic wording - no names,
+ * phones or care details (see notification-messages.ts).
+ */
+@Injectable()
+export class CareRequestNotifier {
+  private readonly logger = new Logger(CareRequestNotifier.name);
+
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly config: ConfigService,
+    private readonly email: EmailService,
+    private readonly emailSettings: EmailSettingsService,
+    private readonly whatsappSettings: WhatsappSettingsService,
+    private readonly whatsapp: WhatsappProviderService,
+  ) {}
+
+  /** A client just sent a request: alert staff, confirm to the client. */
+  async requestCreated(requestId: string): Promise<void> {
+    await this.safely('new request', async () => {
+      const ctx = await this.load(requestId);
+      if (!ctx) return;
+      await Promise.all([this.alertStaff(ctx), this.notifyClient(ctx, 'RECEIVED')]);
+    });
+  }
+
+  /** Staff moved a request into `status`. */
+  async statusChanged(requestId: string, status: CareRequestStatus): Promise<void> {
+    await this.safely(`status change to ${status}`, async () => {
+      const ctx = await this.load(requestId);
+      if (!ctx) return;
+      const forClient = clientNoticeFor(status);
+      const forCaregiver = caregiverNoticeFor(status);
+      await Promise.all([
+        forClient ? this.notifyClient(ctx, forClient) : Promise.resolve(),
+        forCaregiver ? this.notifyCaregiver(ctx, forCaregiver) : Promise.resolve(),
+      ]);
+    });
+  }
+
+  private async safely(label: string, work: () => Promise<void>) {
+    try {
+      await work();
+    } catch (err) {
+      this.logger.error(`Care request notification (${label}) failed: ${(err as Error).message}`);
+    }
+  }
+
+  private async load(requestId: string): Promise<NoticeContext | null> {
+    const [row] = await this.db
+      .select({
+        id: careRequests.id,
+        reference: careRequests.reference,
+        language: careRequests.language,
+        patientUserId: patients.userId,
+        patientPhone: patients.phone,
+        preferredContactMethod: patients.preferredContactMethod,
+        careStart: patients.careStart,
+        caregiverUserId: caregivers.userId,
+        caregiverPhone: caregivers.primaryPhone,
+        registrationNumber: caregivers.registrationNumber,
+      })
+      .from(careRequests)
+      .innerJoin(patients, eq(careRequests.patientId, patients.id))
+      .innerJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
+      .where(eq(careRequests.id, requestId))
+      .limit(1);
+    if (!row) return null;
+
+    const userIds = [row.patientUserId, row.caregiverUserId].filter((v): v is string => Boolean(v));
+    const accounts = userIds.length
+      ? await this.db.select({ id: users.id, email: users.email, phone: users.phone }).from(users).where(inArray(users.id, userIds))
+      : [];
+    const account = (id: string | null) => accounts.find((a) => a.id === id);
+    const cc = await this.whatsappSettings.getDefaultCountryCode();
+
+    const clientAccount = account(row.patientUserId);
+    const caregiverAccount = account(row.caregiverUserId);
+    return {
+      id: row.id,
+      reference: row.reference,
+      language: row.language,
+      client: {
+        email: clientAccount?.email ?? null,
+        // users.phone is the verified WhatsApp identity, already E.164; the
+        // profile phone is free text and is normalised as a fallback.
+        phone: clientAccount?.phone ?? normalizePhone(row.patientPhone, cc),
+        preferredContactMethod: row.preferredContactMethod,
+        careStart: row.careStart,
+      },
+      caregiver: {
+        email: caregiverAccount?.email ?? null,
+        phone: caregiverAccount?.phone ?? normalizePhone(row.caregiverPhone, cc),
+        registrationNumber: row.registrationNumber,
+      },
+    };
+  }
+
+  private publicUrl(path: string) {
+    return `${(this.config.get<string>('PUBLIC_WEB_URL') ?? 'http://localhost:3002').replace(/\/+$/, '')}${path}`;
+  }
+
+  private staffUrl(path: string) {
+    return `${(this.config.get<string>('CAREGIVER_WEB_URL') ?? 'http://localhost:3000/staff').replace(/\/+$/, '')}${path}`;
+  }
+
+  /**
+   * The configured alert list, or else every active admin and staff account
+   * with an email address. Read at send time so a settings change applies to
+   * the next request.
+   */
+  private async staffRecipients(): Promise<string[]> {
+    const settings = await this.emailSettings.getResolved();
+    if (settings.requestAlertsTo) {
+      return settings.requestAlertsTo
+        .split(',')
+        .map((a) => a.trim())
+        .filter(Boolean);
+    }
+    const rows = await this.db
+      .select({ email: users.email })
+      .from(users)
+      .where(and(inArray(users.role, ['ADMIN', 'STAFF']), eq(users.isActive, true), isNotNull(users.email)));
+    return rows.map((r) => r.email!).filter(Boolean);
+  }
+
+  private async alertStaff(ctx: NoticeContext) {
+    const to = await this.staffRecipients();
+    if (!to.length) {
+      this.logger.warn(`New care request ${ctx.reference}: no staff email address to alert - it is waiting in the Requests queue.`);
+      return;
+    }
+    const start = ctx.client.careStart ? ` Care needed: ${ctx.client.careStart.replace(/_/g, ' ').toLowerCase()}.` : '';
+    await this.email.sendNotificationEmail(
+      to,
+      {
+        subject: `New care request ${ctx.reference}`,
+        blocks: [
+          {
+            lang: 'en',
+            heading: `New care request ${ctx.reference}`,
+            paragraphs: [
+              `A client has asked to be put in touch with caregiver ${ctx.caregiver.registrationNumber}.${start}`,
+              'Open the request in the staff portal to see the client and caregiver details and pick it up.',
+            ],
+          },
+        ],
+        cta: { label: 'Open request', url: this.staffUrl(`/requests/${ctx.id}`) },
+        footer: 'Sent to the request alert list in Settings > Email, or to every admin and staff account when that list is empty.',
+      },
+      'care request alert',
+    );
+  }
+
+  private async notifyClient(ctx: NoticeContext, notice: Parameters<typeof clientNotice>[0]) {
+    const lang = ctx.language;
+    const text = clientNotice(notice, lang, ctx.reference);
+    const wa = await this.whatsappSettings.getResolved();
+    const channel = chooseClientChannel({
+      hasEmail: Boolean(ctx.client.email),
+      canWhatsapp: Boolean(ctx.client.phone) && this.whatsapp.canSendUpdates(wa),
+      preferred: ctx.client.preferredContactMethod,
+    });
+    if (channel === 'WHATSAPP') {
+      await this.sendWhatsapp(wa, ctx.client.phone!, lang, `${text.heading}. ${text.body}`, `client update ${ctx.reference}`);
+      return;
+    }
+    if (channel === 'EMAIL') {
+      await this.email.sendNotificationEmail(
+        ctx.client.email!,
+        {
+          subject: text.subject,
+          blocks: [{ lang, heading: text.heading, paragraphs: [text.body] }],
+          cta: { label: CLIENT_CTA[lang], url: this.publicUrl('/account/requests') },
+          footer: CLIENT_FOOTER[lang],
+        },
+        `client update ${ctx.reference}`,
+      );
+      return;
+    }
+    this.logger.warn(`Care request ${ctx.reference}: the client has no email and WhatsApp updates are off, so "${notice}" was not sent.`);
+  }
+
+  private async notifyCaregiver(ctx: NoticeContext, notice: Parameters<typeof caregiverNotice>[0]) {
+    const msg = caregiverNotice(notice, ctx.reference);
+    if (ctx.caregiver.email) {
+      await this.email.sendNotificationEmail(
+        ctx.caregiver.email,
+        {
+          subject: msg.subject,
+          blocks: msg.blocks.map((b) => ({ lang: b.lang, heading: b.heading, paragraphs: [b.body] })),
+          cta: { label: 'CareLink', url: this.publicUrl('/caregiver/dashboard') },
+        },
+        `caregiver update ${ctx.reference}`,
+      );
+      return;
+    }
+    const wa = await this.whatsappSettings.getResolved();
+    if (ctx.caregiver.phone && this.whatsapp.canSendUpdates(wa)) {
+      await this.sendWhatsapp(wa, ctx.caregiver.phone, 'en', msg.whatsappText, `caregiver update ${ctx.reference}`);
+      return;
+    }
+    this.logger.warn(`Care request ${ctx.reference}: the caregiver has no email and WhatsApp updates are off, so "${notice}" was not sent.`);
+  }
+
+  private async sendWhatsapp(s: ResolvedWhatsappSettings, phone: string, lang: CareRequestLanguage, text: string, label: string) {
+    try {
+      await this.whatsapp.sendUpdate(s, phone, lang, text);
+    } catch (err) {
+      this.logger.error(`WhatsApp ${label} failed: ${(err as Error).message}`);
+    }
+  }
+}

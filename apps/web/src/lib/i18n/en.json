@@ -13,7 +13,8 @@
     "backToPublic": "Back to CareLink",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "settings": "Settings"
+    "settings": "Settings",
+    "requests": "Requests"
   },
   "login": {
     "title": "Sign in",
@@ -36,7 +37,9 @@
     "verified": "Verified",
     "active": "Active",
     "suspended": "Suspended",
-    "documentsRequiringAttention": "Documents needing attention"
+    "documentsRequiringAttention": "Documents needing attention",
+    "newRequests": "New requests",
+    "openRequests": "Open requests"
   },
   "caregivers": {
     "title": "Caregivers",
@@ -759,7 +762,12 @@
     "testHint": "Uses the saved settings to send a message, so you can check the credentials and template.",
     "testPhone": "WhatsApp number",
     "testSend": "Send test",
-    "testSaveFirst": "Save your changes before sending a test."
+    "testSaveFirst": "Save your changes before sending a test.",
+    "updatesTitle": "Care request updates",
+    "updatesEnabled": "Send request updates over WhatsApp",
+    "updatesHint": "Separate from WhatsApp sign-in. Clients who prefer WhatsApp, or have no email, and caregivers with no email are updated here. Uses the Cloud API credentials above.",
+    "updatesTemplate": "Update template name",
+    "updatesTemplateHint": "An approved utility template whose body has one text parameter ({{1}}) for the update, approved in English (en), Sinhala (si) and Tamil (ta)."
   },
   "emailAdmin": {
     "title": "Email server",
@@ -795,7 +803,10 @@
     "testSend": "Send test",
     "testSending": "Sending…",
     "testSaveFirst": "Save your changes before sending a test.",
-    "testNeedsServer": "Save a server host and a sender address first."
+    "testNeedsServer": "Save a server host and a sender address first.",
+    "requestAlertsTitle": "Care request alerts",
+    "requestAlertsTo": "Send new-request alerts to",
+    "requestAlertsHint": "One or more addresses, separated by commas. Leave empty to alert every active admin and staff account that has an email address."
   },
   "brand": {
     "name": "CareLink"
@@ -859,5 +870,125 @@
     "saved": "Saved",
     "saveError": "Could not save these settings.",
     "loadError": "Could not load the sign-in settings."
+  },
+  "requests": {
+    "title": "Requests",
+    "subtitle": "Clients asking to be put in touch with a caregiver. Call both sides, then move the request on - each move notifies the client.",
+    "tabs": {
+      "open": "Open",
+      "INTRODUCED": "Introduced",
+      "CLOSED": "Closed",
+      "CANCELLED": "Cancelled",
+      "all": "All"
+    },
+    "search": "Search by reference, client or caregiver",
+    "table": {
+      "reference": "Reference",
+      "client": "Client",
+      "caregiver": "Caregiver",
+      "status": "Status",
+      "assigned": "Handled by",
+      "received": "Received"
+    },
+    "assigned": {
+      "any": "Anyone",
+      "me": "Assigned to me",
+      "unassigned": "Unassigned"
+    },
+    "empty": "No requests here.",
+    "forRecipient": "for {name}",
+    "caregiverRemoved": "Removed",
+    "unassigned": "Unassigned",
+    "pageOf": "Page {page} of {totalPages}",
+    "notFound": "This request doesn't exist or has been removed.",
+    "back": "Back to requests",
+    "newCount": "{count} new",
+    "status": {
+      "NEW": "New",
+      "IN_PROGRESS": "In progress",
+      "INTRODUCED": "Introduced",
+      "CLOSED": "Closed",
+      "CANCELLED": "Cancelled by client"
+    },
+    "closeReason": {
+      "CLIENT_NOT_PROCEEDING": "Client is not going ahead",
+      "CLIENT_UNREACHABLE": "Couldn't reach the client",
+      "CAREGIVER_UNAVAILABLE": "Caregiver is not available",
+      "CAREGIVER_DECLINED": "Caregiver declined",
+      "NOT_A_MATCH": "Not a good match",
+      "PLACED": "Placed - care arranged",
+      "OTHER": "Other"
+    },
+    "related": {
+      "title": "Requests",
+      "empty": "No requests yet.",
+      "more": "and {count} more"
+    },
+    "detail": {
+      "received": "Received {date}",
+      "updatesIn": "Client updates in {language}",
+      "language": {
+        "en": "English",
+        "si": "Sinhala",
+        "ta": "Tamil"
+      },
+      "message": "Client's message",
+      "noMessage": "No message.",
+      "handledBy": "Handled by",
+      "nobody": "Nobody yet",
+      "assignToMe": "Assign to me",
+      "saveFailed": "Couldn't save. Please try again.",
+      "client": "Client",
+      "openClient": "Open client record",
+      "clientPending": "This client's account is still pending review - check their details on the call.",
+      "phone": "Phone",
+      "whatsapp": "WhatsApp number",
+      "alternatePhone": "Other phone",
+      "email": "Email",
+      "noEmail": "No email",
+      "preferredContact": "Prefers",
+      "careFor": "Care for",
+      "age": "{age} years",
+      "location": "Location",
+      "careAddress": "Care address",
+      "schedule": "Schedule",
+      "genderPreference": "Caregiver preference",
+      "careNeeds": "Care needs",
+      "caregiver": "Caregiver",
+      "openCaregiver": "Open caregiver record",
+      "caregiverRemovedNote": "This caregiver's record has been removed.",
+      "caregiverNotActive": "This caregiver is no longer active and is hidden from the public site.",
+      "registration": "Registration no.",
+      "actions": "Move this request",
+      "move": {
+        "PICK_UP": "Pick up",
+        "REOPEN": "Back to in progress",
+        "INTRODUCED": "Mark introduced",
+        "CLOSED": "Close"
+      },
+      "closeReasonLabel": "Why is it closing?",
+      "chooseReason": "Choose a reason",
+      "noteOptional": "Note (optional, staff only)",
+      "notifyHint": {
+        "IN_PROGRESS": "The client and the caregiver are told our team is on it. Notices never include names or numbers.",
+        "INTRODUCED": "The client and the caregiver are told they have been introduced. Share contact details on the phone, not in a note.",
+        "CLOSED": "The client is told the request is closed. The caregiver is not notified."
+      },
+      "confirmMove": "Confirm: {action}",
+      "noMoves": "Cancelled requests are final.",
+      "closedBecause": "Closed: {reason}",
+      "history": "History",
+      "addNote": "Add note",
+      "notePlaceholder": "Calls made, what was agreed... Staff only.",
+      "event": {
+        "CREATED": "Client sent the request",
+        "CANCELLED": "Client cancelled the request",
+        "STATUS_CHANGED": "{from} → {to}",
+        "ASSIGNED": "Assigned to {name}",
+        "UNASSIGNED": "Unassigned",
+        "NOTE": "Note"
+      },
+      "by": "by {name}"
+    }
   }
 }

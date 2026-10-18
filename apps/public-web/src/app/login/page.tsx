@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
 import { Input, Label } from '@/components/ui/input';
+import { takeReturnTo } from '@/lib/return-to';
 
 interface LoginValues {
   email: string;
@@ -34,7 +35,7 @@ export default function LoginPage() {
     setServerError(null);
     try {
       await login(values.email, values.password, 'customer');
-      router.push('/');
+      router.push(takeReturnTo('/'));
     } catch (err) {
       // Fall back to the generic string only when there is no message to
       // show, so a validation error isn't reported as a wrong password.

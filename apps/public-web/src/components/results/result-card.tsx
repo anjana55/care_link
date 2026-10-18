@@ -1,9 +1,14 @@
 import Link from 'next/link';
-import { BadgeCheck, MapPin, Languages as LanguagesIcon } from 'lucide-react';
-import type { PublicCaregiverSummary } from '@care-platform/shared';
+import { BadgeCheck, CheckCircle2, MapPin, Languages as LanguagesIcon } from 'lucide-react';
+import type { CaregiverRelation, PublicCaregiverSummary } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
+import { SaveButton } from '@/components/care/caregiver-actions';
 
-export function ResultCard({ caregiver }: { caregiver: PublicCaregiverSummary }) {
+/**
+ * `relation` is passed only for a signed-in client, and switches on the Save
+ * heart and the "request sent" marker. Everyone else sees the card as before.
+ */
+export function ResultCard({ caregiver, relation }: { caregiver: PublicCaregiverSummary; relation?: CaregiverRelation }) {
   const { t } = useTranslation();
 
   return (
@@ -17,11 +22,16 @@ export function ResultCard({ caregiver }: { caregiver: PublicCaregiverSummary })
             {t('results.yearsExperience', { years: caregiver.yearsExperience })}
           </h3>
         </div>
-        {caregiver.matchScore !== undefined && (
-          <span className="whitespace-nowrap rounded-full bg-brand-light px-3 py-1 text-xs font-semibold text-brand-dark">
-            {t('results.recommendedMatch')}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {caregiver.matchScore !== undefined && (
+            <span className="whitespace-nowrap rounded-full bg-brand-light px-3 py-1 text-xs font-semibold text-brand-dark">
+              {t('results.recommendedMatch')}
+            </span>
+          )}
+          {relation && (
+            <SaveButton publicId={caregiver.publicId} saved={relation.saved} caregiverLabel={caregiver.publicId.slice(0, 8)} variant="compact" />
+          )}
+        </div>
       </div>
 
       <p className="mt-2 flex items-center gap-1.5 text-sm text-ink/70">
@@ -64,12 +74,20 @@ export function ResultCard({ caregiver }: { caregiver: PublicCaregiverSummary })
         </div>
       )}
 
-      <Link
-        href={`/caregivers/${caregiver.publicId}`}
-        className="mt-4 inline-block rounded-DEFAULT border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-brand-light"
-      >
-        {t('results.viewProfile')}
-      </Link>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Link
+          href={`/caregivers/${caregiver.publicId}`}
+          className="inline-block rounded-DEFAULT border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-brand-light"
+        >
+          {t('results.viewProfile')}
+        </Link>
+        {relation?.openRequest && (
+          <Link href="/account/requests" className="flex items-center gap-1.5 text-sm font-medium text-brand-dark hover:underline">
+            <CheckCircle2 className="h-4 w-4" aria-hidden />
+            {t('care.requestSent', { reference: relation.openRequest.reference })}
+          </Link>
+        )}
+      </div>
     </article>
   );
 }

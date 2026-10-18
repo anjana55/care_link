@@ -5,6 +5,7 @@ import { EmailSettingsService, type ResolvedEmailSettings } from './email-settin
 import { verificationEmail } from './templates/verification-email';
 import { claimCodeEmail } from './templates/claim-code-email';
 import { testEmail } from './templates/test-email';
+import { notificationEmail, type NotificationEmailParams } from './templates/notification-email';
 
 const VERIFICATION_TOKEN_TTL_HOURS = 24; // must match AuthService's VERIFICATION_TOKEN_TTL_MS
 
@@ -149,6 +150,17 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
   async sendClaimCodeEmail(to: string, code: string, registrationNumber: string, expiresInMinutes: number): Promise<void> {
     const message = claimCodeEmail({ code, registrationNumber, expiresInMinutes });
     await this.deliver(to, message, 'claim code email', `Claim code for ${to} (${registrationNumber}): ${code}`);
+  }
+
+  /**
+   * A notice about a care request (see CareRequestNotifier). Fire-and-forget
+   * like the senders above: never throws, logs instead.
+   */
+  async sendNotificationEmail(to: string | string[], params: NotificationEmailParams, label: string): Promise<void> {
+    const recipients = (Array.isArray(to) ? to : [to]).filter(Boolean);
+    if (!recipients.length) return;
+    const message = notificationEmail(params);
+    await this.deliver(recipients.join(', '), message, label, `${params.subject} -> ${recipients.join(', ')}`);
   }
 
   /**

@@ -9,7 +9,9 @@
     "brand": "CareLink Finder",
     "signIn": "Sign in",
     "signUp": "Sign up",
-    "backHome": "Back to home"
+    "backHome": "Back to home",
+    "myAccount": "My account",
+    "signOut": "Sign out"
   },
   "hero": {
     "title": "Find the right caregiver",
@@ -120,7 +122,7 @@
   },
   "registrationGate": {
     "title": "Create a free account to continue",
-    "body": "Signing up lets you contact caregivers, save favorites, and send a hire request. Searching stays free and anonymous.",
+    "body": "Signing up lets you contact caregivers through our team and save the ones you like. Searching stays free and anonymous.",
     "signUp": "Sign up",
     "signIn": "Sign in",
     "cancel": "Not now"
@@ -858,5 +860,74 @@
     "linkExpired": "This step has timed out. Start again with your registration number - your details are still saved.",
     "startOver": "Start again",
     "genericError": "Something went wrong. Please try again."
+  },
+  "care": {
+    "contactCta": "Contact this caregiver",
+    "save": "Save",
+    "saved": "Saved",
+    "saveAria": "Save caregiver {id}",
+    "unsaveAria": "Remove caregiver {id} from your saved list",
+    "requestSent": "Request sent · {reference}",
+    "viewRequests": "View my requests",
+    "caregiverAccountNote": "You're signed in as a caregiver. Sign in with a client account to contact or save caregivers.",
+    "actionError": "Something went wrong. Please try again.",
+    "dialog": {
+      "title": "Contact this caregiver",
+      "intro": "Our team will call you to talk about your care needs and arrange an introduction. Your contact details and the caregiver's stay private - we connect you.",
+      "messageLabel": "Anything we should know? (optional)",
+      "messagePlaceholder": "For example: the best times to call you, or anything about the care needed",
+      "charsLeft": "{count} characters left",
+      "send": "Send request",
+      "sending": "Sending…",
+      "cancel": "Cancel",
+      "successTitle": "Request sent",
+      "successBody": "Thank you. Our team will contact you soon. Your reference is {reference}.",
+      "close": "Close",
+      "error": "We couldn't send your request. Please try again."
+    }
+  },
+  "account": {
+    "navLabel": "Account sections",
+    "nav": {
+      "requests": "My requests",
+      "saved": "Saved caregivers"
+    },
+    "findCaregivers": "Find caregivers",
+    "requests": {
+      "title": "My requests",
+      "subtitle": "Caregivers you asked us to contact. Our team speaks to you and the caregiver, and keeps you updated here.",
+      "empty": "You haven't contacted a caregiver yet.",
+      "emptyCta": "Find a caregiver",
+      "reference": "Reference {reference}",
+      "sentOn": "Sent {date}",
+      "cancel": "Cancel request",
+      "cancelConfirm": "Cancel this request? Our team will stop working on it.",
+      "cancelYes": "Yes, cancel it",
+      "cancelNo": "Keep it",
+      "unavailable": "This caregiver is no longer listed.",
+      "viewProfile": "View profile",
+      "status": {
+        "NEW": "Sent",
+        "IN_PROGRESS": "Our team is on it",
+        "INTRODUCED": "Introduced",
+        "CLOSED": "Closed",
+        "CANCELLED": "Cancelled"
+      },
+      "statusHelp": {
+        "NEW": "We have your request and will call you soon.",
+        "IN_PROGRESS": "We are talking to you and the caregiver.",
+        "INTRODUCED": "We have put you in touch with the caregiver.",
+        "CLOSED": "This request is closed. You can contact another caregiver at any time.",
+        "CANCELLED": "You cancelled this request."
+      }
+    },
+    "saved": {
+      "title": "Saved caregivers",
+      "subtitle": "Caregivers you've saved to compare or contact later.",
+      "empty": "You haven't saved any caregivers yet.",
+      "remove": "Remove",
+      "savedOn": "Saved {date}",
+      "unavailable": "This caregiver is no longer listed."
+    }
   }
 }

@@ -18,6 +18,7 @@ import { PatientIntakeFields } from '@/components/register/patient-intake-fields
 import { useLocationTree } from '@/lib/hooks/use-public-search';
 import { UNSET_ID } from '@/lib/schemas/personal-info';
 import { guardianFieldsCheck, makePatientIntakeSchema, toIntakePayload } from '@/lib/schemas/patient-intake';
+import { takeReturnTo } from '@/lib/return-to';
 
 interface RegisterResponse {
   patientId: string;
@@ -89,7 +90,7 @@ export default function RegisterWhatsappPage() {
 
   function onVerified(tokens: Tokens) {
     applyTokens(tokens);
-    router.push('/');
+    router.push(takeReturnTo('/'));
   }
 
   const card = 'mx-auto max-w-xl px-4 py-12';

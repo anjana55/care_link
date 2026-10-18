@@ -1,7 +1,10 @@
 'use client';
 
 import { useTranslation } from '@/lib/i18n/provider';
+import Link from 'next/link';
 import { useDashboardStats } from '@/lib/hooks/use-caregivers';
+import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
+import { useAuth } from '@/lib/api/auth-context';
 import { Card, CardContent } from '@/components/ui/card';
 
 function StatCard({ label, value, tone }: { label: string; value: number; tone?: 'brand' | 'accent' | 'danger' }) {
@@ -19,10 +22,20 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone?:
 export default function DashboardPage() {
   const { t } = useTranslation();
   const { data, isLoading } = useDashboardStats();
+  const { user } = useAuth();
+  const canSeeRequests = user?.role === 'ADMIN' || user?.role === 'STAFF';
+  const { data: requests } = useCareRequestSummary(canSeeRequests);
 
   return (
     <div>
       <h1 className="mb-6 text-xl font-semibold text-ink">{t('dashboard.title')}</h1>
+
+      {canSeeRequests && requests && (
+        <Link href="/requests" className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          <StatCard label={t('dashboard.newRequests')} value={requests.new} tone={requests.new > 0 ? 'accent' : undefined} />
+          <StatCard label={t('dashboard.openRequests')} value={requests.open} />
+        </Link>
+      )}
 
       {isLoading || !data ? (
         <p className="text-sm text-ink/50">{t('common.loading')}</p>

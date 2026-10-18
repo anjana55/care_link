@@ -1,5 +1,6 @@
 import type { PublicSearchResponse } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
+import { useCaregiverRelations, useIsClient } from '@/lib/hooks/use-client-care';
 import { ResultCard } from './result-card';
 
 interface ResultsListProps {
@@ -9,6 +10,10 @@ interface ResultsListProps {
 
 export function ResultsList({ response, onPageChange }: ResultsListProps) {
   const { t } = useTranslation();
+  // One call for the whole page of results, and only for a signed-in client:
+  // whether each caregiver is saved or already has an open request.
+  const isClient = Boolean(useIsClient());
+  const relations = useCaregiverRelations(isClient ? response.items.map((i) => i.publicId) : []);
 
   return (
     <div>
@@ -19,7 +24,11 @@ export function ResultsList({ response, onPageChange }: ResultsListProps) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         {response.items.map((item) => (
-          <ResultCard key={item.publicId} caregiver={item} />
+          <ResultCard
+            key={item.publicId}
+            caregiver={item}
+            relation={isClient ? (relations.byId.get(item.publicId) ?? { caregiverPublicId: item.publicId, saved: false, openRequest: null }) : undefined}
+          />
         ))}
       </div>
 

@@ -119,7 +119,7 @@ export class WhatsappSettingsService {
       patch.accessTokenEncrypted = encryptSecret(accessToken.trim(), this.encryptionKey);
     }
     // Stored trimmed so a pasted trailing space can't break the Graph API URL.
-    for (const key of ['apiBaseUrl', 'apiVersion', 'phoneNumberId', 'businessAccountId', 'templateName', 'templateLanguage'] as const) {
+    for (const key of ['apiBaseUrl', 'apiVersion', 'phoneNumberId', 'businessAccountId', 'templateName', 'templateLanguage', 'notificationTemplateName'] as const) {
       if (typeof patch[key] === 'string') (patch as Record<string, unknown>)[key] = (patch[key] as string).trim() || null;
     }
     if (typeof patch.apiBaseUrl === 'string') patch.apiBaseUrl = patch.apiBaseUrl.replace(/\/+$/, '');
@@ -130,6 +130,7 @@ export class WhatsappSettingsService {
   }
 
   private assertConsistent(s: Omit<ResolvedWhatsappSettings, 'accessToken'>, token: string | null) {
+    this.assertNotificationsConsistent(s, token);
     if (!s.enabled) return;
 
     if (s.provider === 'CONSOLE' && this.config.get<string>('NODE_ENV') === 'production') {
@@ -151,6 +152,21 @@ export class WhatsappSettingsService {
     }
     if (!s.caregiverEnabled && !s.customerEnabled) {
       throw new BadRequestException('Enable WhatsApp sign-in for at least one of caregivers or customers');
+    }
+  }
+
+  /** WhatsApp request updates have their own switch, so they are checked whether or not sign-in is on. */
+  private assertNotificationsConsistent(s: Omit<ResolvedWhatsappSettings, 'accessToken'>, token: string | null) {
+    if (!s.notificationsEnabled) return;
+    if (s.provider === 'CONSOLE' && this.config.get<string>('NODE_ENV') === 'production') {
+      throw new BadRequestException('The console provider only logs messages and is for development - choose Meta Cloud API to send WhatsApp updates in production');
+    }
+    if (s.provider === 'META_CLOUD') {
+      const missing: string[] = [];
+      if (!s.phoneNumberId) missing.push('phone number ID');
+      if (!token) missing.push('access token');
+      if (!s.notificationTemplateName) missing.push('update template name');
+      if (missing.length) throw new BadRequestException(`Cannot turn on WhatsApp updates without: ${missing.join(', ')}`);
     }
   }
 }

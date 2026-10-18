@@ -251,6 +251,9 @@ export interface WhatsappSettings {
   templateName: string;
   templateLanguage: string;
   templateHasCopyCodeButton: boolean;
+  /** Care request updates over WhatsApp - independent of WhatsApp sign-in. */
+  notificationsEnabled: boolean;
+  notificationTemplateName: string;
   otpLength: number;
   otpTtlSeconds: number;
   otpMaxAttempts: number;
@@ -294,6 +297,8 @@ export interface EmailSettings {
   fromName: string;
   fromAddress: string | null;
   replyTo: string | null;
+  /** Comma-separated; null = every active admin and staff account. */
+  requestAlertsTo: string | null;
   /** Enabled and complete: emails are actually being sent. */
   usable: boolean;
   updatedAt: string;
@@ -408,4 +413,120 @@ export interface IssuedClaimCode {
   registrationNumber: string;
   /** The public-site page where the caregiver enters the code. */
   claimUrl: string;
+}
+
+// --- care requests (staff Requests queue) ------------------------------------
+/** Mirrors careRequestStatusEnum on the API. */
+export type CareRequestStatus = 'NEW' | 'IN_PROGRESS' | 'INTRODUCED' | 'CLOSED' | 'CANCELLED';
+export type CareRequestCloseReason =
+  | 'CLIENT_NOT_PROCEEDING'
+  | 'CLIENT_UNREACHABLE'
+  | 'CAREGIVER_UNAVAILABLE'
+  | 'CAREGIVER_DECLINED'
+  | 'NOT_A_MATCH'
+  | 'PLACED'
+  | 'OTHER';
+
+export interface StaffRef {
+  id: string;
+  fullName: string;
+}
+
+export interface CareRequestListItem {
+  id: string;
+  reference: string;
+  status: CareRequestStatus;
+  createdAt: string;
+  updatedAt: string;
+  assignedTo: StaffRef | null;
+  clientId: string;
+  clientName: string;
+  clientStatus: ClientStatus;
+  /** Masked, like the clients list. */
+  clientPhone: string | null;
+  recipientName: string | null;
+  registrantType: 'SELF' | 'GUARDIAN' | null;
+  careStart: string | null;
+  caregiverId: string;
+  caregiverName: string;
+  caregiverRegistrationNumber: string;
+  caregiverStatus: CaregiverStatus;
+  caregiverDeleted: boolean;
+}
+
+export interface CareRequestListResponse {
+  items: CareRequestListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface CareRequestEvent {
+  id: string;
+  type: 'CREATED' | 'STATUS_CHANGED' | 'NOTE' | 'ASSIGNED' | 'CANCELLED';
+  fromStatus: CareRequestStatus | null;
+  toStatus: CareRequestStatus | null;
+  closeReason: CareRequestCloseReason | null;
+  note: string | null;
+  createdAt: string;
+  actor: StaffRef | null;
+}
+
+export interface CareRequestDetail {
+  id: string;
+  reference: string;
+  status: CareRequestStatus;
+  message: string | null;
+  language: 'en' | 'si' | 'ta';
+  closeReason: CareRequestCloseReason | null;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignedTo: StaffRef | null;
+  allowedNextStatuses: CareRequestStatus[];
+  client: {
+    id: string;
+    fullName: string;
+    status: ClientStatus;
+    email: string | null;
+    phone: string | null;
+    accountPhone: string | null;
+    alternatePhone: string | null;
+    preferredContactMethod: 'PHONE_CALL' | 'WHATSAPP' | 'EMAIL' | null;
+    preferredContactTime: string | null;
+    registrantType: 'SELF' | 'GUARDIAN' | null;
+    recipientName: string | null;
+    recipientRelationship: string | null;
+    recipientAge: number | null;
+    recipientGender: string | null;
+    district: string | null;
+    city: string | null;
+    careAddress: string | null;
+    careNeeds: string | null;
+    careSchedule: string | null;
+    careStart: string | null;
+    preferredCaregiverGender: string | null;
+  };
+  caregiver: {
+    id: string;
+    publicId: string;
+    fullName: string;
+    registrationNumber: string;
+    status: CaregiverStatus;
+    deleted: boolean;
+    gender: string;
+    primaryPhone: string | null;
+    secondaryPhone: string | null;
+    email: string | null;
+    district: string | null;
+    city: string | null;
+  };
+  events: CareRequestEvent[];
+}
+
+export interface CareRequestSummary {
+  byStatus: Record<CareRequestStatus, number>;
+  open: number;
+  new: number;
 }

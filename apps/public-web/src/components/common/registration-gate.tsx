@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n';
+import { rememberReturnTo } from '@/lib/return-to';
 
 interface RegistrationGateProps {
   open: boolean;
@@ -9,6 +10,11 @@ interface RegistrationGateProps {
   /** Which action triggered the gate - only used for future analytics/copy
    * tailoring, not required to render. */
   reason?: 'contact' | 'save' | 'hire';
+  /**
+   * Where to bring the visitor back to once they have signed in or signed up
+   * (usually the page they are on). Remembered only when they choose to go.
+   */
+  returnTo?: string;
 }
 
 /**
@@ -17,9 +23,14 @@ interface RegistrationGateProps {
  * stays as the single place contact/save/hire actions decide *whether* to
  * interrupt with a sign-up prompt, without each of them re-implementing it.
  */
-export function RegistrationGate({ open, onClose }: RegistrationGateProps) {
+export function RegistrationGate({ open, onClose, returnTo }: RegistrationGateProps) {
   const { t } = useTranslation();
   if (!open) return null;
+
+  const leave = () => {
+    if (returnTo) rememberReturnTo(returnTo);
+    onClose();
+  };
 
   return (
     <div
@@ -40,14 +51,14 @@ export function RegistrationGate({ open, onClose }: RegistrationGateProps) {
         <div className="mt-6 flex flex-col gap-2 sm:flex-row">
           <Link
             href="/register"
-            onClick={onClose}
+            onClick={leave}
             className="flex-1 rounded-DEFAULT bg-brand px-4 py-2 text-center text-sm font-medium text-white hover:bg-brand-dark"
           >
             {t('registrationGate.signUp')}
           </Link>
           <Link
             href="/login"
-            onClick={onClose}
+            onClick={leave}
             className="flex-1 rounded-DEFAULT border border-border px-4 py-2 text-center text-sm font-medium text-ink hover:bg-paper"
           >
             {t('registrationGate.signIn')}

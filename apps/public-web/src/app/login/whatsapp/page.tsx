@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/api/auth-context';
 import { api, ApiError, type Tokens } from '@/lib/api/client';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
 import { Input, Label } from '@/components/ui/input';
+import { takeReturnTo } from '@/lib/return-to';
 
 interface OtpRequestResult {
   resendAfterSeconds: number;
@@ -55,7 +56,7 @@ function WhatsappLoginInner() {
 
   function onVerified(tokens: Tokens) {
     applyTokens(tokens);
-    router.push('/');
+    router.push(takeReturnTo('/'));
   }
 
   return (

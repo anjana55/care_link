@@ -242,6 +242,46 @@ export class PublicSearchService {
   }
 
   /**
+   * Public profiles for a set of caregivers, keyed by internal id - for the
+   * signed-in client's saved list and requests, which hold internal ids but
+   * may only ever show the anonymous public view.
+   *
+   * Applies exactly the visibility rule search and findByPublicId use (ACTIVE,
+   * not deleted): a caregiver who has since been suspended or removed is simply
+   * absent from the map, and the caller shows them as "no longer available".
+   */
+  async profilesFor(caregiverIds: string[], locale?: string): Promise<Map<string, PublicCaregiverProfile>> {
+    const result = new Map<string, PublicCaregiverProfile>();
+    const ids = [...new Set(caregiverIds)];
+    if (!ids.length) return result;
+
+    const rows = await this.db
+      .select({
+        id: caregivers.id,
+        publicId: caregivers.publicId,
+        gender: caregivers.gender,
+        dateOfBirth: caregivers.dateOfBirth,
+        districtId: caregivers.districtId,
+        cityId: caregivers.cityId,
+      })
+      .from(caregivers)
+      .where(and(inArray(caregivers.id, ids), isNull(caregivers.deletedAt), eq(caregivers.status, 'ACTIVE')));
+    if (!rows.length) return result;
+
+    const enriched = await this.enrichCandidates(
+      rows.map((r) => r.id),
+      { locale: resolveLocale(locale) } as SearchRequestDto,
+    );
+    for (const row of rows) {
+      const e = enriched.get(row.id);
+      if (!e) continue;
+      const { matchScore, matchReasons, ...profile } = this.toSummary(row, e, 0, []);
+      result.set(row.id, profile);
+    }
+    return result;
+  }
+
+  /**
    * The names behind the requested location ids, so a match reason can say
    * "based in Dehiwala" rather than "based in 340". Resolved once per search
    * rather than per candidate - it is the same answer every time.

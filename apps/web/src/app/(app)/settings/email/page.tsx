@@ -23,6 +23,7 @@ type Draft = {
   fromName: string;
   fromAddress: string;
   replyTo: string;
+  requestAlertsTo: string;
 };
 
 function toDraft(s: EmailSettings): Draft {
@@ -37,6 +38,7 @@ function toDraft(s: EmailSettings): Draft {
     fromName: s.fromName,
     fromAddress: s.fromAddress ?? '',
     replyTo: s.replyTo ?? '',
+    requestAlertsTo: s.requestAlertsTo ?? '',
   };
 }
 
@@ -202,6 +204,20 @@ export default function EmailSettingsPage() {
               <Input id="replyTo" type="email" value={draft.replyTo} onChange={(e) => set('replyTo', e.target.value)} />
               <p className="mt-1 text-xs text-ink/50">{t('emailAdmin.senderHint')}</p>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>{t('emailAdmin.requestAlertsTitle')}</CardTitle></CardHeader>
+          <CardContent>
+            <Label htmlFor="requestAlertsTo">{t('emailAdmin.requestAlertsTo')}</Label>
+            <Input
+              id="requestAlertsTo"
+              placeholder="bookings@example.com, ops@example.com"
+              value={draft.requestAlertsTo}
+              onChange={(e) => set('requestAlertsTo', e.target.value)}
+            />
+            <p className="mt-1 text-xs text-ink/50">{t('emailAdmin.requestAlertsHint')}</p>
           </CardContent>
         </Card>
 
