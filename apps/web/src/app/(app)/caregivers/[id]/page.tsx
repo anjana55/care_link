@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { api } from '@/lib/api/client';
+import { api, ApiError } from '@/lib/api/client';
 import {
   useCaregiver,
   useUpdateCaregiverStatus,
@@ -41,7 +41,10 @@ import { RelatedBookings } from '@/components/bookings/related-bookings';
 import { StatusBadge, VerificationBadge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { StatusMoveSelect, type StatusMoveConfirmation } from '@/components/ui/status-move-select';
 import { allowedNextStatuses } from '@/lib/caregiver-status';
+import type { CaregiverStatus } from '@/lib/api/types';
 import { Select, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
 import { makePersonalInfoSchema, requiredFieldsOf, UNSET_ID, type PersonalInfoValues } from '@/lib/schemas/personal-info';
@@ -244,6 +247,27 @@ export default function CaregiverProfilePage() {
   });
 
   const isAdminOrStaff = user?.role === 'ADMIN' || user?.role === 'STAFF';
+  const canChangeStatus = user?.role === 'ADMIN' || user?.role === 'VERIFIER';
+
+  // Same confirmation pattern as a client's status move. Leaving ACTIVE takes
+  // the caregiver out of public search (only ACTIVE is listed); REJECTED is
+  // terminal in the transition map.
+  const statusConfirmation = (s: CaregiverStatus): StatusMoveConfirmation => {
+    const status = t(`caregivers.status.${s}`);
+    const message =
+      s === 'REJECTED'
+        ? t('lifecycle.caregiver.toRejected')
+        : caregiver.status === 'ACTIVE'
+          ? t('lifecycle.caregiver.leaveActive', { status })
+          : s === 'ACTIVE'
+            ? t('lifecycle.caregiver.toActive')
+            : t('lifecycle.moveMessage', { status });
+    return {
+      title: t('lifecycle.moveTitleNamed', { name: caregiver.fullName, status }),
+      message,
+      tone: s === 'REJECTED' || s === 'SUSPENDED' || s === 'INACTIVE' ? 'danger' : 'primary',
+    };
+  };
 
   return (
     <div>
@@ -270,40 +294,31 @@ export default function CaregiverProfilePage() {
           ) : (
             <>
               <StatusBadge status={caregiver.status} label={t(`caregivers.status.${caregiver.status}`)} />
-              {nextStatuses.length > 0 && (user?.role === 'ADMIN' || user?.role === 'VERIFIER') && (
-                <Select
-                  className="w-52"
-                  value=""
-                  onChange={(e) => e.target.value && updateStatus.mutate(e.target.value)}
-                >
-                  <option value="">Move to…</option>
-                  {nextStatuses.map((s) => (
-                    <option key={s} value={s}>
-                      {t(`caregivers.status.${s}`)}
-                    </option>
-                  ))}
-                </Select>
+              {canChangeStatus && (
+                <StatusMoveSelect
+                  statuses={nextStatuses}
+                  labelOf={(st) => t(`caregivers.status.${st}`)}
+                  confirmFor={statusConfirmation}
+                  pending={updateStatus.isPending}
+                  error={updateStatus.error ? (updateStatus.error instanceof ApiError ? updateStatus.error.message : t('common.actionFailed')) : null}
+                  onReset={() => updateStatus.reset()}
+                  onMove={(st, done) => updateStatus.mutate(st, { onSuccess: done })}
+                />
               )}
               {isAdminOrStaff && (
                 <>
                   <Button variant="secondary" onClick={() => setIsEditing(true)}>
                     {t('common.edit')}
                   </Button>
-                  {!isDeleteConfirm ? (
-                    <Button variant="danger" onClick={() => setIsDeleteConfirm(true)}>
-                      {t('common.delete')}
-                    </Button>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-danger">{t('caregivers.confirmDelete')}</span>
-                      <Button variant="primary" size="sm" disabled={deleteCaregiver.isPending} onClick={() => deleteCaregiver.mutate()}>
-                        {t('common.confirm')}
-                      </Button>
-                      <Button variant="secondary" size="sm" onClick={() => setIsDeleteConfirm(false)}>
-                        {t('common.cancel')}
-                      </Button>
-                    </div>
-                  )}
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      deleteCaregiver.reset();
+                      setIsDeleteConfirm(true);
+                    }}
+                  >
+                    {t('common.delete')}
+                  </Button>
                 </>
               )}
             </>
@@ -1127,6 +1142,19 @@ export default function CaregiverProfilePage() {
           </TabsContent>
         )}
       </Tabs>
+
+      {isDeleteConfirm && (
+        <ConfirmDialog
+          title={t('caregivers.deleteTitle')}
+          message={t('caregivers.confirmDeleteNamed', { name: caregiver.fullName })}
+          tone="danger"
+          confirmLabel={t('common.delete')}
+          pending={deleteCaregiver.isPending}
+          error={deleteCaregiver.error ? (deleteCaregiver.error instanceof ApiError ? deleteCaregiver.error.message : t('common.actionFailed')) : null}
+          onCancel={() => setIsDeleteConfirm(false)}
+          onConfirm={() => deleteCaregiver.mutate()}
+        />
+      )}
     </div>
   );
 }
