@@ -1,3 +1,4 @@
+import type { BillingLineKind, BillingParty, BillingUnit, DiscountType, InvoiceBasis, InvoiceStatus, PaymentMethod, PayoutStatus } from '@care-platform/shared';
 export type CaregiverStatus =
   | 'DRAFT'
   | 'REGISTERED'
@@ -642,6 +643,9 @@ export interface BookingDetail {
   endDate: string;
   rateType: RateType | null;
   rateAmount: string | null;
+  /** What the caregiver is paid. Staff only. */
+  payRateType: RateType | null;
+  payRateAmount: string | null;
   language: 'en' | 'si' | 'ta';
   notes: string | null;
   cancelReason: string | null;
@@ -655,9 +659,19 @@ export interface BookingDetail {
   client: { id: string; fullName: string; phone: string | null; recipientName: string | null; city: string | null; district: string | null; careAddress: string | null } | null;
   caregiver: (BookingCaregiverRef & { primaryPhone: string | null }) | null;
   shifts: BookingShift[];
-  estimate: { shifts: number; hours: number; rateType: RateType | null; rateAmount: string | null; units: number | null; total: string | null };
+  estimate: BookingEstimate;
+  payEstimate: BookingEstimate;
   blockingConflicts: number;
   events: { id: string; type: string; note: string | null; createdAt: string; actor: StaffRef | null }[];
+}
+
+export interface BookingEstimate {
+  shifts: number;
+  hours: number;
+  rateType: RateType | null;
+  rateAmount: string | null;
+  units: number | null;
+  total: string | null;
 }
 
 export interface BookingSummary {
@@ -680,6 +694,249 @@ export interface CreateBookingInput extends BookingPatternInput {
   caregiverId?: string;
   rateType?: RateType;
   rateAmount?: string;
+  payRateType?: RateType;
+  payRateAmount?: string;
   language?: 'en' | 'si' | 'ta';
   notes?: string;
+}
+
+// --- billing: invoices, payments, payouts ------------------------------------------
+export type {
+  BillingLineKind,
+  BillingParty,
+  BillingUnit,
+  DiscountType,
+  InvoiceBasis,
+  InvoiceStatus,
+  PaymentMethod,
+  PayoutStatus,
+} from '@care-platform/shared';
+
+/** One editable line, as the API returns it (invoices and payouts share the shape). */
+export interface BillingLine {
+  id: string;
+  position: number;
+  kind: BillingLineKind;
+  description: string;
+  serviceDate: string | null;
+  quantity: string;
+  unit: BillingUnit;
+  unitPrice: string;
+  discountType: DiscountType | null;
+  discountValue: string | null;
+  amount: string;
+  gross: string;
+  discount: string;
+  shiftId: string | null;
+  bookingId: string | null;
+  caregiverId: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  /** Invoices only. */
+  taxable?: boolean;
+}
+
+/** What the editor sends back for one line. */
+export interface BillingLineInput {
+  id?: string;
+  kind: BillingLineKind;
+  description: string;
+  serviceDate?: string | null;
+  quantity: string;
+  unit: BillingUnit;
+  unitPrice: string;
+  discountType?: DiscountType | null;
+  discountValue?: string | null;
+  taxable?: boolean;
+}
+
+export interface Generated {
+  added: number;
+  skipped: number;
+  unpriced: number;
+}
+
+export interface InvoiceListItem {
+  id: string;
+  number: string | null;
+  status: InvoiceStatus;
+  basis: InvoiceBasis;
+  issueDate: string | null;
+  dueDate: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  total: string;
+  amountPaid: string;
+  balance: string;
+  overdue: boolean;
+  clientId: string;
+  clientName: string;
+  billToName: string;
+  bookingId: string | null;
+  bookingReference: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceListResponse {
+  items: InvoiceListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface InvoiceSummary {
+  byStatus: Record<InvoiceStatus, number>;
+  outstanding: string;
+  overdue: string;
+  overdueCount: number;
+  receivedThisMonth: string;
+}
+
+export interface InvoicePayment {
+  id: string;
+  amount: string;
+  method: PaymentMethod;
+  paidOn: string;
+  reference: string | null;
+  note: string | null;
+  recordedBy: StaffRef | null;
+  createdAt: string;
+}
+
+export interface InvoiceDetail {
+  id: string;
+  number: string | null;
+  status: InvoiceStatus;
+  basis: InvoiceBasis;
+  periodStart: string | null;
+  periodEnd: string | null;
+  issueDate: string | null;
+  dueDate: string | null;
+  language: 'en' | 'si' | 'ta';
+  billToName: string;
+  billToAddress: string | null;
+  billToPhone: string | null;
+  billToEmail: string | null;
+  seller: BillingParty;
+  footer: string | null;
+  discountType: DiscountType | null;
+  discountValue: string | null;
+  discountReason: string | null;
+  taxName: string | null;
+  taxRate: string | null;
+  subtotal: string;
+  discountAmount: string;
+  taxableAmount: string;
+  taxAmount: string;
+  total: string;
+  amountPaid: string;
+  balance: string;
+  overdue: boolean;
+  notes: string | null;
+  voidReason: string | null;
+  issuedAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: StaffRef | null;
+  issuedBy: StaffRef | null;
+  client: { id: string; fullName: string; phone: string | null } | null;
+  booking: { id: string; reference: string; rateType: RateType | null; rateAmount: string | null } | null;
+  lines: BillingLine[];
+  unpricedLines: number;
+  tax: { available: boolean; name: string; rate: string };
+  payhere: { usable: boolean };
+  payments: InvoicePayment[];
+  checkouts: { id: string; amount: string; status: string; mode: string; method: string | null; paymentId: string | null; createdAt: string; updatedAt: string }[];
+  events: { id: string; type: string; note: string | null; createdAt: string; actor: StaffRef | null }[];
+  /** Only on the response that made or refilled the draft. */
+  generated?: Generated;
+}
+
+export interface CreateInvoiceInput {
+  bookingId?: string;
+  patientId?: string;
+  basis: InvoiceBasis;
+  periodStart?: string;
+  periodEnd?: string;
+  language?: 'en' | 'si' | 'ta';
+}
+
+export interface PayoutListItem {
+  id: string;
+  reference: string;
+  status: PayoutStatus;
+  periodStart: string;
+  periodEnd: string;
+  total: string;
+  paidOn: string | null;
+  caregiverId: string;
+  caregiverName: string;
+  caregiverRegistrationNumber: string;
+  createdAt: string;
+}
+
+export interface PayoutListResponse {
+  items: PayoutListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PayoutSummary {
+  byStatus: Record<PayoutStatus, number>;
+  approvedTotal: string;
+}
+
+export interface PayoutDetail {
+  id: string;
+  reference: string;
+  status: PayoutStatus;
+  periodStart: string;
+  periodEnd: string;
+  total: string;
+  notes: string | null;
+  paidOn: string | null;
+  paymentMethod: PaymentMethod | null;
+  paymentReference: string | null;
+  voidReason: string | null;
+  approvedAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  caregiver: { id: string; fullName: string; registrationNumber: string; primaryPhone: string | null } | null;
+  lines: (BillingLine & { bookingReference: string | null })[];
+  unpricedLines: number;
+  createdBy: StaffRef | null;
+  approvedBy: StaffRef | null;
+  paidBy: StaffRef | null;
+  generated?: Generated;
+}
+
+export interface BillingSettings {
+  businessName: string;
+  businessAddress: string | null;
+  businessPhone: string | null;
+  businessEmail: string | null;
+  registrationNumber: string | null;
+  taxEnabled: boolean;
+  taxName: string;
+  taxRate: string;
+  taxRegistrationNumber: string | null;
+  invoicePrefix: string;
+  nextInvoiceNumber: number;
+  paymentTermsDays: number;
+  invoiceFooter: string | null;
+  payhereEnabled: boolean;
+  payhereMode: 'SANDBOX' | 'LIVE';
+  payhereMerchantId: string | null;
+  payhereMerchantSecretSet: boolean;
+  payhereMerchantSecretLast4: string | null;
+  payhereNotifyBaseUrl: string | null;
+  payhereNotifyUrl: string;
+  payhereCheckoutUrl: string;
+  payhereUsable: boolean;
+  updatedAt: string;
 }

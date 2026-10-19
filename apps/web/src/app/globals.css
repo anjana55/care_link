@@ -40,3 +40,15 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Invoices and payout statements print on A4 with the page content only (the
+   staff layout hides its sidebar and top bar in print). */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  body {
+    background: #fff;
+  }
+}

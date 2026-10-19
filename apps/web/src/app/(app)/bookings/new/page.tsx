@@ -56,6 +56,8 @@ function NewBookingPage() {
   const [endDate, setEndDate] = useState(addDays(colomboToday(), 28));
   const [rateType, setRateType] = useState<RateType | ''>('');
   const [rateAmount, setRateAmount] = useState('');
+  const [payRateType, setPayRateType] = useState<RateType | ''>('');
+  const [payRateAmount, setPayRateAmount] = useState('');
   const [language, setLanguage] = useState<'en' | 'si' | 'ta'>('en');
   const [notes, setNotes] = useState('');
 
@@ -92,7 +94,7 @@ function NewBookingPage() {
   const overnight = end <= start;
 
   const patientId = request ? request.client.id : client?.id;
-  const ready = Boolean(patientId && caregiver && preview.length > 0 && preview.length <= MAX_GENERATED_SHIFTS && (!rateType || /^\d{1,8}(\.\d{1,2})?$/.test(rateAmount)));
+  const ready = Boolean(patientId && caregiver && preview.length > 0 && preview.length <= MAX_GENERATED_SHIFTS && (!rateType || /^\d{1,8}(\.\d{1,2})?$/.test(rateAmount)) && (!payRateType || /^\d{1,8}(\.\d{1,2})?$/.test(payRateAmount)));
 
   const submit = () =>
     create.mutate(
@@ -106,6 +108,7 @@ function NewBookingPage() {
         startDate,
         endDate,
         ...(rateType ? { rateType, rateAmount } : {}),
+        ...(payRateType ? { payRateType, payRateAmount } : {}),
         language,
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       },
@@ -277,6 +280,22 @@ function NewBookingPage() {
                 ))}
               </Select>
             </div>
+            <div>
+              <Label htmlFor="payRateType">{t('bookings.new.payRateType')}</Label>
+              <Select id="payRateType" value={payRateType} onChange={(e) => setPayRateType(e.target.value as RateType | '')}>
+                <option value="">{t('bookings.new.noPayRate')}</option>
+                {RATE_TYPES.map((r) => (
+                  <option key={r} value={r}>
+                    {t(`bookings.rateType.${r}`)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="payRateAmount" required={Boolean(payRateType)}>{t('bookings.new.payRateAmount')}</Label>
+              <Input id="payRateAmount" inputMode="decimal" placeholder="2500.00" disabled={!payRateType} value={payRateAmount} onChange={(e) => setPayRateAmount(e.target.value)} />
+            </div>
+            <p className="self-end text-xs text-ink/50">{t('bookings.new.payRateHint')}</p>
             <div className="sm:col-span-3">
               <Label htmlFor="notes">{t('bookings.new.notes')}</Label>
               <Textarea id="notes" rows={2} maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} />
