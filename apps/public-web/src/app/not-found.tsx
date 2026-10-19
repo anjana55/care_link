@@ -4,7 +4,7 @@ import { SearchX } from 'lucide-react';
 import { getDictionary, translate } from '@/lib/i18n/server';
 
 export const metadata: Metadata = {
-  title: 'Page not found — CareLink',
+  title: 'Page not found',
 };
 
 export default function NotFound() {

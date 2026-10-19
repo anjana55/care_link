@@ -39,8 +39,12 @@ function SectionHeading({ eyebrow, title, body }: { eyebrow: string; title: stri
   );
 }
 
+const LANGUAGE_TAGS = { en: 'EN', si: 'සිං', ta: 'தமி' } as const;
+
 export function LandingHero() {
-  const { t } = useTranslation();
+  const { t, availableLocales } = useTranslation();
+  // The languages this deployment offers (Settings > Branding), not a fixed three.
+  const languageVars = { count: availableLocales.length, list: availableLocales.map((l) => LANGUAGE_TAGS[l]).join(' · ') };
 
   return (
     <section className="mx-auto grid max-w-5xl items-center gap-10 px-4 py-12 sm:py-20 lg:grid-cols-[1.05fr_.95fr]">
@@ -86,8 +90,8 @@ export function LandingHero() {
             ] as const
           ).map(([value, label]) => (
             <div key={label}>
-              <dd className="text-2xl font-bold text-brand-dark">{t(value)}</dd>
-              <dt className="mt-0.5 text-sm text-ink/60">{t(label)}</dt>
+              <dd className="text-2xl font-bold text-brand-dark">{t(value, languageVars)}</dd>
+              <dt className="mt-0.5 text-sm text-ink/60">{t(label, languageVars)}</dt>
             </div>
           ))}
         </dl>

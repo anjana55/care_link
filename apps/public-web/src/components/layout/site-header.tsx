@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
+import { BrandMark } from '@/components/layout/brand-mark';
 import { useAuth } from '@/lib/api/auth-context';
 import { cn } from '@/lib/utils';
 
@@ -60,7 +61,7 @@ export function SiteHeader({
             <span className="truncate">{backLabel ?? t('nav.backHome')}</span>
           </Link>
         ) : (
-          <span className="text-sm font-semibold text-brand-dark">{t('nav.brand')}</span>
+          <BrandMark className="text-sm" />
         )}
 
         <div className="flex-1" />

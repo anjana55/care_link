@@ -94,6 +94,10 @@ services:
         # Set by setup.sh on small servers (see its step 1b); blank = Node's default.
         NODE_BUILD_HEAP_MB: ${NODE_BUILD_HEAP_MB:-}
     restart: unless-stopped
+    environment:
+      # Server-side rendering reads Settings > Branding (name, colours, logo,
+      # languages) straight from the API over the compose network.
+      API_INTERNAL_URL: http://api:3001
     depends_on:
       - api
     expose:
@@ -108,6 +112,10 @@ services:
         # Set by setup.sh on small servers (see its step 1b); blank = Node's default.
         NODE_BUILD_HEAP_MB: ${NODE_BUILD_HEAP_MB:-}
     restart: unless-stopped
+    environment:
+      # Server-side rendering reads Settings > Branding (name, colours, logo,
+      # languages) straight from the API over the compose network.
+      API_INTERNAL_URL: http://api:3001
     depends_on:
       - api
     expose:

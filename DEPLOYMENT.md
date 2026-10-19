@@ -532,7 +532,31 @@ existing email accounts and already-signed-in sessions are unaffected.
 The Console provider (codes written to `docker compose logs api` instead of sent) is for
 development only and is refused when `NODE_ENV=production`.
 
-### 8.6 Invoicing and online payment (optional)
+### 8.6 Branding: your company name, logo, colours and languages
+
+The product is white-labelled. Out of the box it is branded **CareLink**; to ship it under
+your own name, an admin opens **Settings → Branding** (staff app, the first Settings tab)
+after deploying and sets:
+
+- **Company name** (and an optional 1-4 letter short name and tagline). It replaces "CareLink"
+  everywhere - both apps, browser tabs, every email and every WhatsApp notice. The email
+  sender name and the invoice business name follow a rename too, unless you have already set
+  them to something else under Settings → Email / Billing.
+- **Logo** - PNG, JPEG, WebP or a plain SVG (no scripts or external links), up to 1 MB. It
+  is shown in every header and used as the browser tab icon, and stored with the uploaded
+  documents, so the document backup in 15.2 covers it.
+- **Colour theme** - a primary and an accent colour. Every other shade is derived from
+  them. Colours that are not readable with white text (WCAG AA) are refused, with a one-click
+  darker alternative.
+- **Languages** - which of English, Sinhala and Tamil are offered, and the default for
+  visitors who have not chosen one. With a single language the switcher is hidden.
+
+Changes apply at once in the browser of the admin who saves them and within about 30 seconds
+for everyone else. The two web containers read the branding from the API over the compose
+network (`API_INTERNAL_URL: http://api:3001` in `docker-compose.prod.yml`); nothing needs
+adding to `.env.production`. Dates and amounts stay in Sri Lanka time and LKR.
+
+### 8.7 Invoicing and online payment (optional)
 
 Invoices and caregiver payouts work with no setup. Before issuing the first real invoice, an
 admin should open **Settings → Billing** (staff app) and fill in the business name, address

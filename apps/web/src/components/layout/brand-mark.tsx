@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n/provider';
+import { useBranding } from '@/lib/branding/provider';
 
 /**
- * The CareLink mark, used by the staff sidebar, the caregiver header and every
- * auth page. It was previously written out by hand in six places, and the name
- * beside it was the hardcoded literal "Care Platform" in each one - which is
- * why the staff app never once referred to the public site by name.
+ * The company mark, used by the staff sidebar, the caregiver header and every
+ * auth page: the logo from Settings > Branding, or - without one - a badge
+ * with the short name in the brand colour, beside the company name.
  *
  * The public site lives at the domain root, outside this app's `/staff`
  * basePath, so callers link to it with a plain anchor rather than next/link
@@ -27,19 +27,31 @@ export function BrandMark({
   className?: string;
 }) {
   const large = size === 'lg';
+  const { companyName, shortName, logoUrl } = useBranding();
 
   return (
-    <span className={cn('flex items-center gap-2', className)}>
-      <span
-        className={cn(
-          'flex items-center justify-center rounded bg-brand font-bold text-white',
-          large ? 'h-11 w-11 text-base' : 'h-8 w-8 text-sm',
-        )}
-        aria-hidden
-      >
-        CL
-      </span>
-      {showName && <span className={cn('font-semibold text-ink', large ? 'text-base' : 'text-sm')}>CareLink</span>}
+    <span className={cn('flex min-w-0 items-center gap-2', className)}>
+      {logoUrl ? (
+        // A logo is usually wider than it is tall: fixed height, natural width, capped.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoUrl} alt={showName ? '' : companyName} className={cn('w-auto object-contain', large ? 'h-11 max-w-[11rem]' : 'h-8 max-w-[6rem]')} />
+      ) : (
+        <span
+          className={cn(
+            'flex shrink-0 items-center justify-center rounded bg-brand font-bold text-white',
+            large ? 'h-11 min-w-11 px-1 text-base' : 'h-8 min-w-8 px-1 text-sm',
+          )}
+          aria-hidden={showName}
+          aria-label={showName ? undefined : companyName}
+        >
+          {shortName}
+        </span>
+      )}
+      {showName && (
+        <span className={cn('truncate font-semibold text-ink', large ? 'text-base' : 'text-sm')} title={companyName}>
+          {companyName}
+        </span>
+      )}
     </span>
   );
 }
@@ -66,13 +78,14 @@ export function PublicSiteLink({
 }
 
 /**
- * The signed-out landing bar: the CareLink mark linking into the staff app,
+ * The signed-out landing bar: the company mark linking into the staff app,
  * plus the way back out to the public site. Every auth page under this app
  * used to be a dead end - a centred card with no way home except the browser
  * back button, and no name on the product at all.
  */
 export function AuthHeader() {
   const { t } = useTranslation();
+  const { companyName } = useBranding();
 
   return (
     <header className="flex items-center justify-between gap-4 border-b border-border bg-white px-4 py-3 sm:px-6">
@@ -85,7 +98,7 @@ export function AuthHeader() {
       <PublicSiteLink className="shrink-0">
         <ArrowLeft size={15} />
         <span className="hidden sm:inline">{t('nav.backToPublic')}</span>
-        <span className="sm:hidden">CareLink</span>
+        <span className="max-w-[8rem] truncate sm:hidden">{companyName}</span>
       </PublicSiteLink>
     </header>
   );

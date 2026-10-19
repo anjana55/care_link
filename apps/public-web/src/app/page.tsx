@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
+import { getBranding } from '@/lib/branding/server';
 import {
   LandingHero,
   LandingApps,
@@ -9,11 +10,13 @@ import {
   LandingCta,
 } from '@/components/landing/landing-sections';
 
-export const metadata: Metadata = {
-  title: 'CareLink — Find trusted caregivers. Manage care with confidence.',
-  description:
-    'CareLink connects families with verified caregivers and gives care teams one place to manage them.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { companyName, tagline } = await getBranding();
+  return {
+    title: { absolute: `${companyName} — ${tagline ?? 'Find trusted caregivers. Manage care with confidence.'}` },
+    description: `${companyName} connects families with verified caregivers and gives care teams one place to manage them.`,
+  };
+}
 
 /**
  * The landing page.

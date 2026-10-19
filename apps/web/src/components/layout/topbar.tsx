@@ -2,19 +2,14 @@
 
 import { useState } from 'react';
 import { ArrowLeft, KeyRound, LogOut, Menu } from 'lucide-react';
-import { useTranslation, type Locale } from '@/lib/i18n/provider';
+import { useTranslation } from '@/lib/i18n/provider';
+import { LanguageToggle } from '@/components/layout/language-toggle';
 import { useAuth } from '@/lib/api/auth-context';
 import { ChangePasswordModal } from '@/components/users/change-password-modal';
 import { PublicSiteLink } from '@/components/layout/brand-mark';
 
-const LOCALES: { value: Locale; label: string }[] = [
-  { value: 'en', label: 'EN' },
-  { value: 'si', label: 'සිං' },
-  { value: 'ta', label: 'தமி' },
-];
-
 export function Topbar({ onMenu }: { onMenu: () => void }) {
-  const { locale, setLocale, t } = useTranslation();
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
 
@@ -37,20 +32,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         </PublicSiteLink>
       </div>
       <div className="flex shrink-0 items-center gap-4">
-        <div className="flex overflow-hidden rounded border border-border">
-          {LOCALES.map((l) => (
-            <button
-              key={l.value}
-              onClick={() => setLocale(l.value)}
-              className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                locale === l.value ? 'bg-brand text-white' : 'bg-white text-ink/60 hover:bg-paper'
-              }`}
-              aria-pressed={locale === l.value}
-            >
-              {l.label}
-            </button>
-          ))}
-        </div>
+        <LanguageToggle />
         {user && (
           <div className="flex items-center gap-3 border-l border-border pl-4">
             {/* Name/role only: on a narrow screen the buttons matter more. */}

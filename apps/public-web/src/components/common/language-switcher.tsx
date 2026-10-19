@@ -1,16 +1,18 @@
 'use client';
 
-import { SUPPORTED_LOCALES, useTranslation, type Locale } from '@/lib/i18n';
+import { useTranslation, type Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 const LABELS: Record<Locale, string> = { en: 'EN', si: 'සිං', ta: 'த' };
 
+/** Shows only the languages offered in Settings > Branding, and nothing when there is just one. */
 export function LanguageSwitcher() {
-  const { t, locale, setLocale } = useTranslation();
+  const { t, locale, setLocale, availableLocales } = useTranslation();
+  if (availableLocales.length < 2) return null;
 
   return (
     <div className="flex items-center gap-1 rounded-lg border border-border bg-white p-1" role="group" aria-label={t('common.language')}>
-      {SUPPORTED_LOCALES.map((code) => (
+      {availableLocales.map((code) => (
         <button
           key={code}
           type="button"

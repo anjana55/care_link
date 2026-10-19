@@ -51,10 +51,16 @@ export function brandingLogoUrl(apiBase: string, branding: Pick<PublicBranding, 
   return `${apiBase.replace(/\/+$/, '')}/branding/logo?v=${encodeURIComponent(branding.logoVersion)}`;
 }
 
-/** "Golden Years Care" -> "GY". Used when an operator leaves the short name blank. */
+/**
+ * "Golden Years Care" -> "GY", "CareLink" -> "CL", "Nurse" -> "NU". Used when
+ * an operator leaves the short name blank.
+ */
 export function initialsOf(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
-  const letters = words.length > 1 ? words.slice(0, 2).map((w) => [...w][0]) : [...(words[0] ?? '')].slice(0, 2);
+  if (words.length > 1) return words.slice(0, 2).map((w) => [...w][0]).join('').toUpperCase();
+  const word = words[0] ?? '';
+  const capitals = [...word].filter((c) => c !== c.toLowerCase());
+  const letters = capitals.length >= 2 ? capitals.slice(0, 2) : [...word].slice(0, 2);
   return letters.join('').toUpperCase() || DEFAULT_SHORT_NAME;
 }
 
@@ -193,4 +199,35 @@ export function paletteCss(palette: BrandPalette): string {
     .map(([k, v]) => `${k}:${v}`)
     .join(';');
   return `:root{${body}}`;
+}
+
+/**
+ * Anything claimed to be branding -> a usable PublicBranding. The frontends
+ * read it from the network on every page load; a missing or malformed field
+ * falls back to the default rather than painting an unreadable page.
+ */
+export function normalizeBranding(raw: unknown): PublicBranding {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Record<keyof PublicBranding, unknown>>;
+  const str = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
+  const companyName = str(r.companyName, 120) ?? DEFAULT_COMPANY_NAME;
+  const defaultLocale = LOCALES.includes(r.defaultLocale as Locale) ? (r.defaultLocale as Locale) : DEFAULT_LOCALE;
+  return {
+    companyName,
+    shortName: str(r.shortName, 4) ?? initialsOf(companyName),
+    tagline: str(r.tagline, 160),
+    primaryColor: meetsBrandContrast(r.primaryColor as string) ? (r.primaryColor as string).toUpperCase() : DEFAULT_PRIMARY_COLOR,
+    accentColor: meetsBrandContrast(r.accentColor as string) ? (r.accentColor as string).toUpperCase() : DEFAULT_ACCENT_COLOR,
+    logoVersion: typeof r.logoVersion === 'string' && /^[0-9a-zA-Z_-]{1,40}$/.test(r.logoVersion) ? r.logoVersion : null,
+    defaultLocale,
+    enabledLocales: normalizeLocales(Array.isArray(r.enabledLocales) ? (r.enabledLocales as string[]) : null, defaultLocale),
+  };
+}
+
+/** The shipped heart mark, in the brand colour, as a favicon for deployments without a logo. */
+export function defaultFaviconDataUrl(primaryColor: string): string {
+  const fill = isHexColor(primaryColor) ? primaryColor : DEFAULT_PRIMARY_COLOR;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="${fill}"/>` +
+    '<path fill="#FFFFFF" d="M16 25.2c-.4 0-.8-.15-1.1-.44-2.2-2.1-7.2-6.6-8.6-9.4-1.2-2.4-.2-5.5 2.3-6.7 2-1 4.5-.6 6.1.9l1.3 1.4 1.3-1.4c1.6-1.5 4.1-1.9 6.1-.9 2.5 1.2 3.5 4.3 2.3 6.7-1.4 2.8-6.4 7.3-8.6 9.4-.3.29-.7.44-1.1.44z"/></svg>';
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }

@@ -10,7 +10,7 @@
     "logout": "Log out",
     "users": "Users",
     "whatsappSettings": "WhatsApp sign-in",
-    "backToPublic": "Back to CareLink",
+    "backToPublic": "Back to {brand}",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "settings": "Settings",
@@ -784,7 +784,7 @@
   },
   "emailAdmin": {
     "title": "Email server",
-    "subtitle": "The mail server CareLink sends verification emails and sign-in codes through. Works with any SMTP provider, such as Amazon SES, SendGrid, Mailgun, Gmail or your own relay. Changes apply immediately, with no restart.",
+    "subtitle": "The mail server {brand} sends verification emails and sign-in codes through. Works with any SMTP provider, such as Amazon SES, SendGrid, Mailgun, Gmail or your own relay. Changes apply immediately, with no restart.",
     "statusLive": "Email delivery is on: verification emails and codes are being sent through this server.",
     "statusOff": "Email delivery is off. Emails are written to the API server log instead of being sent, so people who register will not receive their verification link.",
     "deliveryTitle": "Delivery",
@@ -822,13 +822,13 @@
     "requestAlertsHint": "One or more addresses, separated by commas. Leave empty to alert every active admin and staff account that has an email address."
   },
   "brand": {
-    "name": "CareLink"
+    "name": "{brand}"
   },
   "notFound": {
     "title": "Page not found",
     "body": "That page doesn't exist or has moved.",
     "home": "Go to dashboard",
-    "public": "Back to the CareLink site"
+    "public": "Back to the {brand} site"
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -837,11 +837,61 @@
   },
   "settings": {
     "title": "Settings",
-    "subtitle": "How people sign in, how we reach them, and how we bill.",
+    "subtitle": "Your brand, how people sign in, how we reach them, and how we bill.",
     "socialAuth": "Social sign-in",
     "whatsapp": "WhatsApp",
     "email": "Email",
-    "billing": "Billing"
+    "billing": "Billing",
+    "branding": "Branding"
+  },
+  "brandingAdmin": {
+    "companyTitle": "Company",
+    "companyHint": "The name shown across the staff app, the public website, browser tabs, emails and WhatsApp messages.",
+    "companyName": "Company name",
+    "shortName": "Short name",
+    "shortNameHint": "Up to 4 letters, shown in a coloured badge wherever there is no logo. Leave blank to use the initials of the company name.",
+    "tagline": "Tagline",
+    "taglinePlaceholder": "Find trusted caregivers",
+    "taglineHint": "Optional. Used in the public website's page title and search results.",
+    "logoTitle": "Logo",
+    "logoHint": "Shown in the header of every page and used as the browser tab icon. A wide logo on a transparent background works best.",
+    "logoAlt": "Current logo",
+    "uploadLogo": "Upload logo",
+    "replaceLogo": "Replace logo",
+    "removeLogo": "Remove logo",
+    "logoFormats": "PNG, JPEG, WebP or SVG, up to 1 MB. Logo changes apply immediately.",
+    "logoWrongType": "Choose a PNG, JPEG, WebP or SVG image.",
+    "logoTooLarge": "The logo must be 1 MB or smaller.",
+    "logoUploadError": "The logo could not be saved. Please try again.",
+    "colorsTitle": "Colour theme",
+    "colorsHint": "Every other shade - hover states, tints, page background and borders - is worked out from these two colours.",
+    "primaryColor": "Primary colour",
+    "primaryHint": "Buttons, links, the selected menu item and focus outlines.",
+    "accentColor": "Accent colour",
+    "accentHint": "Badges, highlights and secondary actions.",
+    "contrastOk": "Readable with white text ({ratio}:1)",
+    "contrastLow": "Too light for white text ({ratio}:1, needs {min}:1)",
+    "makeAccessible": "Use a darker shade",
+    "resetColors": "Reset to default colours",
+    "languagesTitle": "Languages",
+    "languagesHint": "The languages people can switch between on the website and in the staff app. With one language, the switcher is hidden.",
+    "languagesOffered": "Languages offered",
+    "lastLanguage": "At least one language must stay on",
+    "defaultLanguage": "Default language",
+    "defaultLanguageHint": "What visitors see before they choose a language themselves.",
+    "regionalNote": "Dates and times are shown in Sri Lanka time and amounts in LKR.",
+    "saved": "Branding saved.",
+    "saveError": "The branding could not be saved. Please try again.",
+    "previewTitle": "Preview",
+    "previewHeadline": "Find trusted caregivers",
+    "previewBody": "How {brand} looks with these settings.",
+    "previewPrimary": "Primary button",
+    "previewSecondary": "Secondary",
+    "previewCard": "Caregiver profile",
+    "previewBadge": "Verified",
+    "previewTint": "Highlighted information",
+    "previewLink": "View details",
+    "previewNote": "Save to apply. Open pages pick up the change on their next load."
   },
   "socialAdmin": {
     "title": "Google, Microsoft and Facebook sign-in",
