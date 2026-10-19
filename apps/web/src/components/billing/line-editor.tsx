@@ -140,11 +140,11 @@ export function LineEditor({
   return (
     <div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] text-left text-sm">
+        <table className="w-full min-w-[960px] text-left text-sm">
           <thead className="border-b border-border bg-paper text-xs uppercase tracking-wide text-ink/50">
             <tr>
-              <th className="px-3 py-2 font-medium">{t('billing.lines.date')}</th>
-              <th className="px-3 py-2 font-medium">{t('billing.lines.description')}</th>
+              <th className="w-36 px-3 py-2 font-medium">{t('billing.lines.date')}</th>
+              <th className="min-w-[16rem] px-3 py-2 font-medium">{t('billing.lines.description')}</th>
               <th className="w-20 px-3 py-2 text-right font-medium">{t('billing.lines.quantity')}</th>
               <th className="w-28 px-3 py-2 font-medium">{t('billing.lines.unit')}</th>
               <th className="w-28 px-3 py-2 text-right font-medium">{t('billing.lines.price')}</th>
@@ -180,7 +180,7 @@ export function LineEditor({
                         '—'
                       )
                     ) : (
-                      <Input type="date" className="h-8 w-36 px-2" value={r.serviceDate ?? ''} onChange={(e) => set(r.key, { serviceDate: e.target.value || null })} aria-label={t('billing.lines.date')} />
+                      <Input type="date" className="h-8 w-32 px-2" value={r.serviceDate ?? ''} onChange={(e) => set(r.key, { serviceDate: e.target.value || null })} aria-label={t('billing.lines.date')} />
                     )}
                   </td>
                   <td className="px-3 py-2">
@@ -339,11 +339,11 @@ export function TotalsBlock({
   const row = (label: string, value: string, strong = false) => (
     <div className={cn('flex justify-between gap-6 py-1', strong && 'border-t border-border pt-2 text-base font-semibold text-ink')}>
       <dt className={strong ? '' : 'text-ink/60'}>{label}</dt>
-      <dd className="tabular-nums">{value}</dd>
+      <dd className="whitespace-nowrap tabular-nums">{value}</dd>
     </div>
   );
   return (
-    <dl className="ml-auto w-full max-w-xs text-sm">
+    <dl className="ml-auto w-full max-w-sm text-sm">
       {row(t('billing.totals.subtotal'), formatLkr(totals.subtotal))}
       {Number(totals.discount) > 0 && row(discountLabel ? `${t('billing.totals.discount')} (${discountLabel})` : t('billing.totals.discount'), `−${formatLkr(totals.discount)}`)}
       {taxLabel && row(taxLabel, formatLkr(totals.tax))}

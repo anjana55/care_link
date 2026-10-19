@@ -532,6 +532,36 @@ existing email accounts and already-signed-in sessions are unaffected.
 The Console provider (codes written to `docker compose logs api` instead of sent) is for
 development only and is refused when `NODE_ENV=production`.
 
+### 8.6 Invoicing and online payment (optional)
+
+Invoices and caregiver payouts work with no setup. Before issuing the first real invoice, an
+admin should open **Settings → Billing** (staff app) and fill in the business name, address
+and registration number, the payment terms, and a footer (usually your bank details) - these
+are printed on every invoice and copied onto each one when it is issued. Turn on **tax** only
+if you are registered for it; set the rate and your tax registration number at the same time.
+
+To let clients pay online with **PayHere**:
+
+1. In the [PayHere merchant portal](https://www.payhere.lk) go to *Settings → Domains &
+   Credentials*, add your site's domain (e.g. `find.caregivers.lk`) and wait for it to be
+   approved (PayHere says up to 24 hours). Note the **Merchant ID** and the **Merchant
+   Secret** for that domain. Use a sandbox account first.
+2. In **Settings → Billing → Online payment**, choose *Sandbox*, enter the merchant ID and
+   secret, tick **Offer online payment** and save. The secret is stored encrypted with
+   `SETTINGS_ENCRYPTION_KEY` (see 8.5) and never shown again.
+3. The screen shows the **notify URL** PayHere will post payment results to
+   (`https://<your domain>/api/payments/payhere/notify`). It must be reachable from the
+   internet over HTTPS - PayHere cannot reach `localhost` - so do this after Part 13. If the
+   API is published somewhere else, set *API address PayHere can reach*.
+4. Issue a small test invoice to yourself, pay it from the client account with a PayHere
+   sandbox card, and check that the invoice turns **Paid** on its own within a few seconds.
+   Then switch the mode to *Live* with your live credentials.
+
+A payment is recorded only when PayHere's signed notification arrives for the exact amount;
+returning to the site from PayHere proves nothing on its own. If an invoice stays unpaid
+after a successful payment, the notify URL is the first thing to check (`docker compose logs
+api | grep -i payhere`).
+
 ---
 
 ## Part 9 - Build the images

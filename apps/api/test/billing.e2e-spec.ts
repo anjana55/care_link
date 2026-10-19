@@ -118,7 +118,8 @@ describe('Invoicing and payouts (e2e)', () => {
       preferredContactMethod: 'PHONE_CALL', districtId, cityId, careNeeds: 'Needs help with bathing, meals and medication reminders.',
       careSchedule: 'DAY', careStart: 'WITHIN_WEEK',
     };
-    await settings({ taxEnabled: false, payhereEnabled: false }).expect(200);
+    // Start from a fresh install's billing settings, whatever an earlier run or a person left behind.
+    await settings({ taxEnabled: false, payhereEnabled: false, clearPayhereMerchantSecret: true, payhereMerchantId: '' }).expect(200);
   });
 
   // Tax is one shared switch: a test that turns it on must not leak it into the next.

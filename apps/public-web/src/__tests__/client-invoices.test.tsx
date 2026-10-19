@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { CaregiverPayout, ClientInvoice } from '@care-platform/shared';
 import { I18nProvider } from '@/lib/i18n';
@@ -107,8 +107,11 @@ describe('client invoices', () => {
     renderUi(<InvoicePage />);
     expect(await screen.findByText('INV-000042')).toBeInTheDocument();
     expect(screen.getByText('CareLink (Pvt) Ltd')).toBeInTheDocument();
-    expect(screen.getByText('Late start')).toBeInTheDocument();
-    expect(screen.getAllByText('-500.00')).toHaveLength(2); // the price and the amount
+    const table = within(screen.getByRole('table'));
+    expect(table.getByText('Late start')).toBeInTheDocument();
+    expect(table.getAllByText('-500.00')).toHaveLength(2); // the price and the amount
+    // Phones get the same lines as a list.
+    expect(screen.getAllByText('Late start')).toHaveLength(2);
     expect(screen.getByText('Bank: Sampath Bank, A/C 0000')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /print/i })).toBeInTheDocument();
   });

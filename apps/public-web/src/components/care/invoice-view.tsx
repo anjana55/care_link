@@ -59,8 +59,23 @@ export function InvoiceView({ invoice }: { invoice: ClientInvoice }) {
         <p className="text-ink/70">{[invoice.billTo.phone, invoice.billTo.email].filter(Boolean).join(' · ')}</p>
       </section>
 
-      <div className="overflow-x-auto print:overflow-visible">
-        <table className="w-full min-w-[480px] text-left">
+      {/* Phones get the lines as a list; wider screens and print get the table. */}
+      <ul className="divide-y divide-border border-y border-border sm:hidden print:hidden">
+        {invoice.lines.map((l, i) => (
+          <li key={i} className="py-2">
+            <div className="flex justify-between gap-3">
+              <span>{l.description}</span>
+              <span className="whitespace-nowrap font-medium tabular-nums">{money(l.amount)}</span>
+            </div>
+            <p className="text-xs tabular-nums text-ink/50">
+              {[l.serviceDate ? fmtDate(l.serviceDate, locale) : null, `${Number(l.quantity)} ${t(`invoices.unit.${l.unit}`)} × ${money(l.unitPrice)}`].filter(Boolean).join(' · ')}
+            </p>
+            {Number(l.discount) > 0 && <p className="text-xs text-ink/50">{t('invoices.doc.lineDiscount', { amount: formatLkr(l.discount) })}</p>}
+          </li>
+        ))}
+      </ul>
+      <div className="hidden sm:block print:block">
+        <table className="w-full text-left">
           <thead className="border-b-2 border-ink/20 text-xs uppercase tracking-wide text-ink/50">
             <tr>
               <th className="py-2 pr-3 font-medium">{t('invoices.doc.date')}</th>
@@ -89,7 +104,7 @@ export function InvoiceView({ invoice }: { invoice: ClientInvoice }) {
         </table>
       </div>
 
-      <dl className="ml-auto mt-6 w-full max-w-xs break-inside-avoid border-t border-border pt-4">
+      <dl className="ml-auto mt-6 w-full max-w-sm break-inside-avoid border-t border-border pt-4">
         <Row label={t('invoices.doc.subtotal')} value={formatLkr(invoice.subtotal)} />
         {Number(invoice.discount) > 0 && (
           <Row label={invoice.discountLabel ? `${t('invoices.doc.discount')} (${invoice.discountLabel})` : t('invoices.doc.discount')} value={`−${formatLkr(invoice.discount)}`} />
@@ -111,7 +126,7 @@ export function InvoiceView({ invoice }: { invoice: ClientInvoice }) {
                   {fmtDate(p.paidOn, locale)} · {t(`invoices.method.${p.method}`)}
                   {p.reference && ` · ${p.reference}`}
                 </span>
-                <span>{formatLkr(p.amount)}</span>
+                <span className="whitespace-nowrap">{formatLkr(p.amount)}</span>
               </li>
             ))}
           </ul>
@@ -127,7 +142,7 @@ function Row({ label, value, strong = false }: { label: string; value: string; s
   return (
     <div className={`flex justify-between gap-6 py-1 ${strong ? 'border-t border-border pt-2 text-base font-semibold' : ''}`}>
       <dt className={strong ? '' : 'text-ink/60'}>{label}</dt>
-      <dd className="tabular-nums">{value}</dd>
+      <dd className="whitespace-nowrap tabular-nums">{value}</dd>
     </div>
   );
 }

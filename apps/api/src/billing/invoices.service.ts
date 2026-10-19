@@ -7,6 +7,7 @@ import {
   colomboToday,
   computeTotals,
   daysInclusive,
+  formatLkr,
   fromCents,
   isValidDate,
   toCents,
@@ -18,6 +19,8 @@ import { DRIZZLE, type Database } from '../database/database.module';
 import {
   bookings,
   bookingShifts,
+  cities,
+  districts,
   invoiceEvents,
   invoiceLines,
   invoicePayments,
@@ -47,7 +50,10 @@ const BASIS_STATUSES: Record<'COMPLETED' | 'SCHEDULED', ShiftStatus[]> = {
   SCHEDULED: ['SCHEDULED', 'COMPLETED'],
 };
 
-const affected = (result: unknown) => (result as [{ affectedRows: number }])[0]?.affectedRows ?? 0;
+/** How a payment reads in the history - English, like every other history note. */
+const METHOD_NOTE: Record<string, string> = { CASH: 'cash', BANK_TRANSFER: 'bank transfer', CHEQUE: 'cheque', CARD: 'card', PAYHERE: 'PayHere', OTHER: 'other' };
+const paymentNote = (amount: string, method: string, reference?: string | null) =>
+  [formatLkr(amount), METHOD_NOTE[method] ?? method, reference].filter(Boolean).join(' · ');
 
 /**
  * Invoices to clients.
@@ -351,6 +357,15 @@ export class InvoicesService {
     if (dto.basis !== 'MANUAL' && (!dto.periodStart || !dto.periodEnd)) throw new BadRequestException('Enter valid start and end dates');
     this.validatePeriod(dto.periodStart, dto.periodEnd);
     const [account] = await this.db.select({ email: users.email }).from(users).where(eq(users.id, patient.userId)).limit(1);
+    // Clients pick their city from the list, so the place is usually an id, not text.
+    const [place] = patient.cityId
+      ? await this.db
+          .select({ city: cities.nameEn, district: districts.nameEn })
+          .from(cities)
+          .innerJoin(districts, eq(cities.districtId, districts.id))
+          .where(eq(cities.id, patient.cityId))
+          .limit(1)
+      : [];
     const settings = await this.settings.getResolved();
     const lang = language ?? 'en';
 
@@ -373,7 +388,7 @@ export class InvoicesService {
         periodEnd: dto.periodEnd ?? null,
         language: lang,
         billToName: patient.fullName,
-        billToAddress: [patient.permanentAddress ?? patient.careAddress, patient.city, patient.district].filter(Boolean).join(', ') || null,
+        billToAddress: [patient.permanentAddress ?? patient.careAddress, place?.city ?? patient.city, place?.district ?? patient.district].filter(Boolean).join(', ') || null,
         billToPhone: patient.phone,
         billToEmail: account?.email ?? null,
         taxName: settings.taxEnabled ? settings.taxName : null,
@@ -685,7 +700,7 @@ export class InvoicesService {
         recordedByUserId: actor.userId,
       });
       change = await this.recalc(t, id);
-      await this.event(t, id, kind, actor, `${amount} (${dto.method}${dto.reference ? ` ${dto.reference}` : ''})`);
+      await this.event(t, id, kind, actor, paymentNote(amount, dto.method, dto.reference));
       if (change.before !== change.after) await this.event(t, id, change.after === 'PAID' ? 'PAID' : 'REOPENED', actor);
     });
     if (change.after === 'PAID' && change.before !== 'PAID' && dto.notify !== false) void this.notifier.invoicePaid(id);
@@ -706,7 +721,7 @@ export class InvoicesService {
       if (p.method === 'PAYHERE') throw new BadRequestException('An online payment cannot be deleted - record a refund instead');
       await tx.delete(invoicePayments).where(eq(invoicePayments.id, paymentId));
       const change = await this.recalc(t, id);
-      await this.event(t, id, 'PAYMENT_DELETED', actor, `${p.amount} (${p.method}${p.reference ? ` ${p.reference}` : ''}) on ${p.paidOn}`);
+      await this.event(t, id, 'PAYMENT_DELETED', actor, `${paymentNote(p.amount, p.method, p.reference)} · ${p.paidOn}`);
       if (change.before !== change.after) await this.event(t, id, change.after === 'PAID' ? 'PAID' : 'REOPENED', actor);
     });
     return this.findOne(id);
@@ -737,7 +752,7 @@ export class InvoicesService {
       recordedByUserId: null,
     });
     const change = await this.recalc(tx, invoiceId);
-    await this.event(tx, invoiceId, toCents(p.amount) < 0 ? 'REFUND' : 'PAYMENT', null, `${p.amount} (PAYHERE ${p.reference ?? ''})`.trim());
+    await this.event(tx, invoiceId, toCents(p.amount) < 0 ? 'REFUND' : 'PAYMENT', null, paymentNote(p.amount, 'PAYHERE', p.reference));
     if (change.before !== change.after) await this.event(tx, invoiceId, change.after === 'PAID' ? 'PAID' : 'REOPENED', null);
     void inv;
     return { applied: true, settled: change.after === 'PAID' && change.before !== 'PAID' };

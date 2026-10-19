@@ -445,7 +445,7 @@ INTRODUCED/IN_PROGRESS with a caregiver.
   are cancelled), or cancel it (future shifts are cancelled, and both sides are told).
   Notes and a full history are kept on the booking.
 - **Money.** The agreed rate only — per hour, per day/shift, or per month (pro-rated
-  over days/30) — with an estimated total. CareLink does not invoice.
+  over days/30) — with an estimated total. (Invoicing came later: see section 21.)
 - **Clients** see their confirmed bookings and upcoming shifts at
   `/account/bookings`, with the caregiver's name but not their contact details.
 - **Caregivers** see their scheduled shifts (from the last 7 days to the next
@@ -494,3 +494,86 @@ Before this change, 13 cases failed and Jest never exited.
   and that STAFF can delete. The search-filter setup uses city IDs from
   `/admin/locations/cities` (`cityId`) instead of the old `/locations`
   endpoint.
+
+## 21. Changelog — invoicing, payments and caregiver payouts
+
+Staff bill clients for the care they received and pay caregivers for the shifts
+they worked: **Invoices** and **Payouts** in the staff portal (ADMIN and STAFF),
+**Settings › Billing** for admins.
+
+- **Making an invoice.** For one booking or for all of a client's bookings, over a
+  period, from: the shifts *done* (usual), the shifts *scheduled* (billing in
+  advance), or *empty* (one-off charges). Each shift becomes a line priced at the
+  booking's rate: hourly by its hours, daily one day per shift, monthly one line per
+  booking (a whole calendar month counts as 1, a part-month as days/30). A shift
+  belongs to the Colombo day it starts. Bookings with no rate give zero-priced lines
+  that the editor flags.
+- **Shaping a draft.** Every line's words, quantity and price can be changed; lines
+  can be removed; staff add **charges** and **credits** (negative adjustments, e.g.
+  a missed shift billed in advance). Discounts per line (% or amount) and for the
+  whole invoice (% or amount, with a reason). **Tax** (admin-set name and rate,
+  off by default) applies per invoice, and any line can be left out of it; the
+  invoice discount is shared over taxed and untaxed lines in proportion. Bill-to
+  details are editable. Totals are worked in cents by one shared function
+  (`computeTotals`, packages/shared) that the API stores and the editor previews
+  with, so they agree to the cent. Rounding: half away from zero, per line, on the
+  invoice discount and on tax.
+- **Never billed twice.** A shift on any invoice that is not VOID — drafts
+  included — is left out of every new one; a monthly line blocks its dates. "Add
+  unbilled shifts" tops a draft up after more shifts are marked done.
+- **Issuing** gives the next number (`INV-000001`, prefix and next number set in
+  Settings; gap-free, taken under a row lock in the issuing transaction), sets the
+  issue and due dates (payment terms), freezes the lines and copies the business
+  details onto the invoice. The client is told by email or WhatsApp in the
+  invoice's language. An issued invoice is never edited: **Correct it** voids it
+  and opens a draft copy (same lines and shifts) to issue under a new number;
+  **Void** needs nothing paid (record a refund first). Void numbers are not reused.
+- **Payments.** Staff record cash, transfers, cheques and card payments, and
+  refunds; part-payments are fine; an entry made by mistake can be removed. The
+  invoice is PAID when payments cover the total and drops back if money is
+  refunded. "Send again" / "Send receipt" re-send the notice.
+- **PayHere.** Admins enter the merchant ID and secret (encrypted at rest,
+  write-only) and choose sandbox or live. A client can pay an issued invoice's
+  balance from `/account/invoices/:id`: the API records a checkout and signs the
+  amount (MD5 hash, made server-side), the browser posts the form to PayHere. The
+  payment is recorded only from PayHere's notification to
+  `POST /payments/payhere/notify`, after its `md5sig` checks out against our secret
+  and its amount and currency match the checkout; repeats are applied once (unique
+  payment id), a late "failed" never undoes a success, a chargeback reverses the
+  payment. Coming back from PayHere the page waits for that confirmation.
+  WhatsApp-only clients are asked for a receipt email.
+- **Clients** see issued invoices (never drafts) at `/account/invoices`, with what
+  they owe, and can print any invoice or save it as a PDF (A4 print styles; the
+  browser renders Sinhala and Tamil, so no PDF font setup).
+- **Payouts.** Each booking now has a caregiver **pay rate** next to the client
+  rate (staff only), and the booking shows estimated charge, pay and margin. A
+  **pay run** makes a draft statement for every caregiver with completed shifts in
+  a period not yet on a statement (covers included, at the booking's pay rate; a
+  cover on a monthly booking is paid a thirtieth per shift); running it again adds
+  nothing twice. Staff add allowances and deductions, approve, then mark paid
+  (date, method, transfer reference), and the caregiver is told. Caregivers see
+  approved and paid statements under **Payments** in their portal.
+- **Client removal** now refuses a client with issued invoices (accounting
+  records); their drafts are deleted with them.
+
+API: `GET/POST /invoices`, `GET /invoices/summary`, `GET/PATCH/DELETE /invoices/:id`,
+`PUT /invoices/:id/lines`, `POST /invoices/:id/{lines/from-shifts,issue,send,void,revise,notes,payments}`,
+`DELETE /invoices/:id/payments/:paymentId`; `GET/POST /payouts`, `POST /payouts/generate`,
+`GET /payouts/summary`, `GET/PATCH/DELETE /payouts/:id`, `PUT /payouts/:id/lines`,
+`POST /payouts/:id/{lines/from-shifts,approve,reopen,pay,void}`; `GET/PATCH /settings/billing`
+(admin); `GET /me/invoices`, `GET /me/invoices/:id`, `POST /me/invoices/:id/payhere`
+(client); `GET /me/payouts` (caregiver); `POST /payments/payhere/notify` (public, signed).
+Bookings take `payRateType` / `payRateAmount`. Migration `0008_invoicing`: new tables
+`billing_settings`, `invoices`, `invoice_lines`, `invoice_payments`, `invoice_events`,
+`payhere_checkouts`, `payout_statements`, `payout_lines`, and two nullable columns on
+`bookings`. Additive. Setup: DEPLOYMENT.md 8.6.
+
+Tests: 24 unit tests (cents and rounding, totals with discounts, credits and
+partial tax, months, the shift-to-line rules, PayHere hashing and signature
+checks); 5 e2e cases (bill completed shifts and shape the draft, never twice, tax,
+issue and frozen details, payments and refunds; billing in advance and revise;
+PayHere checkout, forged/mismatched/pending/repeated/failed/chargeback
+notifications; pay run with covers, allowances, approve and pay, caregiver view;
+roles, client scoping, pay rate never shown to clients, client deletion); client
+invoice and caregiver payments page tests. All new text in English, Sinhala and
+Tamil (Sinhala and Tamil machine-drafted, for native review).
