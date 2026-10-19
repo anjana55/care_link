@@ -7,7 +7,7 @@ import type { CareRequestLanguage } from '../database/schema';
  * machine-drafted and want a native speaker's review.
  */
 type Lang = CareRequestLanguage;
-type Notice = 'CONFIRMED' | 'CANCELLED';
+type Notice = 'CONFIRMED' | 'CANCELLED' | 'CHANGED';
 
 const fill = (t: string, v: Record<string, string>) => t.replace(/\{(\w+)\}/g, (_, k: string) => v[k] ?? '');
 
@@ -46,6 +46,24 @@ const CLIENT: Record<Notice, Record<Lang, { subject: string; heading: string; bo
       body: 'முன்பதிவு {ref} ரத்து செய்யப்பட்டது; மீதமுள்ள பணிநேரங்கள் நடைபெறாது. அடுத்து என்ன என்பது பற்றி எங்கள் குழு உங்களைத் தொடர்புகொள்ளும்.',
     },
   },
+  // A confirmed booking's schedule or caregiver changed from {date} on.
+  CHANGED: {
+  en: {
+    subject: 'Your booking {ref} has changed',
+    heading: 'Your booking has changed',
+    body: 'The shifts for booking {ref} have changed from {date}. You can see the updated shifts in your CareLink account.',
+  },
+  si: {
+    subject: 'ඔබගේ වෙන්කිරීම {ref} වෙනස් කර ඇත',
+    heading: 'ඔබගේ වෙන්කිරීම වෙනස් කර ඇත',
+    body: 'වෙන්කිරීම {ref} හි වාර {date} සිට වෙනස් කර ඇත. යාවත්කාලීන වාර ඔබගේ CareLink ගිණුමෙන් බලන්න.',
+  },
+  ta: {
+    subject: 'உங்கள் முன்பதிவு {ref} மாற்றப்பட்டது',
+    heading: 'உங்கள் முன்பதிவு மாற்றப்பட்டது',
+    body: 'முன்பதிவு {ref} இன் பணிநேரங்கள் {date} முதல் மாற்றப்பட்டுள்ளன. புதுப்பிக்கப்பட்ட பணிநேரங்களை உங்கள் CareLink கணக்கில் பார்க்கலாம்.',
+  },
+  },
 };
 
 const CAREGIVER: Record<Notice, Record<Lang, { heading: string; body: string }>> = {
@@ -58,6 +76,11 @@ const CAREGIVER: Record<Notice, Record<Lang, { heading: string; body: string }>>
     en: { heading: 'A booking has been cancelled', body: 'Booking {ref} has been cancelled and your remaining shifts for it are cancelled too.' },
     si: { heading: 'වෙන්කිරීමක් අවලංගු කර ඇත', body: 'වෙන්කිරීම {ref} අවලංගු කර ඇති අතර ඒ සඳහා ඔබගේ ඉතිරි වාරද අවලංගු කර ඇත.' },
     ta: { heading: 'ஒரு முன்பதிவு ரத்து செய்யப்பட்டது', body: 'முன்பதிவு {ref} ரத்து செய்யப்பட்டது; அதற்கான உங்கள் மீதமுள்ள பணிநேரங்களும் ரத்து செய்யப்பட்டன.' },
+  },
+  CHANGED: {
+    en: { heading: 'A booking has changed', body: 'Your shifts for booking {ref} have changed from {date}. Check your updated shifts in your CareLink account.' },
+    si: { heading: 'වෙන්කිරීමක් වෙනස් කර ඇත', body: 'වෙන්කිරීම {ref} සඳහා ඔබගේ වාර {date} සිට වෙනස් කර ඇත. යාවත්කාලීන වාර ඔබගේ CareLink ගිණුමෙන් බලන්න.' },
+    ta: { heading: 'ஒரு முன்பதிவு மாற்றப்பட்டது', body: 'முன்பதிவு {ref} க்கான உங்கள் பணிநேரங்கள் {date} முதல் மாற்றப்பட்டுள்ளன. புதுப்பிக்கப்பட்ட பணிநேரங்களை உங்கள் CareLink கணக்கில் பார்க்கவும்.' },
   },
 };
 

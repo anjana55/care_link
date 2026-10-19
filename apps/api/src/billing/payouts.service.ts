@@ -148,6 +148,9 @@ export class PayoutsService {
         startsAt: bookingShifts.startsAt,
         endsAt: bookingShifts.endsAt,
         status: bookingShifts.status,
+        // The shift's own pay rate, when it has one.
+        rateType: bookingShifts.payRateType,
+        rateAmount: bookingShifts.payRateAmount,
       })
       .from(bookingShifts)
       .where(

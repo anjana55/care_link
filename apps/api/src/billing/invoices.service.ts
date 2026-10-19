@@ -283,6 +283,9 @@ export class InvoicesService {
         startsAt: bookingShifts.startsAt,
         endsAt: bookingShifts.endsAt,
         status: bookingShifts.status,
+        // The shift's own client rate, when it has one.
+        rateType: bookingShifts.rateType,
+        rateAmount: bookingShifts.rateAmount,
       })
       .from(bookingShifts)
       .where(

@@ -1,9 +1,11 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomInt, randomUUID as uuid } from 'crypto';
-import { and, asc, count, desc, eq, gt, gte, inArray, isNull, like, lt, ne, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, like, lt, ne, or, sql, type SQL } from 'drizzle-orm';
 import {
   colomboLocalToIso,
   colomboToday,
+  computeTotals,
+  formatLkr,
   colomboToUtc,
   addDays,
   generateShifts,
@@ -28,14 +30,21 @@ import {
   users,
   cities,
   districts,
+  invoiceLines,
+  invoices,
+  payoutLines,
+  payoutStatements,
   BLOCKING_SHIFT_STATUSES,
   type BookingEventType,
   type BookingStatus,
+  type ShiftRateType,
   type ShiftStatus,
 } from '../database/schema';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { PublicSearchService } from '../public-search/public-search.service';
 import { BookingNotifier } from './booking-notifier.service';
+import { buildLines } from '../billing/line-builder';
+import { planRoster } from './roster-plan';
 import {
   AddShiftDto,
   BookingPatternDto,
@@ -270,6 +279,8 @@ export class BookingsService {
     const byShift = new Map<string, ShiftConflict[]>();
     for (const c of conflicts) byShift.set(c.shiftId, [...(byShift.get(c.shiftId) ?? []), c]);
 
+    const billing = await this.billingRefs(shifts.map((s) => s.id));
+
     const actorIds = [booking.createdByUserId, booking.confirmedByUserId, ...events.map((e) => e.actorUserId), ...shifts.map((s) => s.updatedByUserId)];
     const names = await this.userNames(actorIds);
     const [place] = patient?.cityId
@@ -314,15 +325,26 @@ export class BookingsService {
         hours: shiftHours(s.startsAt, s.endsAt),
         status: s.status,
         note: s.note,
+        // This shift's own rates (null = the booking's), and whether the
+        // monthly rule means it cannot have one on that side.
+        rateType: s.rateType,
+        rateAmount: s.rateAmount,
+        payRateType: s.payRateType,
+        payRateAmount: s.payRateAmount,
+        clientRateLocked: booking.rateType === 'MONTHLY',
+        payRateLocked: booking.payRateType === 'MONTHLY' && s.caregiverId === booking.caregiverId,
+        // The live invoice / payout statement the shift is already on, if any.
+        invoice: billing.invoices.get(s.id) ?? null,
+        payout: billing.payouts.get(s.id) ?? null,
         caregiver: caregiverRef(s.caregiverId),
         isCover: s.caregiverId !== booking.caregiverId,
         conflicts: byShift.get(s.id) ?? [],
         allowedStatuses: SHIFT_STATUS_TRANSITIONS[s.status],
         updatedBy: s.updatedByUserId ? (names.get(s.updatedByUserId) ?? null) : null,
       })),
-      estimate: BookingsService.estimate(booking, shifts),
+      estimate: BookingsService.estimate('CLIENT', booking, shifts),
       // What the caregiver side comes to over the same shifts, and the difference.
-      payEstimate: BookingsService.estimate({ ...booking, rateType: booking.payRateType, rateAmount: booking.payRateAmount }, shifts),
+      payEstimate: BookingsService.estimate('PAY', { ...booking, rateType: booking.payRateType, rateAmount: booking.payRateAmount }, shifts),
       blockingConflicts: conflicts.filter((c) => c.kind === 'BLOCKING').length,
       events: events.map((e) => ({
         id: e.id,
@@ -335,25 +357,107 @@ export class BookingsService {
   }
 
   /**
-   * What the agreed rate comes to over the shifts that are happening or
-   * happened (drafts, scheduled, completed). HOURLY and DAILY are exact;
-   * MONTHLY is pro-rated by calendar days over the booking's range.
+   * What one side of the booking comes to over the shifts that are happening
+   * or happened (drafts, scheduled, completed): the client side at the agreed
+   * rate, or the caregiver side at the pay rate. Priced by the same line
+   * builder invoices and payouts use - shifts with their own rate at that
+   * rate, a monthly rate by the calendar month - so the estimate and the
+   * eventual bill follow one rule.
    */
   static estimate(
-    b: { rateType: string | null; rateAmount: string | null; startDate: string; endDate: string },
-    shifts: { startsAt: Date; endsAt: Date; status: ShiftStatus }[],
+    side: 'CLIENT' | 'PAY',
+    b: { id: string; reference: string; caregiverId: string; rateType: RateTypeValue | null; rateAmount: string | null; startDate: string; endDate: string },
+    shifts: {
+      id: string;
+      caregiverId: string;
+      startsAt: Date;
+      endsAt: Date;
+      status: ShiftStatus;
+      rateType: ShiftRateType | null;
+      rateAmount: string | null;
+      payRateType: ShiftRateType | null;
+      payRateAmount: string | null;
+    }[],
   ) {
     const live = shifts.filter((s) => COUNTED.includes(s.status));
     const hours = Math.round(live.reduce((sum, s) => sum + shiftHours(s.startsAt, s.endsAt), 0) * 100) / 100;
-    const base = { shifts: live.length, hours, rateType: b.rateType, rateAmount: b.rateAmount, total: null as string | null, units: null as number | null };
-    if (!b.rateType || !b.rateAmount) return base;
-    const rate = Number(b.rateAmount);
-    let units: number;
-    if (b.rateType === 'HOURLY') units = hours;
-    else if (b.rateType === 'DAILY') units = live.length;
-    else units = ((Date.parse(`${b.endDate}T00:00:00Z`) - Date.parse(`${b.startDate}T00:00:00Z`)) / 86_400_000 + 1) / 30;
-    // Total from the exact units; the units themselves are rounded only for display.
-    return { ...base, units: Math.round(units * 100) / 100, total: (Math.round(rate * units * 100) / 100).toFixed(2) };
+    const own = live.filter((s) => (side === 'CLIENT' ? s.rateType : s.payRateType)).length;
+    const base = { shifts: live.length, hours, rateType: b.rateType, rateAmount: b.rateAmount, ownRateShifts: own, unpriced: 0, total: null as string | null, units: null as number | null };
+    if (!live.length) return base;
+    const { lines, unpriced } = buildLines({
+      mode: side === 'CLIENT' ? 'INVOICE' : 'PAYOUT',
+      language: 'en',
+      from: b.startDate < toColomboDate(live[0].startsAt) ? b.startDate : toColomboDate(live[0].startsAt),
+      to: b.endDate > toColomboDate(live.at(-1)!.startsAt) ? b.endDate : toColomboDate(live.at(-1)!.startsAt),
+      statuses: COUNTED,
+      bookings: [b],
+      shifts: [...live]
+        .sort((x, y) => new Date(x.startsAt).getTime() - new Date(y.startsAt).getTime())
+        .map((s) => ({
+          id: s.id,
+          bookingId: b.id,
+          caregiverId: s.caregiverId,
+          startsAt: new Date(s.startsAt),
+          endsAt: new Date(s.endsAt),
+          status: s.status,
+          rateType: side === 'CLIENT' ? s.rateType : s.payRateType,
+          rateAmount: side === 'CLIENT' ? s.rateAmount : s.payRateAmount,
+        })),
+      billedShiftIds: new Set(),
+      billedPeriods: [],
+    });
+    // Nothing priced at all: no estimate, as before any rate is recorded.
+    if (!lines.length || unpriced === lines.length) return { ...base, unpriced };
+    const units = new Set(lines.map((l) => l.unit)).size === 1 ? Math.round(lines.reduce((sum, l) => sum + Number(l.quantity), 0) * 100) / 100 : null;
+    return { ...base, unpriced, units, total: computeTotals({ lines: lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice })) }).total };
+  }
+
+  /** For each shift, the live (not void) invoice and payout statement it is on. */
+  private async billingRefs(shiftIds: string[], db: Tx = this.db) {
+    const out = {
+      invoices: new Map<string, { id: string; number: string | null; status: string }>(),
+      payouts: new Map<string, { id: string; reference: string; status: string }>(),
+    };
+    if (!shiftIds.length) return out;
+    const [inv, pay] = await Promise.all([
+      db
+        .select({ shiftId: invoiceLines.shiftId, id: invoices.id, number: invoices.number, status: invoices.status })
+        .from(invoiceLines)
+        .innerJoin(invoices, eq(invoiceLines.invoiceId, invoices.id))
+        .where(and(inArray(invoiceLines.shiftId, shiftIds), ne(invoices.status, 'VOID'))),
+      db
+        .select({ shiftId: payoutLines.shiftId, id: payoutStatements.id, reference: payoutStatements.reference, status: payoutStatements.status })
+        .from(payoutLines)
+        .innerJoin(payoutStatements, eq(payoutLines.statementId, payoutStatements.id))
+        .where(and(inArray(payoutLines.shiftId, shiftIds), ne(payoutStatements.status, 'VOID'))),
+    ]);
+    for (const r of inv) if (r.shiftId) out.invoices.set(r.shiftId, { id: r.id, number: r.number, status: r.status });
+    for (const r of pay) if (r.shiftId) out.payouts.set(r.shiftId, { id: r.id, reference: r.reference, status: r.status });
+    return out;
+  }
+
+  /**
+   * Refuses an edit that would cancel shifts already billed, or move shifts
+   * already on a caregiver's pay statement to someone else - the bill would
+   * no longer match the roster. Staff void or revise the document first, or
+   * start the change on a later day.
+   */
+  private async assertNotBilled(db: Tx, dropIds: string[], reassignIds: string[]) {
+    const refs = await this.billingRefs([...new Set([...dropIds, ...reassignIds])], db);
+    const docs = new Set<string>();
+    for (const id of dropIds) {
+      const i = refs.invoices.get(id);
+      if (i) docs.add(i.number ? `invoice ${i.number}` : 'a draft invoice');
+    }
+    for (const id of [...dropIds, ...reassignIds]) {
+      const p = refs.payouts.get(id);
+      if (p) docs.add(`pay statement ${p.reference}`);
+    }
+    if (docs.size) {
+      throw new ConflictException(
+        `Some of the shifts this would change are already on ${[...docs].join(', ')} - void or revise it first, or start the change on a later day`,
+      );
+    }
   }
 
   private async userNames(ids: (string | null)[]) {
@@ -542,25 +646,144 @@ export class BookingsService {
     }
   }
 
-  /** Rates and notes at any time before the booking ends; the pattern only while DRAFT, and it rebuilds every shift. */
+  /**
+   * The days a confirmed booking's change covers: from `effectiveFrom` (today
+   * at the earliest) to the new last day. Shifts that have already started
+   * are never regenerated, so slots before now are left out.
+   */
+  private validateReschedule(booking: { startDate: string; endDate: string }, from: string, pattern: BookingPatternDto | null, now: Date) {
+    if (!isValidDate(from)) throw new BadRequestException('Enter the day the change starts');
+    if (from < colomboToday(now)) throw new BadRequestException('A change can start today at the earliest - past shifts are edited one by one');
+    if (from < booking.startDate) throw new BadRequestException('The change must start on or after the booking starts');
+    const endDate = pattern?.endDate ?? booking.endDate;
+    if (from > endDate) throw new BadRequestException('The change must start on or before the last day');
+    if (!pattern) return null;
+    if (pattern.startDate !== booking.startDate) {
+      throw new BadRequestException("A confirmed booking's first day can't move - change it from a later day, or cancel and rebook");
+    }
+    if (!isValidDate(pattern.endDate)) throw new BadRequestException('Enter a valid last day');
+    const days = (Date.parse(`${pattern.endDate}T00:00:00Z`) - Date.parse(`${booking.startDate}T00:00:00Z`)) / 86_400_000 + 1;
+    if (days > MAX_BOOKING_DAYS * 3) throw new BadRequestException('A booking can run for at most three years - start a new one');
+    const generated = generateShifts({ ...pattern, startDate: from, daysOfWeek: pattern.daysOfWeek as IsoWeekday[] }).filter((g) => g.startsAt > now);
+    if (generated.length > MAX_GENERATED_SHIFTS) throw new BadRequestException('A change can cover at most a year of shifts - extend the booking later instead');
+    return generated;
+  }
+
+  /**
+   * Edit a booking (see UpdateBookingDto for what may change when).
+   *
+   * The roster follows the plan in roster-plan.ts: shifts that still fit the
+   * new pattern are kept as they are, with their edits and own rates. On a
+   * confirmed booking the change runs from `effectiveFrom`; every shift that
+   * would be held afterwards is checked against the caregivers' other shifts,
+   * shifts already billed are never silently cancelled or moved, and the
+   * client and the caregivers involved are told.
+   */
   async update(id: string, dto: UpdateBookingDto, actor: AuthenticatedUser) {
     const booking = await this.bookingOrThrow(id);
     if (booking.status === 'CANCELLED' || booking.status === 'COMPLETED') {
       throw new BadRequestException('This booking is closed and can no longer be changed');
     }
-    if (dto.pattern && booking.status !== 'DRAFT') {
-      throw new BadRequestException('The pattern can only be changed while the booking is a draft - edit individual shifts or extend it instead');
-    }
-    const generated = dto.pattern ? this.validatePattern(dto.pattern) : null;
+    const draft = booking.status === 'DRAFT';
+    const now = new Date();
+    const newCaregiverId = dto.caregiverId && dto.caregiverId !== booking.caregiverId ? await this.liveCaregiver(dto.caregiverId) : null;
+    const reshaping = Boolean(dto.pattern || newCaregiverId);
+    if (!draft && reshaping && !dto.effectiveFrom) throw new BadRequestException('Choose the day the change starts');
+
+    const generated = !dto.pattern
+      ? null
+      : draft
+        ? this.validatePattern(dto.pattern)
+        : this.validateReschedule(booking, dto.effectiveFrom!, dto.pattern, now);
+    if (!draft && reshaping && !dto.pattern) this.validateReschedule(booking, dto.effectiveFrom!, null, now);
+
     const rateType = dto.rateType === undefined ? booking.rateType : dto.rateType;
-    const rateAmount = dto.rateAmount === undefined ? booking.rateAmount : dto.rateAmount;
+    const rateAmount = money(dto.rateAmount === undefined ? booking.rateAmount : dto.rateAmount);
     if (rateType && !rateAmount) throw new BadRequestException('Enter the agreed rate as a number');
     const payRateType = dto.payRateType === undefined ? booking.payRateType : dto.payRateType;
-    const payRateAmount = dto.payRateAmount === undefined ? booking.payRateAmount : dto.payRateAmount;
+    const payRateAmount = money(dto.payRateAmount === undefined ? booking.payRateAmount : dto.payRateAmount);
     if (payRateType && !payRateAmount) throw new BadRequestException('Enter the pay rate as a number');
 
+    // What changed, for the history.
+    const rate = (t: typeof rateType, a: string | null) => (t && a ? describeRate({ type: t, amount: a }) : 'none');
+    const changes: string[] = [];
+    if (rate(rateType, rateType ? rateAmount : null) !== rate(booking.rateType, booking.rateAmount)) changes.push(`client rate: ${rate(rateType, rateAmount)}`);
+    if (rate(payRateType, payRateType ? payRateAmount : null) !== rate(booking.payRateType, booking.payRateAmount)) changes.push(`pay rate: ${rate(payRateType, payRateAmount)}`);
+    if (dto.language && dto.language !== booking.language) changes.push(`updates in ${dto.language}`);
+    if (dto.notes !== undefined && (dto.notes.trim() || null) !== booking.notes) changes.push('notes');
+
+    // Filled inside the transaction; sent only once it has committed.
+    const after: { notify?: { from: string; caregiverIds: string[] } } = {};
     await this.db.transaction(async (tx) => {
       const t = tx as unknown as Tx;
+      // One edit of a booking at a time; then re-check it is still open.
+      await t.execute(sql`SELECT id FROM bookings WHERE id = ${id} FOR UPDATE`);
+      const current = await this.bookingOrThrow(id, t);
+      if (current.status !== booking.status) throw new ConflictException('This booking was just changed by someone else - reload and try again');
+
+      let rosterNote: string | null = null;
+      if (reshaping) {
+        const newBooked = newCaregiverId ?? booking.caregiverId;
+        // Draft: the whole roster. Confirmed: scheduled shifts from the change on that haven't started.
+        const fromInstant = draft ? null : new Date(Math.max(colomboToUtc(dto.effectiveFrom!, '00:00').getTime(), now.getTime()));
+        const existing = (await tx
+          .select()
+          .from(bookingShifts)
+          .where(
+            draft
+              ? and(eq(bookingShifts.bookingId, id), eq(bookingShifts.status, 'DRAFT'))
+              : and(eq(bookingShifts.bookingId, id), eq(bookingShifts.status, 'SCHEDULED'), gte(bookingShifts.startsAt, fromInstant!)),
+          )) as (ShiftRow & { payRateType: ShiftRateType | null })[];
+        const plan = planRoster(existing, generated, booking.caregiverId, newBooked);
+        const moved = plan.keep.filter((k) => k.caregiverId !== k.shift.caregiverId);
+
+        if (!draft) {
+          await this.lockCaregivers(t, [newBooked, booking.caregiverId, ...existing.map((s) => s.caregiverId)]);
+          await this.assertNotBilled(t, plan.drop.map((s) => s.id), moved.map((m) => m.shift.id));
+        }
+        if (plan.drop.length) {
+          const ids = plan.drop.map((s) => s.id);
+          if (draft) await tx.delete(bookingShifts).where(inArray(bookingShifts.id, ids));
+          else await tx.update(bookingShifts).set({ status: 'CANCELLED', updatedByUserId: actor.userId, updatedAt: now }).where(inArray(bookingShifts.id, ids));
+        }
+        for (const m of moved) {
+          await tx.update(bookingShifts).set({ caregiverId: m.caregiverId, updatedByUserId: actor.userId, updatedAt: now }).where(eq(bookingShifts.id, m.shift.id));
+        }
+        const added = plan.add.map((a) => ({ id: uuid(), ...a }));
+        for (let i = 0; i < added.length; i += 200) {
+          await tx.insert(bookingShifts).values(
+            added.slice(i, i + 200).map((a) => ({
+              id: a.id,
+              bookingId: id,
+              caregiverId: a.caregiverId,
+              startsAt: a.startsAt,
+              endsAt: a.endsAt,
+              status: (draft ? 'DRAFT' : 'SCHEDULED') as ShiftStatus,
+              updatedByUserId: actor.userId,
+            })),
+          );
+        }
+        if (!draft) {
+          // Everything the caregivers now hold from the change on must still fit around their other shifts.
+          await this.assertNoOverlap(t, [
+            ...plan.keep.map((k) => ({ ...k.shift, caregiverId: k.caregiverId, status: 'SCHEDULED' as ShiftStatus })),
+            ...added.map((a) => ({ ...a, bookingId: id, status: 'SCHEDULED' as ShiftStatus })),
+          ]);
+        }
+
+        const parts = [
+          generated ? `${plan.keep.length} kept, ${plan.drop.length} ${draft ? 'removed' : 'cancelled'}, ${plan.add.length} added` : null,
+          newCaregiverId ? `caregiver changed${moved.length ? ` on ${moved.length} shifts` : ''}` : null,
+        ].filter(Boolean);
+        rosterNote = draft ? parts.join('; ') : `from ${dto.effectiveFrom}: ${parts.join('; ')}`;
+        if (!draft && (plan.drop.length || plan.add.length || moved.length)) {
+          after.notify = {
+            from: dto.effectiveFrom!,
+            caregiverIds: [newBooked, ...plan.drop.map((s) => s.caregiverId), ...moved.flatMap((m) => [m.shift.caregiverId, m.caregiverId]), ...added.map((a) => a.caregiverId)],
+          };
+        }
+      }
+
       await tx
         .update(bookings)
         .set({
@@ -569,26 +792,64 @@ export class BookingsService {
           payRateType: payRateType ?? null,
           payRateAmount: payRateType ? payRateAmount : null,
           ...(dto.notes !== undefined ? { notes: dto.notes.trim() || null } : {}),
+          ...(dto.language ? { language: dto.language } : {}),
+          ...(newCaregiverId ? { caregiverId: newCaregiverId } : {}),
           ...(dto.pattern
             ? {
                 scheduleType: dto.pattern.scheduleType,
                 daysOfWeek: BookingsService.daysString(dto.pattern.daysOfWeek),
                 shiftStartTime: dto.pattern.shiftStartTime,
                 shiftEndTime: dto.pattern.shiftEndTime,
-                startDate: dto.pattern.startDate,
+                ...(draft ? { startDate: dto.pattern.startDate } : {}),
                 endDate: dto.pattern.endDate,
               }
             : {}),
-          updatedAt: new Date(),
+          updatedAt: now,
         })
         .where(eq(bookings.id, id));
-      if (generated) {
-        await tx.delete(bookingShifts).where(eq(bookingShifts.bookingId, id));
-        await this.insertShifts(t, id, booking.caregiverId, generated, 'DRAFT', actor);
-        await this.event(t, id, 'REGENERATED', actor, `${generated.length} draft shifts`);
-      }
-    });
+
+      const cleared = await this.clearMonthlyShiftRates(t, id);
+      if (cleared) changes.push(`own rates cleared on ${cleared} shifts (now priced by the month)`);
+      if (rosterNote !== null) await this.event(t, id, draft ? (generated ? 'REGENERATED' : 'UPDATED') : 'RESCHEDULED', actor, rosterNote);
+      if (changes.length) await this.event(t, id, 'UPDATED', actor, changes.join('; '));
+    }, CHECKED);
+
+    if (after.notify) void this.notifier.bookingChanged(id, after.notify.from, after.notify.caregiverIds);
     return this.findOne(id);
+  }
+
+  /**
+   * A shift folded into a monthly line is priced by the month, so it cannot
+   * keep a rate of its own on that side: the client side of a MONTHLY booking,
+   * and the booked caregiver's pay on a MONTHLY-pay one (covers are paid per
+   * shift and keep theirs). Returns how many shifts lost a rate.
+   */
+  private async clearMonthlyShiftRates(db: Tx, bookingId: string) {
+    const [b] = await db
+      .select({ rateType: bookings.rateType, payRateType: bookings.payRateType, caregiverId: bookings.caregiverId })
+      .from(bookings)
+      .where(eq(bookings.id, bookingId))
+      .limit(1);
+    if (!b) return 0;
+    const affected = (r: unknown) => (r as [{ affectedRows: number }])[0]?.affectedRows ?? 0;
+    let n = 0;
+    if (b.rateType === 'MONTHLY') {
+      n += affected(
+        await db
+          .update(bookingShifts)
+          .set({ rateType: null, rateAmount: null })
+          .where(and(eq(bookingShifts.bookingId, bookingId), isNotNull(bookingShifts.rateType))),
+      );
+    }
+    if (b.payRateType === 'MONTHLY') {
+      n += affected(
+        await db
+          .update(bookingShifts)
+          .set({ payRateType: null, payRateAmount: null })
+          .where(and(eq(bookingShifts.bookingId, bookingId), eq(bookingShifts.caregiverId, b.caregiverId), isNotNull(bookingShifts.payRateType))),
+      );
+    }
+    return n;
   }
 
   /**
@@ -741,12 +1002,63 @@ export class BookingsService {
     return { startsAt, endsAt };
   }
 
+  /**
+   * A shift's own rates after an edit. Each side is left alone when the edit
+   * doesn't mention it, set when it gives a type and amount, and cleared with
+   * null. A side folded into a monthly line can't have one (see
+   * clearMonthlyShiftRates): asking for it is refused; a rate the shift
+   * already had is dropped when it moves back to the booked caregiver.
+   */
+  private resolveShiftRates(
+    booking: { rateType: RateTypeValue | null; payRateType: RateTypeValue | null; caregiverId: string },
+    caregiverId: string,
+    dto: { rateType?: ShiftRateType | null; rateAmount?: string | null; payRateType?: ShiftRateType | null; payRateAmount?: string | null },
+    current: { rateType: ShiftRateType | null; rateAmount: string | null; payRateType: ShiftRateType | null; payRateAmount: string | null } | null,
+  ) {
+    const side = (
+      type: ShiftRateType | null | undefined,
+      amount: string | null | undefined,
+      had: { type: ShiftRateType | null; amount: string | null },
+      monthly: boolean,
+      monthlyMessage: string,
+      amountMessage: string,
+    ) => {
+      const asked = type !== undefined || amount !== undefined;
+      const nextType = type === undefined ? had.type : type;
+      const nextAmount = nextType ? (amount === undefined ? had.amount : amount) : null;
+      if (nextType && !nextAmount) throw new BadRequestException(amountMessage);
+      if (nextType && monthly) {
+        if (asked) throw new BadRequestException(monthlyMessage);
+        return { type: null, amount: null };
+      }
+      return { type: nextType ?? null, amount: nextType ? money(nextAmount) : null };
+    };
+    const client = side(
+      dto.rateType,
+      dto.rateAmount,
+      { type: current?.rateType ?? null, amount: current?.rateAmount ?? null },
+      booking.rateType === 'MONTHLY',
+      'This booking is charged by the month, so a single shift cannot have its own client rate - adjust the invoice instead',
+      'Enter the shift rate as a number',
+    );
+    const pay = side(
+      dto.payRateType,
+      dto.payRateAmount,
+      { type: current?.payRateType ?? null, amount: current?.payRateAmount ?? null },
+      booking.payRateType === 'MONTHLY' && caregiverId === booking.caregiverId,
+      'The booked caregiver is paid by the month on this booking - only a cover can be paid a rate for a single shift',
+      'Enter the shift pay as a number',
+    );
+    return { rateType: client.type, rateAmount: client.amount, payRateType: pay.type, payRateAmount: pay.amount };
+  }
+
   async addShift(id: string, dto: AddShiftDto, actor: AuthenticatedUser) {
     const booking = await this.bookingOrThrow(id);
     if (booking.status !== 'DRAFT' && booking.status !== 'CONFIRMED') throw new BadRequestException('This booking is closed and can no longer be changed');
     const { startsAt, endsAt } = this.parseRange(dto.start, dto.end);
     const caregiverId = dto.caregiverId ? await this.liveCaregiver(dto.caregiverId) : booking.caregiverId;
     const status: ShiftStatus = booking.status === 'DRAFT' ? 'DRAFT' : 'SCHEDULED';
+    const rates = this.resolveShiftRates(booking, caregiverId, dto, null);
     const shiftId = uuid();
 
     await this.db.transaction(async (tx) => {
@@ -755,8 +1067,12 @@ export class BookingsService {
         await this.lockCaregivers(t, [caregiverId]);
         await this.assertNoOverlap(t, [{ id: shiftId, bookingId: id, caregiverId, startsAt, endsAt, status }]);
       }
-      await tx.insert(bookingShifts).values({ id: shiftId, bookingId: id, caregiverId, startsAt, endsAt, status, note: dto.note ?? null, updatedByUserId: actor.userId });
-      await this.event(t, id, 'SHIFT_ADDED', actor, `${dto.start} - ${dto.end}`);
+      await tx.insert(bookingShifts).values({ id: shiftId, bookingId: id, caregiverId, startsAt, endsAt, status, note: dto.note ?? null, ...rates, updatedByUserId: actor.userId });
+      const own = [
+        rates.rateType ? `client ${describeRate({ type: rates.rateType, amount: rates.rateAmount! })}` : null,
+        rates.payRateType ? `pay ${describeRate({ type: rates.payRateType, amount: rates.payRateAmount! })}` : null,
+      ].filter(Boolean);
+      await this.event(t, id, 'SHIFT_ADDED', actor, `${dto.start} - ${dto.end}${own.length ? ` (${own.join(', ')})` : ''}`);
     }, CHECKED);
     return this.findOne(id);
   }
@@ -773,7 +1089,13 @@ export class BookingsService {
       .select()
       .from(bookingShifts)
       .where(and(eq(bookingShifts.id, shiftId), eq(bookingShifts.bookingId, id)))
-      .limit(1)) as (ShiftRow & { note: string | null })[];
+      .limit(1)) as (ShiftRow & {
+      note: string | null;
+      rateType: ShiftRateType | null;
+      rateAmount: string | null;
+      payRateType: ShiftRateType | null;
+      payRateAmount: string | null;
+    })[];
     if (!shift) throw new NotFoundException('Shift not found');
 
     let startsAt = new Date(shift.startsAt);
@@ -796,10 +1118,13 @@ export class BookingsService {
       status = dto.status;
     }
     const caregiverId = dto.caregiverId ? await this.liveCaregiver(dto.caregiverId) : shift.caregiverId;
+    const rates = this.resolveShiftRates(booking, caregiverId, dto, shift);
+    // Only times, caregiver or status can create an overlap; a rate or note change alone needs no check.
+    const timeOrHolder = startsAt.getTime() !== new Date(shift.startsAt).getTime() || endsAt.getTime() !== new Date(shift.endsAt).getTime() || caregiverId !== shift.caregiverId || status !== shift.status;
 
     await this.db.transaction(async (tx) => {
       const t = tx as unknown as Tx;
-      if (BLOCKING_SHIFT_STATUSES.includes(status)) {
+      if (timeOrHolder && BLOCKING_SHIFT_STATUSES.includes(status)) {
         await this.lockCaregivers(t, [caregiverId]);
         await this.assertNoOverlap(t, [{ id: shift.id, bookingId: id, caregiverId, startsAt, endsAt, status }]);
       }
@@ -810,6 +1135,7 @@ export class BookingsService {
           endsAt,
           caregiverId,
           status,
+          ...rates,
           ...(dto.note !== undefined ? { note: dto.note?.trim() || null } : {}),
           updatedByUserId: actor.userId,
           updatedAt: new Date(),
@@ -819,6 +1145,12 @@ export class BookingsService {
         dto.start || dto.end ? `${isoLocal(startsAt)} - ${isoLocal(endsAt)}` : null,
         caregiverId !== shift.caregiverId ? (caregiverId === booking.caregiverId ? 'back to the booked caregiver' : 'cover caregiver assigned') : null,
         status !== shift.status ? `${shift.status} -> ${status}` : null,
+        rates.rateType !== shift.rateType || rates.rateAmount !== shift.rateAmount
+          ? `client rate: ${describeRate(rates.rateType ? { type: rates.rateType, amount: rates.rateAmount! } : null)}`
+          : null,
+        rates.payRateType !== shift.payRateType || rates.payRateAmount !== shift.payRateAmount
+          ? `pay rate: ${describeRate(rates.payRateType ? { type: rates.payRateType, amount: rates.payRateAmount! } : null)}`
+          : null,
       ].filter(Boolean);
       if (changes.length) await this.event(t, id, 'SHIFT_CHANGED', actor, `${isoLocal(new Date(shift.startsAt)).slice(0, 10)}: ${changes.join('; ')}`);
     }, CHECKED);
@@ -960,3 +1292,11 @@ export class BookingsService {
 
 /** An instant as a Colombo datetime-local string, for messages and history. */
 const isoLocal = (d: Date) => isoToColomboLocal(d);
+const toColomboDate = (d: Date) => isoToColomboLocal(d).slice(0, 10);
+
+type RateTypeValue = 'HOURLY' | 'DAILY' | 'MONTHLY';
+/** Amounts as stored ("3500" -> "3500.00"), so an unchanged rate never reads as a change. */
+const money = (a: string | null | undefined) => (a === null || a === undefined || a === '' ? null : Number(a).toFixed(2));
+type Rate = { type: ShiftRateType | RateTypeValue; amount: string } | null;
+/** "LKR 5,000.00 per hour" - for the booking's history. */
+const describeRate = (r: Rate) => (r ? `${formatLkr(r.amount)} ${{ HOURLY: 'per hour', DAILY: 'per shift', MONTHLY: 'per month' }[r.type]}` : 'booking rate');

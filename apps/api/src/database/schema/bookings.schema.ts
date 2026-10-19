@@ -28,6 +28,14 @@ export type ScheduleType = (typeof scheduleTypeEnum)[number];
 export const rateTypeEnum = ['HOURLY', 'DAILY', 'MONTHLY'] as const;
 export type RateType = (typeof rateTypeEnum)[number];
 
+/**
+ * How a single shift's own rate is expressed. A shift is one piece of work, so
+ * it is priced by its hours or as a whole shift (DAILY: one unit per shift) -
+ * never by the month.
+ */
+export const shiftRateTypeEnum = ['HOURLY', 'DAILY'] as const;
+export type ShiftRateType = (typeof shiftRateTypeEnum)[number];
+
 export const bookings = mysqlTable(
   'bookings',
   {
@@ -111,6 +119,15 @@ export const bookingShifts = mysqlTable(
     endsAt: datetime('ends_at').notNull(),
     status: mysqlEnum('status', shiftStatusEnum).notNull().default('DRAFT'),
     note: varchar('note', { length: 500 }),
+    // This shift's own rates, when it is priced differently from the booking -
+    // a holiday, a longer day, a cover paid more. Null = the booking's rate.
+    // Each side is set or cleared on its own. Shifts folded into a monthly
+    // line (the client side of a MONTHLY booking, or the booked caregiver's
+    // pay on one) are priced by the month and cannot carry their own rate.
+    rateType: mysqlEnum('rate_type', shiftRateTypeEnum),
+    rateAmount: decimal('rate_amount', { precision: 10, scale: 2 }),
+    payRateType: mysqlEnum('pay_rate_type', shiftRateTypeEnum),
+    payRateAmount: decimal('pay_rate_amount', { precision: 10, scale: 2 }),
     updatedByUserId: varchar('updated_by_user_id', { length: 36 }),
     createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -122,10 +139,16 @@ export const bookingShifts = mysqlTable(
   }),
 );
 
-/** Staff-side history of a booking. */
+/**
+ * Staff-side history of a booking. UPDATED: rates, notes, language or the
+ * booked caregiver on a draft; RESCHEDULED: a confirmed booking's pattern or
+ * caregiver changed from a given day on.
+ */
 export const bookingEventTypeEnum = [
   'CREATED',
+  'UPDATED',
   'REGENERATED',
+  'RESCHEDULED',
   'CONFIRMED',
   'EXTENDED',
   'SHIFT_ADDED',

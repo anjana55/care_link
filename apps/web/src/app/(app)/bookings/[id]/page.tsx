@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { AlertTriangle, ChevronLeft, ExternalLink, Pencil, Plus, Trash2, UserRoundCog } from 'lucide-react';
+import { AlertTriangle, Banknote, ChevronLeft, ExternalLink, Pencil, Plus, Trash2, UserRoundCog } from 'lucide-react';
 import { formatLkr, isoToColomboLocal, toColombo } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
@@ -28,6 +28,16 @@ import { PhoneLink } from '@/components/clients/contact-links';
 import { CaregiverPicker } from '@/components/requests/caregiver-picker';
 import { BookingStatusBadge, ShiftStatusBadge } from '@/components/bookings/booking-badges';
 import { RelatedInvoices } from '@/components/billing/related-invoices';
+import { EditBookingPanel } from '@/components/bookings/edit-booking-panel';
+import {
+  emptyShiftRates,
+  ShiftRateChips,
+  ShiftRateEditor,
+  ShiftRateFields,
+  shiftRatesPayload,
+  shiftRatesValid,
+  type ShiftRateValue,
+} from '@/components/bookings/shift-rate-fields';
 import { cn } from '@/lib/utils';
 import type { BookingDetail, BookingShift, RateType, ShiftStatus } from '@/lib/api/types';
 
@@ -36,9 +46,10 @@ const errorText = (err: unknown, fallback: string) => (err instanceof ApiError &
 /**
  * One booking: who, the pattern, the agreed rate, and the shift roster. While
  * it is a DRAFT staff shape the roster freely; confirming schedules every shift
- * and tells the client and caregiver. Shifts can still be changed afterwards -
- * times, a cover caregiver, what happened - and every change is re-checked
- * against the caregiver's other shifts.
+ * and tells the client and caregiver. Afterwards the booking itself can still
+ * be edited - its pattern or caregiver from a chosen day on - and each shift
+ * can be changed: times, a cover caregiver, what happened, and its own rates.
+ * Every change is re-checked against the caregivers' other shifts.
  */
 export default function BookingPage() {
   const { t, locale } = useTranslation();
@@ -46,6 +57,7 @@ export default function BookingPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { data: booking, isLoading, isError } = useBooking(id);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user && user.role !== 'ADMIN' && user.role !== 'STAFF') router.replace('/dashboard');
@@ -90,8 +102,10 @@ export default function BookingPage() {
             </p>
           )}
         </div>
-        <BookingActions booking={booking} />
+        <BookingActions booking={booking} onEdit={() => setEditing((v) => !v)} editing={editing} />
       </div>
+
+      {open && editing && <EditBookingPanel booking={booking} onClose={() => setEditing(false)} />}
 
       {booking.status === 'DRAFT' && (
         <p className="mb-4 rounded border border-accent/30 bg-accent-light px-3 py-2 text-sm text-accent">{t('bookings.detail.draftBanner')}</p>
@@ -150,7 +164,7 @@ export default function BookingPage() {
   );
 }
 
-function BookingActions({ booking }: { booking: BookingDetail }) {
+function BookingActions({ booking, onEdit, editing }: { booking: BookingDetail; onEdit: () => void; editing: boolean }) {
   const { t } = useTranslation();
   const confirm = useConfirmBooking(booking.id);
   const complete = useCompleteBooking(booking.id);
@@ -165,6 +179,10 @@ function BookingActions({ booking }: { booking: BookingDetail }) {
   return (
     <div className="flex max-w-md flex-col items-start gap-2 sm:items-end">
       <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" aria-expanded={editing} onClick={onEdit}>
+          <Pencil size={14} aria-hidden />
+          {t('bookings.detail.editBooking')}
+        </Button>
         {booking.status === 'DRAFT' && (
           <Button
             disabled={confirm.isPending || booking.blockingConflicts > 0 || booking.shifts.length === 0}
@@ -235,6 +253,9 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
   const e = booking.estimate;
   const pay = booking.payEstimate;
   const margin = e.total && pay.total ? Number(e.total) - Number(pay.total) : null;
+  // Moving a side to MONTHLY folds its shifts into a monthly line, which drops their own rates (the API does this on save).
+  const clientOwn = booking.shifts.filter((s) => s.rateType).length;
+  const payOwnBooked = booking.shifts.filter((s) => s.payRateType && !s.isCover).length;
   const rate = (type: RateType | null, amount: string | null, none: string) => (type && amount ? `${formatLkr(amount)} ${t(`bookings.rateUnit.${type}`)}` : none);
   const picker = (id: string, value: RateType | '', set: (v: RateType | '') => void, amount: string, setAmount: (v: string) => void, none: string, label: string) => (
     <div className="grid grid-cols-2 gap-2">
@@ -267,6 +288,10 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
             {picker('rateTypeEdit', rateType, setRateType, rateAmount, setRateAmount, t('bookings.new.noRate'), t('bookings.new.rateType'))}
             <p className="text-xs font-medium text-ink/60">{t('bookings.new.payRateType')}</p>
             {picker('payRateTypeEdit', payRateType, setPayRateType, payRateAmount, setPayRateAmount, t('bookings.new.noPayRate'), t('bookings.new.payRateType'))}
+            {rateType === 'MONTHLY' && booking.rateType !== 'MONTHLY' && clientOwn > 0 && <p className="text-xs text-accent">{t('bookings.detail.monthlyClears', { count: clientOwn })}</p>}
+            {payRateType === 'MONTHLY' && booking.payRateType !== 'MONTHLY' && payOwnBooked > 0 && (
+              <p className="text-xs text-accent">{t('bookings.detail.monthlyPayClears', { count: payOwnBooked })}</p>
+            )}
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -304,6 +329,15 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
           </dl>
         )}
         <p className="text-ink/60">{t('bookings.detail.totals', { shifts: e.shifts, hours: e.hours })}</p>
+        {(e.ownRateShifts > 0 || pay.ownRateShifts > 0) && (
+          <ul className="space-y-0.5 text-xs text-brand-dark">
+            {e.ownRateShifts > 0 && <li>{t('bookings.detail.ownRateShifts', { count: e.ownRateShifts })}</li>}
+            {pay.ownRateShifts > 0 && <li>{t('bookings.detail.ownPayShifts', { count: pay.ownRateShifts })}</li>}
+          </ul>
+        )}
+        {((e.total && e.unpriced > 0) || (pay.total && pay.unpriced > 0)) && (
+          <p className="text-xs text-accent">{t('bookings.detail.unpricedShifts', { count: Math.max(e.total ? e.unpriced : 0, pay.total ? pay.unpriced : 0) })}</p>
+        )}
         <dl className="space-y-1 border-t border-border pt-2">
           {e.total && (
             <div className="flex justify-between gap-3">
@@ -396,6 +430,7 @@ function ShiftRow({ booking, shift }: { booking: BookingDetail; shift: BookingSh
   const remove = useRemoveShift(booking.id);
   const [editing, setEditing] = useState(false);
   const [covering, setCovering] = useState(false);
+  const [pricing, setPricing] = useState(false);
   const [start, setStart] = useState(isoToColomboLocal(shift.startsAt));
   const [end, setEnd] = useState(isoToColomboLocal(shift.endsAt));
   const open = booking.status === 'DRAFT' || booking.status === 'CONFIRMED';
@@ -454,6 +489,18 @@ function ShiftRow({ booking, shift }: { booking: BookingDetail; shift: BookingSh
                   </button>
                 )}
                 {shift.status !== 'CANCELLED' && (
+                  <button
+                    type="button"
+                    onClick={() => setPricing((v) => !v)}
+                    aria-expanded={pricing}
+                    className={cn('rounded p-1.5 hover:bg-paper hover:text-ink', shift.rateType || shift.payRateType ? 'text-brand-dark' : 'text-ink/50')}
+                    aria-label={t('bookings.detail.editRates')}
+                    title={t('bookings.detail.editRates')}
+                  >
+                    <Banknote size={14} />
+                  </button>
+                )}
+                {shift.status !== 'CANCELLED' && (
                   <button type="button" onClick={() => setCovering((v) => !v)} className="rounded p-1.5 text-ink/50 hover:bg-paper hover:text-ink" aria-label={t('bookings.detail.cover')} title={t('bookings.detail.cover')}>
                     <UserRoundCog size={14} />
                   </button>
@@ -491,6 +538,8 @@ function ShiftRow({ booking, shift }: { booking: BookingDetail; shift: BookingSh
           </>
         )}
       </div>
+      {!editing && <ShiftRateChips shift={shift} />}
+      {pricing && <ShiftRateEditor booking={booking} shift={shift} onDone={() => setPricing(false)} />}
       {shift.conflicts.length > 0 && (
         <p className={cn('mt-1 pl-0 text-xs sm:pl-32', blocking.length ? 'text-danger' : 'text-accent')}>
           <AlertTriangle size={12} className="mr-1 inline" aria-hidden />
@@ -525,6 +574,11 @@ function AddShiftCard({ booking }: { booking: BookingDetail }) {
   const [start, setStart] = useState(last ? isoToColomboLocal(last.startsAt) : `${booking.startDate}T${booking.shiftStartTime}`);
   const [end, setEnd] = useState(last ? isoToColomboLocal(last.endsAt) : `${booking.startDate}T${booking.shiftEndTime}`);
   const [note, setNote] = useState('');
+  const [ownRate, setOwnRate] = useState(false);
+  const [rates, setRates] = useState<ShiftRateValue>(emptyShiftRates);
+  // A new shift goes to the booked caregiver, so the same monthly rules apply as on their roster rows.
+  const locks = { client: booking.rateType === 'MONTHLY', pay: booking.payRateType === 'MONTHLY' };
+  const ratesOk = !ownRate || shiftRatesValid(rates);
 
   return (
     <Card>
@@ -543,7 +597,28 @@ function AddShiftCard({ booking }: { booking: BookingDetail }) {
           </div>
         </div>
         <Input placeholder={t('bookings.detail.shiftNote')} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} aria-label={t('bookings.detail.shiftNote')} />
-        <Button size="sm" variant="secondary" disabled={add.isPending || !start || !end} onClick={() => add.mutate({ start, end, ...(note.trim() ? { note: note.trim() } : {}) }, { onSuccess: () => setNote('') })}>
+        <label className="flex items-center gap-2 text-sm text-ink/70">
+          <input type="checkbox" checked={ownRate} onChange={(e) => setOwnRate(e.target.checked)} className="h-4 w-4 rounded border-border" />
+          {t('bookings.shiftRate.different')}
+        </label>
+        {ownRate && <ShiftRateFields booking={booking} value={rates} onChange={setRates} locks={locks} idPrefix="add-shift" />}
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={add.isPending || !start || !end || !ratesOk}
+          onClick={() =>
+            add.mutate(
+              { start, end, ...(note.trim() ? { note: note.trim() } : {}), ...(ownRate ? shiftRatesPayload(rates, locks) : {}) },
+              {
+                onSuccess: () => {
+                  setNote('');
+                  setOwnRate(false);
+                  setRates(emptyShiftRates);
+                },
+              },
+            )
+          }
+        >
           <Plus size={14} aria-hidden />
           {t('bookings.detail.addShift')}
         </Button>

@@ -23,11 +23,13 @@ import {
   careRequestLanguageEnum,
   rateTypeEnum,
   scheduleTypeEnum,
+  shiftRateTypeEnum,
   shiftStatusEnum,
   type BookingStatus,
   type CareRequestLanguage,
   type RateType,
   type ScheduleType,
+  type ShiftRateType,
   type ShiftStatus,
 } from '../../database/schema';
 
@@ -35,6 +37,7 @@ const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** A datetime-local value, read as Colombo time. */
 const LOCAL = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/;
+const MONEY = /^\d{1,8}(\.\d{1,2})?$/;
 const trimToUndefined = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() || undefined : value);
 
 /** The repeating pattern a booking's shifts are generated from. */
@@ -93,7 +96,7 @@ export class CreateBookingDto extends BookingPatternDto {
   @ApiPropertyOptional({ example: '3500.00' })
   @ValidateIf((o: CreateBookingDto) => Boolean(o.rateType))
   @IsNumberString({}, { message: 'Enter the agreed rate as a number' })
-  @Matches(/^\d{1,8}(\.\d{1,2})?$/, { message: 'Enter the agreed rate as a number' })
+  @Matches(MONEY, { message: 'Enter the agreed rate as a number' })
   rateAmount?: string;
 
   @ApiPropertyOptional({ enum: rateTypeEnum, description: "How the caregiver is paid - staff only, never shown to the client" })
@@ -103,7 +106,7 @@ export class CreateBookingDto extends BookingPatternDto {
 
   @ApiPropertyOptional({ example: '2500.00' })
   @ValidateIf((o: CreateBookingDto) => Boolean(o.payRateType))
-  @Matches(/^\d{1,8}(\.\d{1,2})?$/, { message: 'Enter the pay rate as a number' })
+  @Matches(MONEY, { message: 'Enter the pay rate as a number' })
   payRateAmount?: string;
 
   @ApiPropertyOptional({ enum: careRequestLanguageEnum, description: "Defaults to the request's language, else English" })
@@ -119,7 +122,17 @@ export class CreateBookingDto extends BookingPatternDto {
   notes?: string;
 }
 
-/** PATCH /bookings/:id - rate and notes any time; the pattern only while DRAFT (it regenerates the shifts). */
+/**
+ * PATCH /bookings/:id - edit a booking.
+ *
+ * - Rates, notes and the notices' language: any time until it is closed.
+ * - DRAFT: the pattern (it rebuilds the draft roster - shifts that still fit
+ *   the new pattern are kept with their edits) and the booked caregiver.
+ * - CONFIRMED: the pattern and/or the booked caregiver from `effectiveFrom`
+ *   on. Scheduled shifts from that day that still fit are kept, the rest are
+ *   cancelled, new ones are scheduled, and the client and caregivers are told.
+ *   Shifts before that day, and any that have already started, never change.
+ */
 export class UpdateBookingDto {
   @ApiPropertyOptional({ enum: rateTypeEnum, nullable: true })
   @IsOptional()
@@ -128,7 +141,7 @@ export class UpdateBookingDto {
 
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()
-  @Matches(/^\d{1,8}(\.\d{1,2})?$/, { message: 'Enter the agreed rate as a number' })
+  @Matches(MONEY, { message: 'Enter the agreed rate as a number' })
   rateAmount?: string | null;
 
   @ApiPropertyOptional({ enum: rateTypeEnum, nullable: true })
@@ -138,7 +151,7 @@ export class UpdateBookingDto {
 
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()
-  @Matches(/^\d{1,8}(\.\d{1,2})?$/, { message: 'Enter the pay rate as a number' })
+  @Matches(MONEY, { message: 'Enter the pay rate as a number' })
   payRateAmount?: string | null;
 
   @ApiPropertyOptional()
@@ -147,11 +160,29 @@ export class UpdateBookingDto {
   @MaxLength(2000, { message: 'Notes must be 2000 characters or fewer' })
   notes?: string;
 
-  @ApiPropertyOptional({ type: BookingPatternDto, description: 'DRAFT only - replaces every shift' })
+  @ApiPropertyOptional({ enum: careRequestLanguageEnum })
+  @IsOptional()
+  @IsIn(careRequestLanguageEnum, { message: 'Choose the language for updates' })
+  language?: CareRequestLanguage;
+
+  @ApiPropertyOptional({ description: 'A new booked caregiver. On a confirmed booking, from effectiveFrom on.' })
+  @IsOptional()
+  @IsUUID('all', { message: 'Choose a valid caregiver' })
+  caregiverId?: string;
+
+  @ApiPropertyOptional({
+    type: BookingPatternDto,
+    description: 'DRAFT: replaces the roster. CONFIRMED: the new pattern from effectiveFrom on; its startDate must stay the booking start.',
+  })
   @IsOptional()
   @ValidateNested()
   @Type(() => BookingPatternDto)
   pattern?: BookingPatternDto;
+
+  @ApiPropertyOptional({ example: '2026-11-01', description: 'CONFIRMED only, required with pattern or caregiverId: the first day the change applies to' })
+  @IsOptional()
+  @Matches(DATE, { message: 'Enter the day the change starts' })
+  effectiveFrom?: string;
 }
 
 export class ExtendBookingDto {
@@ -188,6 +219,26 @@ export class AddShiftDto {
   @IsString()
   @MaxLength(500)
   note?: string;
+
+  @ApiPropertyOptional({ enum: shiftRateTypeEnum, nullable: true, description: "This shift's own client rate; null = the booking's" })
+  @IsOptional()
+  @IsEnum(shiftRateTypeEnum, { message: 'Choose how this shift is charged' })
+  rateType?: ShiftRateType | null;
+
+  @ApiPropertyOptional({ nullable: true, example: '5000.00' })
+  @IsOptional()
+  @Matches(MONEY, { message: 'Enter the shift rate as a number' })
+  rateAmount?: string | null;
+
+  @ApiPropertyOptional({ enum: shiftRateTypeEnum, nullable: true, description: "This shift's own pay rate; null = the booking's" })
+  @IsOptional()
+  @IsEnum(shiftRateTypeEnum, { message: 'Choose how this shift is paid' })
+  payRateType?: ShiftRateType | null;
+
+  @ApiPropertyOptional({ nullable: true, example: '3500.00' })
+  @IsOptional()
+  @Matches(MONEY, { message: 'Enter the shift pay as a number' })
+  payRateAmount?: string | null;
 }
 
 export class UpdateShiftDto {
@@ -216,6 +267,26 @@ export class UpdateShiftDto {
   @IsString()
   @MaxLength(500)
   note?: string | null;
+
+  @ApiPropertyOptional({ enum: shiftRateTypeEnum, nullable: true, description: "This shift's own client rate; null = the booking's" })
+  @IsOptional()
+  @IsEnum(shiftRateTypeEnum, { message: 'Choose how this shift is charged' })
+  rateType?: ShiftRateType | null;
+
+  @ApiPropertyOptional({ nullable: true, example: '5000.00' })
+  @IsOptional()
+  @Matches(MONEY, { message: 'Enter the shift rate as a number' })
+  rateAmount?: string | null;
+
+  @ApiPropertyOptional({ enum: shiftRateTypeEnum, nullable: true, description: "This shift's own pay rate; null = the booking's" })
+  @IsOptional()
+  @IsEnum(shiftRateTypeEnum, { message: 'Choose how this shift is paid' })
+  payRateType?: ShiftRateType | null;
+
+  @ApiPropertyOptional({ nullable: true, example: '3500.00' })
+  @IsOptional()
+  @Matches(MONEY, { message: 'Enter the shift pay as a number' })
+  payRateAmount?: string | null;
 }
 
 export class BookingQueryDto {

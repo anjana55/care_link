@@ -580,6 +580,8 @@ export type BookingStatus = 'DRAFT' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
 export type ShiftStatus = 'DRAFT' | 'SCHEDULED' | 'COMPLETED' | 'MISSED' | 'CANCELLED';
 export type ScheduleType = 'DAY' | 'NIGHT' | 'LIVE_IN' | 'CUSTOM';
 export type RateType = 'HOURLY' | 'DAILY' | 'MONTHLY';
+/** A single shift's own rate: by its hours, or as a whole shift - never by the month. */
+export type ShiftRateType = 'HOURLY' | 'DAILY';
 
 export interface BookingListItem {
   id: string;
@@ -624,6 +626,19 @@ export interface BookingShift {
   hours: number;
   status: ShiftStatus;
   note: string | null;
+  /** This shift's own client rate; null = the booking's. */
+  rateType: ShiftRateType | null;
+  rateAmount: string | null;
+  /** This shift's own pay rate; null = the booking's. */
+  payRateType: ShiftRateType | null;
+  payRateAmount: string | null;
+  /** The client side is charged by the month, so this shift can't have its own client rate. */
+  clientRateLocked: boolean;
+  /** The booked caregiver is paid by the month, so this shift can't have its own pay rate. */
+  payRateLocked: boolean;
+  /** The live invoice / pay statement this shift is already on. */
+  invoice: { id: string; number: string | null; status: string } | null;
+  payout: { id: string; reference: string; status: string } | null;
   caregiver: BookingCaregiverRef | null;
   isCover: boolean;
   conflicts: { shiftId: string; withShiftId: string; withBookingId: string; withBookingReference: string; kind: 'BLOCKING' | 'DRAFT' }[];
@@ -670,8 +685,34 @@ export interface BookingEstimate {
   hours: number;
   rateType: RateType | null;
   rateAmount: string | null;
+  /** Shifts going ahead that carry their own rate on this side. */
+  ownRateShifts: number;
+  /** Lines with no rate at all (neither the booking's nor their own). */
+  unpriced: number;
   units: number | null;
   total: string | null;
+}
+
+/** PATCH /bookings/:id */
+export interface UpdateBookingInput {
+  rateType?: RateType | null;
+  rateAmount?: string | null;
+  payRateType?: RateType | null;
+  payRateAmount?: string | null;
+  notes?: string;
+  language?: 'en' | 'si' | 'ta';
+  caregiverId?: string;
+  pattern?: BookingPatternInput;
+  /** Confirmed bookings: the first day a pattern or caregiver change applies to. */
+  effectiveFrom?: string;
+}
+
+/** A shift's own rates in an add / edit; null clears that side back to the booking's rate. */
+export interface ShiftRateInput {
+  rateType?: ShiftRateType | null;
+  rateAmount?: string | null;
+  payRateType?: ShiftRateType | null;
+  payRateAmount?: string | null;
 }
 
 export interface BookingSummary {

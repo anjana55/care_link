@@ -5,12 +5,12 @@ import { api } from '../api/client';
 import type {
   BookingDetail,
   BookingListResponse,
-  BookingPatternInput,
   BookingStatus,
   BookingSummary,
   CreateBookingInput,
-  RateType,
+  ShiftRateInput,
   ShiftStatus,
+  UpdateBookingInput,
 } from '../api/types';
 
 export interface BookingFilters {
@@ -85,14 +85,11 @@ export const useCancelBooking = (id: string) => useBookingWrite(id, (reason: str
 export const useCompleteBooking = (id: string) => useBookingWrite(id, () => api.post<BookingDetail>(`/bookings/${id}/complete`, {}));
 export const useExtendBooking = (id: string) => useBookingWrite(id, (endDate: string) => api.post<BookingDetail>(`/bookings/${id}/extend`, { endDate }));
 export const useAddBookingNote = (id: string) => useBookingWrite(id, (note: string) => api.post<BookingDetail>(`/bookings/${id}/notes`, { note }));
-export const useUpdateBooking = (id: string) =>
-  useBookingWrite(id, (v: { rateType?: RateType | null; rateAmount?: string | null; payRateType?: RateType | null; payRateAmount?: string | null; notes?: string; pattern?: BookingPatternInput }) =>
-    api.patch<BookingDetail>(`/bookings/${id}`, v),
-  );
+export const useUpdateBooking = (id: string) => useBookingWrite(id, (v: UpdateBookingInput) => api.patch<BookingDetail>(`/bookings/${id}`, v));
 export const useAddShift = (id: string) =>
-  useBookingWrite(id, (v: { start: string; end: string; caregiverId?: string; note?: string }) => api.post<BookingDetail>(`/bookings/${id}/shifts`, v));
+  useBookingWrite(id, (v: { start: string; end: string; caregiverId?: string; note?: string } & ShiftRateInput) => api.post<BookingDetail>(`/bookings/${id}/shifts`, v));
 export const useUpdateShift = (id: string) =>
-  useBookingWrite(id, ({ shiftId, ...v }: { shiftId: string; start?: string; end?: string; caregiverId?: string; status?: ShiftStatus; note?: string | null }) =>
+  useBookingWrite(id, ({ shiftId, ...v }: { shiftId: string; start?: string; end?: string; caregiverId?: string; status?: ShiftStatus; note?: string | null } & ShiftRateInput) =>
     api.patch<BookingDetail>(`/bookings/${id}/shifts/${shiftId}`, v),
   );
 export const useRemoveShift = (id: string) => useBookingWrite(id, (shiftId: string) => api.delete<BookingDetail>(`/bookings/${id}/shifts/${shiftId}`));
