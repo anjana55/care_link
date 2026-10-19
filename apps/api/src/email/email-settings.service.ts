@@ -1,10 +1,11 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { emailSettings } from '../database/schema';
 import { decryptSecret, deriveKey, encryptSecret } from '../common/utils/secret-box.util';
 import { UpdateEmailSettingsDto } from './dto/update-email-settings.dto';
+import { BrandingSettingsService } from '../branding/branding-settings.service';
 
 const SETTINGS_ID = 'default';
 const DEFAULT_FROM_NAME = 'CareLink';
@@ -63,6 +64,7 @@ export class EmailSettingsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly config: ConfigService,
+    @Optional() private readonly branding?: BrandingSettingsService,
   ) {
     // Same root as the other stored secrets: SETTINGS_ENCRYPTION_KEY, falling
     // back to the refresh secret so a deployment that never set it still boots.
@@ -95,7 +97,8 @@ export class EmailSettingsService {
         secure: env('SMTP_SECURE') === 'true',
         username: user ?? null,
         passwordEncrypted: pass ? encryptSecret(pass, this.encryptionKey) : null,
-        fromName: from.name ?? DEFAULT_FROM_NAME,
+        // Sent in the company name from Settings > Branding unless SMTP_FROM named someone.
+        fromName: from.name ?? (this.branding ? await this.branding.companyName() : DEFAULT_FROM_NAME),
         fromAddress: from.address,
       })
       .onDuplicateKeyUpdate({ set: { id: SETTINGS_ID } });

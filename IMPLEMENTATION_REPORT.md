@@ -566,7 +566,7 @@ API: `GET/POST /invoices`, `GET /invoices/summary`, `GET/PATCH/DELETE /invoices/
 Bookings take `payRateType` / `payRateAmount`. Migration `0008_invoicing`: new tables
 `billing_settings`, `invoices`, `invoice_lines`, `invoice_payments`, `invoice_events`,
 `payhere_checkouts`, `payout_statements`, `payout_lines`, and two nullable columns on
-`bookings`. Additive. Setup: DEPLOYMENT.md 8.6.
+`bookings`. Additive. Setup: DEPLOYMENT.md 8.7.
 
 Tests: 24 unit tests (cents and rounding, totals with discounts, credits and
 partial tax, months, the shift-to-line rules, PayHere hashing and signature
@@ -577,3 +577,47 @@ notifications; pay run with covers, allowances, approve and pay, caregiver view;
 roles, client scoping, pay rate never shown to clients, client deletion); client
 invoice and caregiver payments page tests. All new text in English, Sinhala and
 Tamil (Sinhala and Tamil machine-drafted, for native review).
+
+## 22. Changelog — white-label branding
+
+The product can now be shipped under another company's name. **Settings → Branding**
+(admin, the first Settings tab) sets:
+
+- **Company** - name, an optional 1-4 letter short name (badge shown when there is no
+  logo; blank = initials) and tagline. `{brand}` in every dictionary and in every
+  email/WhatsApp text is filled with it, so the staff app, the public site, browser tabs,
+  emails and WhatsApp notices all say the configured name. Renaming also renames the email
+  sender name and invoice business name where they still matched the old name.
+- **Logo** - PNG, JPEG, WebP or SVG up to 1 MB, checked by its bytes. SVGs with scripts,
+  event handlers, embedded HTML or external links are refused, and the logo is served with
+  a sandboxing CSP and `nosniff`. Versioned URLs are cached for a year. Also the favicon;
+  without a logo the favicon is the shipped heart in the brand colour.
+- **Colour theme** - primary and accent; dark/light tints, page background and hairlines
+  are derived (`derivePalette`, packages/shared). Both colours must reach WCAG AA (4.5:1)
+  with white text - enforced by the API and previewed live in the form, with a
+  "use a darker shade" fix. The default colours reproduce the hand-tuned palette exactly.
+- **Languages** - which of en/si/ta are offered and the default. Switchers show only the
+  enabled languages (hidden when there is one); a stored choice of a disabled language
+  falls back to the default.
+
+How it is applied: the tailwind `brand`, `accent`, `paper` and `border` colours are CSS
+variables (`rgb(var(--color-brand) / <alpha-value>)`). Each root layout fetches
+`GET /branding` server-side (`API_INTERNAL_URL`, revalidated every 30s) for the first
+paint, title and favicon; `BrandingProvider` then keeps it current in the browser, so a
+save repaints the admin's page at once.
+
+Unchanged: dates and times stay in Asia/Colombo and amounts in LKR (shift scheduling and
+PayHere depend on them).
+
+API: `GET/PATCH /settings/branding`, `POST/DELETE /settings/branding/logo` (admin);
+`GET /branding`, `GET /branding/logo` (public). Migration `0010_branding_settings`: new
+table `branding_settings`. Additive. Setup: DEPLOYMENT.md 8.6. Deploy: `web` and
+`public-web` get `API_INTERNAL_URL: http://api:3001` in `docker-compose.prod.yml`.
+
+Tests: branding service (defaults, rename, contrast refusal, languages, logo versioning and
+cleanup), logo inspection (formats, size, unsafe SVGs), colour rules (shipped palette,
+derived shades, accessible fix, normalising bad input), branded emails (name and colour,
+HTML-escaped, no "CareLink" left) and `{brand}` surviving message builders; public-site
+tests for `{brand}`, default and disabled languages, the switcher, the logo and the
+live palette. New staff-app text in English, Sinhala and Tamil (Sinhala and Tamil
+machine-drafted, for native review).

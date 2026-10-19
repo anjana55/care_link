@@ -122,7 +122,7 @@ export class BillingNotifier {
           {
             subject: msg.subject,
             blocks: msg.blocks.map((b) => ({ lang: b.lang, heading: b.heading, paragraphs: [b.body] })),
-            cta: { label: 'CareLink', url: this.publicUrl('/caregiver/payments') },
+            cta: { label: '{brand}', url: this.publicUrl('/caregiver/payments') },
           },
           `payout paid ${p.reference}`,
         );

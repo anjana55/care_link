@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq, sql } from 'drizzle-orm';
 import type { BillingParty } from '@care-platform/shared';
@@ -7,6 +7,7 @@ import { billingSettings } from '../database/schema';
 import { decryptSecret, deriveKey, encryptSecret } from '../common/utils/secret-box.util';
 import { UpdateBillingSettingsDto } from './dto/billing-settings.dto';
 import { PAYHERE_URLS } from './payhere';
+import { BrandingSettingsService } from '../branding/branding-settings.service';
 
 const SETTINGS_ID = 'default';
 type Row = typeof billingSettings.$inferSelect;
@@ -38,6 +39,7 @@ export class BillingSettingsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly config: ConfigService,
+    @Optional() private readonly branding?: BrandingSettingsService,
   ) {
     const root = this.config.get<string>('SETTINGS_ENCRYPTION_KEY') || this.config.get<string>('JWT_REFRESH_SECRET') || '';
     this.encryptionKey = deriveKey(root, 'billing-settings');
@@ -46,7 +48,9 @@ export class BillingSettingsService {
   private async getRow(db: Database = this.db): Promise<Row> {
     const [existing] = await db.select().from(billingSettings).where(eq(billingSettings.id, SETTINGS_ID)).limit(1);
     if (existing) return existing;
-    await db.insert(billingSettings).values({ id: SETTINGS_ID }).onDuplicateKeyUpdate({ set: { id: SETTINGS_ID } });
+    // Invoices start out issued in the company name from Settings > Branding.
+    const businessName = this.branding ? await this.branding.companyName() : undefined;
+    await db.insert(billingSettings).values({ id: SETTINGS_ID, businessName }).onDuplicateKeyUpdate({ set: { id: SETTINGS_ID } });
     const [created] = await db.select().from(billingSettings).where(eq(billingSettings.id, SETTINGS_ID)).limit(1);
     return created;
   }
@@ -117,7 +121,7 @@ export class BillingSettingsService {
       throw new BadRequestException('The next invoice number can only move forward - lower numbers may already be used');
     }
     const next = {
-      businessName: text(dto.businessName, current.businessName) ?? 'CareLink',
+      businessName: text(dto.businessName, current.businessName) ?? current.businessName,
       businessAddress: text(dto.businessAddress, current.businessAddress),
       businessPhone: text(dto.businessPhone, current.businessPhone),
       businessEmail: text(dto.businessEmail, current.businessEmail),

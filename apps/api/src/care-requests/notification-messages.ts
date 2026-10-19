@@ -114,9 +114,9 @@ export const CLIENT_CTA: Record<Lang, string> = {
 };
 
 export const CLIENT_FOOTER: Record<Lang, string> = {
-  en: 'You are receiving this because you asked CareLink to contact a caregiver for you.',
-  si: 'ඔබ වෙනුවෙන් රැකවරණ සේවකයෙකු සම්බන්ධ කර ගැනීමට ඔබ CareLink වෙත ඉල්ලා සිටි නිසා ඔබට මෙය ලැබේ.',
-  ta: 'உங்களுக்காக ஒரு பராமரிப்பாளரைத் தொடர்புகொள்ள CareLink இடம் நீங்கள் கேட்டதால் இதைப் பெறுகிறீர்கள்.',
+  en: 'You are receiving this because you asked {brand} to contact a caregiver for you.',
+  si: 'ඔබ වෙනුවෙන් රැකවරණ සේවකයෙකු සම්බන්ධ කර ගැනීමට ඔබ {brand} වෙත ඉල්ලා සිටි නිසා ඔබට මෙය ලැබේ.',
+  ta: 'உங்களுக்காக ஒரு பராமரிப்பாளரைத் தொடர்புகொள்ள {brand} இடம் நீங்கள் கேட்டதால் இதைப் பெறுகிறீர்கள்.',
 };
 
 /**
@@ -129,29 +129,29 @@ const CAREGIVER: Record<CaregiverNotice, Record<Lang, { heading: string; body: s
   IN_PROGRESS: {
     en: {
       heading: 'A family is interested in working with you',
-      body: 'A family has asked CareLink about you. Our team will contact you soon to discuss it. Reference {ref}.',
+      body: 'A family has asked {brand} about you. Our team will contact you soon to discuss it. Reference {ref}.',
     },
     si: {
       heading: 'පවුලක් ඔබ සමඟ වැඩ කිරීමට කැමැත්තක් දක්වයි',
-      body: 'පවුලක් ඔබ ගැන CareLink වෙතින් විමසා ඇත. ඒ ගැන සාකච්ඡා කිරීමට අපගේ කණ්ඩායම ඉක්මනින් ඔබව සම්බන්ධ කර ගනු ඇත. යොමු අංකය {ref}.',
+      body: 'පවුලක් ඔබ ගැන {brand} වෙතින් විමසා ඇත. ඒ ගැන සාකච්ඡා කිරීමට අපගේ කණ්ඩායම ඉක්මනින් ඔබව සම්බන්ධ කර ගනු ඇත. යොමු අංකය {ref}.',
     },
     ta: {
       heading: 'ஒரு குடும்பம் உங்களுடன் பணியாற்ற ஆர்வம் காட்டுகிறது',
-      body: 'ஒரு குடும்பம் உங்களைப் பற்றி CareLink இடம் கேட்டுள்ளது. இதுபற்றிப் பேச எங்கள் குழு விரைவில் உங்களைத் தொடர்புகொள்ளும். குறிப்பு எண் {ref}.',
+      body: 'ஒரு குடும்பம் உங்களைப் பற்றி {brand} இடம் கேட்டுள்ளது. இதுபற்றிப் பேச எங்கள் குழு விரைவில் உங்களைத் தொடர்புகொள்ளும். குறிப்பு எண் {ref}.',
     },
   },
   INTRODUCED: {
     en: {
       heading: 'You have been introduced to a family',
-      body: 'Our team has introduced you to a family through CareLink (reference {ref}). Please follow the details our team shared with you.',
+      body: 'Our team has introduced you to a family through {brand} (reference {ref}). Please follow the details our team shared with you.',
     },
     si: {
       heading: 'ඔබව පවුලකට හඳුන්වා දී ඇත',
-      body: 'අපගේ කණ්ඩායම CareLink හරහා ඔබව පවුලකට හඳුන්වා දී ඇත (යොමු අංකය {ref}). කරුණාකර අපගේ කණ්ඩායම ඔබ සමඟ බෙදාගත් තොරතුරු අනුගමනය කරන්න.',
+      body: 'අපගේ කණ්ඩායම {brand} හරහා ඔබව පවුලකට හඳුන්වා දී ඇත (යොමු අංකය {ref}). කරුණාකර අපගේ කණ්ඩායම ඔබ සමඟ බෙදාගත් තොරතුරු අනුගමනය කරන්න.',
     },
     ta: {
       heading: 'உங்களை ஒரு குடும்பத்திடம் அறிமுகப்படுத்தியுள்ளோம்',
-      body: 'எங்கள் குழு CareLink மூலம் உங்களை ஒரு குடும்பத்திடம் அறிமுகப்படுத்தியுள்ளது (குறிப்பு எண் {ref}). எங்கள் குழு பகிர்ந்த விவரங்களைப் பின்பற்றவும்.',
+      body: 'எங்கள் குழு {brand} மூலம் உங்களை ஒரு குடும்பத்திடம் அறிமுகப்படுத்தியுள்ளது (குறிப்பு எண் {ref}). எங்கள் குழு பகிர்ந்த விவரங்களைப் பின்பற்றவும்.',
     },
   },
 };
@@ -169,7 +169,7 @@ export function caregiverNotice(notice: CaregiverNotice, ref: string) {
     body: fill(CAREGIVER[notice][lang].body, ref),
   }));
   return {
-    subject: `CareLink - ${blocks[0].heading} (${ref})`,
+    subject: `{brand} - ${blocks[0].heading} (${ref})`,
     blocks,
     // One WhatsApp template parameter cannot hold line breaks, so the three
     // languages are joined on one line.

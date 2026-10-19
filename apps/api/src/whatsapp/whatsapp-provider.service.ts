@@ -1,7 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { toWhatsappRecipient } from '../common/utils/phone.util';
 import type { ResolvedWhatsappSettings } from './whatsapp-settings.service';
+import { BrandingSettingsService } from '../branding/branding-settings.service';
+import { withBrand } from '../common/branding/brand-text';
+import { DEFAULT_COMPANY_NAME } from '@care-platform/shared';
 
 export class WhatsappDeliveryError extends Error {
   constructor(
@@ -46,7 +49,10 @@ const REQUEST_TIMEOUT_MS = 10_000;
 export class WhatsappProviderService {
   private readonly logger = new Logger(WhatsappProviderService.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    @Optional() private readonly branding?: BrandingSettingsService,
+  ) {}
 
   isDevConsole(settings: Pick<ResolvedWhatsappSettings, 'provider'>): boolean {
     return settings.provider === 'CONSOLE' && this.config.get<string>('NODE_ENV') !== 'production';
@@ -78,7 +84,9 @@ export class WhatsappProviderService {
    * consecutive spaces, so the text is flattened first.
    */
   async sendUpdate(s: ResolvedWhatsappSettings, toE164: string, language: string, text: string): Promise<SendResult> {
-    const flat = text.replace(/[\r\n\t]+/g, ' ').replace(/ {2,}/g, ' ').trim().slice(0, 1000);
+    // Message texts name the company as {brand}; see common/branding/brand-text.ts.
+    const named = this.branding ? withBrand(text, await this.branding.companyName()) : withBrand(text, DEFAULT_COMPANY_NAME);
+    const flat = named.replace(/[\r\n\t]+/g, ' ').replace(/ {2,}/g, ' ').trim().slice(0, 1000);
     if (s.provider === 'CONSOLE') {
       if (!this.isDevConsole(s)) throw new WhatsappDeliveryError('WhatsApp delivery is not configured');
       this.logger.log(`[WHATSAPP CONSOLE] Update for ${toE164} (${language}): ${flat}`);

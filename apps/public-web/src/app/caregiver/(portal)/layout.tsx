@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/api/auth-context';
 import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
+import { BrandMark } from '@/components/layout/brand-mark';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
 
 const SECTIONS = [
@@ -52,8 +53,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     <div className="min-h-screen bg-paper">
       <header className="border-b border-border bg-white">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link href="/" className="text-base font-semibold text-brand-dark">
-            CareLink
+          <Link href="/" className="min-w-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+            <BrandMark />
           </Link>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />

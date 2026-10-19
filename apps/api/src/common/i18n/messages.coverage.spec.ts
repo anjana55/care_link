@@ -29,6 +29,8 @@ const EXEMPT_FILES: Record<string, string> = {
   'email/dto/update-email-settings.dto.ts': 'admin configuration screen (staff UI)',
   'billing/billing-settings.service.ts': 'admin configuration screen (staff UI)',
   'billing/dto/billing-settings.dto.ts': 'admin configuration screen (staff UI)',
+  'branding/branding-settings.service.ts': 'admin configuration screen (staff UI)',
+  'branding/dto/update-branding-settings.dto.ts': 'admin configuration screen (staff UI)',
 };
 
 /** Single messages that are developer-facing. */

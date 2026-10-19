@@ -4,18 +4,13 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { useAuth, postLoginPath } from '@/lib/api/auth-context';
-import { useTranslation, type Locale } from '@/lib/i18n/provider';
+import { useTranslation } from '@/lib/i18n/provider';
+import { LanguageToggle } from '@/components/layout/language-toggle';
 import { BrandMark } from '@/components/layout/brand-mark';
-
-const LOCALES: { value: Locale; label: string }[] = [
-  { value: 'en', label: 'EN' },
-  { value: 'si', label: 'සිං' },
-  { value: 'ta', label: 'தமி' },
-];
 
 export default function CaregiverLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
-  const { locale, setLocale, fontClass, t } = useTranslation();
+  const { fontClass, t } = useTranslation();
   const router = useRouter();
 
   useEffect(() => {
@@ -44,20 +39,7 @@ export default function CaregiverLayout({ children }: { children: React.ReactNod
       <header className="flex h-16 items-center justify-between border-b border-border bg-white px-6">
         <BrandMark />
         <div className="flex items-center gap-4">
-          <div className="flex overflow-hidden rounded border border-border">
-            {LOCALES.map((l) => (
-              <button
-                key={l.value}
-                onClick={() => setLocale(l.value)}
-                className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                  locale === l.value ? 'bg-brand text-white' : 'bg-white text-ink/60 hover:bg-paper'
-                }`}
-                aria-pressed={locale === l.value}
-              >
-                {l.label}
-              </button>
-            ))}
-          </div>
+          <LanguageToggle />
           <div className="flex items-center gap-3 border-l border-border pl-4">
             <span className="text-sm text-ink/70">{user.email ?? user.phone}</span>
             <button

@@ -71,6 +71,13 @@
       "when": 1792385633151,
       "tag": "0009_shift_rates_and_booking_edits",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1792396418394,
+      "tag": "0010_branding_settings",
+      "breakpoints": true
     }
   ]
 }

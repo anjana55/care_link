@@ -23,6 +23,22 @@ export interface I18nContextValue {
   setLocale: (locale: Locale) => void;
   t: (key: string, vars?: Record<string, string | number>) => string;
   fontClass: string;
+  /** The languages this deployment offers (Settings > Branding), in display order. */
+  availableLocales: Locale[];
+}
+
+export interface I18nProviderProps {
+  children: ReactNode;
+  /** Used when the visitor has not chosen a language, or chose one no longer offered. */
+  defaultLocale?: Locale;
+  /** The languages offered; anything else is never shown. Defaults to all of them. */
+  enabledLocales?: Locale[];
+  /**
+   * Placeholders every string can use without the caller passing them - the
+   * company name as `{brand}`, so a white-labelled deployment never says
+   * the product's own name.
+   */
+  vars?: Record<string, string | number>;
 }
 
 const FONT_CLASS: Record<Locale, string> = {
@@ -55,34 +71,73 @@ function interpolate(template: string, vars?: Record<string, string | number>): 
  * exports the result - keeps two independent locale contexts from colliding
  * if a component tree ever nested one app's provider inside the other's.
  */
-export function createI18n(dictionaries: Record<Locale, Record<string, unknown>>, storageKey: string) {
+export function createI18n(
+  dictionaries: Record<Locale, Record<string, unknown>>,
+  storageKey: string,
+  /** Placeholders filled when the provider is given none, e.g. `{ brand: 'CareLink' }`. */
+  defaultVars: Record<string, string | number> = {},
+) {
   const I18nContext = createContext<I18nContextValue | null>(null);
 
-  function I18nProvider({ children }: { children: ReactNode }) {
-    const [locale, setLocaleState] = useState<Locale>('en');
+  function I18nProvider({ children, defaultLocale = 'en', enabledLocales, vars }: I18nProviderProps) {
+    const offered = useMemo<Locale[]>(() => {
+      const list = (enabledLocales?.length ? enabledLocales : LOCALES).filter((l) => dictionaries[l]);
+      return list.includes(defaultLocale) ? list : [defaultLocale, ...list];
+      // A new array each render from the caller must not reset the locale.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [defaultLocale, (enabledLocales ?? LOCALES).join(',')]);
+    const [locale, setLocaleState] = useState<Locale>(defaultLocale);
 
     useEffect(() => {
-      const stored = window.localStorage.getItem(storageKey) as Locale | null;
-      if (stored && dictionaries[stored]) setLocaleState(stored);
-    }, []);
-
-    const setLocale = useCallback((next: Locale) => {
-      setLocaleState(next);
-      window.localStorage.setItem(storageKey, next);
-      if (typeof document !== 'undefined') {
-        document.documentElement.lang = next;
+      let stored: Locale | null = null;
+      try {
+        stored = window.localStorage.getItem(storageKey) as Locale | null;
+      } catch {
+        /* storage blocked - use the default */
       }
-    }, []);
+      const chosen = stored && offered.includes(stored) ? stored : defaultLocale;
+      setLocaleState(chosen);
+      if (stored && stored !== chosen) {
+        // A language the operator has switched off: forget it, so API calls stop asking for it too.
+        try {
+          window.localStorage.setItem(storageKey, chosen);
+        } catch {
+          /* ignore */
+        }
+      }
+      if (typeof document !== 'undefined') document.documentElement.lang = chosen;
+    }, [offered, defaultLocale]);
 
-    const t = useCallback(
-      (key: string, vars?: Record<string, string | number>) => {
-        const template = resolve(dictionaries[locale], key) ?? resolve(dictionaries.en, key) ?? key;
-        return interpolate(template, vars);
+    const setLocale = useCallback(
+      (next: Locale) => {
+        if (!offered.includes(next)) return;
+        setLocaleState(next);
+        try {
+          window.localStorage.setItem(storageKey, next);
+        } catch {
+          /* ignore */
+        }
+        if (typeof document !== 'undefined') {
+          document.documentElement.lang = next;
+        }
       },
-      [locale],
+      [offered],
     );
 
-    const value = useMemo(() => ({ locale, setLocale, t, fontClass: FONT_CLASS[locale] }), [locale, setLocale, t]);
+    const varsKey = JSON.stringify(vars ?? {});
+    const t = useCallback(
+      (key: string, callVars?: Record<string, string | number>) => {
+        const template = resolve(dictionaries[locale], key) ?? resolve(dictionaries.en, key) ?? key;
+        return interpolate(template, { ...defaultVars, ...vars, ...callVars });
+      },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [locale, varsKey],
+    );
+
+    const value = useMemo(
+      () => ({ locale, setLocale, t, fontClass: FONT_CLASS[locale], availableLocales: offered }),
+      [locale, setLocale, t, offered],
+    );
 
     return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
   }

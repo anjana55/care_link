@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { EmailSettingsService, type ResolvedEmailSettings } from './email-settings.service';
@@ -6,6 +6,9 @@ import { verificationEmail } from './templates/verification-email';
 import { claimCodeEmail } from './templates/claim-code-email';
 import { testEmail } from './templates/test-email';
 import { notificationEmail, type NotificationEmailParams } from './templates/notification-email';
+import { DEFAULT_EMAIL_BRAND, emailBrand, type EmailBrand } from './templates/brand';
+import { BrandingSettingsService } from '../branding/branding-settings.service';
+import { withBrand } from '../common/branding/brand-text';
 
 const VERIFICATION_TOKEN_TTL_HOURS = 24; // must match AuthService's VERIFICATION_TOKEN_TTL_MS
 
@@ -40,7 +43,21 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
   /** The pooled transporter for the current settings, rebuilt when they change. */
   private pooled: { key: string; transporter: Transporter } | null = null;
 
-  constructor(private readonly settings: EmailSettingsService) {}
+  constructor(
+    private readonly settings: EmailSettingsService,
+    @Optional() private readonly branding?: BrandingSettingsService,
+  ) {}
+
+  /** The company name and colour from Settings > Branding. Never throws: an email is not worth failing over its header. */
+  private async brand(): Promise<EmailBrand> {
+    try {
+      if (!this.branding) return DEFAULT_EMAIL_BRAND;
+      const b = await this.branding.getPublic();
+      return emailBrand(b.companyName, b.primaryColor);
+    } catch {
+      return DEFAULT_EMAIL_BRAND;
+    }
+  }
 
   /**
    * Reports the mail setup at boot, without ever holding boot up: on a fresh
@@ -103,8 +120,8 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
     return transporter;
   }
 
-  private static from(s: ResolvedEmailSettings) {
-    return { name: s.fromName || 'CareLink', address: s.fromAddress! };
+  private static from(s: ResolvedEmailSettings, brand: EmailBrand) {
+    return { name: s.fromName || brand.name, address: s.fromAddress! };
   }
 
   /**
@@ -127,7 +144,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      await this.transporterFor(s).sendMail({ from: EmailService.from(s), replyTo: s.replyTo || undefined, to, ...message });
+      await this.transporterFor(s).sendMail({ from: EmailService.from(s, await this.brand()), replyTo: s.replyTo || undefined, to, ...message });
       this.logger.log(`${label[0].toUpperCase()}${label.slice(1)} sent to ${to}`);
     } catch (err) {
       this.logger.error(`Failed to send ${label} to ${to}: ${(err as Error).message}`);
@@ -142,13 +159,13 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
    * arrives, so a delivery failure must not surface as a registration error.
    */
   async sendVerificationEmail(to: string, verificationUrl: string, audience: 'CAREGIVER' | 'PATIENT_GUARDIAN'): Promise<void> {
-    const message = verificationEmail({ verificationUrl, audience, expiresInHours: VERIFICATION_TOKEN_TTL_HOURS });
+    const message = verificationEmail({ verificationUrl, audience, expiresInHours: VERIFICATION_TOKEN_TTL_HOURS, brand: await this.brand() });
     await this.deliver(to, message, 'verification email', `Verification link for ${to}: ${verificationUrl}`);
   }
 
   /** The six-digit code for finishing an unsecured caregiver account (AccountClaimService). */
   async sendClaimCodeEmail(to: string, code: string, registrationNumber: string, expiresInMinutes: number): Promise<void> {
-    const message = claimCodeEmail({ code, registrationNumber, expiresInMinutes });
+    const message = claimCodeEmail({ code, registrationNumber, expiresInMinutes, brand: await this.brand() });
     await this.deliver(to, message, 'claim code email', `Claim code for ${to} (${registrationNumber}): ${code}`);
   }
 
@@ -159,8 +176,17 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
   async sendNotificationEmail(to: string | string[], params: NotificationEmailParams, label: string): Promise<void> {
     const recipients = (Array.isArray(to) ? to : [to]).filter(Boolean);
     if (!recipients.length) return;
-    const message = notificationEmail(params);
-    await this.deliver(recipients.join(', '), message, label, `${params.subject} -> ${recipients.join(', ')}`);
+    const brand = await this.brand();
+    // Message texts name the company as {brand}; see common/branding/brand-text.ts.
+    const b = (text: string) => withBrand(text, brand.name);
+    const message = notificationEmail({
+      subject: b(params.subject),
+      blocks: params.blocks.map((block) => ({ ...block, heading: b(block.heading), paragraphs: block.paragraphs.map(b) })),
+      cta: params.cta && { ...params.cta, label: b(params.cta.label) },
+      footer: params.footer && b(params.footer),
+      brand,
+    });
+    await this.deliver(recipients.join(', '), message, label, `${message.subject} -> ${recipients.join(', ')}`);
   }
 
   /**
@@ -176,13 +202,14 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
     if (!s.fromAddress) throw new Error('Save a sender address first.');
     if (s.username && !s.password) throw new Error('A username is saved without a password - enter the password and save.');
 
+    const brand = await this.brand();
     const transporter = nodemailer.createTransport(EmailService.transportOptions(s));
     try {
       const info = await transporter.sendMail({
-        from: EmailService.from(s),
+        from: EmailService.from(s, brand),
         replyTo: s.replyTo || undefined,
         to,
-        ...testEmail({ host: s.host, port: s.port, deliveryEnabled: s.usable }),
+        ...testEmail({ host: s.host, port: s.port, deliveryEnabled: s.usable, brand }),
       });
       return { accepted: info.accepted.length > 0, response: String(info.response ?? '') };
     } finally {

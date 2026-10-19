@@ -127,7 +127,7 @@ export class BookingNotifier {
             {
               subject: msg.subject,
               blocks: msg.blocks.map((x) => ({ lang: x.lang, heading: x.heading, paragraphs: [x.body] })),
-              cta: { label: 'CareLink', url: this.publicUrl('/caregiver/shifts') },
+              cta: { label: '{brand}', url: this.publicUrl('/caregiver/shifts') },
             },
             `caregiver booking ${notice.toLowerCase()} ${b.reference}`,
           );

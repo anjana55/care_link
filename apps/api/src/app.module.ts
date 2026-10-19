@@ -37,6 +37,7 @@ import { AccountAccessModule } from './account-access/account-access.module';
 import { CareRequestsModule } from './care-requests/care-requests.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { BillingModule } from './billing/billing.module';
+import { BrandingModule } from './branding/branding.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { BillingModule } from './billing/billing.module';
     DatabaseModule,
     AuditModule,
     StorageModule,
+    BrandingModule,
     AuthModule,
     UsersModule,
     SkillsModule,
