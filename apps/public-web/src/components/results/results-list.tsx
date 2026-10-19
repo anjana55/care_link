@@ -24,6 +24,9 @@ export function ResultsList({ response, onPageChange }: ResultsListProps) {
         <h2 className="text-lg font-semibold text-ink">{t('results.title')}</h2>
         <p className="text-sm text-ink/50">{response.total}</p>
       </div>
+      {'aiRanked' in response && response.aiRanked === true && (
+        <p className="-mt-2 mb-4 text-xs text-ink/60">{t('results.aiRankedNote')}</p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {response.items.map((item) => (

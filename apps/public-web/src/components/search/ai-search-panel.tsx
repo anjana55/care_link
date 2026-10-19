@@ -1,61 +1,54 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import type { ExtractedRequirements, SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
-import { useMetaSkills, useLocationTree } from '@/lib/hooks/use-public-search';
-import { mockExtractRequirements } from '@/lib/ai/mock-extract';
+import { publicSearchApi } from '@/lib/api/public-search';
+import { ApiError } from '@/lib/api/client';
 import { LoadingState } from '@/components/common/states';
-import { Input, Label, Textarea } from '@/components/ui/input';
+import { Label, Textarea } from '@/components/ui/input';
+import { NormalSearchForm } from '@/components/search/normal-search-form';
 
 interface AiSearchPanelProps {
-  /** `query` is what the visitor typed - kept so sign-up can reuse it as their care description. */
+  /** `query` is what the visitor typed - it re-ranks the results and pre-fills sign-up's care description. */
   onSubmit: (request: SearchRequest, query: string) => void;
+  /** A remembered AI search, so coming back to /find shows what was searched. */
+  initialQuery?: string;
+  initialRequest?: SearchRequest;
 }
 
-export function AiSearchPanel({ onSubmit }: AiSearchPanelProps) {
+/**
+ * AI Search: the visitor describes the care they need in their own words;
+ * the API's model turns that into the same structured requirements Normal
+ * Search uses, and the visitor checks and corrects them in that same form
+ * before anything is searched. Nothing the model read is applied unseen.
+ */
+export function AiSearchPanel({ onSubmit, initialQuery, initialRequest }: AiSearchPanelProps) {
   const { t, locale } = useTranslation();
-  const { data: skills = [] } = useMetaSkills();
-  // Only the district level is matched here. Cities live behind a per-district
-  // endpoint, and pulling all 2155 to feed a stand-in extractor behind a
-  // disabled flag would not be a trade worth making.
-  const { data: tree = [] } = useLocationTree(locale);
-  const districts = useMemo(() => tree.flatMap((p) => p.districts), [tree]);
-  const [query, setQuery] = useState('');
-  const [extracting, setExtracting] = useState(false);
-  const [extracted, setExtracted] = useState<ExtractedRequirements | null>(null);
+  const [query, setQuery] = useState(initialQuery ?? '');
+  const [extracted, setExtracted] = useState<ExtractedRequirements | null>(
+    initialRequest ? { requirements: initialRequest, summary: { patient: [], location: [], care: [], preferences: [] } } : null,
+  );
+  // The query the shown requirements were read from - edits to the box after
+  // that must not silently change what the results are re-ranked by.
+  const [understoodQuery, setUnderstoodQuery] = useState(initialQuery ?? '');
+  const [formKey, setFormKey] = useState(0);
+
+  const extract = useMutation({
+    mutationFn: (text: string) => publicSearchApi.aiExtract(text, locale),
+    onSuccess: (result, text) => {
+      setExtracted(result);
+      setUnderstoodQuery(text);
+      setFormKey((k) => k + 1);
+    },
+  });
 
   function handleExtract(e: React.FormEvent) {
     e.preventDefault();
-    if (!query.trim()) return;
-    setExtracting(true);
-    // Simulated latency so this reads the same as a real model call would -
-    // the extraction itself is the local mock (see lib/ai/mock-extract.ts).
-    setTimeout(() => {
-      setExtracted(mockExtractRequirements(query, skills, districts));
-      setExtracting(false);
-    }, 400);
-  }
-
-  function updateSummaryLine(group: keyof ExtractedRequirements['summary'], index: number, value: string) {
-    // NOTE: editing/removing a summary line only changes what's displayed,
-    // not the underlying structured `requirements` object - true two-way
-    // binding between free-text summary lines and structured fields needs
-    // the real extraction pipeline's schema, not the mock's. Good enough to
-    // demonstrate the intended UX; revisit once server-side extraction
-    // lands.
-    if (!extracted) return;
-    const next = { ...extracted, summary: { ...extracted.summary } };
-    next.summary[group] = [...next.summary[group]];
-    next.summary[group][index] = value;
-    setExtracted(next);
-  }
-
-  function removeSummaryLine(group: keyof ExtractedRequirements['summary'], index: number) {
-    if (!extracted) return;
-    const next = { ...extracted, summary: { ...extracted.summary } };
-    next.summary[group] = next.summary[group].filter((_, i) => i !== index);
-    setExtracted(next);
+    const text = query.trim();
+    if (text.length < 10) return;
+    extract.mutate(text);
   }
 
   const groups: { key: keyof ExtractedRequirements['summary']; label: string }[] = [
@@ -64,78 +57,71 @@ export function AiSearchPanel({ onSubmit }: AiSearchPanelProps) {
     { key: 'care', label: t('aiSearch.extractedCare') },
     { key: 'preferences', label: t('aiSearch.extractedPreferences') },
   ];
+  const hasSummary = extracted && groups.some((g) => extracted.summary[g.key].length > 0);
+  const unavailable = extract.error instanceof ApiError && extract.error.status === 503;
 
   return (
     <div className="space-y-6">
       <form onSubmit={handleExtract} className="space-y-3">
-        <Label htmlFor="ai-query">
-          {t('aiSearch.label')}
-        </Label>
+        <Label htmlFor="ai-query">{t('aiSearch.label')}</Label>
         <Textarea
           id="ai-query"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('aiSearch.placeholder')}
           rows={4}
+          maxLength={1000}
         />
         <p className="text-xs italic text-ink/50">{t('aiSearch.example')}</p>
         <button
           type="submit"
-          disabled={!query.trim() || extracting}
+          disabled={query.trim().length < 10 || extract.isPending}
           className="rounded-DEFAULT bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
         >
           {t('aiSearch.submit')}
         </button>
       </form>
 
-      {extracting && <LoadingState label={t('loading.extracting')} />}
+      {extract.isPending && <LoadingState label={t('loading.extracting')} />}
 
-      {extracted && !extracting && (
+      {extract.isError && (
+        <p role="alert" className="rounded-DEFAULT border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
+          {unavailable ? t('aiSearch.unavailable') : t('aiSearch.failed')}
+        </p>
+      )}
+
+      {extracted && !extract.isPending && (
         <div className="rounded-lg border border-brand-light bg-brand-light/40 p-5">
           <h3 className="text-sm font-semibold text-ink">{t('aiSearch.extractedTitle')}</h3>
           <p className="mt-1 text-xs text-ink/60">{t('aiSearch.editHint')}</p>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {groups.map((group) => (
-              <div key={group.key}>
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink/50">{group.label}</p>
-                {extracted.summary[group.key].length === 0 ? (
-                  <p className="text-sm text-ink/40">—</p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {extracted.summary[group.key].map((line, i) => (
-                      <li key={i} className="flex items-center gap-2">
-                        <Input
-                          value={line}
-                          onChange={(e) => updateSummaryLine(group.key, i, e.target.value)}
-                          aria-label={t('aiSearch.extractedLine', { value: line })}
-                          // One line of an extracted requirement, in a dense grid -
-                          // the standard field padding is taller than the row.
-                          className="flex-1 py-1"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeSummaryLine(group.key, i)}
-                          aria-label={t('aiSearch.removeLine', { value: line })}
-                          className="text-ink/40 hover:text-danger"
-                        >
-                          ×
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
+          {hasSummary && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {groups.map((group) =>
+                extracted.summary[group.key].length === 0 ? null : (
+                  <div key={group.key}>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink/50">{group.label}</p>
+                    <ul className="flex flex-wrap gap-1.5">
+                      {extracted.summary[group.key].map((line, i) => (
+                        <li key={i} className="rounded-full border border-brand/30 bg-white px-3 py-1 text-sm text-ink/80">
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ),
+              )}
+            </div>
+          )}
 
-          <button
-            type="button"
-            onClick={() => onSubmit(extracted.requirements, query.trim())}
-            className="mt-5 rounded-DEFAULT bg-accent px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-          >
-            {t('aiSearch.searchWithThis')}
-          </button>
+          <div className="mt-5 rounded-DEFAULT bg-white p-4 sm:p-5">
+            <NormalSearchForm
+              key={formKey}
+              initialValues={{ ...extracted.requirements, page: 1, pageSize: 20 }}
+              submitLabel={t('aiSearch.searchWithThis')}
+              onSubmit={(request) => onSubmit(request, understoodQuery || query.trim())}
+            />
+          </div>
         </div>
       )}
     </div>

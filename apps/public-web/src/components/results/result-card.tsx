@@ -74,6 +74,13 @@ export function ResultCard({
         </p>
       )}
 
+      {caregiver.aiReason && (
+        <p className="mt-4 rounded-DEFAULT border border-accent/30 bg-accent/5 p-3 text-sm text-ink/80">
+          <span className="block text-xs font-semibold text-accent">{t('results.aiReason')}</span>
+          {caregiver.aiReason}
+        </p>
+      )}
+
       {caregiver.matchReasons && caregiver.matchReasons.length > 0 && (
         <div className="mt-4 rounded-DEFAULT bg-paper p-3">
           <p className="text-xs font-semibold text-ink/60">{t('results.whyThisMatches')}</p>

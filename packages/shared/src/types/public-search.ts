@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LOCALES } from './locale';
+import { LOCALES, type Locale } from './locale';
 
 /**
  * Domain types shared between apps/api (source of truth, validated again with
@@ -161,12 +161,14 @@ export interface PublicCaregiverSummary {
   /** Short, factual reasons — never subjective claims. Generated
    * deterministically from which filters/preferences actually matched. */
   matchReasons?: string[];
+  /** AI Search only: the model's one-line explanation of why this caregiver fits, in the visitor's language. */
+  aiReason?: string;
 }
 
 /** Full public profile preview — a superset of the summary shape today,
  * kept as a separate type since profile and result-card fields are
  * expected to diverge (e.g. a longer relevant-experience list). */
-export type PublicCaregiverProfile = Omit<PublicCaregiverSummary, 'matchScore' | 'matchReasons'>;
+export type PublicCaregiverProfile = Omit<PublicCaregiverSummary, 'matchScore' | 'matchReasons' | 'aiReason'>;
 
 export interface PublicSearchResponse {
   items: PublicCaregiverSummary[];
@@ -216,4 +218,21 @@ export interface PublicMetaCity {
  * configurable server-side, never hard-coded on the frontend. */
 export interface PublicSearchConfig {
   aiSearchEnabled: boolean;
+}
+
+/** POST /public/ai/extract - the visitor's own words, and the language to answer in. */
+export interface AiExtractRequest {
+  query: string;
+  locale?: Locale;
+}
+
+/** POST /public/ai/search - the (possibly edited) requirements plus the original words, for re-ranking. */
+export interface AiSearchRequestBody {
+  request: SearchRequest;
+  query: string;
+}
+
+/** An AI Search response says whether the model actually re-ranked it, so the UI never overclaims. */
+export interface AiSearchResponse extends PublicSearchResponse {
+  aiRanked: boolean;
 }

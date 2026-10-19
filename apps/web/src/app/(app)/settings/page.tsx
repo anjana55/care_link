@@ -1,6 +1,4 @@
-import { redirect } from 'next/navigation';
-
-/** /settings is a container; its first section is the landing page. */
+/** /settings is a container: the layout sends each role on to the first section it can open. */
 export default function SettingsIndexPage() {
-  redirect('/settings/branding');
+  return null;
 }

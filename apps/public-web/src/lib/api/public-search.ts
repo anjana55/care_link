@@ -1,4 +1,7 @@
 import type {
+  AiSearchRequestBody,
+  AiSearchResponse,
+  ExtractedRequirements,
   Locale,
   PublicCaregiverProfile,
   PublicMetaCity,
@@ -23,4 +26,8 @@ export const publicSearchApi = {
   getCities: (districtId: number, locale?: Locale) =>
     api.get<PublicMetaCity[]>('/public/meta/locations/cities', { districtId, locale }),
   getSearchConfig: () => api.get<PublicSearchConfig>('/public/meta/search-config'),
+  // AI Search: the visitor's words -> structured requirements they can check,
+  // then a search whose hard-filtered results the AI may re-order.
+  aiExtract: (query: string, locale?: Locale) => api.post<ExtractedRequirements>('/public/ai/extract', { query, locale }),
+  aiSearch: (body: AiSearchRequestBody) => api.post<AiSearchResponse>('/public/ai/search', body),
 };

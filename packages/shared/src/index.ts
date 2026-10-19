@@ -21,3 +21,4 @@ export * from './types/care-requests';
 export * from './types/bookings';
 export * from './types/billing';
 export * from './types/branding';
+export * from './types/ai';

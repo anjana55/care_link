@@ -4,6 +4,7 @@ import { PublicSearchController } from './public-search.controller';
 import { PublicSearchService } from './public-search.service';
 import { SkillsService } from '../skills/skills.service';
 import { LanguagesService } from '../languages/languages.service';
+import { AiSettingsService } from '../ai/ai-settings.service';
 import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 
 describe('PublicSearchController', () => {
@@ -13,6 +14,7 @@ describe('PublicSearchController', () => {
   const publicSearchService = { search: jest.fn(), findByPublicId: jest.fn() };
   const skillsService = { findAll: jest.fn().mockResolvedValue([{ id: 's1', name: 'Wound Care', category: 'Clinical' }]) };
   const languagesService = { findAll: jest.fn().mockResolvedValue([{ id: 'l1', name: 'Sinhala' }]) };
+  const aiSettings = { forFeature: jest.fn() };
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -21,6 +23,7 @@ describe('PublicSearchController', () => {
         { provide: PublicSearchService, useValue: publicSearchService },
         { provide: SkillsService, useValue: skillsService },
         { provide: LanguagesService, useValue: languagesService },
+        { provide: AiSettingsService, useValue: aiSettings },
       ],
     }).compile();
 
@@ -41,8 +44,12 @@ describe('PublicSearchController', () => {
     },
   );
 
-  it('never advertises AI search as enabled (pipeline not built yet)', () => {
-    expect(controller.searchConfig()).toEqual({ aiSearchEnabled: false });
+  it('advertises AI search only while Settings > AI has it switched on', async () => {
+    aiSettings.forFeature.mockResolvedValueOnce(null);
+    await expect(controller.searchConfig()).resolves.toEqual({ aiSearchEnabled: false });
+    aiSettings.forFeature.mockResolvedValueOnce({ enabled: true, publicSearchEnabled: true });
+    await expect(controller.searchConfig()).resolves.toEqual({ aiSearchEnabled: true });
+    expect(aiSettings.forFeature).toHaveBeenCalledWith('publicSearch');
   });
 
   it('maps meta/skills to only id, name, category - never internal fields', async () => {

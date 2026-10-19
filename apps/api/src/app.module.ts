@@ -38,6 +38,7 @@ import { CareRequestsModule } from './care-requests/care-requests.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { BillingModule } from './billing/billing.module';
 import { BrandingModule } from './branding/branding.module';
+import { AiCoreModule, AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { BrandingModule } from './branding/branding.module';
     AuditModule,
     StorageModule,
     BrandingModule,
+    AiCoreModule,
     AuthModule,
     UsersModule,
     SkillsModule,
@@ -80,6 +82,7 @@ import { BrandingModule } from './branding/branding.module';
     CareRequestsModule,
     BookingsModule,
     BillingModule,
+    AiModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
