@@ -13,6 +13,9 @@ import {
   savedCaregivers,
   bookings,
   bookingShifts,
+  invoices,
+  invoiceLines,
+  invoiceEvents,
   bookingEvents,
   CLIENT_STATUS_TRANSITIONS,
   type ClientStatus,
@@ -426,8 +429,18 @@ export class PatientsService {
    */
   async remove(id: string) {
     const target = await this.findOrThrow(id);
+    // Issued invoices are accounting records and outlive the account.
+    const [kept] = await this.db.select({ id: invoices.id }).from(invoices).where(and(eq(invoices.patientId, id), ne(invoices.status, 'DRAFT'))).limit(1);
+    if (kept) throw new BadRequestException('This client has issued invoices, which must be kept - deactivate the account instead');
 
     await this.db.transaction(async (tx) => {
+      // Draft invoices were never sent; they go.
+      const draftIds = (await tx.select({ id: invoices.id }).from(invoices).where(eq(invoices.patientId, id))).map((r) => r.id);
+      if (draftIds.length) {
+        await tx.delete(invoiceLines).where(inArray(invoiceLines.invoiceId, draftIds));
+        await tx.delete(invoiceEvents).where(inArray(invoiceEvents.invoiceId, draftIds));
+        await tx.delete(invoices).where(inArray(invoices.id, draftIds));
+      }
       // The client's requests and shortlist go with them. Request history is
       // the client's own data (what they asked for, staff notes about them),
       // so it is not kept once the account is erased.

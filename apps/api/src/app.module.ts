@@ -36,6 +36,7 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { AccountAccessModule } from './account-access/account-access.module';
 import { CareRequestsModule } from './care-requests/care-requests.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { BookingsModule } from './bookings/bookings.module';
     AccountAccessModule,
     CareRequestsModule,
     BookingsModule,
+    BillingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

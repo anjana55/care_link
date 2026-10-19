@@ -27,6 +27,8 @@ const EXEMPT_FILES: Record<string, string> = {
   'email/email-settings.service.ts': 'admin configuration screen (staff UI)',
   'email/email-settings.controller.ts': 'admin configuration screen (staff UI); relays the SMTP server\'s own diagnostics',
   'email/dto/update-email-settings.dto.ts': 'admin configuration screen (staff UI)',
+  'billing/billing-settings.service.ts': 'admin configuration screen (staff UI)',
+  'billing/dto/billing-settings.dto.ts': 'admin configuration screen (staff UI)',
 };
 
 /** Single messages that are developer-facing. */
@@ -34,6 +36,8 @@ const EXEMPT_MESSAGES = new Set([
   'Missing or invalid sign-in nonce',
   'Missing sign-in code',
   'portal is required',
+  // Answered to PayHere's servers, never to a person.
+  'Invalid signature',
 ]);
 
 const LITERAL = String.raw`(?:'(?:[^'\\]|\\.)*'|` + '`(?:[^`\\\\]|\\\\.)*`' + String.raw`|"(?:[^"\\]|\\.)*")`;

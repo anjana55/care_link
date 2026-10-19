@@ -96,6 +96,16 @@ export class CreateBookingDto extends BookingPatternDto {
   @Matches(/^\d{1,8}(\.\d{1,2})?$/, { message: 'Enter the agreed rate as a number' })
   rateAmount?: string;
 
+  @ApiPropertyOptional({ enum: rateTypeEnum, description: "How the caregiver is paid - staff only, never shown to the client" })
+  @IsOptional()
+  @IsEnum(rateTypeEnum, { message: 'Choose how the caregiver is paid' })
+  payRateType?: RateType;
+
+  @ApiPropertyOptional({ example: '2500.00' })
+  @ValidateIf((o: CreateBookingDto) => Boolean(o.payRateType))
+  @Matches(/^\d{1,8}(\.\d{1,2})?$/, { message: 'Enter the pay rate as a number' })
+  payRateAmount?: string;
+
   @ApiPropertyOptional({ enum: careRequestLanguageEnum, description: "Defaults to the request's language, else English" })
   @IsOptional()
   @IsIn(careRequestLanguageEnum, { message: 'Choose the language for updates' })
@@ -120,6 +130,16 @@ export class UpdateBookingDto {
   @IsOptional()
   @Matches(/^\d{1,8}(\.\d{1,2})?$/, { message: 'Enter the agreed rate as a number' })
   rateAmount?: string | null;
+
+  @ApiPropertyOptional({ enum: rateTypeEnum, nullable: true })
+  @IsOptional()
+  @IsEnum(rateTypeEnum, { message: 'Choose how the caregiver is paid' })
+  payRateType?: RateType | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @Matches(/^\d{1,8}(\.\d{1,2})?$/, { message: 'Enter the pay rate as a number' })
+  payRateAmount?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
