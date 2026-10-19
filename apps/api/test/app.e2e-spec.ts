@@ -2,12 +2,15 @@ import { Test } from '@nestjs/testing';
 import { ValidationPipe, INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { sql } from 'drizzle-orm';
+import { DRIZZLE, Database } from '../src/database/database.module';
 import { SEED_PASSWORD } from './seed-password';
 
 describe('Care Platform API (e2e)', () => {
   let app: INestApplication;
   let adminToken: string;
   let staffToken: string;
+  let verifierToken: string;
   const unique = Date.now().toString().slice(-8);
   let caregiverId: string;
 
@@ -26,10 +29,31 @@ describe('Care Platform API (e2e)', () => {
       .post('/auth/login')
       .send({ email: 'staff@care-platform.local', password: SEED_PASSWORD });
     staffToken = staffLogin.body.accessToken;
+
+    const verifierLogin = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'verifier@care-platform.local', password: SEED_PASSWORD });
+    verifierToken = verifierLogin.body.accessToken;
   });
 
   afterAll(async () => {
     await app.close();
+  });
+
+  // DATETIME columns are written both by mysql2 (JS Dates) and by MySQL itself
+  // (CURRENT_TIMESTAMP, NOW()). Both must use UTC even when the database server
+  // runs in local time, or "expired" and "within the last hour" checks drift by
+  // the server's offset (5h30 in Sri Lanka).
+  it('keeps database times in UTC whatever time zone the server runs in', async () => {
+    const db = app.get<Database>(DRIZZLE);
+    const [rows] = (await db.execute(
+      sql`SELECT @@session.time_zone AS tz,
+                 TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) AS nowDrift,
+                 TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), ${new Date()}) AS paramDrift`,
+    )) as unknown as [{ tz: string; nowDrift: number; paramDrift: number }[]];
+    expect(rows[0].tz).toBe('+00:00');
+    expect(Number(rows[0].nowDrift)).toBe(0);
+    expect(Math.abs(Number(rows[0].paramDrift))).toBeLessThanOrEqual(1);
   });
 
   it('rejects unauthenticated requests', async () => {
@@ -114,11 +138,40 @@ describe('Care Platform API (e2e)', () => {
       .expect(200);
   });
 
-  it('forbids STAFF from deleting a caregiver (admin-only)', async () => {
+  // Deleting a caregiver is for ADMIN and STAFF (staff handle removals day to
+  // day); a VERIFIER only checks documents.
+  it('forbids a VERIFIER from deleting a caregiver', async () => {
     await request(app.getHttpServer())
       .delete(`/caregivers/${caregiverId}`)
-      .set('Authorization', `Bearer ${staffToken}`)
+      .set('Authorization', `Bearer ${verifierToken}`)
       .expect(403);
+  });
+
+  it('lets STAFF delete a caregiver', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/caregivers')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        fullName: `To Delete ${unique}`,
+        permanentAddress: '4 Test Lane, Colombo',
+        nic: `DEL${unique}`,
+        dateOfBirth: '1990-03-03',
+        gender: 'FEMALE',
+        civilStatus: 'SINGLE',
+        primaryPhone: `078${unique}`,
+        emergencyContactName: 'Test Contact 4',
+        emergencyContactNumber: '0770000004',
+        emergencyContactRelationship: 'Friend',
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .delete(`/caregivers/${created.body.id}`)
+      .set('Authorization', `Bearer ${staffToken}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .get(`/caregivers/${created.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
   });
 
   it('lets STAFF create caregivers (allowed role)', async () => {
@@ -199,8 +252,8 @@ describe('Care Platform API (e2e)', () => {
     let skillB: string;
     let languageA: string;
     let languageB: string;
-    let locationA: string;
-    let locationB: string;
+    let locationA: number;
+    let locationB: number;
     let filterCaregiver1: string;
     let filterCaregiver2: string;
 
@@ -208,11 +261,11 @@ describe('Care Platform API (e2e)', () => {
       const [skillsRes, languagesRes, locationsRes] = await Promise.all([
         request(app.getHttpServer()).get('/skills').set('Authorization', `Bearer ${adminToken}`),
         request(app.getHttpServer()).get('/languages').set('Authorization', `Bearer ${adminToken}`),
-        request(app.getHttpServer()).get('/locations').set('Authorization', `Bearer ${adminToken}`),
+        request(app.getHttpServer()).get('/admin/locations/cities?pageSize=2').set('Authorization', `Bearer ${adminToken}`),
       ]);
       [skillA, skillB] = skillsRes.body.map((s: any) => s.id);
       [languageA, languageB] = languagesRes.body.map((l: any) => l.id);
-      [locationA, locationB] = locationsRes.body.map((l: any) => l.id);
+      [locationA, locationB] = locationsRes.body.items.map((c: any) => c.id);
 
       const makeCaregiver = async (suffix: string, gender: string) => {
         const res = await request(app.getHttpServer())
@@ -252,7 +305,7 @@ describe('Care Platform API (e2e)', () => {
       await request(app.getHttpServer())
         .post(`/caregivers/${filterCaregiver1}/preferred-locations`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ locationId: locationA });
+        .send({ cityId: locationA });
       await request(app.getHttpServer())
         .put(`/caregivers/${filterCaregiver1}/availability`)
         .set('Authorization', `Bearer ${adminToken}`)
@@ -270,7 +323,7 @@ describe('Care Platform API (e2e)', () => {
       await request(app.getHttpServer())
         .post(`/caregivers/${filterCaregiver2}/preferred-locations`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ locationId: locationB });
+        .send({ cityId: locationB });
       await request(app.getHttpServer())
         .put(`/caregivers/${filterCaregiver2}/availability`)
         .set('Authorization', `Bearer ${adminToken}`)

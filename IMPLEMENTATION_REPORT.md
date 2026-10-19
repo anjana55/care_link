@@ -472,3 +472,25 @@ confirm → placed with notifications, overlap refusal including concurrent
 confirms, shift outcomes plus extend/complete/cancel, draft regeneration and
 validation, roles and portal scoping, search exclusion, removal with the client);
 client bookings and caregiver booked-shifts page tests.
+
+## 20. Changelog — test suite fixes and UTC database sessions
+
+The full API e2e suite (`npm run test:e2e`) now passes and exits on its own.
+Before this change, 13 cases failed and Jest never exited.
+
+- **Database times are always UTC.** mysql2 now sends and reads JS Dates as
+  UTC (`timezone: 'Z'`), and every pooled connection sets
+  `time_zone = '+00:00'`. Values MySQL fills in itself (`CURRENT_TIMESTAMP`,
+  `NOW()`) used to follow the database server's zone. On a MySQL running in
+  Asia/Colombo they landed 5h30 away from the values the API wrote. That broke
+  OTP expiry, the hourly send limit and the resend cooldown. The seed scripts
+  connect the same way. Production (MySQL 8 and Node in Docker) already ran in
+  UTC, so existing data is unchanged. A new e2e case checks the session zone.
+- **The pool is closed on shutdown.** It was never closed, so every e2e suite
+  finished but Jest hung. The login suite builds a second app, and Passport's
+  strategy registry is global, so that suite now closes its extra app last.
+- **Stale tests updated.** Deleting a caregiver is allowed for ADMIN and STAFF,
+  as the staff portal intends. The test now checks that a VERIFIER is refused
+  and that STAFF can delete. The search-filter setup uses city IDs from
+  `/admin/locations/cities` (`cityId`) instead of the old `/locations`
+  endpoint.
