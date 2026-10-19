@@ -647,7 +647,8 @@
       "overview": "Overview",
       "profile": "Profile",
       "documents": "Documents",
-      "shifts": "Shifts"
+      "shifts": "Shifts",
+      "payments": "Payments"
     },
     "loadError": "We could not load this page. Please refresh and try again.",
     "saveError": "We could not save that. Please try again.",
@@ -841,6 +842,18 @@
         "endDate": "Ended",
         "description": "What you did"
       }
+    },
+    "payments": {
+      "title": "Payments",
+      "subtitle": "What you are paid for the shifts you worked. Our team prepares these and lets you know when the money is sent.",
+      "empty": "No payments yet. They appear here once our team has approved them.",
+      "paidOn": "paid {date}",
+      "status": {
+        "APPROVED": "Approved",
+        "PAID": "Paid"
+      },
+      "reference": "Transfer reference: {reference}",
+      "approvedHint": "Approved - the payment will be sent soon."
     }
   },
   "caregiverClaim": {
@@ -901,7 +914,8 @@
     "nav": {
       "requests": "My requests",
       "saved": "Saved caregivers",
-      "bookings": "Bookings"
+      "bookings": "Bookings",
+      "invoices": "Invoices"
     },
     "findCaregivers": "Find caregivers",
     "requests": {
@@ -989,6 +1003,76 @@
       "age": "Age {age}",
       "caregiverGender": "Caregiver preference: {gender}",
       "contact": "{method} · {time}"
+    }
+  },
+  "invoices": {
+    "title": "Invoices",
+    "subtitle": "Bills for the care you receive. Open one to read it in full, print it or save it as a PDF, and pay it.",
+    "owing": "Total to pay:",
+    "empty": "No invoices yet.",
+    "issuedOn": "Issued {date}",
+    "overdue": "Overdue",
+    "status": {
+      "ISSUED": "To pay",
+      "PAID": "Paid",
+      "VOID": "Cancelled"
+    },
+    "total": "Total",
+    "balance": "To pay",
+    "due": "Due",
+    "back": "Back to invoices",
+    "print": "Print / save PDF",
+    "pay": {
+      "title": "Pay {amount} online",
+      "hint": "Securely by card or mobile wallet through PayHere.",
+      "button": "Pay now",
+      "redirecting": "Opening PayHere…",
+      "email": "Email for your receipt",
+      "emailHint": "Your account has no email address, so PayHere needs one to send the receipt.",
+      "error": "We couldn't start the payment. Please try again or contact us.",
+      "confirming": "Thank you - we are confirming your payment with PayHere. This page updates by itself.",
+      "thanks": "Thank you - your payment has been received.",
+      "cancelled": "The payment was cancelled. Nothing was charged.",
+      "offline": "To pay this invoice, use the bank details on the invoice or contact our team, and quote the invoice number."
+    },
+    "unit": {
+      "HOUR": "h",
+      "DAY": "day(s)",
+      "MONTH": "month(s)",
+      "ITEM": "×"
+    },
+    "method": {
+      "CASH": "Cash",
+      "BANK_TRANSFER": "Bank transfer",
+      "CHEQUE": "Cheque",
+      "CARD": "Card",
+      "PAYHERE": "Online (PayHere)",
+      "OTHER": "Other"
+    },
+    "doc": {
+      "void": "Cancelled - nothing to pay",
+      "invoice": "Invoice",
+      "taxInvoice": "Tax invoice",
+      "regNo": "Reg. no. {number}",
+      "taxRegNo": "{name} reg. no. {number}",
+      "issued": "Issued",
+      "due": "Due",
+      "period": "Period",
+      "booking": "Booking",
+      "billTo": "Bill to",
+      "date": "Date",
+      "description": "Description",
+      "quantity": "Qty",
+      "price": "Price",
+      "amount": "Amount",
+      "lineDiscount": "includes a discount of {amount}",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "total": "Total",
+      "paid": "Paid",
+      "balance": "Balance due",
+      "paidInFull": "Paid in full - thank you",
+      "payments": "Payments received"
     }
   }
 }

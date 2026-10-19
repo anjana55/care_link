@@ -37,10 +37,15 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
 
   return (
     <div className={`flex min-h-screen ${fontClass}`}>
-      <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
+      {/* Printing (an invoice, a payout statement) prints the page's content only. */}
+      <div className="flex print:hidden">
+        <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
+      </div>
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <Topbar onMenu={() => setNavOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <div className="print:hidden">
+          <Topbar onMenu={() => setNavOpen(true)} />
+        </div>
+        <main className="flex-1 overflow-y-auto p-6 print:overflow-visible print:p-0">{children}</main>
       </div>
     </div>
   );

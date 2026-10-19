@@ -23,6 +23,7 @@ import { ClientOverview } from '@/components/clients/client-overview';
 import { ClientLifecyclePanels, ClientStatusMove } from '@/components/clients/client-lifecycle';
 import { RelatedRequests } from '@/components/requests/related-requests';
 import { RelatedBookings } from '@/components/bookings/related-bookings';
+import { RelatedInvoices } from '@/components/billing/related-invoices';
 import { makeClientProfileSchema, UNSET_ID } from '@/lib/schemas/client-profile';
 
 /**
@@ -244,6 +245,7 @@ export default function ClientDetailPage() {
             <div className="space-y-4">
               <RelatedRequests patientId={client.id} />
               <RelatedBookings patientId={client.id} />
+              <RelatedInvoices patientId={client.id} />
             </div>
           </TabsContent>
         )}

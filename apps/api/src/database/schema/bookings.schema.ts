@@ -24,7 +24,7 @@ export type BookingStatus = (typeof bookingStatusEnum)[number];
 export const scheduleTypeEnum = ['DAY', 'NIGHT', 'LIVE_IN', 'CUSTOM'] as const;
 export type ScheduleType = (typeof scheduleTypeEnum)[number];
 
-/** How the agreed rate is expressed. Recorded only - CareLink does not invoice yet. */
+/** How a rate is expressed - the client's agreed rate and the caregiver's pay rate alike. */
 export const rateTypeEnum = ['HOURLY', 'DAILY', 'MONTHLY'] as const;
 export type RateType = (typeof rateTypeEnum)[number];
 
@@ -53,9 +53,15 @@ export const bookings = mysqlTable(
     startDate: date('start_date', { mode: 'string' }).notNull(),
     endDate: date('end_date', { mode: 'string' }).notNull(),
 
-    // --- agreed rate (recorded, not invoiced) --------------------------------
+    // --- money ----------------------------------------------------------------
+    // What the client is charged; invoices price their shift lines from it.
     rateType: mysqlEnum('rate_type', rateTypeEnum),
     rateAmount: decimal('rate_amount', { precision: 10, scale: 2 }),
+    // What the caregiver is paid - for the booked caregiver and any cover
+    // alike; payout statements price shift lines from it. Staff only: never
+    // shown to the client, and the caregiver sees it only on their statement.
+    payRateType: mysqlEnum('pay_rate_type', rateTypeEnum),
+    payRateAmount: decimal('pay_rate_amount', { precision: 10, scale: 2 }),
 
     // The language the client's notices go out in (from the request, or chosen by staff).
     language: mysqlEnum('language', careRequestLanguageEnum).notNull().default('en'),

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertTriangle, ChevronLeft, ExternalLink, Pencil, Plus, Trash2, UserRoundCog } from 'lucide-react';
-import { isoToColomboLocal, toColombo } from '@care-platform/shared';
+import { formatLkr, isoToColomboLocal, toColombo } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
@@ -27,6 +27,7 @@ import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { PhoneLink } from '@/components/clients/contact-links';
 import { CaregiverPicker } from '@/components/requests/caregiver-picker';
 import { BookingStatusBadge, ShiftStatusBadge } from '@/components/bookings/booking-badges';
+import { RelatedInvoices } from '@/components/billing/related-invoices';
 import { cn } from '@/lib/utils';
 import type { BookingDetail, BookingShift, RateType, ShiftStatus } from '@/lib/api/types';
 
@@ -139,7 +140,10 @@ export default function BookingPage() {
       <Roster booking={booking} />
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        {open ? <AddShiftCard booking={booking} /> : <div />}
+        <div className="space-y-4">
+          {open && <AddShiftCard booking={booking} />}
+          {booking.status !== 'DRAFT' && <RelatedInvoices bookingId={booking.id} />}
+        </div>
         <BookingHistory booking={booking} />
       </div>
     </div>
@@ -226,13 +230,30 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
   const [editing, setEditing] = useState(false);
   const [rateType, setRateType] = useState<RateType | ''>(booking.rateType ?? '');
   const [rateAmount, setRateAmount] = useState(booking.rateAmount ?? '');
+  const [payRateType, setPayRateType] = useState<RateType | ''>(booking.payRateType ?? '');
+  const [payRateAmount, setPayRateAmount] = useState(booking.payRateAmount ?? '');
   const e = booking.estimate;
-  const money = (v: string) => `LKR ${Number(v).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const pay = booking.payEstimate;
+  const margin = e.total && pay.total ? Number(e.total) - Number(pay.total) : null;
+  const rate = (type: RateType | null, amount: string | null, none: string) => (type && amount ? `${formatLkr(amount)} ${t(`bookings.rateUnit.${type}`)}` : none);
+  const picker = (id: string, value: RateType | '', set: (v: RateType | '') => void, amount: string, setAmount: (v: string) => void, none: string, label: string) => (
+    <div className="grid grid-cols-2 gap-2">
+      <Select id={id} value={value} onChange={(ev) => set(ev.target.value as RateType | '')} aria-label={label}>
+        <option value="">{none}</option>
+        {(['DAILY', 'MONTHLY', 'HOURLY'] as RateType[]).map((r) => (
+          <option key={r} value={r}>
+            {t(`bookings.rateType.${r}`)}
+          </option>
+        ))}
+      </Select>
+      <Input inputMode="decimal" disabled={!value} value={amount} onChange={(ev) => setAmount(ev.target.value)} aria-label={t('bookings.new.rateAmount')} />
+    </div>
+  );
 
   return (
     <Card>
       <CardHeader className="flex items-center justify-between gap-2">
-        <CardTitle>{t('bookings.new.rateTitle')}</CardTitle>
+        <CardTitle>{t('bookings.detail.moneyTitle')}</CardTitle>
         {editable && !editing && (
           <button type="button" onClick={() => setEditing(true)} className="text-xs text-brand-dark hover:underline">
             {t('common.edit')}
@@ -242,22 +263,25 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
       <CardContent className="space-y-2 text-sm">
         {editing ? (
           <>
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={rateType} onChange={(ev) => setRateType(ev.target.value as RateType | '')} aria-label={t('bookings.new.rateType')}>
-                <option value="">{t('bookings.new.noRate')}</option>
-                {(['DAILY', 'MONTHLY', 'HOURLY'] as RateType[]).map((r) => (
-                  <option key={r} value={r}>
-                    {t(`bookings.rateType.${r}`)}
-                  </option>
-                ))}
-              </Select>
-              <Input inputMode="decimal" disabled={!rateType} value={rateAmount} onChange={(ev) => setRateAmount(ev.target.value)} aria-label={t('bookings.new.rateAmount')} />
-            </div>
+            <p className="text-xs font-medium text-ink/60">{t('bookings.new.rateTitle')}</p>
+            {picker('rateTypeEdit', rateType, setRateType, rateAmount, setRateAmount, t('bookings.new.noRate'), t('bookings.new.rateType'))}
+            <p className="text-xs font-medium text-ink/60">{t('bookings.new.payRateType')}</p>
+            {picker('payRateTypeEdit', payRateType, setPayRateType, payRateAmount, setPayRateAmount, t('bookings.new.noPayRate'), t('bookings.new.payRateType'))}
             <div className="flex gap-2">
               <Button
                 size="sm"
                 disabled={update.isPending}
-                onClick={() => update.mutate({ rateType: rateType || null, rateAmount: rateType ? rateAmount : null }, { onSuccess: () => setEditing(false) })}
+                onClick={() =>
+                  update.mutate(
+                    {
+                      rateType: rateType || null,
+                      rateAmount: rateType ? rateAmount : null,
+                      payRateType: payRateType || null,
+                      payRateAmount: payRateType ? payRateAmount : null,
+                    },
+                    { onSuccess: () => setEditing(false) },
+                  )
+                }
               >
                 {t('common.save')}
               </Button>
@@ -268,10 +292,41 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
             {update.isError && <p className="text-xs text-danger">{errorText(update.error, t('requests.detail.saveFailed'))}</p>}
           </>
         ) : (
-          <p className="text-ink">{booking.rateType && booking.rateAmount ? `${money(booking.rateAmount)} ${t(`bookings.rateUnit.${booking.rateType}`)}` : t('bookings.new.noRate')}</p>
+          <dl className="space-y-1">
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink/60">{t('bookings.detail.clientRate')}</dt>
+              <dd className="text-right text-ink">{rate(booking.rateType, booking.rateAmount, t('bookings.new.noRate'))}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink/60">{t('bookings.detail.payRate')}</dt>
+              <dd className="text-right text-ink">{rate(booking.payRateType, booking.payRateAmount, t('bookings.new.noPayRate'))}</dd>
+            </div>
+          </dl>
         )}
         <p className="text-ink/60">{t('bookings.detail.totals', { shifts: e.shifts, hours: e.hours })}</p>
-        {e.total && <p className="font-semibold text-ink">{t('bookings.detail.estimate', { total: money(e.total) })}</p>}
+        <dl className="space-y-1 border-t border-border pt-2">
+          {e.total && (
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink/60">{t('bookings.detail.estimateCharge')}</dt>
+              <dd className="tabular-nums font-semibold text-ink">{formatLkr(e.total)}</dd>
+            </div>
+          )}
+          {pay.total && (
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink/60">{t('bookings.detail.estimatePay')}</dt>
+              <dd className="tabular-nums text-ink">{formatLkr(pay.total)}</dd>
+            </div>
+          )}
+          {margin !== null && (
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink/60">{t('bookings.detail.estimateMargin')}</dt>
+              <dd className={cn('tabular-nums font-medium', margin < 0 ? 'text-danger' : 'text-brand-dark')}>
+                {formatLkr(margin.toFixed(2))}
+                {Number(e.total) > 0 && <span className="ml-1 text-xs text-ink/50">({Math.round((margin / Number(e.total)) * 100)}%)</span>}
+              </dd>
+            </div>
+          )}
+        </dl>
         <p className="text-xs text-ink/40">{t('bookings.detail.estimateHint')}</p>
       </CardContent>
     </Card>

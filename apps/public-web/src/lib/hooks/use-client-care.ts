@@ -7,6 +7,8 @@ import type {
   CreateCareRequestBody,
   SavedCaregiverItem,
   ClientBooking,
+  ClientInvoice,
+  PayhereCheckout,
 } from '@care-platform/shared';
 import { api } from '../api/client';
 import { useAuth } from '../api/auth-context';
@@ -106,5 +108,39 @@ export function useMyBookings() {
     queryKey: [...key, 'bookings', locale],
     queryFn: () => api.get<ClientBooking[]>('/me/bookings'),
     enabled: Boolean(client),
+  });
+}
+
+/** The client's issued invoices (GET /me/invoices). Drafts never appear. */
+export function useMyInvoices() {
+  const client = useIsClient();
+  const key = useClientKey();
+  return useQuery({
+    queryKey: [...key, 'invoices'],
+    queryFn: () => api.get<ClientInvoice[]>('/me/invoices'),
+    enabled: Boolean(client),
+  });
+}
+
+/**
+ * One invoice. `poll` re-reads it every few seconds - used right after the
+ * client comes back from PayHere, while PayHere's confirmation is on its way
+ * to the API (the browser's return proves nothing; that notification does).
+ */
+export function useMyInvoice(id: string, poll = false) {
+  const client = useIsClient();
+  const key = useClientKey();
+  return useQuery({
+    queryKey: [...key, 'invoices', id],
+    queryFn: () => api.get<ClientInvoice>(`/me/invoices/${id}`),
+    enabled: Boolean(client) && Boolean(id),
+    refetchInterval: (q) => (poll && q.state.data?.status === 'ISSUED' ? 3000 : false),
+  });
+}
+
+/** Starts a PayHere checkout for the balance; the caller posts the returned form to PayHere. */
+export function useStartOnlinePayment(id: string) {
+  return useMutation({
+    mutationFn: (email?: string) => api.post<PayhereCheckout>(`/me/invoices/${id}/payhere`, email ? { email } : {}),
   });
 }

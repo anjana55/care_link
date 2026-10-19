@@ -15,7 +15,9 @@
     "closeMenu": "Close menu",
     "settings": "Settings",
     "requests": "Requests",
-    "bookings": "Bookings"
+    "bookings": "Bookings",
+    "invoices": "Invoices",
+    "payouts": "Payouts"
   },
   "login": {
     "title": "Sign in",
@@ -835,10 +837,11 @@
   },
   "settings": {
     "title": "Settings",
-    "subtitle": "How people sign in and how we reach them.",
+    "subtitle": "How people sign in, how we reach them, and how we bill.",
     "socialAuth": "Social sign-in",
     "whatsapp": "WhatsApp",
-    "email": "Email"
+    "email": "Email",
+    "billing": "Billing"
   },
   "socialAdmin": {
     "title": "Google, Microsoft and Facebook sign-in",
@@ -1156,7 +1159,11 @@
       "rateAmount": "Amount (LKR)",
       "notes": "Notes for staff",
       "submit": "Create draft booking",
-      "draftHint": "Nothing is sent to the client or caregiver until you confirm."
+      "draftHint": "Nothing is sent to the client or caregiver until you confirm.",
+      "payRateType": "Caregiver paid",
+      "noPayRate": "No pay rate recorded",
+      "payRateAmount": "Pay (LKR)",
+      "payRateHint": "What the caregiver earns - used for payout statements. Never shown to the client."
     },
     "detail": {
       "nextDay": "ends next day",
@@ -1175,7 +1182,7 @@
       "cancelHint": "Future shifts are cancelled; the client and caregiver are told.",
       "totals": "{shifts} shifts · {hours} hours",
       "estimate": "About {total}",
-      "estimateHint": "Recorded only - CareLink does not invoice.",
+      "estimateHint": "Estimates over every shift still going ahead. Invoices and payouts are made from the shifts themselves.",
       "roster": "Shifts",
       "showPast": "Show {count} past shifts",
       "hidePast": "Hide past shifts",
@@ -1194,7 +1201,13 @@
       "addShift": "Add a shift",
       "shiftNote": "Note (optional)",
       "addShiftDraftHint": "Added as a draft, like the rest.",
-      "addShiftHint": "Added as scheduled - it must not overlap the caregiver's other shifts."
+      "addShiftHint": "Added as scheduled - it must not overlap the caregiver's other shifts.",
+      "moneyTitle": "Rates",
+      "clientRate": "Client is charged",
+      "payRate": "Caregiver is paid",
+      "estimateCharge": "Estimated charge",
+      "estimatePay": "Estimated pay",
+      "estimateMargin": "Estimated margin"
     },
     "event": {
       "CREATED": "Booking created",
@@ -1259,5 +1272,366 @@
       "leaveActive": "The caregiver will move to {status} and will no longer appear in public search.",
       "toActive": "The caregiver will appear in public search and can be matched with clients."
     }
+  },
+  "billing": {
+    "overdue": "Overdue",
+    "invoiceStatus": {
+      "DRAFT": "Draft",
+      "ISSUED": "Issued",
+      "PAID": "Paid",
+      "VOID": "Void"
+    },
+    "payoutStatus": {
+      "DRAFT": "Draft",
+      "APPROVED": "Approved",
+      "PAID": "Paid",
+      "VOID": "Void"
+    },
+    "basis": {
+      "COMPLETED": {
+        "title": "Shifts done",
+        "hint": "One line for every shift marked done in the period. The usual choice."
+      },
+      "SCHEDULED": {
+        "title": "Shifts scheduled (bill in advance)",
+        "hint": "Every scheduled or done shift in the period. Credit missed shifts on the next invoice."
+      },
+      "MANUAL": {
+        "title": "Start empty",
+        "hint": "No lines from shifts - add charges by hand (a registration fee, a one-off visit)."
+      }
+    },
+    "kind": {
+      "invoice": {
+        "SHIFT": "Shift",
+        "ITEM": "Charge",
+        "ADJUSTMENT": "Credit"
+      },
+      "payout": {
+        "SHIFT": "Shift",
+        "ITEM": "Allowance",
+        "ADJUSTMENT": "Deduction"
+      }
+    },
+    "unit": {
+      "HOUR": "Hours",
+      "DAY": "Days",
+      "MONTH": "Months",
+      "ITEM": "Items"
+    },
+    "unitShort": {
+      "HOUR": "h",
+      "DAY": "d",
+      "MONTH": "mo",
+      "ITEM": "×"
+    },
+    "method": {
+      "CASH": "Cash",
+      "BANK_TRANSFER": "Bank transfer",
+      "CHEQUE": "Cheque",
+      "CARD": "Card",
+      "PAYHERE": "PayHere (online)",
+      "OTHER": "Other"
+    },
+    "event": {
+      "CREATED": "Draft created",
+      "UPDATED": "Details changed",
+      "LINES_CHANGED": "Lines changed",
+      "ISSUED": "Issued",
+      "SENT": "Sent to the client",
+      "PAYMENT": "Payment received",
+      "REFUND": "Refund",
+      "PAYMENT_DELETED": "Payment entry removed",
+      "PAID": "Paid in full",
+      "REOPENED": "Balance owing again",
+      "VOIDED": "Voided",
+      "NOTE": "Note",
+      "system": "automatic"
+    },
+    "lines": {
+      "date": "Date",
+      "description": "Description",
+      "quantity": "Qty",
+      "unit": "Unit",
+      "price": "Price",
+      "discount": "Discount",
+      "discountType": "Discount type",
+      "taxable": "Tax",
+      "amount": "Amount",
+      "remove": "Remove line",
+      "empty": "No lines yet.",
+      "add": {
+        "invoice": {
+          "ITEM": "Add charge",
+          "ADJUSTMENT": "Add credit"
+        },
+        "payout": {
+          "ITEM": "Add allowance",
+          "ADJUSTMENT": "Add deduction"
+        }
+      },
+      "needDescription": "Describe this line.",
+      "badQuantity": "Enter a quantity above zero.",
+      "badPrice": "Enter the price as a number, e.g. 3500.00.",
+      "negativeOnlyAdjustment": "Only a credit or deduction can be negative.",
+      "badDiscount": "Enter the discount as a number.",
+      "discountOver100": "A discount cannot be more than 100%.",
+      "unpriced": "No rate on the booking - enter a price."
+    },
+    "totals": {
+      "title": "Totals",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "total": "Total",
+      "paid": "Paid",
+      "balance": "Balance due"
+    },
+    "invoices": {
+      "title": "Invoices",
+      "subtitle": "Bills to clients for the care they received. Drafts are only visible to staff until issued.",
+      "new": "New invoice",
+      "back": "Back to invoices",
+      "search": "Search by number, client or booking",
+      "empty": "No invoices here.",
+      "draftNumber": "Draft",
+      "outstanding": "Outstanding",
+      "overdueTotal": "Overdue ({count})",
+      "receivedThisMonth": "Received this month",
+      "tabs": {
+        "ISSUED": "Unpaid",
+        "overdue": "Overdue",
+        "DRAFT": "Drafts",
+        "PAID": "Paid",
+        "VOID": "Void",
+        "all": "All"
+      },
+      "table": {
+        "number": "Invoice",
+        "client": "Client",
+        "period": "Period",
+        "due": "Due",
+        "total": "Total",
+        "balance": "Balance",
+        "status": "Status"
+      }
+    },
+    "newInvoice": {
+      "title": "New invoice",
+      "subtitle": "Choose what to bill and for which period. The draft fills itself from the shifts - change anything before you issue it.",
+      "whoTitle": "Bill",
+      "scope": {
+        "booking": "One booking",
+        "client": "All of a client's bookings"
+      },
+      "bookingSearch": "Search bookings by reference, client or caregiver",
+      "noBookings": "No confirmed bookings match.",
+      "change": "Change",
+      "noRate": "no rate recorded",
+      "allBookingsHint": "Shifts from every booking of this client in the period.",
+      "basisTitle": "What to bill",
+      "periodTitle": "Period",
+      "from": "From",
+      "to": "To",
+      "language": "Invoice language",
+      "languageDefault": "The booking's language",
+      "quick": {
+        "lastMonth": "Last month",
+        "thisMonth": "This month",
+        "wholeBooking": "Whole booking"
+      },
+      "periodHint": "A shift belongs to the day it starts. Shifts already on another invoice are left out.",
+      "submit": "Create draft invoice",
+      "draftHint": "Nothing is sent to the client until you issue it."
+    },
+    "invoice": {
+      "notFound": "This invoice doesn't exist or was deleted.",
+      "draftTitle": "Draft invoice",
+      "preview": "Preview",
+      "backToEditing": "Back to editing",
+      "print": "Print / PDF",
+      "voidedBecause": "Void: {reason}",
+      "generated": "{added} lines added from shifts; {skipped} already billed on another invoice were left out.",
+      "unpriced": "{count} shift lines have no price because the booking has no rate. Enter the prices before issuing.",
+      "billTo": "Bill to",
+      "name": "Name",
+      "email": "Email",
+      "address": "Address",
+      "phone": "Phone",
+      "billToHint": "Filled in from the client. Change it to bill a family member or a company; it is fixed once issued.",
+      "detailsTitle": "Details",
+      "periodLine": "Period: {from} – {to}",
+      "notes": "Note on the invoice",
+      "notesPlaceholder": "Shown to the client, e.g. a thank-you or payment instructions.",
+      "lines": "Lines",
+      "addShifts": "Add unbilled shifts",
+      "saveFirst": "Save your changes first",
+      "discountAndTax": "Discount and tax",
+      "discount": "Invoice discount",
+      "noDiscount": "No discount",
+      "discountPercent": "Percentage",
+      "discountAmount": "Fixed amount",
+      "discountReason": "Reason",
+      "discountReasonPlaceholder": "e.g. Loyalty discount",
+      "applyTax": "Charge {name} at {rate}%",
+      "taxHint": "Untick a line's Tax box to leave it out (e.g. a reimbursed expense).",
+      "taxOff": "Turn tax on in Settings > Billing to charge it.",
+      "save": "Save changes",
+      "discard": "Discard changes",
+      "deleteDraft": "Delete draft",
+      "deleteDraftTitle": "Delete this draft?",
+      "deleteDraftMessage": "The draft and its lines are removed, and its shifts can be billed again. Nothing was sent to the client.",
+      "issue": "Issue invoice",
+      "issueTitle": "Issue this invoice?",
+      "issueMessage": "It gets the next invoice number and can no longer be edited. Total: {total}.",
+      "dueHint": "Leave the due date empty to use the payment terms from Settings > Billing.",
+      "notifyClient": "Tell the client by email or WhatsApp",
+      "actions": "Invoice",
+      "sendAgain": "Send again",
+      "sendReceipt": "Send receipt",
+      "sent": "Sent.",
+      "revise": "Correct it",
+      "void": "Void",
+      "reason": "Reason",
+      "voidConfirm": "Void it",
+      "reviseConfirm": "Void and copy",
+      "voidHint": "The invoice stays on record as void; its number is not reused and its shifts can be billed again.",
+      "reviseHint": "Voids this invoice and opens a draft copy with the same lines to correct and issue under a new number.",
+      "voidNeedsRefund": "To void or correct an invoice with payments on it, record a refund first."
+    },
+    "payments": {
+      "title": "Payments",
+      "none": "Nothing paid yet.",
+      "record": "Record payment",
+      "refund": "Record refund",
+      "amount": "Amount (LKR)",
+      "date": "Date paid",
+      "method": "Method",
+      "reference": "Reference",
+      "delete": "Remove this entry"
+    },
+    "online": {
+      "title": "Online payments",
+      "sandbox": "test mode",
+      "status": {
+        "PENDING": "Started",
+        "SUCCESS": "Paid",
+        "FAILED": "Failed",
+        "CANCELLED": "Cancelled",
+        "CHARGEDBACK": "Charged back"
+      }
+    },
+    "related": {
+      "title": "Invoices",
+      "empty": "No invoices yet.",
+      "create": "New invoice"
+    },
+    "doc": {
+      "draft": "Draft",
+      "void": "Void - not payable",
+      "invoice": "Invoice",
+      "taxInvoice": "Tax invoice",
+      "notNumbered": "(number given on issue)",
+      "issued": "Issued",
+      "due": "Due",
+      "period": "Period",
+      "booking": "Booking",
+      "billTo": "Bill to",
+      "regNo": "Reg. no. {number}",
+      "taxRegNo": "{name} reg. no. {number}",
+      "lineDiscount": "includes a discount of {amount}",
+      "noTax": "no tax",
+      "paidInFull": "Paid in full - thank you"
+    },
+    "payouts": {
+      "title": "Payouts",
+      "subtitle": "What caregivers are owed for the shifts they worked, at each booking's pay rate.",
+      "back": "Back to payouts",
+      "runTitle": "Pay run",
+      "run": "Make statements",
+      "single": "One caregiver…",
+      "runHint": "Makes a draft statement for every caregiver with completed shifts in the period that are not on a statement yet. Running it again adds nothing twice.",
+      "created": "{count} draft statements made.",
+      "nothingNew": "Nothing new to pay for in that period.",
+      "toPay": "{amount} approved, to pay ({count})",
+      "search": "Search by reference or caregiver",
+      "empty": "No statements here.",
+      "tabs": {
+        "DRAFT": "Drafts",
+        "APPROVED": "Approved",
+        "PAID": "Paid",
+        "VOID": "Void",
+        "all": "All"
+      },
+      "table": {
+        "reference": "Statement",
+        "caregiver": "Caregiver",
+        "period": "Period",
+        "total": "Total",
+        "paidOn": "Paid on",
+        "status": "Status"
+      }
+    },
+    "payout": {
+      "notFound": "This statement doesn't exist or was deleted.",
+      "printTitle": "Payout statement",
+      "unpriced": "{count} shift lines have no price because the booking has no pay rate. Enter the prices before approving.",
+      "addShifts": "Add unpaid shifts",
+      "notes": "Notes",
+      "notesPlaceholder": "Shown to the caregiver with the statement.",
+      "approve": "Approve",
+      "reopen": "Back to draft",
+      "markPaid": "Mark paid",
+      "markPaidTitle": "Record the payment of {amount}",
+      "notifyCaregiver": "Tell the caregiver",
+      "paidLine": "Paid on {date} by {method}",
+      "delete": "Delete draft",
+      "deleteTitle": "Delete this draft statement?",
+      "deleteMessage": "Its shifts can be put on another statement.",
+      "voidTitle": "Void this statement?",
+      "voidHint": "It stays on record as void and its shifts can go on another statement."
+    }
+  },
+  "billingAdmin": {
+    "businessTitle": "Business details",
+    "businessHint": "Printed at the top of every invoice. An issued invoice keeps the details it was issued with.",
+    "businessName": "Business name",
+    "registrationNumber": "Business registration no.",
+    "address": "Address",
+    "phone": "Phone",
+    "email": "Email",
+    "invoicesTitle": "Invoices",
+    "prefix": "Number prefix",
+    "nextNumber": "Next number",
+    "terms": "Payment terms (days)",
+    "numberingHint": "The next invoice issued will be {example}. Numbers are given in issue order with no gaps, and can only move forward.",
+    "footer": "Invoice footer",
+    "footerPlaceholder": "e.g. Bank: Sampath Bank, A/C 0000 0000 0000, Colombo branch",
+    "taxTitle": "Tax",
+    "taxEnabled": "Charge tax on invoices",
+    "taxHint": "Each draft can still leave it out. Turning this off does not change invoices already issued.",
+    "taxName": "Name",
+    "taxRate": "Rate (%)",
+    "taxRegistration": "Tax registration no.",
+    "payhereTitle": "Online payment (PayHere)",
+    "payhereOn": "On - {mode}",
+    "payhereOff": "Off",
+    "payhereHint": "Clients can pay issued invoices by card or wallet from their account. Payments are recorded only when PayHere confirms them to the address below.",
+    "payhereEnabled": "Offer online payment",
+    "mode": {
+      "label": "Mode",
+      "SANDBOX": "Sandbox (test)",
+      "LIVE": "Live"
+    },
+    "merchantId": "Merchant ID",
+    "merchantSecret": "Merchant secret",
+    "secretStored": "Stored (ends in {last4}) - type to replace",
+    "secretNone": "Not set",
+    "clearSecret": "Remove the stored secret",
+    "secretHint": "From PayHere: Settings > Domains & Credentials, for this site's domain. It is stored encrypted and never shown again.",
+    "notifyBase": "API address PayHere can reach",
+    "notifyUrl": "PayHere notifies:",
+    "copy": "Copy",
+    "copied": "Copied",
+    "saved": "Saved."
   }
 }

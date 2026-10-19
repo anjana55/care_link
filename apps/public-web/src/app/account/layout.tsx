@@ -12,11 +12,12 @@ import { SiteFooter } from '@/components/layout/site-footer';
 const SECTIONS = [
   { href: '/account/requests', key: 'account.nav.requests' },
   { href: '/account/bookings', key: 'account.nav.bookings' },
+  { href: '/account/invoices', key: 'account.nav.invoices' },
   { href: '/account/saved', key: 'account.nav.saved' },
 ];
 
 /**
- * The signed-in client's area: their requests and saved caregivers.
+ * The signed-in client's area: their requests, saved caregivers, bookings and invoices.
  *
  * Guarded here for every page under it. A visitor who is signed out is sent to
  * sign in and brought back; a caregiver session goes to the caregiver's own
@@ -42,14 +43,17 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
   const ready = !loading && user?.role === 'PATIENT_GUARDIAN';
 
   return (
-    <div className="flex min-h-screen flex-col bg-paper">
-      <SiteHeader maxWidth="3xl" backHref="/find" backLabel={t('account.findCaregivers')} />
+    <div className="flex min-h-screen flex-col bg-paper print:bg-white">
+      {/* Printing an invoice prints the invoice only. */}
+      <div className="print:hidden">
+        <SiteHeader maxWidth="3xl" backHref="/find" backLabel={t('account.findCaregivers')} />
+      </div>
       {ready ? (
         <>
-          <nav aria-label={t('account.navLabel')} className="border-b border-border bg-white">
+          <nav aria-label={t('account.navLabel')} className="border-b border-border bg-white print:hidden">
             <div className="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-4">
               {SECTIONS.map((section) => {
-                const active = pathname === section.href;
+                const active = pathname === section.href || Boolean(pathname?.startsWith(`${section.href}/`));
                 return (
                   <Link
                     key={section.href}
@@ -65,14 +69,16 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
               })}
             </div>
           </nav>
-          <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">{children}</main>
+          <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 print:max-w-none print:p-0">{children}</main>
         </>
       ) : (
         <div className="flex flex-1 items-center justify-center">
           <p className="text-sm text-ink/60">{t('common.loading')}</p>
         </div>
       )}
-      <SiteFooter />
+      <div className="print:hidden">
+        <SiteFooter />
+      </div>
     </div>
   );
 }

@@ -57,6 +57,13 @@
       "when": 1792341733629,
       "tag": "0007_bookings",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1792382120749,
+      "tag": "0008_invoicing",
+      "breakpoints": true
     }
   ]
 }

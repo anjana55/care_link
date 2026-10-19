@@ -321,6 +321,8 @@ export class BookingsService {
         updatedBy: s.updatedByUserId ? (names.get(s.updatedByUserId) ?? null) : null,
       })),
       estimate: BookingsService.estimate(booking, shifts),
+      // What the caregiver side comes to over the same shifts, and the difference.
+      payEstimate: BookingsService.estimate({ ...booking, rateType: booking.payRateType, rateAmount: booking.payRateAmount }, shifts),
       blockingConflicts: conflicts.filter((c) => c.kind === 'BLOCKING').length,
       events: events.map((e) => ({
         id: e.id,
@@ -499,6 +501,8 @@ export class BookingsService {
             endDate: dto.endDate,
             rateType: dto.rateType ?? null,
             rateAmount: dto.rateType ? (dto.rateAmount ?? null) : null,
+            payRateType: dto.payRateType ?? null,
+            payRateAmount: dto.payRateType ? (dto.payRateAmount ?? null) : null,
             language: language ?? 'en',
             notes: dto.notes ?? null,
             createdByUserId: actor.userId,
@@ -538,7 +542,7 @@ export class BookingsService {
     }
   }
 
-  /** Rate and notes at any time before the booking ends; the pattern only while DRAFT, and it rebuilds every shift. */
+  /** Rates and notes at any time before the booking ends; the pattern only while DRAFT, and it rebuilds every shift. */
   async update(id: string, dto: UpdateBookingDto, actor: AuthenticatedUser) {
     const booking = await this.bookingOrThrow(id);
     if (booking.status === 'CANCELLED' || booking.status === 'COMPLETED') {
@@ -551,6 +555,9 @@ export class BookingsService {
     const rateType = dto.rateType === undefined ? booking.rateType : dto.rateType;
     const rateAmount = dto.rateAmount === undefined ? booking.rateAmount : dto.rateAmount;
     if (rateType && !rateAmount) throw new BadRequestException('Enter the agreed rate as a number');
+    const payRateType = dto.payRateType === undefined ? booking.payRateType : dto.payRateType;
+    const payRateAmount = dto.payRateAmount === undefined ? booking.payRateAmount : dto.payRateAmount;
+    if (payRateType && !payRateAmount) throw new BadRequestException('Enter the pay rate as a number');
 
     await this.db.transaction(async (tx) => {
       const t = tx as unknown as Tx;
@@ -559,6 +566,8 @@ export class BookingsService {
         .set({
           rateType: rateType ?? null,
           rateAmount: rateType ? rateAmount : null,
+          payRateType: payRateType ?? null,
+          payRateAmount: payRateType ? payRateAmount : null,
           ...(dto.notes !== undefined ? { notes: dto.notes.trim() || null } : {}),
           ...(dto.pattern
             ? {

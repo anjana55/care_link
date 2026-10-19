@@ -86,7 +86,7 @@ export const useCompleteBooking = (id: string) => useBookingWrite(id, () => api.
 export const useExtendBooking = (id: string) => useBookingWrite(id, (endDate: string) => api.post<BookingDetail>(`/bookings/${id}/extend`, { endDate }));
 export const useAddBookingNote = (id: string) => useBookingWrite(id, (note: string) => api.post<BookingDetail>(`/bookings/${id}/notes`, { note }));
 export const useUpdateBooking = (id: string) =>
-  useBookingWrite(id, (v: { rateType?: RateType | null; rateAmount?: string | null; notes?: string; pattern?: BookingPatternInput }) =>
+  useBookingWrite(id, (v: { rateType?: RateType | null; rateAmount?: string | null; payRateType?: RateType | null; payRateAmount?: string | null; notes?: string; pattern?: BookingPatternInput }) =>
     api.patch<BookingDetail>(`/bookings/${id}`, v),
   );
 export const useAddShift = (id: string) =>

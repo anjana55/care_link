@@ -19,3 +19,4 @@ export * from './types/public-search';
 export * from './types/whatsapp';
 export * from './types/care-requests';
 export * from './types/bookings';
+export * from './types/billing';
