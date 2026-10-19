@@ -1,7 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 import type { PublicCaregiverProfile, PublicCaregiverSummary, PublicSearchResponse } from '@care-platform/shared';
-import { resolveLocale, type Locale } from '@care-platform/shared';
+import { resolveLocale, type Locale, addDays, colomboToUtc, isValidDate } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
   caregivers,
@@ -15,6 +15,7 @@ import {
   availability,
   qualifications,
   experiences,
+  bookingShifts,
 } from '../database/schema';
 import { SearchRequestDto } from './dto/search-request.dto';
 import { RankingService, type LocationLabels, type RankingCandidate } from './ranking/ranking.service';
@@ -138,6 +139,23 @@ export class PublicSearchService {
         .where(sql`${experiences.startDate} <= ${cutoff.toISOString().slice(0, 10)}`);
       const matches = rows.map((r) => r.caregiverId);
       conditions.push(matches.length ? inArray(caregivers.id, matches) : NONE);
+    }
+
+    // Someone already booked that day is not available to start then: drop
+    // caregivers holding a confirmed shift on the desired start date (Colombo).
+    if (request.desiredStartDate && isValidDate(request.desiredStartDate.slice(0, 10))) {
+      const day = request.desiredStartDate.slice(0, 10);
+      const booked = await this.db
+        .selectDistinct({ caregiverId: bookingShifts.caregiverId })
+        .from(bookingShifts)
+        .where(
+          and(
+            eq(bookingShifts.status, 'SCHEDULED'),
+            lt(bookingShifts.startsAt, colomboToUtc(addDays(day, 1), '00:00')),
+            gt(bookingShifts.endsAt, colomboToUtc(day, '00:00')),
+          ),
+        );
+      if (booked.length) conditions.push(notInArray(caregivers.id, booked.map((b) => b.caregiverId)));
     }
 
     const whereClause = and(...conditions);

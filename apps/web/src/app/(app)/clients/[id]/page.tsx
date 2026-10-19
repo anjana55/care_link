@@ -23,6 +23,7 @@ import { StatusBadge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ClientProfileFields } from '@/components/clients/client-profile-fields';
 import { RelatedRequests } from '@/components/requests/related-requests';
+import { RelatedBookings } from '@/components/bookings/related-bookings';
 import { makeClientProfileSchema, UNSET_ID } from '@/lib/schemas/client-profile';
 import { allowedNextClientStatuses } from '@/lib/client-status';
 import type { ClientStatus } from '@/lib/api/types';
@@ -303,6 +304,9 @@ export default function ClientDetailPage() {
 
           <div className="md:col-span-2">
             <RelatedRequests patientId={client.id} />
+          </div>
+          <div className="md:col-span-2">
+            <RelatedBookings patientId={client.id} />
           </div>
         </div>
       )}

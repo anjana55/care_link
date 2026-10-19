@@ -4,6 +4,7 @@ import { useTranslation } from '@/lib/i18n/provider';
 import Link from 'next/link';
 import { useDashboardStats } from '@/lib/hooks/use-caregivers';
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
+import { useBookingSummary } from '@/lib/hooks/use-bookings';
 import { useAuth } from '@/lib/api/auth-context';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -25,6 +26,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const canSeeRequests = user?.role === 'ADMIN' || user?.role === 'STAFF';
   const { data: requests } = useCareRequestSummary(canSeeRequests);
+  const { data: bookingSummary } = useBookingSummary(canSeeRequests);
 
   return (
     <div>
@@ -34,6 +36,12 @@ export default function DashboardPage() {
         <Link href="/requests" className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           <StatCard label={t('dashboard.newRequests')} value={requests.new} tone={requests.new > 0 ? 'accent' : undefined} />
           <StatCard label={t('dashboard.openRequests')} value={requests.open} />
+        </Link>
+      )}
+      {canSeeRequests && bookingSummary && (
+        <Link href="/bookings" className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          <StatCard label={t('dashboard.shiftsToday')} value={bookingSummary.shiftsToday} tone="brand" />
+          <StatCard label={t('dashboard.draftBookings')} value={bookingSummary.byStatus.DRAFT} tone={bookingSummary.byStatus.DRAFT > 0 ? 'accent' : undefined} />
         </Link>
       )}
 

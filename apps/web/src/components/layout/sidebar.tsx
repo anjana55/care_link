@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Inbox, Sparkles, Languages, MapPin, ScrollText, ShieldCheck, Settings } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, Sparkles, Languages, MapPin, ScrollText, ShieldCheck, Settings } from 'lucide-react';
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
@@ -25,6 +25,7 @@ const ITEMS = [
 const CLIENT_ITEM = { href: '/clients', key: 'nav.clients', icon: HeartHandshake };
 // Requests sit with Clients for the same reason: ADMIN + STAFF only.
 const REQUESTS_ITEM = { href: '/requests', key: 'nav.requests', icon: Inbox };
+const BOOKINGS_ITEM = { href: '/bookings', key: 'nav.bookings', icon: CalendarDays };
 
 // Admin-only: rendered separately from ITEMS so they never show for STAFF/VERIFIER.
 const ADMIN_ITEMS = [
@@ -42,7 +43,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { data: summary } = useCareRequestSummary(canSeeClients);
   // Requests lead for the roles that work them: it is the day's worklist.
   // Clients sit straight after Caregivers, the list they mirror.
-  const base = canSeeClients ? [ITEMS[0], REQUESTS_ITEM, ITEMS[1], CLIENT_ITEM, ...ITEMS.slice(2)] : ITEMS;
+  const base = canSeeClients ? [ITEMS[0], REQUESTS_ITEM, BOOKINGS_ITEM, ITEMS[1], CLIENT_ITEM, ...ITEMS.slice(2)] : ITEMS;
   const items = user?.role === 'ADMIN' ? [...base, ...ADMIN_ITEMS] : base;
 
   return (

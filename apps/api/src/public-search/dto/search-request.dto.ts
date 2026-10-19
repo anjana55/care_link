@@ -47,9 +47,8 @@ const blankToUndefined = ({ value }: TransformFnParams) => {
  * (see the architecture: only status + mandatory skills are hard filters;
  * gender/budget/optional skills influence ranking only).
  *
- * Note that `desiredStartDate` is validated but not yet consumed - the
- * availability feature that will read it is not implemented, so today it
- * constrains the request without changing the result set.
+ * `desiredStartDate` drops caregivers who already hold a confirmed booking
+ * shift on that day (see PublicSearchService.search).
  */
 class PatientInfoDto {
   @ApiPropertyOptional()

@@ -417,3 +417,58 @@ API: `POST /care-requests` (`patientId` or `newClient`, optional `caregiverId`,
 Tests: 5 new e2e cases (existing and new callers, sign-in with WhatsApp afterwards,
 validation and no half-made clients, roles, caregiver swap/duplicate), client page
 test for the new states.
+
+## 19. Changelog — bookings, assignments and shifts
+
+Staff turn an agreed match into a **booking**, and the system drafts the actual
+shifts: **Bookings › New booking**, or **Create booking** on a request that is
+INTRODUCED/IN_PROGRESS with a caregiver.
+
+- **Pattern → draft shifts.** Presets for Day (08:00–20:00), Night (20:00–08:00,
+  ending the next day), 24-hour live-in and Custom; pick weekdays, first and last
+  day. The form previews the shifts before saving. Every time is Sri Lanka time
+  (fixed UTC+05:30) and stored as UTC. Limits: 366 days, 400 shifts per pattern, and
+  24 hours per shift.
+- **Hour-level editing.** While the booking is a draft, each shift's start and end
+  can be edited to the minute. Shifts can be added or removed, and one shift can go
+  to a **cover caregiver**. Changing the pattern of a draft regenerates the shifts.
+  Nothing is sent to anyone while the booking is DRAFT.
+- **Confirm.** Drafts become SCHEDULED, the linked request is closed as PLACED, and
+  the client (in the booking's language) and every caregiver on the booking
+  (trilingual) are told by email or WhatsApp. Notices carry the reference only.
+  Confirm is refused, and the button is disabled, while any shift overlaps a
+  caregiver's other scheduled shifts. The check locks the caregivers' rows so two
+  concurrent confirms cannot double-book.
+- **After confirming.** Extend (adds scheduled shifts from the old end, also
+  overlap-checked), mark shifts completed, missed or cancelled (completed and missed
+  only once a shift has started), swap the cover, complete the booking (future shifts
+  are cancelled), or cancel it (future shifts are cancelled, and both sides are told).
+  Notes and a full history are kept on the booking.
+- **Money.** The agreed rate only — per hour, per day/shift, or per month (pro-rated
+  over days/30) — with an estimated total. CareLink does not invoice.
+- **Clients** see their confirmed bookings and upcoming shifts at
+  `/account/bookings`, with the caregiver's name but not their contact details.
+- **Caregivers** see their scheduled shifts (from the last 7 days to the next
+  62 days) on the Shifts page of their portal, with the area but not the client's
+  name. A shift given to a cover appears for the cover, not for the original
+  caregiver.
+- **Search.** `desiredStartDate` now also leaves out caregivers who already have a
+  scheduled shift that day.
+
+API: `GET/POST /bookings`, `GET /bookings/summary`, `GET/PATCH /bookings/:id`,
+`POST /bookings/:id/{confirm,cancel,complete,extend,notes,shifts}`,
+`PATCH/DELETE /bookings/:id/shifts/:shiftId` (staff and admin);
+`GET /me/bookings` (client) and `GET /me/shifts` (caregiver). Migration
+`0007_bookings`: new tables `bookings`, `booking_shifts` and `booking_events`.
+It is additive. Removing a client also removes their bookings.
+
+Staff portal: Bookings list and detail with the roster grouped by week; dashboard
+tiles for shifts today and drafts; related bookings on request, client and
+caregiver pages. All new text is in English, Sinhala and Tamil.
+
+Tests: shift-generator and estimate unit tests (weekdays, overnight and live-in,
+month/year ends, hourly/daily/monthly totals); 7 e2e cases (request → draft →
+confirm → placed with notifications, overlap refusal including concurrent
+confirms, shift outcomes plus extend/complete/cancel, draft regeneration and
+validation, roles and portal scoping, search exclusion, removal with the client);
+client bookings and caregiver booked-shifts page tests.

@@ -6,6 +6,7 @@ import type {
   ClientCareRequest,
   CreateCareRequestBody,
   SavedCaregiverItem,
+  ClientBooking,
 } from '@care-platform/shared';
 import { api } from '../api/client';
 import { useAuth } from '../api/auth-context';
@@ -93,5 +94,17 @@ export function useToggleSaved() {
     mutationFn: ({ publicId, save }: { publicId: string; save: boolean }) =>
       save ? api.put<{ saved: boolean }>(`/me/saved-caregivers/${publicId}`, {}) : api.delete<{ saved: boolean }>(`/me/saved-caregivers/${publicId}`),
     onSuccess: () => invalidate(),
+  });
+}
+
+/** The client's confirmed bookings and their shifts (GET /me/bookings). */
+export function useMyBookings() {
+  const client = useIsClient();
+  const { locale } = useTranslation();
+  const key = useClientKey();
+  return useQuery({
+    queryKey: [...key, 'bookings', locale],
+    queryFn: () => api.get<ClientBooking[]>('/me/bookings'),
+    enabled: Boolean(client),
   });
 }
