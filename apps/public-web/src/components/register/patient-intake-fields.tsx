@@ -23,9 +23,22 @@ import {
  * types and validates them (same approach as PersonalInfoFields). */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/** The form's four parts. Sign-up can fold away the ones a search already answered. */
+export type IntakeSectionKey = 'whoNeedsCare' | 'contact' | 'location' | 'care';
+
+/** Which fields live in which part - used to unfold a part when one of its fields fails validation. */
+export const INTAKE_SECTION_FIELDS: Record<IntakeSectionKey, readonly string[]> = {
+  whoNeedsCare: ['registrantType', 'recipientName', 'recipientRelationship', 'recipientAge', 'recipientGender'],
+  contact: ['alternatePhone', 'preferredContactMethod', 'preferredContactTime'],
+  location: ['districtId', 'cityId', 'careAddress'],
+  care: ['careNeeds', 'careSchedule', 'careStart', 'preferredCaregiverGender'],
+};
+
+function Section({ title, hidden = false, children }: { title: string; hidden?: boolean; children: React.ReactNode }) {
+  // Folded parts stay mounted (just hidden) so their carried-over answers are
+  // still registered and submitted.
   return (
-    <fieldset className="space-y-4 border-t border-border pt-5">
+    <fieldset hidden={hidden} className="space-y-4 border-t border-border pt-5">
       <legend className="mb-1 pr-2 text-sm font-semibold text-ink">{title}</legend>
       {children}
     </fieldset>
@@ -45,6 +58,7 @@ export function PatientIntakeFields<T extends PatientIntakeValues>({
   locationTree,
   locationsUnavailable = false,
   allowEmailContact,
+  hiddenSections = [],
 }: {
   register: UseFormRegister<T>;
   control: Control<T>;
@@ -54,6 +68,8 @@ export function PatientIntakeFields<T extends PatientIntakeValues>({
   locationsUnavailable?: boolean;
   /** False for WhatsApp sign-ups, which have no email address to contact. */
   allowEmailContact: boolean;
+  /** Parts already answered (from the visitor's search) and shown as a summary instead. */
+  hiddenSections?: readonly IntakeSectionKey[];
 }) {
   const { t, locale } = useTranslation();
   const err = (name: string) => (errors as any)[name]?.message as string | undefined;
@@ -79,11 +95,12 @@ export function PatientIntakeFields<T extends PatientIntakeValues>({
       </option>
     ));
   const choose = <option value="">{t('personalInfo.options.select')}</option>;
+  const isHidden = (key: IntakeSectionKey) => hiddenSections.includes(key);
   const contactMethods = allowEmailContact ? CONTACT_METHODS : CONTACT_METHODS.filter((m) => m !== 'EMAIL');
 
   return (
     <div className="space-y-5">
-      <Section title={t('patientIntake.sections.whoNeedsCare')}>
+      <Section title={t('patientIntake.sections.whoNeedsCare')} hidden={isHidden('whoNeedsCare')}>
         <div role="radiogroup" aria-label={t('patientIntake.sections.whoNeedsCare')} className="grid gap-2 sm:grid-cols-2">
           {REGISTRANT_TYPES.map((type) => (
             <label key={type} className="flex cursor-pointer items-start gap-2 rounded border border-border p-3 text-sm text-ink has-[:checked]:border-brand has-[:checked]:bg-brand-light/40">
@@ -129,7 +146,7 @@ export function PatientIntakeFields<T extends PatientIntakeValues>({
         </div>
       </Section>
 
-      <Section title={t('patientIntake.sections.contact')}>
+      <Section title={t('patientIntake.sections.contact')} hidden={isHidden('contact')}>
         <div>
           <Label htmlFor="alternatePhone">{t('patientIntake.fields.alternatePhone')}</Label>
           <Input id="alternatePhone" type="tel" inputMode="tel" {...register('alternatePhone' as any)} />
@@ -154,7 +171,7 @@ export function PatientIntakeFields<T extends PatientIntakeValues>({
         </div>
       </Section>
 
-      <Section title={t('patientIntake.sections.location')}>
+      <Section title={t('patientIntake.sections.location')} hidden={isHidden('location')}>
         {locationsUnavailable && (
           <p role="alert" className="rounded border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
             {t('common.locationsUnavailable')}
@@ -211,7 +228,7 @@ export function PatientIntakeFields<T extends PatientIntakeValues>({
         </div>
       </Section>
 
-      <Section title={t('patientIntake.sections.care')}>
+      <Section title={t('patientIntake.sections.care')} hidden={isHidden('care')}>
         <div>
           <Label htmlFor="careNeeds" required>{t('patientIntake.fields.careNeeds')}</Label>
           <Textarea id="careNeeds" rows={3} placeholder={t('patientIntake.careNeedsPlaceholder')} {...register('careNeeds' as any)} />

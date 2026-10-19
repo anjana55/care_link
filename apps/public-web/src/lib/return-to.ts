@@ -8,6 +8,8 @@
  * stale one can't hijack a sign-in days later, and only same-site paths are
  * ever accepted, so it can't be turned into an open redirect.
  */
+import { peekPendingContact } from './care-intent';
+
 const KEY = 'care-platform-return-to';
 const MAX_AGE_MS = 60 * 60 * 1000;
 
@@ -22,16 +24,25 @@ export function rememberReturnTo(path: string) {
   }
 }
 
-/** Returns and forgets the remembered path, or `fallback`. */
+/**
+ * Returns and forgets the remembered path, or `fallback`.
+ *
+ * When nothing (or something stale) is remembered but the visitor set out to
+ * contact a caregiver in the last day, that caregiver's profile wins over the
+ * fallback: an email sign-up can be verified hours later, and they should
+ * still land where the request dialog will open for them.
+ */
 export function takeReturnTo(fallback: string): string {
+  const pending = peekPendingContact();
+  const otherwise = pending ? `/caregivers/${pending}` : fallback;
   try {
     const raw = window.localStorage.getItem(KEY);
     window.localStorage.removeItem(KEY);
-    if (!raw) return fallback;
+    if (!raw) return otherwise;
     const { path, at } = JSON.parse(raw) as { path?: unknown; at?: unknown };
-    if (typeof path !== 'string' || typeof at !== 'number' || Date.now() - at > MAX_AGE_MS || !isSafePath(path)) return fallback;
+    if (typeof path !== 'string' || typeof at !== 'number' || Date.now() - at > MAX_AGE_MS || !isSafePath(path)) return otherwise;
     return path;
   } catch {
-    return fallback;
+    return otherwise;
   }
 }

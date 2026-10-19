@@ -3,6 +3,7 @@ import './globals.css';
 import { I18nProvider } from '@/lib/i18n';
 import { QueryProvider } from '@/lib/query-provider';
 import { AuthProvider } from '@/lib/api/auth-context';
+import { DeviceShortlistSync } from '@/components/care/device-shortlist-sync';
 
 export const metadata: Metadata = {
   // The landing page ("/") and /find both declare their own titles; this is the
@@ -29,7 +30,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-paper text-ink antialiased">
         <QueryProvider>
           <I18nProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              <DeviceShortlistSync />
+              {children}
+            </AuthProvider>
           </I18nProvider>
         </QueryProvider>
       </body>
