@@ -1,0 +1,1 @@
+ALTER TABLE `ai_settings` MODIFY COLUMN `temperature` decimal(3,2) DEFAULT '0.20';

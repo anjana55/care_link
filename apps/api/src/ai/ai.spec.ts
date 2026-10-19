@@ -1,6 +1,8 @@
 import { buildRequest, parseJsonObject, parseResponse, type ChatMessage } from './ai-protocol';
 import { normalizeExtraction, summarize, type Catalog } from './requirements';
 import { applyRanking } from './rerank';
+import { AiProviderService, AiUnavailableError, quirkFromError } from './ai-provider.service';
+import type { ResolvedAiSettings } from './ai-settings.service';
 
 const transcript: ChatMessage[] = [
   { role: 'system', content: 'sys' },
@@ -140,5 +142,65 @@ describe('AI re-ranking', () => {
 
   it('falls back to the original order on an unusable reply', () => {
     expect(applyRanking({ nope: 1 }, handles, ['a', 'b', 'c'])).toEqual({ order: ['a', 'b', 'c'], reasons: new Map(), used: false });
+  });
+});
+
+describe('AI provider: parameters a model refuses', () => {
+  const ANTHROPIC_400 = '{"type":"error","error":{"type":"invalid_request_error","message":"`temperature` is deprecated for this model."}}';
+  const OPENAI_400 = '{"error":{"message":"Unsupported parameter: \'max_tokens\' is not supported with this model. Use \'max_completion_tokens\' instead."}}';
+
+  it('recognises the errors it can work around, and nothing else', () => {
+    expect(quirkFromError(400, ANTHROPIC_400, {})).toEqual({ noTemperature: true });
+    expect(quirkFromError(400, OPENAI_400, {})).toEqual({ maxCompletionTokens: true });
+    expect(quirkFromError(400, ANTHROPIC_400, { noTemperature: true })).toBeNull();
+    expect(quirkFromError(401, ANTHROPIC_400, {})).toBeNull();
+    expect(quirkFromError(400, '{"error":"model not found"}', {})).toBeNull();
+  });
+
+  it('leaves temperature out when it is null, for every provider', () => {
+    const base = { messages: [{ role: 'user' as const, content: 'hi' }], temperature: null, maxTokens: 10 };
+    expect(buildRequest({ provider: 'ANTHROPIC', baseUrl: 'https://a', model: 'm', apiKey: 'k' }, base).body).not.toHaveProperty('temperature');
+    expect(buildRequest({ provider: 'OPENAI_COMPATIBLE', baseUrl: 'https://a', model: 'm', apiKey: 'k' }, base).body).not.toHaveProperty('temperature');
+    expect((buildRequest({ provider: 'OLLAMA', baseUrl: 'https://a', model: 'm', apiKey: null }, base).body.options as object)).not.toHaveProperty('temperature');
+    const renamed = buildRequest({ provider: 'OPENAI_COMPATIBLE', baseUrl: 'https://a', model: 'm', apiKey: 'k' }, { ...base, tokenField: 'max_completion_tokens' }).body;
+    expect(renamed).toMatchObject({ max_completion_tokens: 10 });
+    expect(renamed).not.toHaveProperty('max_tokens');
+  });
+
+  describe('retrying', () => {
+    const settings = {
+      provider: 'ANTHROPIC', baseUrl: 'https://api.anthropic.com', model: 'claude-x', apiKey: 'k', temperature: 0.2, maxTokens: 100, timeoutMs: 5000,
+    } as ResolvedAiSettings;
+    const ok = { content: [{ type: 'text', text: 'OK' }] };
+    let bodies: Record<string, unknown>[];
+    const respond = (replies: { status: number; body: string }[]) => {
+      bodies = [];
+      global.fetch = jest.fn(async (_url: unknown, init?: { body?: unknown }) => {
+        bodies.push(JSON.parse(String(init?.body)));
+        const r = replies.shift() ?? { status: 200, body: JSON.stringify(ok) };
+        return { status: r.status, text: async () => r.body } as Response;
+      }) as typeof fetch;
+    };
+    const realFetch = global.fetch;
+    afterAll(() => (global.fetch = realFetch));
+
+    it('drops temperature after the model refuses it, and remembers that for the model', async () => {
+      const provider = new AiProviderService();
+      respond([{ status: 400, body: ANTHROPIC_400 }]);
+      await expect(provider.chat(settings, { messages: [{ role: 'user', content: 'hi' }] })).resolves.toEqual({ content: 'OK', toolCalls: [] });
+      expect(bodies.map((b) => 'temperature' in b)).toEqual([true, false]);
+
+      respond([]);
+      await provider.chat(settings, { messages: [{ role: 'user', content: 'again' }] });
+      expect(bodies).toHaveLength(1);
+      expect(bodies[0]).not.toHaveProperty('temperature');
+    });
+
+    it('still reports errors it cannot work around', async () => {
+      const provider = new AiProviderService();
+      respond([{ status: 400, body: '{"error":"bad model"}' }]);
+      await expect(provider.chat(settings, { messages: [{ role: 'user', content: 'hi' }] })).rejects.toBeInstanceOf(AiUnavailableError);
+      expect(bodies).toHaveLength(1);
+    });
   });
 });

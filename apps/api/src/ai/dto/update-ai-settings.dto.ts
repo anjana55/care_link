@@ -28,8 +28,8 @@ export class UpdateAiSettingsDto implements UpdateAiSettingsInput {
 
   @ApiPropertyOptional() @IsOptional() @IsBoolean() clearApiKey?: boolean;
 
-  @ApiPropertyOptional({ minimum: 0, maximum: 1 })
-  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(1) temperature?: number;
+  @ApiPropertyOptional({ minimum: 0, maximum: 1, nullable: true, description: 'null = use the model\'s own default (not sent)' })
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(1) temperature?: number | null;
 
   @ApiPropertyOptional({ minimum: 256, maximum: 8192 })
   @IsOptional() @IsInt() @Min(256) @Max(8192) maxTokens?: number;

@@ -87,7 +87,7 @@ export class AiMatchingService {
     const today = todayInColombo();
     const reply = await this.provider.chat(settings, {
       json: true,
-      temperature: Math.min(settings.temperature, 0.3),
+      temperature: settings.temperature === null ? null : Math.min(settings.temperature, 0.3),
       messages: [
         { role: 'system', content: extractionPrompt(catalog, today, settings.searchPrompt) },
         { role: 'user', content: text.slice(0, 2000) },

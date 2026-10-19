@@ -29,8 +29,11 @@ export interface ChatRequest {
   tools?: ToolSpec[];
   /** Ask for a single JSON object back. Providers without a JSON mode get it via the prompt. */
   json?: boolean;
-  temperature: number;
+  /** Null: leave it out and let the model use its default. */
+  temperature: number | null;
   maxTokens: number;
+  /** OpenAI's newer models want `max_completion_tokens` instead of `max_tokens`. */
+  tokenField?: 'max_tokens' | 'max_completion_tokens';
 }
 
 export interface ChatResult {
@@ -111,7 +114,7 @@ function buildOllama(cfg: ProviderConfig, req: ChatRequest): HttpCall {
       stream: false,
       ...(req.tools?.length ? { tools: req.tools.map(toOpenAiTool) } : {}),
       ...(req.json ? { format: 'json' } : {}),
-      options: { temperature: req.temperature, num_predict: req.maxTokens },
+      options: { ...(req.temperature !== null ? { temperature: req.temperature } : {}), num_predict: req.maxTokens },
     },
   };
 }
@@ -142,8 +145,8 @@ function buildOpenAi(cfg: ProviderConfig, req: ChatRequest): HttpCall {
     body: {
       model: cfg.model,
       messages,
-      temperature: req.temperature,
-      max_tokens: req.maxTokens,
+      ...(req.temperature !== null ? { temperature: req.temperature } : {}),
+      [req.tokenField ?? 'max_tokens']: req.maxTokens,
       ...(req.tools?.length ? { tools: req.tools.map(toOpenAiTool) } : {}),
       ...(req.json ? { response_format: { type: 'json_object' } } : {}),
     },
@@ -185,7 +188,7 @@ function buildAnthropic(cfg: ProviderConfig, req: ChatRequest): HttpCall {
     body: {
       model: cfg.model,
       max_tokens: req.maxTokens,
-      temperature: req.temperature,
+      ...(req.temperature !== null ? { temperature: req.temperature } : {}),
       ...(system.length ? { system: system.join('\n\n') } : {}),
       messages,
       ...(req.tools?.length ? { tools: req.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })) } : {}),

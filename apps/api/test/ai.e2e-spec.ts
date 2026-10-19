@@ -46,7 +46,8 @@ describe('AI features (e2e)', () => {
   const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
   const run = Math.floor(Date.now() / 1000) % 10_000;
   let n = 0;
-  const newPhone = () => `074${String(run * 1000 + ++n).padStart(7, '0')}`;
+  // 077 is a mobile prefix every validator accepts; 7 digits always, whatever the clock says.
+  const newPhone = () => `077${String((run * 1000 + ++n) % 10_000_000).padStart(7, '0')}`;
 
   function reply(message: Record<string, unknown>) {
     return { id: 'x', object: 'chat.completion', choices: [{ index: 0, message: { role: 'assistant', content: null, ...message }, finish_reason: 'stop' }] };
@@ -177,6 +178,14 @@ describe('AI features (e2e)', () => {
 
     const test = await api().post('/settings/ai/test').set(bearer(adminToken)).expect(200);
     expect(test.body).toMatchObject({ ok: true, provider: 'OPENAI_COMPATIBLE' });
+
+    // Blank temperature means "not sent".
+    const blank = await api().patch('/settings/ai').set(bearer(adminToken)).send({ temperature: null }).expect(200);
+    expect(blank.body.temperature).toBeNull();
+    const before = seen.length;
+    await api().post('/settings/ai/test').set(bearer(adminToken)).expect(200);
+    expect(seen.slice(before).every((r) => !('temperature' in r))).toBe(true);
+    await api().patch('/settings/ai').set(bearer(adminToken)).send({ temperature: 0.2 }).expect(200);
 
     expect((await api().get('/public/meta/search-config').expect(200)).body).toEqual({ aiSearchEnabled: true });
     expect((await api().get('/ai/status').set(bearer(staffToken)).expect(200)).body).toEqual({ matching: true, assistant: true });
