@@ -6,7 +6,8 @@
  * Several blocks let one email carry the same notice in English, Sinhala and
  * Tamil, for recipients whose language the platform does not know.
  */
-const BRAND = '#2F6B5E';
+import { DEFAULT_EMAIL_BRAND, escapeHtml, type EmailBrand } from './brand';
+
 const INK = '#1F2A24';
 const PAPER = '#FBF9F4';
 const BORDER = '#E4DFD3';
@@ -24,13 +25,13 @@ export interface NotificationEmailParams {
   blocks: NotificationBlock[];
   cta?: { label: string; url: string };
   footer?: string;
+  brand?: EmailBrand;
 }
 
-const escapeHtml = (value: string) =>
-  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-
 export function notificationEmail(params: NotificationEmailParams) {
-  const { subject, blocks, cta, footer } = params;
+  const { subject, blocks, cta, footer, brand = DEFAULT_EMAIL_BRAND } = params;
+  const BRAND = brand.color;
+  const NAME_HTML = escapeHtml(brand.name);
   const htmlLang = blocks.length === 1 ? blocks[0].lang : 'en';
 
   const blockHtml = blocks
@@ -65,7 +66,7 @@ export function notificationEmail(params: NotificationEmailParams) {
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid ${BORDER};border-radius:10px;overflow:hidden;">
         <tr><td style="background:${BRAND};padding:20px 28px;">
-          <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.01em;">CareLink</span>
+          <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-0.01em;">${NAME_HTML}</span>
         </td></tr>${blockHtml}${ctaHtml}${footerHtml}
       </table>
     </td></tr>

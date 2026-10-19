@@ -265,7 +265,7 @@ export class CareRequestNotifier {
         {
           subject: msg.subject,
           blocks: msg.blocks.map((b) => ({ lang: b.lang, heading: b.heading, paragraphs: [b.body] })),
-          cta: { label: 'CareLink', url: this.publicUrl('/caregiver/dashboard') },
+          cta: { label: '{brand}', url: this.publicUrl('/caregiver/dashboard') },
         },
         `caregiver update ${ctx.reference}`,
       );

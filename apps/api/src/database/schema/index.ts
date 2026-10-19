@@ -17,3 +17,4 @@ export * from './email.schema';
 export * from './care-requests.schema';
 export * from './bookings.schema';
 export * from './billing.schema';
+export * from './branding.schema';
