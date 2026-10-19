@@ -14,8 +14,12 @@ import type { CareRequestLanguage } from '../database/schema';
  *   every whole calendar month counts as 1, a part-month as days/30. Billed
  *   only if at least one wanted shift falls in that part. On a payout, cover
  *   shifts on a monthly booking are paid per shift at the monthly rate / 30.
- * - No rate on the booking: the lines still come, priced at zero, and are
- *   counted in `unpriced` so the editor can say so.
+ * - A shift with its own rate (set on the booking's roster) is priced at that
+ *   rate instead of the booking's: HOURLY by its hours, DAILY as one shift.
+ *   Shifts folded into a monthly line are priced by the month, so any rate of
+ *   their own is not used there.
+ * - No rate on the booking or the shift: the lines still come, priced at zero,
+ *   and are counted in `unpriced` so the editor can say so.
  * - Anything already on another live invoice (or statement) is left out and
  *   counted in `skipped`: a shift by its id, a monthly line by its dates.
  */
@@ -37,6 +41,12 @@ export interface LineShift {
   startsAt: Date;
   endsAt: Date;
   status: ShiftStatus;
+  /**
+   * The shift's own rate for this side (the client's on an invoice, the pay
+   * rate on a payout), when it has one. Null or absent = the booking's rate.
+   */
+  rateType?: 'HOURLY' | 'DAILY' | null;
+  rateAmount?: string | null;
 }
 
 export interface BilledPeriod {
@@ -78,7 +88,7 @@ export interface BuildResult {
   lines: BuiltLine[];
   /** Shifts or monthly periods left out because they are already billed. */
   skipped: number;
-  /** Lines priced at zero because the booking has no rate. */
+  /** Lines priced at zero because neither the booking nor the shift has a rate. */
   unpriced: number;
 }
 
@@ -161,10 +171,16 @@ export function buildLines(input: BuildInput): BuildResult {
     }
     const start = toColombo(s.startsAt).time;
     const end = toColombo(s.endsAt).time;
+    const own = s.rateType && s.rateAmount ? { type: s.rateType, amount: s.rateAmount } : null;
     let quantity = '1.00';
     let unit: BillingUnit = 'DAY';
-    let unitPrice = rate ?? '0.00';
-    if (b.rateType === 'HOURLY' || !b.rateType) {
+    let unitPrice = own?.amount ?? rate ?? '0.00';
+    if (own) {
+      if (own.type === 'HOURLY') {
+        quantity = shiftHours(s.startsAt, s.endsAt).toFixed(2);
+        unit = 'HOUR';
+      }
+    } else if (b.rateType === 'HOURLY' || !b.rateType) {
       quantity = shiftHours(s.startsAt, s.endsAt).toFixed(2);
       unit = 'HOUR';
     } else if (isMonthly) {
@@ -184,7 +200,7 @@ export function buildLines(input: BuildInput): BuildResult {
       periodStart: null,
       periodEnd: null,
     });
-    if (!rate) unpriced++;
+    if (!own && !rate) unpriced++;
   }
   return { lines, skipped, unpriced };
 }

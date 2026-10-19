@@ -1207,7 +1207,19 @@
       "payRate": "Caregiver is paid",
       "estimateCharge": "Estimated charge",
       "estimatePay": "Estimated pay",
-      "estimateMargin": "Estimated margin"
+      "estimateMargin": "Estimated margin",
+      "editBooking": "Edit booking",
+      "editRates": "Shift rates",
+      "ownRateCharged": "Charged {rate}",
+      "ownRatePaid": "Paid {rate}",
+      "onInvoice": "On invoice {number}",
+      "onInvoiceDraft": "On a draft invoice",
+      "onPayout": "On pay statement {reference}",
+      "ownRateShifts": "{count} shifts are charged at their own rate",
+      "ownPayShifts": "{count} shifts are paid at their own rate",
+      "unpricedShifts": "{count} shifts have no rate and count as zero",
+      "monthlyClears": "Charging by the month clears the own client rate on {count} shifts.",
+      "monthlyPayClears": "Paying by the month clears the booked caregiver's own pay rate on {count} shifts."
     },
     "event": {
       "CREATED": "Booking created",
@@ -1219,7 +1231,48 @@
       "SHIFT_REMOVED": "Draft shift removed",
       "NOTE": "Note",
       "COMPLETED": "Booking completed",
-      "CANCELLED": "Booking cancelled"
+      "CANCELLED": "Booking cancelled",
+      "UPDATED": "Booking updated",
+      "RESCHEDULED": "Booking rescheduled"
+    },
+    "shiftRateUnit": {
+      "HOURLY": "per hour",
+      "DAILY": "per shift"
+    },
+    "shiftRate": {
+      "title": "Rates for this shift",
+      "useBooking": "Booking rate ({rate})",
+      "useBookingNone": "Booking rate (none recorded)",
+      "HOURLY": "Own rate per hour",
+      "DAILY": "Own rate per shift",
+      "amount": "Amount (LKR)",
+      "clientLocked": "This booking is charged by the month, so one shift can't have its own client rate - adjust the invoice instead.",
+      "payLocked": "The booked caregiver is paid by the month - only a cover can be paid a rate for a single shift.",
+      "billedHint": "Already on {docs}. A new rate won't change it - revise it there if needed.",
+      "different": "Different rate for this shift",
+      "invalid": "Enter amounts as numbers, e.g. 3500.00"
+    },
+    "edit": {
+      "title": "Edit booking",
+      "subtitleDraft": "Changes rebuild the draft roster. Shifts that still fit the new pattern keep their edits, covers and own rates.",
+      "subtitleConfirmed": "Pattern and caregiver changes apply from the day you choose. Earlier shifts, and shifts that have already started, stay as they are.",
+      "effectiveFrom": "Change starts on",
+      "effectiveHint": "Today at the earliest. To change a past shift, edit it in the roster.",
+      "caregiver": "Booked caregiver",
+      "change": "Change",
+      "keepCaregiver": "Keep {name}",
+      "caregiverHint": "Their shifts move to the new caregiver; shifts given to a cover stay with the cover.",
+      "firstDayFixed": "The first day ({date}) can't move once confirmed.",
+      "previewDraft": "{kept} shifts kept · {removed} removed · {added} added",
+      "previewConfirmed": "From {date}: {kept} shifts kept · {cancelled} cancelled · {added} added",
+      "previewMoved": "{count} shifts will be with {name}",
+      "noRosterChange": "The shifts don't change.",
+      "billedBlock": "Some shifts this would cancel or move are already on {docs}. Void or revise them first, or start the change on a later day.",
+      "willNotify": "The client and the caregivers whose shifts change will be told.",
+      "save": "Save changes",
+      "saveNotify": "Save and notify",
+      "nothing": "Nothing has changed yet.",
+      "draftInvoice": "a draft invoice"
     }
   },
   "filters": {

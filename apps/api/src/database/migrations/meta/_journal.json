@@ -64,6 +64,13 @@
       "when": 1792382120749,
       "tag": "0008_invoicing",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1792385633151,
+      "tag": "0009_shift_rates_and_booking_edits",
+      "breakpoints": true
     }
   ]
 }

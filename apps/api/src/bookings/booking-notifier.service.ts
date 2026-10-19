@@ -13,8 +13,8 @@ import { CLIENT_CTA, CLIENT_FOOTER } from '../care-requests/notification-message
 import { bookingCaregiverNotice, bookingClientNotice } from './booking-messages';
 
 /**
- * Tells the client and the caregiver(s) when a booking is confirmed or
- * cancelled - the booked caregiver and anyone covering one of its shifts.
+ * Tells the client and the caregiver(s) when a booking is confirmed,
+ * cancelled or changed - the booked caregiver and anyone covering one of its shifts.
  * Same channels and rules as the request notices (CareRequestNotifier): never
  * throws, never delays the staff action, carries only the reference and date.
  */
@@ -38,11 +38,20 @@ export class BookingNotifier {
     return this.send(id, 'CANCELLED');
   }
 
+  /**
+   * A confirmed booking's schedule or caregiver changed from `from` on. The
+   * client is told, and only the caregivers whose shifts changed - the old and
+   * new booked caregiver, and anyone who lost or gained a shift.
+   */
+  bookingChanged(id: string, from: string, caregiverIds: string[]) {
+    return this.send(id, 'CHANGED', { date: from, caregiverIds });
+  }
+
   private publicUrl(path: string) {
     return `${(this.config.get<string>('PUBLIC_WEB_URL') ?? 'http://localhost:3002').replace(/\/+$/, '')}${path}`;
   }
 
-  private async send(id: string, notice: 'CONFIRMED' | 'CANCELLED') {
+  private async send(id: string, notice: 'CONFIRMED' | 'CANCELLED' | 'CHANGED', only?: { date: string; caregiverIds: string[] }) {
     try {
       const [b] = await this.db
         .select({
@@ -67,13 +76,13 @@ export class BookingNotifier {
         .where(and(eq(bookingShifts.bookingId, id), ne(bookingShifts.status, 'CANCELLED')))
         .orderBy(asc(bookingShifts.startsAt))
         .limit(1);
-      const date = first ? toColombo(first.startsAt).date : b.startDate;
+      const date = only?.date ?? (first ? toColombo(first.startsAt).date : b.startDate);
       const vars = { ref: b.reference, date };
 
       const coverIds = (
         await this.db.selectDistinct({ caregiverId: bookingShifts.caregiverId }).from(bookingShifts).where(eq(bookingShifts.bookingId, id))
       ).map((r) => r.caregiverId);
-      const caregiverIds = [...new Set([b.caregiverId, ...coverIds])];
+      const caregiverIds = [...new Set(only ? only.caregiverIds : [b.caregiverId, ...coverIds])];
       const cgs = await this.db
         .select({ id: caregivers.id, userId: caregivers.userId, phone: caregivers.primaryPhone })
         .from(caregivers)

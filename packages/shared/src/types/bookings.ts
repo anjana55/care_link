@@ -119,6 +119,67 @@ export function generateShifts(p: ShiftPattern): { startsAt: Date; endsAt: Date 
 export const shiftHours = (startsAt: Date | string, endsAt: Date | string) =>
   Math.round(((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 3_600_000) * 100) / 100;
 
+// --- editing a booking's roster ----------------------------------------------
+
+/**
+ * What editing a booking does to its roster. Pure - no database - so the rule
+ * can be read, and tested, in one place.
+ *
+ * Given the shifts the edit may touch (`existing`), the shifts the new pattern
+ * describes (`generated`, or null when the pattern is not changing) and the
+ * booked caregiver before and after:
+ *
+ * - An existing shift whose start and end match a generated one exactly is
+ *   KEPT - with its note, its own rates and its cover caregiver - so editing a
+ *   booking never throws away work done on shifts that still fit.
+ * - Every other existing shift is DROPPED (a draft is deleted, a scheduled
+ *   shift is cancelled by the caller).
+ * - Every generated shift with no match is ADDED, for the booked caregiver.
+ * - With no new pattern, everything is kept and nothing is added.
+ * - When the booked caregiver changes, kept shifts that were theirs move to
+ *   the new one; shifts given to a cover stay with the cover.
+ */
+export interface PlannableShift {
+  id: string;
+  caregiverId: string;
+  startsAt: Date;
+  endsAt: Date;
+}
+
+export interface RosterPlan<T extends PlannableShift> {
+  keep: { shift: T; caregiverId: string }[];
+  drop: T[];
+  add: { startsAt: Date; endsAt: Date; caregiverId: string }[];
+}
+
+const key = (s: { startsAt: Date; endsAt: Date }) => `${new Date(s.startsAt).getTime()}|${new Date(s.endsAt).getTime()}`;
+
+export function planRoster<T extends PlannableShift>(
+  existing: T[],
+  generated: { startsAt: Date; endsAt: Date }[] | null,
+  bookedCaregiverId: string,
+  newBookedCaregiverId: string = bookedCaregiverId,
+): RosterPlan<T> {
+  const reassign = (s: T) => (s.caregiverId === bookedCaregiverId ? newBookedCaregiverId : s.caregiverId);
+  if (!generated) return { keep: existing.map((shift) => ({ shift, caregiverId: reassign(shift) })), drop: [], add: [] };
+
+  // Existing shifts by their exact times; two shifts on one slot (a cover and
+  // the booked caregiver) each match one generated slot at most.
+  const pool = new Map<string, T[]>();
+  for (const s of [...existing].sort((a, b) => Number(a.caregiverId !== bookedCaregiverId) - Number(b.caregiverId !== bookedCaregiverId))) {
+    pool.set(key(s), [...(pool.get(key(s)) ?? []), s]);
+  }
+  const keep: RosterPlan<T>['keep'] = [];
+  const add: RosterPlan<T>['add'] = [];
+  for (const g of generated) {
+    const match = pool.get(key(g))?.shift();
+    if (match) keep.push({ shift: match, caregiverId: reassign(match) });
+    else add.push({ startsAt: g.startsAt, endsAt: g.endsAt, caregiverId: newBookedCaregiverId });
+  }
+  const kept = new Set(keep.map((k) => k.shift.id));
+  return { keep, drop: existing.filter((s) => !kept.has(s.id)), add };
+}
+
 // --- client and caregiver views ---------------------------------------------
 
 /** A shift as the client or caregiver sees it - confirmed shifts only, never drafts. */
