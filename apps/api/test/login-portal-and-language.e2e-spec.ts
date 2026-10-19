@@ -41,6 +41,11 @@ describe('Portal-bound sign-in and message language (e2e)', () => {
   let app: INestApplication;
   let db: Database;
   const api = () => request(app.getHttpServer());
+  // Apps built for a single describe block are closed only at the very end.
+  // Passport keeps one global strategy registry, so the last app built owns the
+  // 'jwt' strategy for every app in this process; closing it early would end the
+  // database pool that every app's token checks now go through.
+  const extraApps: INestApplication[] = [];
   const run = Math.floor(Date.now() / 1000) % 100_000;
   const emailOf = (role: string) => `portal-${role.toLowerCase()}-${run}@example.com`;
 
@@ -81,6 +86,7 @@ describe('Portal-bound sign-in and message language (e2e)', () => {
   afterAll(async () => {
     await db.delete(users).where(eq(users.email, accounts.PATIENT_GUARDIAN.email));
     await db.delete(users).where(eq(users.email, `portal-unverified-${run}@example.com`));
+    for (const extra of extraApps) await extra.close();
     await app.close();
   });
 
@@ -175,10 +181,10 @@ describe('Portal-bound sign-in and message language (e2e)', () => {
     beforeAll(async () => {
       process.env.AUTH_REQUIRE_LOGIN_PORTAL = 'true';
       strict = await buildApp();
+      extraApps.push(strict);
     });
-    afterAll(async () => {
+    afterAll(() => {
       delete process.env.AUTH_REQUIRE_LOGIN_PORTAL;
-      await strict.close();
     });
 
     it('refuses a sign-in that does not name its portal, before looking at the password', async () => {

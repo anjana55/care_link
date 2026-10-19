@@ -2,9 +2,9 @@ import { requireDatabaseUrl } from './load-env';
 import * as bcrypt from 'bcrypt';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { eq } from 'drizzle-orm';
-import * as mysql from 'mysql2/promise';
 import { randomUUID as uuid } from 'crypto';
 import * as schema from './schema';
+import { connectUtc } from './utc-session';
 import { seedReferenceData } from './seed-reference-data';
 
 /**
@@ -24,7 +24,7 @@ import { seedReferenceData } from './seed-reference-data';
  * both for you.
  */
 async function main() {
-  const connection = await mysql.createConnection(requireDatabaseUrl());
+  const connection = await connectUtc(requireDatabaseUrl());
   const db = drizzle(connection, { schema, mode: 'default' });
 
   await seedReferenceData(db);
