@@ -23,7 +23,8 @@ export interface AdminAiSettings {
   model: string;
   apiKeySet: boolean;
   apiKeyHint: string | null;
-  temperature: number;
+  /** Null = don't send one; the model uses its own default (some models refuse the setting). */
+  temperature: number | null;
   maxTokens: number;
   timeoutMs: number;
   /** How many hard-filtered candidates the model may re-rank, at most. */
@@ -48,7 +49,7 @@ export interface UpdateAiSettingsInput {
   model?: string;
   apiKey?: string;
   clearApiKey?: boolean;
-  temperature?: number;
+  temperature?: number | null;
   maxTokens?: number;
   timeoutMs?: number;
   candidatePoolSize?: number;

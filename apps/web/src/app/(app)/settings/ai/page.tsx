@@ -18,7 +18,8 @@ type Draft = {
   model: string;
   apiKey: string;
   clearApiKey: boolean;
-  temperature: number;
+  /** '' = don't send one (the model's default). */
+  temperature: string;
   maxTokens: number;
   timeoutSeconds: number;
   candidatePoolSize: number;
@@ -44,7 +45,7 @@ function toDraft(s: AdminAiSettings): Draft {
     model: s.model,
     apiKey: '',
     clearApiKey: false,
-    temperature: s.temperature,
+    temperature: s.temperature === null ? '' : String(s.temperature),
     maxTokens: s.maxTokens,
     timeoutSeconds: Math.round(s.timeoutMs / 1000),
     candidatePoolSize: s.candidatePoolSize,
@@ -88,10 +89,11 @@ export default function AiSettingsPage() {
 
   const save = useMutation({
     mutationFn: (d: Draft) => {
-      const { apiKey, clearApiKey, timeoutSeconds, searchPrompt, assistantPrompt, ...rest } = d;
+      const { apiKey, clearApiKey, timeoutSeconds, searchPrompt, assistantPrompt, temperature, ...rest } = d;
       return api.patch<AdminAiSettings>('/settings/ai', {
         ...rest,
         timeoutMs: timeoutSeconds * 1000,
+        temperature: temperature.trim() === '' ? null : Number(temperature),
         searchPrompt: searchPrompt.trim() || null,
         assistantPrompt: assistantPrompt.trim() || null,
         // Write-only: sent only when typed, or when removing it.
@@ -211,7 +213,7 @@ export default function AiSettingsPage() {
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="temperature">{t('aiAdmin.temperature')}</Label>
-              <Input id="temperature" type="number" min={0} max={1} step={0.05} value={draft.temperature} onChange={(e) => set('temperature', Number(e.target.value))} />
+              <Input id="temperature" type="number" min={0} max={1} step={0.05} placeholder={t('aiAdmin.temperatureDefault')} value={draft.temperature} onChange={(e) => set('temperature', e.target.value)} />
               <p className="mt-1 text-xs text-ink/50">{t('aiAdmin.temperatureHint')}</p>
             </div>
             <div>

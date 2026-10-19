@@ -19,7 +19,9 @@ export const aiSettings = mysqlTable('ai_settings', {
   baseUrl: varchar('base_url', { length: 255 }).notNull().default('http://localhost:11434'),
   model: varchar('model', { length: 120 }).notNull().default('qwen2.5:7b-instruct'),
   apiKeyEncrypted: text('api_key_encrypted'),
-  temperature: decimal('temperature', { precision: 3, scale: 2 }).notNull().default('0.20'),
+  // Null = not sent, the model's own default. Some models (newer Anthropic and
+  // OpenAI reasoning models) refuse the parameter outright.
+  temperature: decimal('temperature', { precision: 3, scale: 2 }).default('0.20'),
   maxTokens: int('max_tokens').notNull().default(1024),
   timeoutMs: int('timeout_ms').notNull().default(30000),
   candidatePoolSize: int('candidate_pool_size').notNull().default(20),

@@ -18,7 +18,7 @@ export interface ResolvedAiSettings {
   baseUrl: string;
   model: string;
   apiKey: string | null;
-  temperature: number;
+  temperature: number | null;
   maxTokens: number;
   timeoutMs: number;
   candidatePoolSize: number;
@@ -71,7 +71,7 @@ export class AiSettingsService {
       baseUrl: row.baseUrl,
       model: row.model,
       apiKey: decryptSecret(row.apiKeyEncrypted, this.encryptionKey),
-      temperature: Number(row.temperature),
+      temperature: row.temperature === null ? null : Number(row.temperature),
       maxTokens: row.maxTokens,
       timeoutMs: row.timeoutMs,
       candidatePoolSize: row.candidatePoolSize,
@@ -131,7 +131,7 @@ export class AiSettingsService {
     if (changes.provider !== undefined) patch.provider = changes.provider;
     if (changes.baseUrl !== undefined) patch.baseUrl = changes.baseUrl.trim().replace(/\/+$/, '');
     if (changes.model !== undefined) patch.model = changes.model.trim();
-    if (changes.temperature !== undefined) patch.temperature = changes.temperature.toFixed(2);
+    if (dto.temperature !== undefined) patch.temperature = dto.temperature === null ? null : dto.temperature.toFixed(2);
     if (changes.maxTokens !== undefined) patch.maxTokens = changes.maxTokens;
     if (changes.timeoutMs !== undefined) patch.timeoutMs = changes.timeoutMs;
     if (changes.candidatePoolSize !== undefined) patch.candidatePoolSize = changes.candidatePoolSize;

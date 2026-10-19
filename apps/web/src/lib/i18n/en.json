@@ -1773,7 +1773,7 @@
     "apiKeyRemove": "Remove the saved key",
     "tuningTitle": "Tuning",
     "temperature": "Temperature",
-    "temperatureHint": "Lower is more consistent. 0.1-0.3 suits search and operations.",
+    "temperatureHint": "Lower is more consistent; 0.1-0.3 suits search and operations. Leave blank to use the model's default - some newer models (e.g. recent Claude and OpenAI reasoning models) don't accept a temperature, and it is then left out automatically.",
     "maxTokens": "Max tokens per reply",
     "timeout": "Timeout (seconds)",
     "timeoutHint": "If the model takes longer, search falls back to the normal order.",
@@ -1795,7 +1795,8 @@
     "testOk": "The model answered in {ms} ms.",
     "testFailed": "The model could not be used.",
     "testTools": "Tool calling works - the assistant can use this model.",
-    "testNoTools": "This model did not call a tool - choose one that supports tool calling for the assistant."
+    "testNoTools": "This model did not call a tool - choose one that supports tool calling for the assistant.",
+    "temperatureDefault": "Model default"
   },
   "suggestions": {
     "title": "Suggested caregivers",
