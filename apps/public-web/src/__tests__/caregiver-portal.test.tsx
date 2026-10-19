@@ -161,13 +161,13 @@ describe('who may see the area', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it('shows a caregiver the four sections and marks the current one', () => {
+  it('shows a caregiver the five sections and marks the current one', () => {
     pathname = '/caregiver/documents';
     renderPage(<PortalLayout><p>inside</p></PortalLayout>);
 
     const nav = screen.getByRole('navigation');
     expect(within(nav).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual([
-      '/caregiver/dashboard', '/caregiver/profile', '/caregiver/documents', '/caregiver/shifts',
+      '/caregiver/dashboard', '/caregiver/profile', '/caregiver/documents', '/caregiver/shifts', '/caregiver/payments',
     ]);
     expect(within(nav).getByRole('link', { name: 'Documents' }).getAttribute('aria-current')).toBe('page');
     expect(within(nav).getByRole('link', { name: 'Profile' }).getAttribute('aria-current')).toBeNull();
@@ -183,7 +183,7 @@ describe('who may see the area', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'සිං' }));
     expect(nav().getAllByRole('link').map((l) => l.textContent)).toEqual([
-      si.portal.nav.overview, si.portal.nav.profile, si.portal.nav.documents, si.portal.nav.shifts,
+      si.portal.nav.overview, si.portal.nav.profile, si.portal.nav.documents, si.portal.nav.shifts, si.portal.nav.payments,
     ]);
     expect(screen.getByRole('button', { name: si.caregiverDashboard.signOut })).toBeDefined();
 

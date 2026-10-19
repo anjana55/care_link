@@ -23,3 +23,15 @@ body {
   font-family: var(--font-inter);
   font-feature-settings: 'tnum' 1;
 }
+
+/* An invoice prints on A4 with the invoice only (the account layout hides its
+   header, tabs and footer in print). */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  body {
+    background: #fff;
+  }
+}

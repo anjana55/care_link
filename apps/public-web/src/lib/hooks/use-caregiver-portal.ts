@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CaregiverShift } from '@care-platform/shared';
+import type { CaregiverPayout, CaregiverShift } from '@care-platform/shared';
 import { api } from '../api/client';
 import { useAuth } from '../api/auth-context';
 import type {
@@ -164,6 +164,16 @@ export function useMyShifts() {
   return useQuery({
     queryKey: ['portal', id, 'booked-shifts'],
     queryFn: () => api.get<CaregiverShift[]>('/me/shifts'),
+    enabled: Boolean(id),
+  });
+}
+
+/** The caregiver's approved and paid payout statements (GET /me/payouts). */
+export function useMyPayouts() {
+  const id = useCaregiverId();
+  return useQuery({
+    queryKey: ['portal', id, 'payouts'],
+    queryFn: () => api.get<CaregiverPayout[]>('/me/payouts'),
     enabled: Boolean(id),
   });
 }

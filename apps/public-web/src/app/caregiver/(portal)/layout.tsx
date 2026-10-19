@@ -13,10 +13,11 @@ const SECTIONS = [
   { href: '/caregiver/profile', key: 'portal.nav.profile' },
   { href: '/caregiver/documents', key: 'portal.nav.documents' },
   { href: '/caregiver/shifts', key: 'portal.nav.shifts' },
+  { href: '/caregiver/payments', key: 'portal.nav.payments' },
 ];
 
 /**
- * The signed-in caregiver's area: overview, profile, documents, shifts.
+ * The signed-in caregiver's area: overview, profile, documents, shifts, payments.
  *
  * It lives in this app rather than /staff because of the token-key split: the
  * two apps are served from one origin but keep their JWT pair under different
