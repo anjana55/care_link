@@ -10,5 +10,7 @@ import { BookingsController, MyBookingsController } from './bookings.controller'
   imports: [PublicSearchModule, EmailModule, WhatsappModule],
   controllers: [BookingsController, MyBookingsController],
   providers: [BookingsService, BookingNotifier],
+  // The staff assistant runs approved booking changes through this service.
+  exports: [BookingsService],
 })
 export class BookingsModule {}

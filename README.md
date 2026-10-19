@@ -467,6 +467,40 @@ validation field names that the API itself receives (`email`, `password`), email
 WhatsApp messages (those are templates approved in Meta's console, one language per template). The
 Sinhala and Tamil wording is machine-drafted and needs a native speaker's review.
 
+### 7g. AI: search, caregiver suggestions and the staff assistant
+
+Everything AI is configured in **Settings › AI** (admin only, `GET/PATCH /settings/ai`) and is **off by
+default** - Normal Search, matching rules and every staff page work the same without it.
+
+- **Provider.** Ollama (`/api/chat`, local or self-hosted), any OpenAI-compatible endpoint
+  (`/v1/chat/completions`: OpenAI, vLLM, LM Studio, OpenRouter, Ollama's `/v1`) or Anthropic
+  (`/v1/messages`). Model, endpoint, key (AES-GCM encrypted at rest with `SETTINGS_ENCRYPTION_KEY`, never
+  returned), temperature, max tokens, timeout, candidate pool size and optional extra instructions are all
+  editable. `POST /settings/ai/test` tries the saved configuration, including whether the model can call
+  tools (the assistant needs it).
+- **Public AI Search** (`POST /public/ai/extract`, `POST /public/ai/search`). The visitor's words are
+  turned into the same structured request Normal Search uses; every value is checked against the
+  skills/languages/districts catalogue and the search bounds, and the visitor checks it in the normal form
+  before searching. Search applies exactly the Normal Search hard filters; the model only re-orders the top
+  `candidatePoolSize` matches, seeing only their anonymous public card, and adds a one-line reason in the
+  visitor's language. Any model failure falls back to the rule-based order (`aiRanked: false`). Orders are
+  cached for 10 minutes so paging does not call the model again. `/public/meta/search-config` reports
+  `aiSearchEnabled` from these settings.
+- **Caregiver suggestions** (`GET /care-requests/:id/suggestions`, ADMIN/STAFF). Built from the client's
+  intake (district, city, shift, caregiver gender, recipient) and - with AI matching on - what their care
+  needs and message say. Works without AI too, using the rule-based ranking. Shown on the request page.
+- **Staff assistant** (`/assistant/*`, ADMIN/STAFF, page `/staff/assistant`). A tool-calling chat over the
+  Requests queue and bookings. Look-ups run straight away; every change (status, note, assignment,
+  caregiver, new request for an existing client, draft/confirm/cancel/extend booking, booking note) is
+  stored as a proposal that the staff member approves or rejects. An approval runs the same service method
+  the page would, as that staff member - so validation, notifications and audit entries (with
+  `metadata.via = "assistant"`) are identical. Conversations are private to their owner. Tool results
+  never include phone numbers, emails, addresses or ID numbers.
+
+Tables: `ai_settings`, `assistant_conversations`, `assistant_messages`, `assistant_actions`
+(migration `0011_ai_features`). The e2e suite `test/ai.e2e-spec.ts` runs all of this against a stand-in
+model server, so it needs no real model.
+
 ## 8. Security
 
 - JWT access tokens (15 min) + rotating refresh tokens (7 days, hashed before storage,
@@ -534,9 +568,9 @@ MySQL database.
 
 ## 12. What's intentionally not built yet
 
-Per the brief: patients, patient medical requirements, caregiver matching, bookings,
-payments, ratings, GPS tracking, push notifications, and AI matching are all
-out of scope for this version. The caregiver domain (skills, qualifications, languages,
+Per the original brief: ratings, GPS tracking and push notifications are out of scope.
+(Patients, caregiver matching, bookings, payments and AI matching have since been built -
+see §7c and §7g.) The caregiver domain (skills, qualifications, languages,
 location, availability, verification status) is modelled so a future matching engine can
 query all of that without a caregiver-table redesign.
 

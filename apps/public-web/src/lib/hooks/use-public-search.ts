@@ -46,10 +46,15 @@ export function useCities(districtId: number | null, locale: Locale) {
   });
 }
 
-export function useCaregiverSearch(request: SearchRequest | null) {
+/**
+ * Runs a search. With `aiQuery` (the visitor's own words from AI Search) the
+ * results come from the AI search endpoint, which applies exactly the same
+ * hard filters and only re-orders the matches; without it, Normal Search.
+ */
+export function useCaregiverSearch(request: SearchRequest | null, aiQuery?: string) {
   return useQuery({
-    queryKey: ['public-search', request],
-    queryFn: () => publicSearchApi.search(request!),
+    queryKey: ['public-search', request, aiQuery ?? null],
+    queryFn: () => (aiQuery ? publicSearchApi.aiSearch({ request: request!, query: aiQuery }) : publicSearchApi.search(request!)),
     enabled: request !== null,
   });
 }

@@ -3,8 +3,9 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, Sparkles, Languages, MapPin, ScrollText, ShieldCheck, Settings, ReceiptText, Wallet } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot } from 'lucide-react';
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
+import { useAiStatus } from '@/lib/hooks/use-ai';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { cn } from '@/lib/utils';
@@ -13,11 +14,11 @@ import { BrandMark } from '@/components/layout/brand-mark';
 const ITEMS = [
   { href: '/dashboard', key: 'nav.dashboard', icon: LayoutDashboard },
   { href: '/caregivers', key: 'nav.caregivers', icon: Users },
-  { href: '/skills', key: 'nav.skills', icon: Sparkles },
-  { href: '/languages', key: 'nav.languages', icon: Languages },
-  { href: '/locations', key: 'nav.locations', icon: MapPin },
-  { href: '/audit-log', key: 'nav.auditLog', icon: ScrollText },
 ];
+
+// Every role has a Settings area: admins see all of it, staff and verifiers
+// the reference data (skills, languages, locations). See lib/settings-sections.
+const SETTINGS_ITEM = { href: '/settings', key: 'nav.settings', icon: Settings };
 
 // Clients = registered patients/guardians. Separate from both ITEMS and
 // ADMIN_ITEMS because the API allows ADMIN + STAFF: in ITEMS it would leak to
@@ -29,13 +30,12 @@ const BOOKINGS_ITEM = { href: '/bookings', key: 'nav.bookings', icon: CalendarDa
 // Billing follows the work it bills: ADMIN + STAFF, like Bookings.
 const INVOICES_ITEM = { href: '/invoices', key: 'nav.invoices', icon: ReceiptText };
 const PAYOUTS_ITEM = { href: '/payouts', key: 'nav.payouts', icon: Wallet };
+// The AI assistant works requests and bookings, so it follows them: ADMIN + STAFF,
+// and only while an admin has it switched on in Settings > AI.
+const ASSISTANT_ITEM = { href: '/assistant', key: 'nav.assistant', icon: Bot };
 
 // Admin-only: rendered separately from ITEMS so they never show for STAFF/VERIFIER.
-const ADMIN_ITEMS = [
-  { href: '/users', key: 'nav.users', icon: ShieldCheck },
-  // One entry for the whole Settings area (social sign-in, WhatsApp); its own tabs lead to each section.
-  { href: '/settings', key: 'nav.settings', icon: Settings },
-];
+const ADMIN_ITEMS = [{ href: '/users', key: 'nav.users', icon: ShieldCheck }];
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -44,10 +44,13 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const canSeeClients = user?.role === 'ADMIN' || user?.role === 'STAFF';
   // New, unhandled requests - the number staff should act on.
   const { data: summary } = useCareRequestSummary(canSeeClients);
+  const { data: ai } = useAiStatus(canSeeClients);
   // Requests lead for the roles that work them: it is the day's worklist.
   // Clients sit straight after Caregivers, the list they mirror.
-  const base = canSeeClients ? [ITEMS[0], REQUESTS_ITEM, BOOKINGS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM, ...ITEMS.slice(2)] : ITEMS;
-  const items = user?.role === 'ADMIN' ? [...base, ...ADMIN_ITEMS] : base;
+  const base = canSeeClients
+    ? [ITEMS[0], REQUESTS_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM]
+    : ITEMS;
+  const items = [...base, ...(user?.role === 'ADMIN' ? ADMIN_ITEMS : []), SETTINGS_ITEM];
 
   return (
     <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">

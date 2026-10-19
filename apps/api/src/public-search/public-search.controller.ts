@@ -7,6 +7,7 @@ import { SearchRequestDto } from './dto/search-request.dto';
 import { PublicSearchConfigDto } from './dto/public-search-config.dto';
 import { SkillsService } from '../skills/skills.service';
 import { LanguagesService } from '../languages/languages.service';
+import { AiSettingsService } from '../ai/ai-settings.service';
 
 /**
  * Everything here is `@Public()` - reachable without a JWT, by design. That
@@ -26,6 +27,7 @@ export class PublicSearchController {
     private readonly publicSearchService: PublicSearchService,
     private readonly skillsService: SkillsService,
     private readonly languagesService: LanguagesService,
+    private readonly aiSettings: AiSettingsService,
   ) {}
 
   @Public()
@@ -64,10 +66,9 @@ export class PublicSearchController {
 
   @Public()
   @Get('meta/search-config')
-  searchConfig(): PublicSearchConfigDto {
-    // Hard-coded false until the AI pipeline + ai_search_config table exist
-    // (explicitly out of scope for this phase) - never advertise a search
-    // mode the backend can't actually serve.
-    return { aiSearchEnabled: false };
+  async searchConfig(): Promise<PublicSearchConfigDto> {
+    // Straight from Settings > AI: the master switch and the public-search
+    // switch both on. Never advertise a search mode the backend can't serve.
+    return { aiSearchEnabled: Boolean(await this.aiSettings.forFeature('publicSearch')) };
   }
 }

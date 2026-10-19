@@ -12,6 +12,8 @@ import { Input, Select, Label } from '@/components/ui/input';
 interface NormalSearchFormProps {
   onSubmit: (request: SearchRequest) => void;
   initialValues?: SearchRequest;
+  /** AI Search reuses this form to show what it understood; it labels the button its own way. */
+  submitLabel?: string;
 }
 
 /**
@@ -78,7 +80,7 @@ function ChipToggle({
   );
 }
 
-export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormProps) {
+export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: NormalSearchFormProps) {
   const { t, locale } = useTranslation();
   const { data: skills = [] } = useMetaSkills();
   const { data: languages = [] } = useMetaLanguages();
@@ -452,7 +454,7 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
 
       <div className="flex flex-wrap gap-3 pt-2">
         <button type="submit" className="rounded-DEFAULT bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark">
-          {t('normalSearch.submit')}
+          {submitLabel ?? t('normalSearch.submit')}
         </button>
         <button
           type="button"

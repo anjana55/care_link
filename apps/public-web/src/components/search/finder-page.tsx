@@ -32,6 +32,8 @@ export function FinderPage() {
   const { data: config } = useSearchConfig();
   const [mode, setMode] = useState<SearchMode>('normal');
   const [request, setRequest] = useState<SearchRequest | null>(null);
+  // Set when the current results came from AI Search: what the visitor typed.
+  const [aiQuery, setAiQuery] = useState<string | undefined>(undefined);
   // Bumped when a remembered search is restored, so the form remounts with it.
   const [formKey, setFormKey] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -44,8 +46,16 @@ export function FinderPage() {
     const remembered = loadSearch();
     if (!remembered) return;
     setRequest({ ...remembered.request, page: remembered.request.page ?? 1 });
+    setAiQuery(remembered.aiQuery);
     setFormKey((k) => k + 1);
   }, []);
+
+  // An AI search is restored into the AI panel - but only while AI Search is
+  // still offered; otherwise the same request shows as a normal search.
+  const aiEnabled = Boolean(config?.aiSearchEnabled);
+  useEffect(() => {
+    if (aiQuery && aiEnabled) setMode('ai');
+  }, [aiQuery, aiEnabled]);
 
   /**
    * Runs a search and keeps what it says about the care needed, so a sign-up
@@ -55,10 +65,11 @@ export function FinderPage() {
     const ids = [...(next.mandatorySkillIds ?? []), ...(next.optionalSkillIds ?? [])];
     const skillNames = [...new Set(ids)].map((id) => skills.find((s) => s.id === id)?.name).filter((n): n is string => Boolean(n));
     rememberSearch({ request: next, aiQuery: aiQuery || undefined, skillNames });
+    setAiQuery(aiQuery || undefined);
     setRequest(next);
   }
 
-  const { data, isLoading, isError, refetch } = useCaregiverSearch(request);
+  const { data, isLoading, isError, refetch } = useCaregiverSearch(request, aiEnabled ? aiQuery : undefined);
 
   function goToPage(page: number) {
     if (!request) return;
@@ -85,18 +96,19 @@ export function FinderPage() {
 
         <section ref={searchRef} className="mx-auto max-w-3xl px-4 pb-10">
           <div className="mb-5 flex justify-center">
-            <SearchModeToggle
-              mode={mode}
-              onChange={setMode}
-              aiEnabled={Boolean(config?.aiSearchEnabled)}
-            />
+            <SearchModeToggle mode={mode} onChange={setMode} aiEnabled={aiEnabled} />
           </div>
 
           <div className="rounded-lg border border-border bg-white p-5 sm:p-8">
             {mode === 'normal' ? (
               <NormalSearchForm key={formKey} onSubmit={(next) => search(next)} initialValues={formKey > 0 && request ? request : undefined} />
             ) : (
-              <AiSearchPanel onSubmit={(next, query) => search(next, query)} />
+              <AiSearchPanel
+                key={formKey}
+                onSubmit={(next, query) => search(next, query)}
+                initialQuery={aiQuery}
+                initialRequest={aiQuery && request ? request : undefined}
+              />
             )}
           </div>
 
@@ -104,7 +116,12 @@ export function FinderPage() {
             {isLoading && <LoadingState label={t('loading.searching')} />}
             {isError && <ErrorState onRetry={() => refetch()} />}
             {!isLoading && !isError && data && data.items.length === 0 && (
-              <EmptyResultsState onClear={() => setRequest(null)} />
+              <EmptyResultsState
+                onClear={() => {
+                  setRequest(null);
+                  setAiQuery(undefined);
+                }}
+              />
             )}
             {!isLoading && !isError && data && data.items.length > 0 && (
               <ResultsList response={data} onPageChange={goToPage} />

@@ -78,6 +78,13 @@
       "when": 1792396418394,
       "tag": "0010_branding_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1792400062273,
+      "tag": "0011_ai_features",
+      "breakpoints": true
     }
   ]
 }

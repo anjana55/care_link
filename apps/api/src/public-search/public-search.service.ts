@@ -18,7 +18,7 @@ import {
   bookingShifts,
 } from '../database/schema';
 import { SearchRequestDto } from './dto/search-request.dto';
-import { RankingService, type LocationLabels, type RankingCandidate } from './ranking/ranking.service';
+import { RankingService, type LocationLabels, type RankedCandidate, type RankingCandidate } from './ranking/ranking.service';
 
 /** Hard cap on how many hard-filter matches we ever pull into memory to
  * score - independent of the page size the caller asked for. Bounds both
@@ -48,6 +48,46 @@ function pickDistrict(
 ): string | null {
   const value = locale === 'si' ? row.districtSi : locale === 'ta' ? row.districtTa : row.districtEn;
   return value ?? row.districtEn;
+}
+
+type PoolRow = {
+  id: string;
+  publicId: string;
+  gender: 'MALE' | 'FEMALE' | 'OTHER';
+  dateOfBirth: Date;
+  districtId: number | null;
+  cityId: number | null;
+};
+
+/** A ranked candidate pool plus what is needed to render any of it. */
+export interface RankedPool {
+  ranked: RankedCandidate[];
+  rows: Map<string, PoolRow>;
+  enriched: Map<string, EnrichedCandidate>;
+}
+
+export interface EnrichedCandidate {
+  skills: { id: string; name: string }[];
+  languages: { name: string; proficiency: string }[];
+  preferredLocationCities: string[];
+  preferredLocationCityIds: number[];
+  preferredLocationDistrictIds: number[];
+  districtName: string | null;
+  cityName: string | null;
+  matchedOptionalSkillCount: number;
+  matchedLanguageCount: number;
+  matchedConditionCount: number;
+  yearsOfRelevantExperience: number;
+  hasVerifiedQualification: boolean;
+  qualificationSummary: string[];
+  relevantExperienceSummary: string[];
+  dayDuty: boolean;
+  nightDuty: boolean;
+  liveIn24h: boolean;
+  preferredShift: string;
+  availableFrom: string | null;
+  expectedDailyRate: number | null;
+  expectedMonthlyRate: number | null;
 }
 
 function approxAgeBand(dateOfBirth: Date): number {
@@ -114,6 +154,16 @@ export class PublicSearchService {
   }
 
   async search(request: SearchRequestDto): Promise<PublicSearchResponse> {
+    const pool = await this.rankedPool(request);
+    return this.toPage(pool, request);
+  }
+
+  /**
+   * The whole hard-filtered, deterministically ranked candidate pool for a
+   * request - what Normal Search pages through, and what the AI features take
+   * their (bounded) slice from to re-rank. Never touches a model itself.
+   */
+  async rankedPool(request: SearchRequestDto): Promise<RankedPool> {
     const conditions = [isNull(caregivers.deletedAt), eq(caregivers.status, 'ACTIVE')];
 
     if (request.mandatorySkillIds?.length) {
@@ -173,9 +223,7 @@ export class PublicSearchService {
       .where(whereClause)
       .limit(MAX_CANDIDATE_POOL);
 
-    if (!rows.length) {
-      return { items: [], page: request.page, pageSize: request.pageSize, total: 0, totalPages: 0 };
-    }
+    if (!rows.length) return { ranked: [], rows: new Map(), enriched: new Map() };
 
     const candidateIds = rows.map((r) => r.id);
     const enriched = await this.enrichCandidates(candidateIds, request);
@@ -205,24 +253,36 @@ export class PublicSearchService {
     });
 
     const ranked = this.ranking.rankAll(rankingInputs, request, await this.locationLabels(request));
-    const total = ranked.length;
-    const start = (request.page - 1) * request.pageSize;
-    const pageOfRanked = ranked.slice(start, start + request.pageSize);
+    return { ranked, rows: new Map(rows.map((r) => [r.id, r])), enriched };
+  }
 
-    const rowsById = new Map(rows.map((r) => [r.id, r]));
-    const items: PublicCaregiverSummary[] = pageOfRanked.map((r) => {
-      const row = rowsById.get(r.caregiverId)!;
-      const e = enriched.get(r.caregiverId)!;
-      return this.toSummary(row, e, r.score, r.reasons);
+  /**
+   * One page of a pool, as public summaries. `order` (caregiver ids) replaces
+   * the deterministic order when the AI re-ranked it; `aiReasons` adds the
+   * model's one-line explanation to the cards it covers.
+   */
+  toPage(pool: RankedPool, request: SearchRequestDto, ai?: { order: string[]; reasons: Map<string, string> }): PublicSearchResponse {
+    const byId = new Map(pool.ranked.map((r) => [r.caregiverId, r]));
+    const ordered = ai ? ai.order.map((id) => byId.get(id)).filter((r): r is NonNullable<typeof r> => Boolean(r)) : pool.ranked;
+    const total = ordered.length;
+    if (!total) return { items: [], page: request.page, pageSize: request.pageSize, total: 0, totalPages: 0 };
+
+    const start = (request.page - 1) * request.pageSize;
+    const items: PublicCaregiverSummary[] = ordered.slice(start, start + request.pageSize).map((r) => {
+      const summary = this.toSummary(pool.rows.get(r.caregiverId)!, pool.enriched.get(r.caregiverId)!, r.score, r.reasons);
+      const aiReason = ai?.reasons.get(r.caregiverId);
+      return aiReason ? { ...summary, aiReason } : summary;
     });
 
-    return {
-      items,
-      page: request.page,
-      pageSize: request.pageSize,
-      total,
-      totalPages: Math.ceil(total / request.pageSize),
-    };
+    return { items, page: request.page, pageSize: request.pageSize, total, totalPages: Math.ceil(total / request.pageSize) };
+  }
+
+  /** The public summary of one pooled candidate - what the AI is allowed to see about them. */
+  summaryOf(pool: RankedPool, caregiverId: string): PublicCaregiverSummary | null {
+    const row = pool.rows.get(caregiverId);
+    const e = pool.enriched.get(caregiverId);
+    const r = pool.ranked.find((x) => x.caregiverId === caregiverId);
+    return row && e && r ? this.toSummary(row, e, r.score, r.reasons) : null;
   }
 
   async findByPublicId(publicId: string, locale?: string): Promise<PublicCaregiverProfile> {
@@ -319,7 +379,7 @@ export class PublicSearchService {
 
   /** Fetches everything ranking + the public DTO need for a set of
    * caregiver IDs, batched (never N+1). */
-  private async enrichCandidates(caregiverIds: string[], request: SearchRequestDto) {
+  private async enrichCandidates(caregiverIds: string[], request: SearchRequestDto): Promise<Map<string, EnrichedCandidate>> {
     const locale = resolveLocale(request.locale);
     const optionalSkillIds = request.optionalSkillIds ?? [];
     const requestedLanguageIds = request.languageIds ?? [];
@@ -400,32 +460,7 @@ export class PublicSearchService {
 
     const ownRows = new Map(ownLocationRows.map((r) => [r.caregiverId, r]));
 
-    const result = new Map<
-      string,
-      {
-        skills: { id: string; name: string }[];
-        languages: { name: string; proficiency: string }[];
-        preferredLocationCities: string[];
-        preferredLocationCityIds: number[];
-        preferredLocationDistrictIds: number[];
-        districtName: string | null;
-        cityName: string | null;
-        matchedOptionalSkillCount: number;
-        matchedLanguageCount: number;
-        matchedConditionCount: number;
-        yearsOfRelevantExperience: number;
-        hasVerifiedQualification: boolean;
-        qualificationSummary: string[];
-        relevantExperienceSummary: string[];
-        dayDuty: boolean;
-        nightDuty: boolean;
-        liveIn24h: boolean;
-        preferredShift: string;
-        availableFrom: string | null;
-        expectedDailyRate: number | null;
-        expectedMonthlyRate: number | null;
-      }
-    >();
+    const result = new Map<string, EnrichedCandidate>();
 
     for (const id of caregiverIds) {
       const mySkills = skillRows.filter((s) => s.caregiverId === id);
@@ -491,7 +526,7 @@ export class PublicSearchService {
       districtId: number | null;
       cityId: number | null;
     },
-    enriched: Awaited<ReturnType<PublicSearchService['enrichCandidates']>> extends Map<string, infer V> ? V : never,
+    enriched: EnrichedCandidate,
     score: number,
     reasons: string[],
   ): PublicCaregiverSummary {
