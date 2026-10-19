@@ -17,6 +17,7 @@ import { PatientIntakeFields } from '@/components/register/patient-intake-fields
 import { useLocationTree } from '@/lib/hooks/use-public-search';
 import { UNSET_ID } from '@/lib/schemas/personal-info';
 import { guardianFieldsCheck, makePatientIntakeSchema, toIntakePayload } from '@/lib/schemas/patient-intake';
+import { CarriedOverSummary, PendingContactBanner, useCarriedOverIntake } from '@/components/register/carried-over-intake';
 
 interface RegisterResponse {
   patientId: string;
@@ -74,6 +75,11 @@ export default function RegisterPage() {
     },
   });
 
+  const carried = useCarriedOverIntake({ setValue, channel: 'email' });
+  // Arriving from a caregiver (or with a search behind them) the visitor has
+  // already decided: skip the sales pitch and go straight to the form.
+  const focused = carried.carried || Boolean(carried.pendingCaregiver);
+
   const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: 'smooth' });
 
   const onSubmit = async (values: RegisterValues) => {
@@ -99,6 +105,8 @@ export default function RegisterPage() {
       <SiteHeader />
 
       <main className="flex-1">
+      {!focused && (
+      <>
       {/* Hero - single-page site opens with a full banner, headline and a
           direct CTA down to the signup form, per the one-page brief. */}
       <section className="mx-auto grid max-w-5xl items-center gap-8 px-4 py-10 sm:grid-cols-2 sm:py-16">
@@ -136,14 +144,17 @@ export default function RegisterPage() {
           </div>
         </div>
       </section>
+      </>
+      )}
 
       {/* Signup form - the page's actual purpose. */}
-      <section ref={formRef} className="mx-auto max-w-xl px-4 py-12">
+      <section ref={formRef} className={focused ? 'mx-auto max-w-xl px-4 py-8' : 'mx-auto max-w-xl px-4 py-12'}>
         {result ? (
           <div className="rounded-lg border border-border bg-white p-8 text-center">
             <CheckCircle2 size={40} className="mx-auto mb-4 text-brand" />
             <h2 className="mb-2 text-lg font-semibold text-ink">{t('register.successTitle')}</h2>
             <p className="mb-4 text-sm text-ink/60">{t('register.successBody')}</p>
+            {carried.pendingCaregiver && <p className="mb-4 text-sm text-ink/70">{t('careIntent.verifyThenBack')}</p>}
 
             {result.devVerificationUrl && (
               <div className="mb-4 rounded border border-dashed border-accent bg-accent-light p-3 text-left">
@@ -163,10 +174,11 @@ export default function RegisterPage() {
           </div>
         ) : (
           <div className="rounded-lg border border-border bg-white p-6 sm:p-8">
+            <PendingContactBanner publicId={carried.pendingCaregiver} />
             <h2 className="text-lg font-semibold text-ink">{t('register.formTitle')}</h2>
-            <p className="mt-1 text-sm text-ink/60">{t('register.formSubtitle')}</p>
+            <p className="mt-1 text-sm text-ink/60">{carried.carried ? t('careIntent.formSubtitle') : t('register.formSubtitle')}</p>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+            <form onSubmit={handleSubmit(onSubmit, carried.onInvalid)} className="mt-6 space-y-4">
               <RequiredLegend label={t('common.requiredField')} />
               <div>
                 <Label htmlFor="fullName" required>
@@ -237,7 +249,10 @@ export default function RegisterPage() {
                 locationTree={locationTree}
                 locationsUnavailable={locationsUnavailable}
                 allowEmailContact
+                hiddenSections={carried.folded}
               />
+
+              <CarriedOverSummary control={control} folded={carried.folded} onEdit={carried.unfold} />
 
               <label className="flex items-start gap-2 border-t border-border pt-5 text-sm text-ink">
                 <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand" {...register('consentAccepted')} />

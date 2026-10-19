@@ -19,6 +19,7 @@ import { useLocationTree } from '@/lib/hooks/use-public-search';
 import { UNSET_ID } from '@/lib/schemas/personal-info';
 import { guardianFieldsCheck, makePatientIntakeSchema, toIntakePayload } from '@/lib/schemas/patient-intake';
 import { takeReturnTo } from '@/lib/return-to';
+import { CarriedOverSummary, PendingContactBanner, useCarriedOverIntake } from '@/components/register/carried-over-intake';
 
 interface RegisterResponse {
   patientId: string;
@@ -72,6 +73,8 @@ export default function RegisterWhatsappPage() {
     },
   });
 
+  const carried = useCarriedOverIntake({ setValue, channel: 'whatsapp' });
+
   async function onSubmit(values: Values) {
     setServerError(null);
     try {
@@ -124,10 +127,11 @@ export default function RegisterWhatsappPage() {
           </div>
         ) : (
           <div className="rounded-lg border border-border bg-white p-6 sm:p-8">
+            <PendingContactBanner publicId={carried.pendingCaregiver} />
             <h1 className="text-lg font-semibold text-ink">{t('whatsapp.register.title')}</h1>
-            <p className="mt-1 text-sm text-ink/60">{t('whatsapp.register.subtitle')}</p>
+            <p className="mt-1 text-sm text-ink/60">{carried.carried ? t('careIntent.formSubtitle') : t('whatsapp.register.subtitle')}</p>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+            <form onSubmit={handleSubmit(onSubmit, carried.onInvalid)} className="mt-6 space-y-4">
               <RequiredLegend label={t('common.requiredField')} />
               <div>
                 <Label htmlFor="fullName" required>{t('register.fullName')}</Label>
@@ -156,7 +160,10 @@ export default function RegisterWhatsappPage() {
                 locationTree={locationTree}
                 locationsUnavailable={locationsUnavailable}
                 allowEmailContact={false}
+                hiddenSections={carried.folded}
               />
+
+              <CarriedOverSummary control={control} folded={carried.folded} onEdit={carried.unfold} />
 
               <label className="flex items-start gap-2 border-t border-border pt-5 text-sm text-ink">
                 <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-border text-brand focus:ring-brand" {...register('consentAccepted')} />

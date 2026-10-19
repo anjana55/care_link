@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CheckCircle2, Heart } from 'lucide-react';
@@ -9,13 +9,17 @@ import { useAuth } from '@/lib/api/auth-context';
 import { useCaregiverRelations, useIsClient, useToggleSaved } from '@/lib/hooks/use-client-care';
 import { RegistrationGate } from '@/components/common/registration-gate';
 import { cn } from '@/lib/utils';
+import { clearPendingContact, peekPendingContact, useDeviceShortlist } from '@/lib/care-intent';
 import { ContactDialog } from './contact-dialog';
 
 /**
  * The Contact and Save actions for one caregiver, in whatever state the
  * visitor is in:
  *
- * - signed out: both buttons open the sign-up gate, which brings them back here;
+ * - signed out: Contact opens the sign-up step, which brings them back here
+ *   with the request dialog already open; Save needs no account at all - it
+ *   keeps the caregiver on this device and is copied to their account when
+ *   they sign in (see DeviceShortlistSync);
  * - a caregiver's own session: a short note instead (contacting is for clients);
  * - a client: Contact opens the request dialog - or, once a request is open,
  *   shows its reference and a link to it - and Save toggles the shortlist.
@@ -29,6 +33,17 @@ export function CaregiverActions({ publicId, caregiverLabel }: { publicId: strin
   const [contactOpen, setContactOpen] = useState(false);
   const relations = useCaregiverRelations(client ? [publicId] : []);
   const relation = relations.byId.get(publicId);
+  const hasOpenRequest = Boolean(relation?.openRequest);
+
+  // Back from signing up or in, having set out to contact this caregiver:
+  // carry on where they left off rather than making them click Contact again.
+  // Waits for the relations so a request they already have is not doubled.
+  useEffect(() => {
+    if (!client || !relations.isFetched) return;
+    if (peekPendingContact() !== publicId) return;
+    clearPendingContact();
+    if (!hasOpenRequest) setContactOpen(true);
+  }, [client, relations.isFetched, hasOpenRequest, publicId]);
 
   if (loading) return <div className="mt-8 h-11" aria-hidden />;
 
@@ -47,15 +62,15 @@ export function CaregiverActions({ publicId, caregiverLabel }: { publicId: strin
           >
             {t('profile.contactCta')}
           </button>
-          <button
-            type="button"
-            onClick={() => setGateOpen(true)}
-            className="flex-1 rounded-DEFAULT border border-border px-4 py-2.5 text-sm font-medium text-ink/70 hover:bg-paper"
-          >
-            {t('profile.saveCta')}
-          </button>
+          <DeviceSaveButton publicId={publicId} caregiverLabel={caregiverLabel} variant="full" />
         </div>
-        <RegistrationGate open={gateOpen} onClose={() => setGateOpen(false)} reason="contact" returnTo={pathname ?? undefined} />
+        <RegistrationGate
+          open={gateOpen}
+          onClose={() => setGateOpen(false)}
+          reason="contact"
+          caregiverPublicId={publicId}
+          returnTo={pathname ?? undefined}
+        />
       </>
     );
   }
@@ -90,8 +105,8 @@ export function CaregiverActions({ publicId, caregiverLabel }: { publicId: strin
 }
 
 /**
- * Save / Saved toggle. `compact` is the heart on a result card; `full` the
- * labelled button on a profile. Only rendered for a signed-in client.
+ * Save / Saved toggle for a signed-in client, through the API. `compact` is
+ * the heart on a result card; `full` the labelled button on a profile.
  */
 export function SaveButton({
   publicId,
@@ -104,17 +119,11 @@ export function SaveButton({
   caregiverLabel: string;
   variant: 'compact' | 'full';
 }) {
-  const { t } = useTranslation();
   const toggle = useToggleSaved();
   // Optimistic: flip at once, settle when the list refetches.
   const [pending, setPending] = useState<boolean | null>(null);
   const [failed, setFailed] = useState(false);
   const shown = pending ?? saved;
-  const label = failed
-    ? t('care.actionError')
-    : shown
-      ? t('care.unsaveAria', { id: caregiverLabel })
-      : t('care.saveAria', { id: caregiverLabel });
 
   const onClick = () => {
     const next = !shown;
@@ -128,6 +137,52 @@ export function SaveButton({
       },
     );
   };
+
+  return <SaveToggle shown={shown} failed={failed} onClick={onClick} caregiverLabel={caregiverLabel} variant={variant} />;
+}
+
+/**
+ * Save / Saved for a visitor who is not signed in: kept on this device, no
+ * account needed. The full variant says where it is kept, and that signing in
+ * keeps it for good.
+ */
+export function DeviceSaveButton({ publicId, caregiverLabel, variant }: { publicId: string; caregiverLabel: string; variant: 'compact' | 'full' }) {
+  const { t } = useTranslation();
+  const { isSaved, setSaved } = useDeviceShortlist();
+  const shown = isSaved(publicId);
+  const toggle = <SaveToggle shown={shown} failed={false} onClick={() => setSaved(publicId, !shown)} caregiverLabel={caregiverLabel} variant={variant} />;
+  if (variant === 'compact') return toggle;
+  return (
+    <div className="flex flex-1 flex-col">
+      {toggle}
+      {shown && (
+        <p role="status" className="mt-1 text-xs text-ink/60">
+          {t('care.savedOnDevice')}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SaveToggle({
+  shown,
+  failed,
+  onClick,
+  caregiverLabel,
+  variant,
+}: {
+  shown: boolean;
+  failed: boolean;
+  onClick: () => void;
+  caregiverLabel: string;
+  variant: 'compact' | 'full';
+}) {
+  const { t } = useTranslation();
+  const label = failed
+    ? t('care.actionError')
+    : shown
+      ? t('care.unsaveAria', { id: caregiverLabel })
+      : t('care.saveAria', { id: caregiverLabel });
 
   if (variant === 'compact') {
     return (

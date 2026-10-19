@@ -9,7 +9,8 @@ import { LoadingState } from '@/components/common/states';
 import { Input, Label, Textarea } from '@/components/ui/input';
 
 interface AiSearchPanelProps {
-  onSubmit: (request: SearchRequest) => void;
+  /** `query` is what the visitor typed - kept so sign-up can reuse it as their care description. */
+  onSubmit: (request: SearchRequest, query: string) => void;
 }
 
 export function AiSearchPanel({ onSubmit }: AiSearchPanelProps) {
@@ -130,7 +131,7 @@ export function AiSearchPanel({ onSubmit }: AiSearchPanelProps) {
 
           <button
             type="button"
-            onClick={() => onSubmit(extracted.requirements)}
+            onClick={() => onSubmit(extracted.requirements, query.trim())}
             className="mt-5 rounded-DEFAULT bg-accent px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90"
           >
             {t('aiSearch.searchWithThis')}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { searchRequestSchema, type SearchRequest } from '@care-platform/shared';
@@ -124,6 +124,19 @@ export function NormalSearchForm({ onSubmit, initialValues }: NormalSearchFormPr
     () => [...cities].sort((a, b) => a.name.localeCompare(b.name, locale)),
     [cities, locale],
   );
+
+  // A restored search (see FinderPage) arrives before the location options
+  // do, and a <select> cannot show a value it has no option for yet. Re-apply
+  // the remembered ids once their options exist so the form shows what will
+  // actually be searched.
+  const initialDistrictId = initialValues?.location?.districtId;
+  const initialCityId = initialValues?.location?.cityId;
+  useEffect(() => {
+    if (initialDistrictId && districts.some((d) => d.id === initialDistrictId)) setValue('location.districtId', initialDistrictId);
+  }, [districts, initialDistrictId, setValue]);
+  useEffect(() => {
+    if (initialCityId && sortedCities.some((c) => c.id === initialCityId)) setValue('location.cityId', initialCityId);
+  }, [sortedCities, initialCityId, setValue]);
 
   /**
    * Validation failures used to be dropped on the floor - `errors` was pulled

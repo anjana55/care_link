@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { LoadingState, EmptyResultsState, ErrorState } from '@/components/common/states';
@@ -16,7 +16,8 @@ import {
 } from '@/components/sections/supporting-sections';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
-import { useCaregiverSearch, useSearchConfig } from '@/lib/hooks/use-public-search';
+import { useCaregiverSearch, useMetaSkills, useSearchConfig } from '@/lib/hooks/use-public-search';
+import { loadSearch, rememberSearch } from '@/lib/care-intent';
 
 /**
  * The caregiver finder, served at /find.
@@ -31,13 +32,40 @@ export function FinderPage() {
   const { data: config } = useSearchConfig();
   const [mode, setMode] = useState<SearchMode>('normal');
   const [request, setRequest] = useState<SearchRequest | null>(null);
+  // Bumped when a remembered search is restored, so the form remounts with it.
+  const [formKey, setFormKey] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
+  const { data: skills = [] } = useMetaSkills();
+
+  // Coming back from a profile ("Back to results") should show the same
+  // results, not an empty form. Restored after mount - localStorage is not
+  // there during server rendering.
+  useEffect(() => {
+    const remembered = loadSearch();
+    if (!remembered) return;
+    setRequest({ ...remembered.request, page: remembered.request.page ?? 1 });
+    setFormKey((k) => k + 1);
+  }, []);
+
+  /**
+   * Runs a search and keeps what it says about the care needed, so a sign-up
+   * started from these results can be pre-filled instead of asking again.
+   */
+  function search(next: SearchRequest, aiQuery?: string) {
+    const ids = [...(next.mandatorySkillIds ?? []), ...(next.optionalSkillIds ?? [])];
+    const skillNames = [...new Set(ids)].map((id) => skills.find((s) => s.id === id)?.name).filter((n): n is string => Boolean(n));
+    rememberSearch({ request: next, aiQuery: aiQuery || undefined, skillNames });
+    setRequest(next);
+  }
 
   const { data, isLoading, isError, refetch } = useCaregiverSearch(request);
 
   function goToPage(page: number) {
     if (!request) return;
-    setRequest({ ...request, page });
+    const next = { ...request, page };
+    const remembered = loadSearch();
+    rememberSearch({ ...(remembered ?? {}), request: next });
+    setRequest(next);
   }
 
   function scrollToSearch() {
@@ -66,9 +94,9 @@ export function FinderPage() {
 
           <div className="rounded-lg border border-border bg-white p-5 sm:p-8">
             {mode === 'normal' ? (
-              <NormalSearchForm onSubmit={setRequest} />
+              <NormalSearchForm key={formKey} onSubmit={(next) => search(next)} initialValues={formKey > 0 && request ? request : undefined} />
             ) : (
-              <AiSearchPanel onSubmit={setRequest} />
+              <AiSearchPanel onSubmit={(next, query) => search(next, query)} />
             )}
           </div>
 

@@ -2,13 +2,23 @@ import Link from 'next/link';
 import { BadgeCheck, CheckCircle2, MapPin, Languages as LanguagesIcon } from 'lucide-react';
 import type { CaregiverRelation, PublicCaregiverSummary } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
-import { SaveButton } from '@/components/care/caregiver-actions';
+import { DeviceSaveButton, SaveButton } from '@/components/care/caregiver-actions';
 
 /**
  * `relation` is passed only for a signed-in client, and switches on the Save
- * heart and the "request sent" marker. Everyone else sees the card as before.
+ * heart and the "request sent" marker. `deviceSave` is for a visitor who is not
+ * signed in: the heart keeps the caregiver on this device instead. A signed-in
+ * caregiver gets neither.
  */
-export function ResultCard({ caregiver, relation }: { caregiver: PublicCaregiverSummary; relation?: CaregiverRelation }) {
+export function ResultCard({
+  caregiver,
+  relation,
+  deviceSave = false,
+}: {
+  caregiver: PublicCaregiverSummary;
+  relation?: CaregiverRelation;
+  deviceSave?: boolean;
+}) {
   const { t } = useTranslation();
 
   return (
@@ -31,6 +41,7 @@ export function ResultCard({ caregiver, relation }: { caregiver: PublicCaregiver
           {relation && (
             <SaveButton publicId={caregiver.publicId} saved={relation.saved} caregiverLabel={caregiver.publicId.slice(0, 8)} variant="compact" />
           )}
+          {!relation && deviceSave && <DeviceSaveButton publicId={caregiver.publicId} caregiverLabel={caregiver.publicId.slice(0, 8)} variant="compact" />}
         </div>
       </div>
 

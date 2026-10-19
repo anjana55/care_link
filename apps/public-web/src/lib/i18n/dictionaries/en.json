@@ -121,10 +121,14 @@
     "availabilityLiveIn": "24-hour live-in"
   },
   "registrationGate": {
-    "title": "Create a free account to continue",
-    "body": "Signing up lets you contact caregivers through our team and save the ones you like. Searching stays free and anonymous.",
-    "signUp": "Sign up",
+    "title": "Tell us how to reach you",
+    "body": "Our team will call you to arrange an introduction to this caregiver. Verify your number or email once and we'll bring you straight back here.",
+    "reuseNote": "You won't be asked for these again.",
+    "continueWhatsapp": "Continue with WhatsApp",
+    "continueEmail": "Continue with email",
+    "haveAccount": "Already have an account?",
     "signIn": "Sign in",
+    "signInWhatsapp": "Sign in with WhatsApp",
     "cancel": "Not now"
   },
   "sections": {
@@ -889,7 +893,8 @@
       "successBody": "Thank you. Our team will contact you soon. Your reference is {reference}.",
       "close": "Close",
       "error": "We couldn't send your request. Please try again."
-    }
+    },
+    "savedOnDevice": "Saved on this device. Sign in or create an account to keep your shortlist."
   },
   "account": {
     "navLabel": "Account sections",
@@ -968,6 +973,22 @@
       "COMPLETED": "Done",
       "MISSED": "Missed",
       "CANCELLED": "Cancelled"
+    }
+  },
+  "careIntent": {
+    "fromSearch": "From your search",
+    "edit": "Edit",
+    "formSubtitle": "We've filled in what you told us in your search - just add the rest.",
+    "pendingContact": "You're contacting caregiver #{id}. Finish here and we'll take you straight back to send your request.",
+    "verifyThenBack": "Once you've verified, we'll take you back to the caregiver you chose.",
+    "needs": {
+      "help": "Help needed with: {list}",
+      "conditions": "Health conditions: {list}"
+    },
+    "summary": {
+      "age": "Age {age}",
+      "caregiverGender": "Caregiver preference: {gender}",
+      "contact": "{method} · {time}"
     }
   }
 }

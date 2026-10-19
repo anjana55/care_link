@@ -84,15 +84,80 @@ beforeEach(() => {
 });
 
 describe('CaregiverActions', () => {
-  it('sends a signed-out visitor to sign up, and remembers to bring them back', () => {
+  it('sends a signed-out visitor to sign up, and remembers to bring them back to this caregiver', async () => {
     auth = { user: null, loading: false };
+    get.mockImplementation((path: string) =>
+      path === '/auth/whatsapp/config'
+        ? Promise.resolve({ enabled: true, customer: { register: true, login: true }, caregiver: { register: true, login: true }, otpLength: 6 })
+        : Promise.resolve([]),
+    );
     renderUi(<CaregiverActions publicId={PUBLIC_ID} caregiverLabel="11111111" />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign up to contact this caregiver' }));
-    fireEvent.click(screen.getByRole('link', { name: 'Sign up' }));
+    // WhatsApp first when it is switched on: one code, no password.
+    fireEvent.click(await screen.findByRole('link', { name: 'Continue with WhatsApp' }));
 
     expect(JSON.parse(window.localStorage.getItem('care-platform-return-to')!).path).toBe(`/caregivers/${PUBLIC_ID}`);
-    expect(get).not.toHaveBeenCalled();
+    expect(JSON.parse(window.localStorage.getItem('care-platform-pending-contact')!).publicId).toBe(PUBLIC_ID);
+    expect(screen.getByRole('link', { name: 'Continue with email' })).toHaveAttribute('href', '/register');
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
+  });
+
+  it('shows a signed-out visitor what their search already told us', async () => {
+    auth = { user: null, loading: false };
+    get.mockImplementation((path: string) => {
+      if (path === '/auth/whatsapp/config') return Promise.resolve({ enabled: false, customer: { register: false, login: false }, caregiver: {}, otpLength: 6 });
+      if (path.startsWith('/public/meta/locations/tree')) return Promise.resolve([{ id: 1, name: 'Western', districts: [{ id: 1, name: 'Colombo' }] }]);
+      if (path.startsWith('/public/meta/locations/cities')) return Promise.resolve([{ id: 2, name: 'Dehiwala', subName: null, postcode: '10350' }]);
+      return Promise.resolve([]);
+    });
+    window.localStorage.setItem(
+      'care-platform-last-search',
+      JSON.stringify({ at: Date.now(), request: { location: { districtId: 1, cityId: 2 }, shift: 'NIGHT', patient: { age: 78 } }, skillNames: ['Dementia care'] }),
+    );
+    renderUi(<CaregiverActions publicId={PUBLIC_ID} caregiverLabel="11111111" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign up to contact this caregiver' }));
+    expect(await screen.findByText('Dehiwala, Colombo')).toBeInTheDocument();
+    expect(screen.getByText('Age 78')).toBeInTheDocument();
+    expect(screen.getByText('Help needed with: Dementia care')).toBeInTheDocument();
+    // No WhatsApp sign-up configured: email is the main way in.
+    expect(screen.queryByRole('link', { name: 'Continue with WhatsApp' })).not.toBeInTheDocument();
+  });
+
+  it('lets a signed-out visitor save a caregiver on this device without an account', () => {
+    auth = { user: null, loading: false };
+    get.mockResolvedValue(null);
+    renderUi(<CaregiverActions publicId={PUBLIC_ID} caregiverLabel="11111111" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save caregiver 11111111' }));
+
+    expect(screen.getByRole('button', { name: /Remove caregiver 11111111/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/Saved on this device/)).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem('care-platform-device-shortlist')!)).toEqual([PUBLIC_ID]);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('opens the request dialog by itself when a client comes back from signing up', async () => {
+    auth = { user: CLIENT, loading: false };
+    window.localStorage.setItem('care-platform-pending-contact', JSON.stringify({ publicId: PUBLIC_ID, at: Date.now() }));
+    get.mockResolvedValue([{ caregiverPublicId: PUBLIC_ID, saved: false, openRequest: null }]);
+    renderUi(<CaregiverActions publicId={PUBLIC_ID} caregiverLabel="11111111" />);
+
+    expect(await screen.findByLabelText(/anything we should know/i)).toBeInTheDocument();
+    expect(window.localStorage.getItem('care-platform-pending-contact')).toBeNull();
+  });
+
+  it('does not open a second request for a returning client who already has one', async () => {
+    auth = { user: CLIENT, loading: false };
+    window.localStorage.setItem('care-platform-pending-contact', JSON.stringify({ publicId: PUBLIC_ID, at: Date.now() }));
+    get.mockResolvedValue([{ caregiverPublicId: PUBLIC_ID, saved: false, openRequest: { id: 'r1', reference: 'CR-7K2QM9', status: 'NEW' } }]);
+    renderUi(<CaregiverActions publicId={PUBLIC_ID} caregiverLabel="11111111" />);
+
+    await screen.findByRole('link', { name: /Request sent · CR-7K2QM9/ });
+    expect(screen.queryByLabelText(/anything we should know/i)).not.toBeInTheDocument();
+    expect(window.localStorage.getItem('care-platform-pending-contact')).toBeNull();
   });
 
   it('tells a caregiver that contacting is for client accounts', () => {

@@ -133,3 +133,88 @@ describe('client sign-up collects the care intake', () => {
     expect(onTheWire).not.toHaveProperty('careAddress');
   });
 });
+
+describe('client sign-up after a search', () => {
+  const PUBLIC_ID = '11111111-1111-4111-8111-111111111111';
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem(
+      'care-platform-last-search',
+      JSON.stringify({
+        at: Date.now(),
+        request: {
+          patient: { age: 78, gender: 'FEMALE', medicalConditions: ['diabetes'] },
+          location: { districtId: 1, cityId: 340 },
+          shift: 'NIGHT',
+          caregiverGenderPreference: 'FEMALE',
+          // Today, whatever today is: "Immediately".
+          desiredStartDate: new Date().toISOString().slice(0, 10),
+        },
+        skillNames: ['Dementia care'],
+      }),
+    );
+    window.localStorage.setItem('care-platform-pending-contact', JSON.stringify({ publicId: PUBLIC_ID, at: Date.now() }));
+  });
+
+  it('goes straight to a shorter form and shows what the search already answered', async () => {
+    renderPage(<RegisterPage />);
+
+    expect(await screen.findByText(/You're contacting caregiver #11111111/)).toBeInTheDocument();
+    expect(screen.queryByText('Find and hire the right caregiver for your family')).toBeNull();
+    // Who needs care is still asked - a search never says who is registering.
+    expect(screen.getByText('Who needs care?')).toBeVisible();
+    expect(screen.getByText('Where is care needed?')).not.toBeVisible();
+    expect(screen.getByText('What care is needed?')).not.toBeVisible();
+    expect(screen.getByText('How should we contact you?')).not.toBeVisible();
+    expect(await screen.findByText('Dehiwala, Colombo')).toBeInTheDocument();
+    expect(screen.getByText('Caregiver preference: Female')).toBeInTheDocument();
+    expect(screen.getByText('Phone call · Any time')).toBeInTheDocument();
+    expect((screen.getByLabelText(/Your age/) as HTMLInputElement).value).toBe('78');
+  });
+
+  it('submits the carried-over answers with only identity and "who" typed in', async () => {
+    post.mockResolvedValue({ patientId: 'p1', message: 'ok' });
+    renderPage(<RegisterPage />);
+    await screen.findByText('Dehiwala, Colombo');
+
+    change(/Full name/, 'Kamala Perera');
+    change(/Email address/, 'kamala@example.com');
+    change(/Phone number/, '0771234567');
+    change(/^Password/, 'longenough');
+    change(/Confirm password/, 'longenough');
+    fireEvent.click(screen.getByLabelText('I need care myself'));
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(post.mock.calls[0][1]).toMatchObject({
+      registrantType: 'SELF',
+      recipientAge: 78,
+      recipientGender: 'FEMALE',
+      districtId: 1,
+      cityId: 340,
+      careSchedule: 'NIGHT',
+      careStart: 'IMMEDIATELY',
+      preferredCaregiverGender: 'FEMALE',
+      preferredContactMethod: 'PHONE_CALL',
+      preferredContactTime: 'ANYTIME',
+      careNeeds: 'Help needed with: Dementia care\nHealth conditions: diabetes',
+    });
+    expect(await screen.findByText(/we'll take you back to the caregiver you chose/)).toBeInTheDocument();
+  });
+
+  it('unfolds everything for editing', async () => {
+    renderPage(<RegisterPage />);
+    await screen.findByText('Dehiwala, Colombo');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByText('Where is care needed?')).toBeVisible();
+    expect(screen.getByText('What care is needed?')).toBeVisible();
+    expect((screen.getByLabelText(/Describe the care needed/) as HTMLTextAreaElement).value).toContain('Dementia care');
+  });
+
+  it('defaults a WhatsApp sign-up to being contacted on WhatsApp', async () => {
+    renderPage(<RegisterWhatsappPage />);
+    expect(await screen.findByText('WhatsApp · Any time')).toBeInTheDocument();
+  });
+});
