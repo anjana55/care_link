@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { ChevronLeft, CreditCard, Loader2, Printer } from 'lucide-react';
+import { ChevronLeft, CreditCard, FileQuestion, Loader2, Printer } from 'lucide-react';
 import { formatLkr, type PayhereCheckout } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/lib/api/auth-context';
@@ -38,17 +38,41 @@ function InvoicePage() {
   const { id } = useParams<{ id: string }>();
   const params = useSearchParams();
   const payment = params.get('payment');
-  const { user } = useAuth();
-  const { data: invoice, isLoading, isError, refetch } = useMyInvoice(id, payment === 'return');
+  const { user, logout } = useAuth();
+  const { data: invoice, isLoading, isError, error, refetch } = useMyInvoice(id, payment === 'return');
   const start = useStartOnlinePayment(id);
   const [email, setEmail] = useState('');
   const [redirecting, setRedirecting] = useState(false);
 
   if (isLoading) return <LoadingState label={t('common.loading')} />;
+  // Not this account's invoice (or not one it can see). Usually the link was
+  // opened while signed in to a different account than the one billed - say
+  // so, and offer to switch, instead of a "try again" that can never work.
+  if (error instanceof ApiError && (error.status === 404 || error.status === 403)) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-white px-6 py-12 text-center" role="alert">
+        <FileQuestion className="h-8 w-8 text-ink/40" aria-hidden />
+        <h1 className="text-lg font-semibold text-ink">{t('invoices.notFound.title')}</h1>
+        <p className="max-w-md text-sm text-ink/70">
+          {t('invoices.notFound.body', { account: user?.email ?? user?.phone ?? '' })}
+        </p>
+        <div className="mt-2 flex flex-wrap justify-center gap-2">
+          {/* Signing out sends the visitor to sign in and back here afterwards (see the account layout). */}
+          <button type="button" onClick={logout} className="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark">
+            {t('invoices.notFound.switch')}
+          </button>
+          <Link href="/account/invoices" className="rounded border border-border px-4 py-2 text-sm font-medium text-ink hover:bg-paper">
+            {t('invoices.notFound.mine')}
+          </Link>
+        </div>
+        <p className="max-w-md text-xs text-ink/50">{t('invoices.notFound.help')}</p>
+      </div>
+    );
+  }
   if (isError || !invoice) {
     return (
       <div>
-        <ErrorState onRetry={() => refetch()} />
+        <ErrorState onRetry={() => refetch()} subtitle={t('error.page')} />
         <Link href="/account/invoices" className="mt-4 inline-block text-sm text-brand hover:underline">
           {t('invoices.back')}
         </Link>

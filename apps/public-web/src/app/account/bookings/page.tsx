@@ -27,7 +27,7 @@ export default function MyBookingsPage() {
       <p className="mt-1 text-sm text-ink/60">{t('account.bookings.subtitle')}</p>
       <div className="mt-6">
         {isLoading && <LoadingState label={t('common.loading')} />}
-        {isError && <ErrorState onRetry={() => refetch()} />}
+        {isError && <ErrorState onRetry={() => refetch()} subtitle={t('error.page')} />}
         {data && data.length === 0 && (
           <div className="rounded-lg border border-dashed border-border bg-white px-6 py-12 text-center">
             <p className="text-sm text-ink/60">{t('account.bookings.empty')}</p>

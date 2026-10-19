@@ -30,7 +30,8 @@ export function EmptyResultsState({ onClear }: { onClear: () => void }) {
   );
 }
 
-export function ErrorState({ onRetry }: { onRetry: () => void }) {
+/** `subtitle` defaults to the finder's wording; other pages pass their own. */
+export function ErrorState({ onRetry, subtitle }: { onRetry: () => void; subtitle?: string }) {
   const { t } = useTranslation();
   return (
     <div
@@ -39,7 +40,7 @@ export function ErrorState({ onRetry }: { onRetry: () => void }) {
     >
       <AlertTriangle className="h-8 w-8 text-danger" aria-hidden />
       <h3 className="text-lg font-semibold text-danger">{t('error.title')}</h3>
-      <p className="max-w-sm text-sm text-ink/70">{t('error.subtitle')}</p>
+      <p className="max-w-sm text-sm text-ink/70">{subtitle ?? t('error.subtitle')}</p>
       <button
         type="button"
         onClick={onRetry}

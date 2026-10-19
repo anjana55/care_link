@@ -10,7 +10,7 @@ import type {
   ClientInvoice,
   PayhereCheckout,
 } from '@care-platform/shared';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { useAuth } from '../api/auth-context';
 import { useTranslation } from '../i18n';
 
@@ -134,6 +134,9 @@ export function useMyInvoice(id: string, poll = false) {
     queryKey: [...key, 'invoices', id],
     queryFn: () => api.get<ClientInvoice>(`/me/invoices/${id}`),
     enabled: Boolean(client) && Boolean(id),
+    // "Not yours / not there" won't change on a retry - show it straight away
+    // instead of after React Query's three retries.
+    retry: (count, err) => !(err instanceof ApiError && (err.status === 403 || err.status === 404)) && count < 3,
     refetchInterval: (q) => (poll && q.state.data?.status === 'ISSUED' ? 3000 : false),
   });
 }

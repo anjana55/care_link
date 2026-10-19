@@ -96,7 +96,8 @@
   "error": {
     "title": "Something went wrong",
     "subtitle": "We couldn't complete that search. Please try again.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "page": "We couldn't load this page. Please try again."
   },
   "loading": {
     "searching": "Searching for caregivers...",
@@ -1073,6 +1074,13 @@
       "balance": "Balance due",
       "paidInFull": "Paid in full - thank you",
       "payments": "Payments received"
+    },
+    "notFound": {
+      "title": "We can't find this invoice on your account",
+      "body": "You're signed in as {account}. The invoice may have been sent for a different account - sign in with the email address or phone number it was sent to.",
+      "switch": "Sign in with a different account",
+      "mine": "See my invoices",
+      "help": "Still stuck? Contact our team and quote the invoice number from the email."
     }
   }
 }
