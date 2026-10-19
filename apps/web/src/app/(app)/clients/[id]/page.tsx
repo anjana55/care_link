@@ -2,41 +2,45 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ChevronLeft } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
-import { ApiError } from '@/lib/api/client';
-import {
-  useClient,
-  useSetClientActive,
-  useUpdateClient,
-  useUpdateClientStatus,
-  type ClientUpdateValues,
-} from '@/lib/hooks/use-clients';
+import { api, ApiError } from '@/lib/api/client';
+import { useClient, useDeleteClient, useUpdateClient, type ClientUpdateValues } from '@/lib/hooks/use-clients';
 import { useLocationTree } from '@/lib/hooks/use-caregivers';
 import { Button } from '@/components/ui/button';
-import { FieldError, RequiredLegend, Select } from '@/components/ui/input';
+import { RequiredLegend } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ClientProfileFields } from '@/components/clients/client-profile-fields';
+import { ClientOverview } from '@/components/clients/client-overview';
+import { ClientLifecyclePanels, ClientStatusMove } from '@/components/clients/client-lifecycle';
 import { RelatedRequests } from '@/components/requests/related-requests';
 import { RelatedBookings } from '@/components/bookings/related-bookings';
 import { makeClientProfileSchema, UNSET_ID } from '@/lib/schemas/client-profile';
-import { allowedNextClientStatuses } from '@/lib/client-status';
-import type { ClientStatus } from '@/lib/api/types';
 
+/**
+ * A client's page, laid out like a caregiver's: name and status in the header
+ * with the lifecycle "Move to…" control, Edit and Delete beside it; the record
+ * in tabs below. The status control used to sit at the bottom of the page and
+ * its dropdown could not select the first legal move (see StatusMoveSelect).
+ */
 export default function ClientDetailPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { user } = useAuth();
   const { data: client, isLoading, isError } = useClient(id);
 
-  const statusMutation = useUpdateClientStatus(id);
-  const activeMutation = useSetClientActive(id);
   const updateMutation = useUpdateClient(id);
+  const deleteMutation = useDeleteClient();
+  const [isDeleteConfirm, setIsDeleteConfirm] = useState(false);
   const { data: locationTree, isError: locationsUnavailable } = useLocationTree();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -44,6 +48,14 @@ export default function ClientDetailPage() {
 
   const isAdmin = user?.role === 'ADMIN';
   const canEdit = isAdmin || user?.role === 'STAFF';
+
+  // Same audit tab as a caregiver's: admin-only, matching @Roles on the
+  // audit-logs endpoint. Status changes are recorded as UPDATE_CLIENT_STATUS.
+  const { data: auditEntries } = useQuery({
+    queryKey: ['audit', 'Patient', id],
+    queryFn: () => api.get<{ id: string; action: string; createdAt: string }[]>(`/audit-logs?entityType=Patient&entityId=${id}`),
+    enabled: Boolean(id) && isAdmin,
+  });
 
   const schema = makeClientProfileSchema(t);
   const form = useForm<any>({ resolver: zodResolver(schema as any) });
@@ -74,10 +86,6 @@ export default function ClientDetailPage() {
       setServerError(null);
     }
   }, [isEditing, client, form]);
-
-  function fmt(value: string | null, fallback: string) {
-    return value ? new Date(value).toLocaleString() : fallback;
-  }
 
   function onSave(data: any) {
     setServerError(null);
@@ -126,8 +134,6 @@ export default function ClientDetailPage() {
     );
   }
 
-  const nextStatuses = allowedNextClientStatuses(client.status);
-
   return (
     <div>
       <Link
@@ -138,198 +144,145 @@ export default function ClientDetailPage() {
         {t('clients.back')}
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-ink">{client.fullName}</h1>
-        {isEditing ? (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="primary"
-              disabled={updateMutation.isPending}
-              onClick={form.handleSubmit(onSave)}
-            >
-              {t('common.save')}
-            </Button>
-            <Button variant="secondary" onClick={() => setIsEditing(false)}>
-              {t('common.cancel')}
-            </Button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <StatusBadge status={client.status} label={t(`clients.status.${client.status}`)} />
-            {canEdit && (
-              <Link
-                href={`/requests/new?patientId=${client.id}`}
-                className="inline-flex h-8 items-center rounded border border-border bg-white px-3 text-sm font-medium text-ink hover:bg-paper"
-              >
-                {t('requests.newRequestForClient')}
-              </Link>
-            )}
-            {canEdit && (
-              <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>
-                {t('clients.actions.edit')}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-ink">{client.fullName}</h1>
+          <p className="text-sm text-ink/50">
+            {client.registrantType === 'GUARDIAN' && client.recipientName
+              ? `${t('clients.forRecipient')} ${client.recipientName} · `
+              : ''}
+            {t('clients.detail.registered')} {new Date(client.createdAt).toLocaleDateString(locale)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {isEditing ? (
+            <>
+              <Button variant="primary" disabled={updateMutation.isPending} onClick={form.handleSubmit(onSave)}>
+                {t('common.save')}
               </Button>
-            )}
-          </div>
-        )}
+              <Button variant="secondary" onClick={() => setIsEditing(false)}>
+                {t('common.cancel')}
+              </Button>
+            </>
+          ) : (
+            <>
+              <StatusBadge status={client.status} label={t(`clients.status.${client.status}`)} />
+              {canEdit && <ClientStatusMove client={client} />}
+              {canEdit && (
+                <Link
+                  href={`/requests/new?patientId=${client.id}`}
+                  className="inline-flex h-10 items-center rounded border border-border bg-white px-4 text-sm font-medium text-ink hover:bg-paper"
+                >
+                  {t('requests.newRequestForClient')}
+                </Link>
+              )}
+              {canEdit && (
+                <Button variant="secondary" onClick={() => setIsEditing(true)}>
+                  {t('common.edit')}
+                </Button>
+              )}
+              {/* Deleting a client account is admin-only, matching the API. */}
+              {isAdmin && (
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    deleteMutation.reset();
+                    setIsDeleteConfirm(true);
+                  }}
+                >
+                  {t('common.delete')}
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
-      {isEditing ? (
-        <form onSubmit={form.handleSubmit(onSave)} className="space-y-5">
-          <RequiredLegend label={t('common.requiredField')} />
-          <ClientProfileFields
-            register={form.register}
-            control={form.control}
-            setValue={form.setValue}
-            errors={form.formState.errors}
-            locationTree={locationTree ?? []}
-            locationsUnavailable={locationsUnavailable}
-            serverError={serverError}
-          />
-          <div className="flex justify-end border-t border-border pt-4">
-            <Button type="submit" disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? t('common.loading') : t('common.save')}
-            </Button>
-          </div>
-        </form>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Panel title={t('clients.detail.contact')}>
-            <Row label={t('clients.table.name')} value={client.fullName} />
-            <Row label={t('clients.detail.phone')} value={client.phone || '—'} />
-            <Row
-              label={t('clients.detail.email')}
-              value={client.email || t('clients.detail.noEmail')}
-            />
-          </Panel>
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">{t('caregivers.profile.tabs.overview')}</TabsTrigger>
+          {canEdit && <TabsTrigger value="lifecycle">{t('lifecycle.client.tab')}</TabsTrigger>}
+          {canEdit && <TabsTrigger value="requests">{t('requests.related.title')}</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="audit">{t('caregivers.profile.tabs.audit')}</TabsTrigger>}
+        </TabsList>
 
-          <Panel title={t('clients.detail.profile')}>
-            <Row label={t('personalInfo.fields.permanentAddress')} value={client.permanentAddress || '—'} />
-            <Row
-              label={t('personalInfo.fields.dateOfBirth')}
-              value={client.dateOfBirth ? client.dateOfBirth.slice(0, 10) : '—'}
-            />
-            <Row
-              label={t('personalInfo.fields.gender')}
-              value={client.gender ? t(`personalInfo.options.gender.${client.gender}`) : '—'}
-            />
-            <Row label={t('personalInfo.fields.nic')} value={client.nic || '—'} />
-            <Row
-              label={t('personalInfo.fields.district')}
-              value={
-                client.district && client.city
-                  ? `${client.district} / ${client.city}`
-                  : client.district || client.city || '—'
-              }
-            />
-            <Row label={t('personalInfo.fields.postalCode')} value={client.postalCode || '—'} />
-          </Panel>
-
-          <Panel title={t('clients.detail.account')}>
-            <Row
-              label={t('clients.detail.isActive')}
-              value={client.isActive ? t('clients.account.active') : t('clients.account.inactive')}
-            />
-            <Row
-              label={t('clients.detail.whatsappNumber')}
-              value={client.accountPhone || t('clients.detail.notLinked')}
-            />
-            <Row
-              label={t('clients.detail.emailVerified')}
-              value={client.emailVerifiedAt ? fmt(client.emailVerifiedAt, '') : t('clients.detail.emailUnverified')}
-            />
-            <Row
-              label={t('clients.detail.lastLogin')}
-              value={fmt(client.lastLoginAt, t('clients.never'))}
-            />
-          </Panel>
-
-          <Panel title={t('clients.detail.registration')}>
-            <Row label={t('clients.detail.registered')} value={fmt(client.createdAt, '')} />
-            <Row label={t('clients.detail.updated')} value={fmt(client.updatedAt, '—')} />
-            <Row
-              label={t('clients.detail.consent')}
-              value={fmt(client.consentAcceptedAt, t('clients.detail.notRecorded'))}
-            />
-            {client.notes && <Row label={t('clients.form.notes')} value={client.notes} />}
-          </Panel>
-
-          {canEdit && (
-            <Panel title={t('clients.changeStatus')}>
-              <div className="flex flex-col gap-3">
-                <Select
-                  value={client.status}
-                  disabled={statusMutation.isPending}
-                  onChange={(e) => statusMutation.mutate(e.target.value as ClientStatus)}
-                >
-                  {/* Only the transitions the API will accept. Offering all
-                      four meant every illegal pick was a 400 with nothing on
-                      screen to explain it. */}
-                  {nextStatuses.length === 0 ? (
-                    <option value={client.status}>{t(`clients.status.${client.status}`)}</option>
-                  ) : (
-                    nextStatuses.map((s) => (
-                      <option key={s} value={s}>
-                        {t(`clients.status.${s}`)}
-                      </option>
-                    ))
-                  )}
-                </Select>
-
-                {/* The transition rules are enforced server-side, so a rejection
-                    still has to be visible rather than silently reverting. */}
-                <FieldError
-                  message={
-                    statusMutation.isError
-                      ? statusMutation.error instanceof ApiError
-                        ? statusMutation.error.message
-                        : t('clients.validation.saveFailed')
-                      : undefined
-                  }
-                />
-
-                {isAdmin && (
-                  <Button
-                    variant="secondary"
-                    disabled={activeMutation.isPending}
-                    onClick={() => activeMutation.mutate(!client.isActive)}
-                  >
-                    {client.isActive
-                      ? t('clients.actions.deactivate')
-                      : t('clients.actions.activate')}
-                  </Button>
-                )}
+        <TabsContent value="overview">
+          {isEditing ? (
+            <form onSubmit={form.handleSubmit(onSave)} className="space-y-5">
+              <RequiredLegend label={t('common.requiredField')} />
+              <ClientProfileFields
+                register={form.register}
+                control={form.control}
+                setValue={form.setValue}
+                errors={form.formState.errors}
+                locationTree={locationTree ?? []}
+                locationsUnavailable={locationsUnavailable}
+                serverError={serverError}
+              />
+              <div className="flex justify-end gap-2 border-t border-border pt-4">
+                <Button type="button" variant="secondary" onClick={() => setIsEditing(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? t('common.loading') : t('common.save')}
+                </Button>
               </div>
-            </Panel>
+            </form>
+          ) : (
+            <ClientOverview client={client} />
           )}
+        </TabsContent>
 
-          <div className="md:col-span-2">
-            <RelatedRequests patientId={client.id} />
-          </div>
-          <div className="md:col-span-2">
-            <RelatedBookings patientId={client.id} />
-          </div>
-        </div>
+        {canEdit && (
+          <TabsContent value="lifecycle">
+            <ClientLifecyclePanels client={client} isAdmin={isAdmin} />
+          </TabsContent>
+        )}
+
+        {canEdit && (
+          <TabsContent value="requests">
+            <div className="space-y-4">
+              <RelatedRequests patientId={client.id} />
+              <RelatedBookings patientId={client.id} />
+            </div>
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="audit">
+            <Card>
+              <CardContent className="divide-y divide-border py-5">
+                {auditEntries?.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between py-3 text-sm first:pt-5 last:pb-5">
+                    <span className="text-ink">{a.action.replace(/_/g, ' ')}</span>
+                    <span className="text-ink/40">{new Date(a.createdAt).toLocaleString(locale)}</span>
+                  </div>
+                ))}
+                {auditEntries?.length === 0 && <p className="py-5 text-sm text-ink/40">{t('lifecycle.noAudit')}</p>}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
+
+      {isDeleteConfirm && (
+        <ConfirmDialog
+          title={t('clients.deleteTitle')}
+          message={t('clients.confirmDelete', { name: client.fullName })}
+          tone="danger"
+          confirmLabel={t('common.delete')}
+          pending={deleteMutation.isPending}
+          error={
+            deleteMutation.error instanceof ApiError
+              ? deleteMutation.error.message
+              : deleteMutation.error
+                ? t('common.actionFailed')
+                : null
+          }
+          onCancel={() => setIsDeleteConfirm(false)}
+          onConfirm={() => deleteMutation.mutate(client.id, { onSuccess: () => router.push('/clients') })}
+        />
       )}
-    </div>
-  );
-}
-
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-4 border-b border-border py-2 last:border-0">
-      <span className="text-sm text-ink/60">{label}</span>
-      <span className="text-right text-sm text-ink">{value}</span>
     </div>
   );
 }

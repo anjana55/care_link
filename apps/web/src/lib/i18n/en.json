@@ -265,7 +265,10 @@
       "resetSessionsNote": "Every session on their devices ends immediately, whatever you choose.",
       "resetConfirm": "Reset sign-in",
       "resetError": "Could not reset sign-in. Please try again."
-    }
+    },
+    "subtitle": "Caregivers registered by staff or through the public site.",
+    "countNoun": "caregivers",
+    "confirmDeleteNamed": "Delete {name}? Their sign-in is removed at once, and their email, phone number and NIC become free to register again. Their record stays in the audit history."
   },
   "clients": {
     "title": "Clients",
@@ -404,7 +407,7 @@
     },
     "subtitle": "Patients and guardians registered through the public site.",
     "deleteTitle": "Delete client",
-    "confirmDelete": "This permanently deletes the client account and cannot be undone.",
+    "confirmDelete": "This permanently deletes {name}'s account, together with their care requests, saved caregivers and bookings. It cannot be undone.",
     "status": {
       "PENDING_REVIEW": "Pending review",
       "ACTIVE": "Active",
@@ -460,7 +463,12 @@
     "no": "No",
     "language": "Language",
     "requiredField": "Required field",
-    "locationsUnavailable": "Districts and cities could not be loaded. Check your connection and reload the page."
+    "locationsUnavailable": "Districts and cities could not be loaded. Check your connection and reload the page.",
+    "actions": "Actions",
+    "previous": "Previous",
+    "next": "Next",
+    "pageSummary": "Page {page} of {totalPages} · {total} {noun}",
+    "actionFailed": "Something went wrong. Please try again."
   },
   "register": {
     "title": "Register as a caregiver",
@@ -1199,6 +1207,57 @@
       "NOTE": "Note",
       "COMPLETED": "Booking completed",
       "CANCELLED": "Booking cancelled"
+    }
+  },
+  "filters": {
+    "button": "Filters",
+    "advanced": "Advanced filters",
+    "clearAll": "Clear all",
+    "allStatuses": "All statuses"
+  },
+  "lifecycle": {
+    "moveTo": "Move to…",
+    "moveTitle": "Move to {status}?",
+    "moveTitleNamed": "Move {name} to {status}?",
+    "moveMessage": "The status will change to {status}. This is recorded in the audit log.",
+    "moveConfirm": "Move to {status}",
+    "changeStatus": "Change status:",
+    "noMoves": "No further status changes are possible.",
+    "noAudit": "No audit entries yet.",
+    "client": {
+      "tab": "Status & access",
+      "statusTitle": "Client status",
+      "accessTitle": "Sign-in access",
+      "canSignIn": "Can sign in",
+      "cannotSignIn": "Sign-in disabled",
+      "accessHint": "Sign-in access is separate from status: a suspended client can still sign in, and a client with sign-in disabled keeps their status. Only admins can change sign-in access.",
+      "deactivateMessage": "{name} will be signed out and won't be able to sign in until an admin turns access back on. Their status, requests and bookings are not changed.",
+      "activateMessage": "{name} will be able to sign in again.",
+      "meaning": {
+        "PENDING_REVIEW": "Newly registered and not yet reviewed by staff. Can sign in and send care requests.",
+        "ACTIVE": "Reviewed and in good standing. Can sign in and send care requests.",
+        "INACTIVE": "No longer looking for care, or not proceeding. Can sign in but can't send new care requests.",
+        "SUSPENDED": "Blocked for a problem with the account or its use. Can sign in but can't send new care requests."
+      },
+      "to": {
+        "ACTIVE": {
+          "title": "Activate {name}?",
+          "message": "The client will be marked as reviewed and in good standing, and can send care requests."
+        },
+        "INACTIVE": {
+          "title": "Mark {name} as inactive?",
+          "message": "They can still sign in, but won't be able to send new care requests until reactivated. Existing requests and bookings are kept."
+        },
+        "SUSPENDED": {
+          "title": "Suspend {name}?",
+          "message": "They can still sign in, but won't be able to send new care requests until reactivated. Existing requests and bookings are kept. To stop them signing in too, an admin can turn off sign-in access."
+        }
+      }
+    },
+    "caregiver": {
+      "toRejected": "Rejected is final: the status cannot be changed again afterwards.",
+      "leaveActive": "The caregiver will move to {status} and will no longer appear in public search.",
+      "toActive": "The caregiver will appear in public search and can be matched with clients."
     }
   }
 }

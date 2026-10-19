@@ -2,16 +2,19 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Plus, Search, SlidersHorizontal } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useCaregivers, useSkills, useLanguages, useLocationTree } from '@/lib/hooks/use-caregivers';
 import { useAuth } from '@/lib/api/auth-context';
-import { api } from '@/lib/api/client';
+import { api, ApiError } from '@/lib/api/client';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { FilterChip } from '@/components/ui/filter-chip';
+import { ListPagination } from '@/components/ui/list-pagination';
 import {
   AdvancedFiltersPanel,
   EMPTY_ADVANCED_FILTERS,
@@ -19,20 +22,7 @@ import {
   toApiFilters,
   type AdvancedFilters,
 } from '@/components/caregivers/advanced-filters';
-import type { CaregiverStatus } from '@/lib/api/types';
-import { cn } from '@/lib/utils';
-
-const STATUSES: CaregiverStatus[] = [
-  'DRAFT',
-  'REGISTERED',
-  'DOCUMENTS_PENDING',
-  'UNDER_VERIFICATION',
-  'VERIFIED',
-  'ACTIVE',
-  'INACTIVE',
-  'SUSPENDED',
-  'REJECTED',
-];
+import { CAREGIVER_STATUS_OPTIONS } from '@/lib/caregiver-status';
 
 export default function CaregiversListPage() {
   const { t } = useTranslation();
@@ -43,7 +33,7 @@ export default function CaregiversListPage() {
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [advanced, setAdvanced] = useState<AdvancedFilters>(EMPTY_ADVANCED_FILTERS);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { data: skills } = useSkills();
   const { data: languages } = useLanguages();
@@ -79,7 +69,7 @@ export default function CaregiversListPage() {
     mutationFn: (id: string) => api.delete(`/caregivers/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['caregivers'] });
-      setDeleteConfirmId(null);
+      setDeleteTarget(null);
     },
   });
 
@@ -87,7 +77,7 @@ export default function CaregiversListPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ink">{t('caregivers.title')}</h1>
         <Link href="/caregivers/new">
           <Button>
@@ -96,6 +86,7 @@ export default function CaregiversListPage() {
           </Button>
         </Link>
       </div>
+      <p className="mb-6 text-sm text-ink/60">{t('caregivers.subtitle')}</p>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
@@ -113,13 +104,14 @@ export default function CaregiversListPage() {
         <Select
           className="sm:w-56"
           value={status}
+          aria-label={t('caregivers.table.status')}
           onChange={(e) => {
             setStatus(e.target.value);
             setPage(1);
           }}
         >
-          <option value="">{t('caregivers.table.status')}</option>
-          {STATUSES.map((s) => (
+          <option value="">{t('filters.allStatuses')}</option>
+          {CAREGIVER_STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>
               {t(`caregivers.status.${s}`)}
             </option>
@@ -132,7 +124,7 @@ export default function CaregiversListPage() {
           className="relative sm:w-auto"
         >
           <SlidersHorizontal size={15} />
-          Filters
+          {t('filters.button')}
           {activeCount > 0 && (
             <span className="ml-1 rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-semibold">{activeCount}</span>
           )}
@@ -174,7 +166,7 @@ export default function CaregiversListPage() {
             />
           )}
           <button onClick={() => updateAdvanced(EMPTY_ADVANCED_FILTERS)} className="text-xs font-medium text-ink/40 hover:text-danger">
-            Clear all
+            {t('filters.clearAll')}
           </button>
         </div>
       )}
@@ -190,7 +182,7 @@ export default function CaregiversListPage() {
               <th className="px-4 py-3 font-medium">{t('caregivers.table.languages')}</th>
               <th className="px-4 py-3 font-medium">Locations</th>
               <th className="px-4 py-3 font-medium">{t('caregivers.table.status')}</th>
-              {isAdminOrStaff && <th className="px-4 py-3 font-medium">{t('common.edit')}</th>}
+              {isAdminOrStaff && <th className="px-4 py-3 font-medium">{t('common.actions')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -230,7 +222,10 @@ export default function CaregiversListPage() {
                         {t('common.edit')}
                       </Link>
                       <button
-                        onClick={() => setDeleteConfirmId(c.id)}
+                        onClick={() => {
+                          deleteMutation.reset();
+                          setDeleteTarget({ id: c.id, name: c.fullName });
+                        }}
                         className="text-sm text-danger hover:underline"
                       >
                         {t('common.delete')}
@@ -244,54 +239,29 @@ export default function CaregiversListPage() {
         </table>
       </div>
 
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-sm rounded-lg border border-border bg-white p-6">
-            <h3 className="mb-2 text-base font-semibold text-ink">{t('caregivers.deleteTitle')}</h3>
-            <p className="mb-4 text-sm text-ink/60">{t('caregivers.confirmDelete')}</p>
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setDeleteConfirmId(null)}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate(deleteConfirmId)}
-              >
-                {t('common.confirm')}
-              </Button>
-            </div>
-          </div>
-        </div>
+      {deleteTarget && (
+        <ConfirmDialog
+          title={t('caregivers.deleteTitle')}
+          message={t('caregivers.confirmDeleteNamed', { name: deleteTarget.name })}
+          tone="danger"
+          confirmLabel={t('common.delete')}
+          pending={deleteMutation.isPending}
+          error={deleteMutation.error instanceof ApiError ? deleteMutation.error.message : deleteMutation.error ? t('common.actionFailed') : null}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
+        />
       )}
 
-      {data && data.totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-ink/60">
-          <span>
-            Page {data.page} of {data.totalPages} · {data.total} caregivers
-          </span>
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              {t('caregivers.wizard.back')}
-            </Button>
-            <Button variant="secondary" size="sm" disabled={page >= data.totalPages} onClick={() => setPage((p) => p + 1)}>
-              Next
-            </Button>
-          </div>
-        </div>
+      {data && (
+        <ListPagination
+          page={data.page}
+          totalPages={data.totalPages}
+          total={data.total}
+          noun={t('caregivers.countNoun')}
+          onPage={setPage}
+        />
       )}
     </div>
   );
 }
 
-function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span className={cn('flex items-center gap-1.5 rounded-full bg-brand-light px-2.5 py-1 text-xs font-medium text-brand-dark')}>
-      {label}
-      <button onClick={onRemove} className="text-brand-dark/60 hover:text-brand-dark">
-        <X size={12} />
-      </button>
-    </span>
-  );
-}
