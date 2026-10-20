@@ -23,6 +23,7 @@ import {
   type ClientIntakeFilters,
 } from '@/components/clients/client-filters';
 import { CLIENT_STATUS_OPTIONS } from '@/lib/client-status';
+import { useInitialParam } from '@/lib/use-initial-param';
 
 /**
  * Staff view of self-registered patients/guardians. Mirrors the Caregivers
@@ -42,6 +43,7 @@ export default function ClientsListPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
+  useInitialParam('status', CLIENT_STATUS_OPTIONS, setStatus);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<ClientIntakeFilters>(EMPTY_CLIENT_FILTERS);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);

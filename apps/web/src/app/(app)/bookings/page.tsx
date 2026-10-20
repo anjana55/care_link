@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { BookingStatusBadge } from '@/components/bookings/booking-badges';
 import { cn } from '@/lib/utils';
 import type { BookingStatus } from '@/lib/api/types';
+import { useInitialParam } from '@/lib/use-initial-param';
 
 const TABS: (BookingStatus | 'all')[] = ['CONFIRMED', 'DRAFT', 'COMPLETED', 'CANCELLED', 'all'];
 
@@ -24,6 +25,7 @@ export default function BookingsPage() {
   const [tab, setTab] = useState<BookingStatus | 'all'>('CONFIRMED');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  useInitialParam('tab', [...TABS], setTab);
   const allowed = user?.role === 'ADMIN' || user?.role === 'STAFF';
 
   useEffect(() => {
