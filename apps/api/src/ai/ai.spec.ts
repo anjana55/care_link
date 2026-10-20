@@ -1,5 +1,5 @@
 import { buildRequest, parseJsonObject, parseResponse, type ChatMessage } from './ai-protocol';
-import { normalizeExtraction, summarize, type Catalog } from './requirements';
+import { completeForPublicSearch, normalizeExtraction, summarize, type Catalog } from './requirements';
 import { applyRanking } from './rerank';
 import { AiProviderService, AiUnavailableError, quirkFromError } from './ai-provider.service';
 import type { ResolvedAiSettings } from './ai-settings.service';
@@ -126,6 +126,21 @@ describe('AI requirement extraction', () => {
     expect(s.location).toEqual(['මහනුවර']);
     expect(s.care).toEqual(['රාත්‍රී රැකවරණය']);
     expect(s.patient).toEqual(['වයස අවුරුදු 79']);
+  });
+
+  it('for the public finder: asks for a missing district, and assumes "as soon as possible" for a missing start date', () => {
+    const blank = completeForPublicSearch({ page: 1, pageSize: 20 }, today);
+    expect(blank.missing).toEqual(['location']);
+    expect(blank.assumed).toEqual(['desiredStartDate']);
+    expect(blank.request.desiredStartDate).toBe(today);
+
+    const full = completeForPublicSearch({ location: { districtId: 5 }, desiredStartDate: '2026-11-01' }, today);
+    expect(full.missing).toEqual([]);
+    expect(full.assumed).toEqual([]);
+    expect(full.request.desiredStartDate).toBe('2026-11-01');
+
+    const s = summarize(blank.request, catalog, 'en', null, blank.assumed);
+    expect(s.care).toEqual(['Starting as soon as possible']);
   });
 });
 

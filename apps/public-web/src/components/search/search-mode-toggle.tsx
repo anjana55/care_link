@@ -14,35 +14,34 @@ interface SearchModeToggleProps {
 export function SearchModeToggle({ mode, onChange, aiEnabled }: SearchModeToggleProps) {
   const { t } = useTranslation();
 
+  const tabs: { id: SearchMode; label: string; disabled: boolean }[] = [
+    { id: 'normal', label: t('searchMode.normal'), disabled: false },
+    { id: 'ai', label: t('searchMode.ai'), disabled: !aiEnabled },
+  ];
+  // AI Search is the default when it is on, so it comes first; when it is off
+  // it sits last, greyed out, behind the mode that actually works.
+  if (aiEnabled) tabs.reverse();
+
   return (
     <div>
       <div className="inline-flex rounded-lg border border-border bg-white p-1" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'normal'}
-          onClick={() => onChange('normal')}
-          className={cn(
-            'rounded-DEFAULT px-4 py-2 text-sm font-semibold transition-colors',
-            mode === 'normal' ? 'bg-brand text-white' : 'text-ink/70 hover:bg-brand-light',
-          )}
-        >
-          {t('searchMode.normal')}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'ai'}
-          disabled={!aiEnabled}
-          onClick={() => onChange('ai')}
-          className={cn(
-            'rounded-DEFAULT px-4 py-2 text-sm font-semibold transition-colors',
-            mode === 'ai' ? 'bg-brand text-white' : 'text-ink/70 hover:bg-brand-light',
-            !aiEnabled && 'cursor-not-allowed opacity-40 hover:bg-transparent',
-          )}
-        >
-          {t('searchMode.ai')}
-        </button>
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={mode === tab.id}
+            disabled={tab.disabled}
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              'rounded-DEFAULT px-4 py-2 text-sm font-semibold transition-colors',
+              mode === tab.id ? 'bg-brand text-white' : 'text-ink/70 hover:bg-brand-light',
+              tab.disabled && 'cursor-not-allowed opacity-40 hover:bg-transparent',
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
       {!aiEnabled && <p className="mt-2 text-xs text-ink/50">{t('searchMode.aiUnavailable')}</p>}
     </div>

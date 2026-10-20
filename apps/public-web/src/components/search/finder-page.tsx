@@ -29,14 +29,21 @@ import { loadSearch, rememberSearch } from '@/lib/care-intent';
  */
 export function FinderPage() {
   const { t } = useTranslation();
-  const { data: config } = useSearchConfig();
-  const [mode, setMode] = useState<SearchMode>('normal');
+  const { data: config, isLoading: configLoading } = useSearchConfig();
+  // null until the visitor (or a restored normal search) picks a mode: AI
+  // Search is the default whenever it is switched on, Normal Search otherwise.
+  const [chosenMode, setChosenMode] = useState<SearchMode | null>(null);
   const [request, setRequest] = useState<SearchRequest | null>(null);
   // Set when the current results came from AI Search: what the visitor typed.
   const [aiQuery, setAiQuery] = useState<string | undefined>(undefined);
   // Bumped when a remembered search is restored, so the form remounts with it.
   const [formKey, setFormKey] = useState(0);
+  // Bumped on every new AI search, so the advanced filters below the results re-fill from it.
+  const [refineKey, setRefineKey] = useState(0);
+  // Set when the visitor changed AI Search's filters by hand, so its chips may no longer tell the whole story.
+  const [refined, setRefined] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const refineRef = useRef<HTMLDivElement>(null);
   const { data: skills = [] } = useMetaSkills();
 
   // Coming back from a profile ("Back to results") should show the same
@@ -47,26 +54,34 @@ export function FinderPage() {
     if (!remembered) return;
     setRequest({ ...remembered.request, page: remembered.request.page ?? 1 });
     setAiQuery(remembered.aiQuery);
+    // A remembered Normal Search reopens as one; an AI search reopens in the
+    // AI panel while AI Search is offered (the default below).
+    if (!remembered.aiQuery) setChosenMode('normal');
     setFormKey((k) => k + 1);
   }, []);
 
-  // An AI search is restored into the AI panel - but only while AI Search is
-  // still offered; otherwise the same request shows as a normal search.
   const aiEnabled = Boolean(config?.aiSearchEnabled);
-  useEffect(() => {
-    if (aiQuery && aiEnabled) setMode('ai');
-  }, [aiQuery, aiEnabled]);
+  const mode: SearchMode = aiEnabled ? (chosenMode ?? 'ai') : 'normal';
 
   /**
    * Runs a search and keeps what it says about the care needed, so a sign-up
    * started from these results can be pre-filled instead of asking again.
    */
-  function search(next: SearchRequest, aiQuery?: string) {
+  function search(next: SearchRequest, aiQuery?: string, options: { refined?: boolean } = {}) {
     const ids = [...(next.mandatorySkillIds ?? []), ...(next.optionalSkillIds ?? [])];
     const skillNames = [...new Set(ids)].map((id) => skills.find((s) => s.id === id)?.name).filter((n): n is string => Boolean(n));
     rememberSearch({ request: next, aiQuery: aiQuery || undefined, skillNames });
     setAiQuery(aiQuery || undefined);
+    setRefined(Boolean(options.refined));
+    if (!options.refined) setRefineKey((k) => k + 1);
     setRequest(next);
+  }
+
+  function clearSearch() {
+    setRequest(null);
+    setAiQuery(undefined);
+    setRefined(false);
+    setFormKey((k) => k + 1);
   }
 
   const { data, isLoading, isError, refetch } = useCaregiverSearch(request, aiEnabled ? aiQuery : undefined);
@@ -83,6 +98,15 @@ export function FinderPage() {
     searchRef.current?.scrollIntoView({ behavior: 'smooth' });
   }
 
+  function scrollToRefine() {
+    refineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  const showAi = mode === 'ai';
+  // AI Search puts the caregivers first: the conversation, then the matches,
+  // then the full filter form for anyone who wants to fine-tune.
+  const showRefine = showAi && request !== null;
+
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
@@ -95,38 +119,58 @@ export function FinderPage() {
         </section>
 
         <section ref={searchRef} className="mx-auto max-w-3xl px-4 pb-10">
-          <div className="mb-5 flex justify-center">
-            <SearchModeToggle mode={mode} onChange={setMode} aiEnabled={aiEnabled} />
-          </div>
+          {configLoading ? (
+            // Wait for the config rather than flash the Normal Search form and then swap it for AI Search.
+            <div className="h-64 animate-pulse rounded-lg border border-border bg-white" aria-hidden />
+          ) : (
+            <>
+              <div className="mb-5 flex justify-center">
+                <SearchModeToggle mode={mode} onChange={setChosenMode} aiEnabled={aiEnabled} />
+              </div>
 
-          <div className="rounded-lg border border-border bg-white p-5 sm:p-8">
-            {mode === 'normal' ? (
-              <NormalSearchForm key={formKey} onSubmit={(next) => search(next)} initialValues={formKey > 0 && request ? request : undefined} />
-            ) : (
-              <AiSearchPanel
-                key={formKey}
-                onSubmit={(next, query) => search(next, query)}
-                initialQuery={aiQuery}
-                initialRequest={aiQuery && request ? request : undefined}
-              />
-            )}
-          </div>
+              <div className="rounded-lg border border-border bg-white p-5 sm:p-8">
+                {showAi ? (
+                  <AiSearchPanel
+                    key={formKey}
+                    onSearch={(next, query) => search(next, query)}
+                    onUseNormalSearch={() => setChosenMode('normal')}
+                    onAdjustFilters={scrollToRefine}
+                    onReset={clearSearch}
+                    refined={refined}
+                    initialQuery={aiQuery}
+                    initialRequest={aiQuery && request ? request : undefined}
+                  />
+                ) : (
+                  <NormalSearchForm key={formKey} onSubmit={(next) => search(next)} initialValues={formKey > 0 && request ? request : undefined} />
+                )}
+              </div>
+            </>
+          )}
 
           <div className="mt-8">
             {isLoading && <LoadingState label={t('loading.searching')} />}
             {isError && <ErrorState onRetry={() => refetch()} />}
-            {!isLoading && !isError && data && data.items.length === 0 && (
-              <EmptyResultsState
-                onClear={() => {
-                  setRequest(null);
-                  setAiQuery(undefined);
-                }}
-              />
-            )}
+            {!isLoading && !isError && data && data.items.length === 0 && <EmptyResultsState onClear={clearSearch} />}
             {!isLoading && !isError && data && data.items.length > 0 && (
               <ResultsList response={data} onPageChange={goToPage} />
             )}
           </div>
+
+          {showRefine && request && (
+            <div ref={refineRef} className="mt-10 scroll-mt-6 rounded-lg border border-border bg-white p-5 sm:p-8">
+              <h2 className="text-lg font-semibold text-ink">{t('aiSearch.refineTitle')}</h2>
+              <p className="mb-5 mt-1 text-sm text-ink/60">{t('aiSearch.refineHint')}</p>
+              <NormalSearchForm
+                key={refineKey}
+                initialValues={{ ...request, page: 1 }}
+                submitLabel={t('aiSearch.updateResults')}
+                onSubmit={(next) => {
+                  search(next, aiQuery, { refined: true });
+                  scrollToSearch();
+                }}
+              />
+            </div>
+          )}
         </section>
 
         {/* Concise supporting sections - deliberately kept short so search stays central */}
