@@ -17,6 +17,7 @@ import { Input, Label } from '@/components/ui/input';
 import { PayoutStatusBadge } from '@/components/billing/billing-badges';
 import { cn } from '@/lib/utils';
 import type { PayoutStatus } from '@/lib/api/types';
+import { useInitialParam } from '@/lib/use-initial-param';
 
 const TABS: (PayoutStatus | 'all')[] = ['DRAFT', 'APPROVED', 'PAID', 'VOID', 'all'];
 
@@ -41,6 +42,7 @@ export default function PayoutsPage() {
   const [tab, setTab] = useState<PayoutStatus | 'all'>('DRAFT');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  useInitialParam('tab', TABS, setTab);
   const lm = lastMonth();
   const [periodStart, setPeriodStart] = useState(lm.first);
   const [periodEnd, setPeriodEnd] = useState(lm.last);

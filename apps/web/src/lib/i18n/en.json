@@ -36,16 +36,156 @@
   "dashboard": {
     "title": "Dashboard",
     "totalCaregivers": "Total caregivers",
-    "pendingRegistration": "Pending registration",
     "awaitingVerification": "Awaiting verification",
-    "verified": "Verified",
-    "active": "Active",
-    "suspended": "Suspended",
     "documentsRequiringAttention": "Documents needing attention",
-    "newRequests": "New requests",
-    "openRequests": "Open requests",
-    "shiftsToday": "Shifts today",
-    "draftBookings": "Draft bookings"
+    "suspended": "Suspended",
+    "subtitle": "How the business is running",
+    "verifierSubtitle": "Caregivers waiting on you, and where the register stands",
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "periodLine": "Business vital signs, {from} – {to}",
+    "updatedAt": "Updated {time}",
+    "refresh": "Refresh",
+    "loadFailed": "The dashboard could not be loaded.",
+    "retry": "Try again",
+    "noData": "No data yet",
+    "today": "Today",
+    "hours": "{n} h",
+    "minutes": "{n} min",
+    "range": {
+      "label": "Period",
+      "30d": "30 days",
+      "90d": "90 days",
+      "12m": "12 months"
+    },
+    "vs": {
+      "30d": "vs previous 30 days",
+      "90d": "vs previous 90 days",
+      "12m": "vs same period last year"
+    },
+    "kpi": {
+      "invoiced": "Invoiced",
+      "collected": "Collected",
+      "grossMargin": "Gross margin",
+      "grossMarginHint": "Client rate minus caregiver pay, on completed shifts",
+      "careHours": "Care hours delivered",
+      "newRequests": "New care requests",
+      "placements": "Placements",
+      "clients": "Clients in care now",
+      "clientsHint": "{n} new sign-ups this period",
+      "caregivers": "Active caregivers",
+      "caregiversHint": "{n} joined this period"
+    },
+    "dials": {
+      "title": "Vital signs",
+      "subtitle": "The tick on each dial marks the healthy level. Hover for the figures behind it.",
+      "conversion": "Request conversion",
+      "collection": "Collection rate",
+      "utilization": "Caregiver utilisation",
+      "attendance": "Shift attendance",
+      "margin": "Gross margin",
+      "conversionDetail": "{n} of {d} requests became bookings",
+      "collectionDetail": "{n} collected of {d} invoiced",
+      "utilizationDetail": "{n} of {d} active caregivers have shifts this fortnight",
+      "attendanceDetail": "{n} of {d} shifts completed, the rest missed",
+      "marginDetail": "{n} kept from {d} of care delivered"
+    },
+    "health": {
+      "good": "Healthy",
+      "watch": "Keep an eye on it",
+      "act": "Needs action"
+    },
+    "revenue": {
+      "title": "Revenue",
+      "subtitle": "Invoiced versus cash actually received",
+      "invoiced": "Invoiced",
+      "collected": "Collected"
+    },
+    "attention": {
+      "title": "Needs attention",
+      "subtitle": "Open the list to deal with each one",
+      "allClear": "All clear - nothing is waiting on you.",
+      "overdueInvoices": "Overdue invoices",
+      "newRequestsOver24h": "New requests waiting over 24 hours",
+      "missedShifts": "Missed shifts in the last 7 days",
+      "unbilledShifts": "Completed shifts over 30 days old, not invoiced",
+      "unconfirmedShifts": "Unconfirmed shifts in the next 7 days",
+      "unassignedRequests": "Open requests with no owner",
+      "payoutsAwaiting": "Approved payouts not yet paid",
+      "draftBookings": "Draft bookings to confirm",
+      "caregiversAwaiting": "Caregivers awaiting verification",
+      "documentsPending": "Documents to review",
+      "clientsPending": "New clients to review"
+    },
+    "severity": {
+      "act": "Act today",
+      "watch": "When you can"
+    },
+    "funnel": {
+      "title": "Request funnel",
+      "subtitle": "Requests received this period, and how far they got",
+      "created": "Received",
+      "contacted": "Contacted",
+      "introduced": "Introduced",
+      "booked": "Booked",
+      "moved": "{pct}% moved on",
+      "firstResponse": "Median first response",
+      "openNow": "Open right now",
+      "openSplit": "{n} new · {p} in progress · {i} introduced",
+      "sources": "Where requests came from"
+    },
+    "source": {
+      "WEB": "Website",
+      "PHONE": "Phone"
+    },
+    "demand": {
+      "title": "Demand",
+      "subtitle": "Care requests received versus bookings confirmed",
+      "requests": "Requests",
+      "placements": "Placements"
+    },
+    "closeReasons": {
+      "title": "Why requests closed"
+    },
+    "upcoming": {
+      "title": "Next 14 days",
+      "subtitle": "{n} confirmed shifts coming up - plan cover for the busy days",
+      "scheduled": "Confirmed",
+      "draft": "Not yet confirmed"
+    },
+    "aging": {
+      "title": "Money owed to us",
+      "subtitle": "{amount} outstanding, by days past due",
+      "current": "Not yet due",
+      "d1_30": "1–30 days late",
+      "d31_60": "31–60 days late",
+      "d61_90": "61–90 days late",
+      "d90_plus": "Over 90 days late",
+      "invoices": "{n} invoices",
+      "note": "The older a debt, the less likely it is to be paid - chase the darker bars first."
+    },
+    "supply": {
+      "title": "Demand vs. supply by district",
+      "subtitle": "Where to recruit: requests this period against active caregivers living there",
+      "requests": "Requests",
+      "caregivers": "Active caregivers"
+    },
+    "pipeline": {
+      "title": "Caregiver pipeline",
+      "subtitle": "From sign-up to ready for work",
+      "inactive": "{n} inactive, suspended or rejected"
+    },
+    "top": {
+      "title": "Most hours worked",
+      "subtitle": "Completed care this period",
+      "hours": "hours",
+      "shifts": "{n} shifts"
+    },
+    "runningTotal": "running total",
+    "upTo": "Up to {date}"
   },
   "caregivers": {
     "title": "Caregivers",

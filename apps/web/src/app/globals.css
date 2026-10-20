@@ -52,3 +52,27 @@ body {
     background: #fff;
   }
 }
+
+/* Dashboard charts. Data colours are fixed - not white-label - because they
+   were validated as a set for colour-vision deficiency on a white card
+   (series slots in fixed order; never cycled, never reused for status).
+   Status colours are reserved for good/watch/act and always ship with an
+   icon and a word. Single-series charts use the brand accent instead. */
+.viz {
+  --viz-series-1: #2a78d6;
+  --viz-series-2: #eb6834;
+  --viz-series-3: #1baf7a;
+  --viz-ramp-1: #86b6ef;
+  --viz-ramp-2: #5598e7;
+  --viz-ramp-3: #2a78d6;
+  --viz-ramp-4: #1c5cab;
+  --viz-ramp-5: #104281;
+  --viz-good: #0ca30c;
+  --viz-good-text: #006300;
+  --viz-warning: #fab219;
+  --viz-critical: #d03b3b;
+  --viz-grid: #e9e8e2;
+  --viz-axis: #c3c2b7;
+  --viz-muted: #6f6e69;
+  --viz-surface: #ffffff;
+}

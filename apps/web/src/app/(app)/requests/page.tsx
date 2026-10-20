@@ -13,6 +13,7 @@ import { StatusBadge } from '@/components/ui/badge';
 import { RequestStatusBadge } from '@/components/requests/request-status-badge';
 import { cn } from '@/lib/utils';
 import type { CareRequestStatus } from '@/lib/api/types';
+import { useInitialParam } from '@/lib/use-initial-param';
 
 /** The queue's tabs: open work first, then each finished state, then everything. */
 const TABS: { key: string; filter: Pick<CareRequestFilters, 'scope' | 'status' | 'unmatched'> }[] = [
@@ -38,6 +39,8 @@ export default function RequestsPage() {
   const [search, setSearch] = useState('');
   const [assigned, setAssigned] = useState('');
   const [page, setPage] = useState(1);
+  // The dashboard links here with ?tab=... (e.g. open requests waiting).
+  useInitialParam('tab', TABS.map((x) => x.key), setTab);
 
   useEffect(() => {
     if (authLoading) return;

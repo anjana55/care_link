@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { InvoiceStatusBadge, OverdueBadge } from '@/components/billing/billing-badges';
 import { cn } from '@/lib/utils';
 import type { InvoiceStatus } from '@/lib/api/types';
+import { useInitialParam } from '@/lib/use-initial-param';
 
 type Tab = InvoiceStatus | 'overdue' | 'all';
 const TABS: Tab[] = ['ISSUED', 'overdue', 'DRAFT', 'PAID', 'VOID', 'all'];
@@ -26,6 +27,7 @@ export default function InvoicesPage() {
   const [tab, setTab] = useState<Tab>('ISSUED');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  useInitialParam('tab', TABS, setTab);
   const allowed = user?.role === 'ADMIN' || user?.role === 'STAFF';
 
   useEffect(() => {

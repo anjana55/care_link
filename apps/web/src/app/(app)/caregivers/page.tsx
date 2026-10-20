@@ -23,6 +23,7 @@ import {
   type AdvancedFilters,
 } from '@/components/caregivers/advanced-filters';
 import { CAREGIVER_STATUS_OPTIONS } from '@/lib/caregiver-status';
+import { useInitialParam } from '@/lib/use-initial-param';
 
 export default function CaregiversListPage() {
   const { t } = useTranslation();
@@ -31,6 +32,7 @@ export default function CaregiversListPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
+  useInitialParam('status', CAREGIVER_STATUS_OPTIONS, setStatus);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [advanced, setAdvanced] = useState<AdvancedFilters>(EMPTY_ADVANCED_FILTERS);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
