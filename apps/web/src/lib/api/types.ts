@@ -1,3 +1,4 @@
+import type { BillingAdjustmentView as SharedBillingAdjustmentView, BookingAmendmentView as SharedBookingAmendmentView } from '@care-platform/shared';
 import type { BillingLineKind, BillingParty, BillingUnit, DiscountType, InvoiceBasis, InvoiceStatus, PaymentMethod, PayoutStatus } from '@care-platform/shared';
 export type CaregiverStatus =
   | 'DRAFT'
@@ -739,6 +740,25 @@ export interface CreateBookingInput extends BookingPatternInput {
   payRateAmount?: string;
   language?: 'en' | 'si' | 'ta';
   notes?: string;
+}
+
+// --- booking corrections (amendments) and the adjustments they leave ----------------
+export type {
+  AmendAddShiftInput,
+  AmendBookingInput,
+  AmendShiftInput,
+  AmendShiftStatus,
+  AmendmentDocumentAction,
+  AmendmentDocumentImpact,
+  AmendmentPreview,
+  BillingAdjustmentView,
+  BookingAmendmentView,
+} from '@care-platform/shared';
+
+/** GET /bookings/:id/amendments */
+export interface BookingCorrections {
+  amendments: SharedBookingAmendmentView[];
+  adjustments: SharedBillingAdjustmentView[];
 }
 
 // --- billing: invoices, payments, payouts ------------------------------------------

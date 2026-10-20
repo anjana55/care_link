@@ -3,6 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type {
+  AmendBookingInput,
+  AmendmentPreview,
+  BillingAdjustmentView,
+  BookingCorrections,
   BookingDetail,
   BookingListResponse,
   BookingStatus,
@@ -93,3 +97,43 @@ export const useUpdateShift = (id: string) =>
     api.patch<BookingDetail>(`/bookings/${id}/shifts/${shiftId}`, v),
   );
 export const useRemoveShift = (id: string) => useBookingWrite(id, (shiftId: string) => api.delete<BookingDetail>(`/bookings/${id}/shifts/${shiftId}`));
+
+// --- corrections ---------------------------------------------------------------------
+
+export function useBookingCorrections(id: string) {
+  return useQuery({
+    queryKey: ['bookings', 'corrections', id],
+    queryFn: () => api.get<BookingCorrections>(`/bookings/${id}/amendments`),
+    enabled: Boolean(id),
+  });
+}
+
+/** What a correction would do. Writes nothing, so it touches no cache. */
+export function usePreviewCorrection(id: string) {
+  return useMutation({ mutationFn: (input: AmendBookingInput) => api.post<AmendmentPreview>(`/bookings/${id}/amendments/preview`, input) });
+}
+
+export function useApplyCorrection(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AmendBookingInput) => api.post<BookingDetail>(`/bookings/${id}/amendments`, input),
+    onSuccess: (detail) => {
+      queryClient.setQueryData(['bookings', 'detail', id], detail);
+      queryClient.invalidateQueries({ queryKey: ['bookings', 'corrections', id] });
+      queryClient.invalidateQueries({ queryKey: ['bookings', 'list'] });
+      // Invoices and pay statements may have been refreshed, replaced or noted.
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['payouts'] });
+    },
+  });
+}
+
+/** Settle (dealt with outside the documents) or cancel an open adjustment. */
+export function useCloseAdjustment(bookingId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, outcome, reason }: { id: string; outcome: 'settle' | 'cancel'; reason: string }) =>
+      api.post<BillingAdjustmentView>(`/billing-adjustments/${id}/${outcome}`, { reason }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bookings', 'corrections', bookingId] }),
+  });
+}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { AlertTriangle, Banknote, ChevronLeft, ExternalLink, Pencil, Plus, Trash2, UserRoundCog } from 'lucide-react';
+import { AlertTriangle, Banknote, ChevronLeft, ExternalLink, Lock, Pencil, Plus, Trash2, UserRoundCog, Wrench } from 'lucide-react';
 import { formatLkr, isoToColomboLocal, toColombo } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
@@ -29,6 +29,8 @@ import { CaregiverPicker } from '@/components/requests/caregiver-picker';
 import { BookingStatusBadge, ShiftStatusBadge } from '@/components/bookings/booking-badges';
 import { RelatedInvoices } from '@/components/billing/related-invoices';
 import { EditBookingPanel } from '@/components/bookings/edit-booking-panel';
+import { CorrectBookingPanel } from '@/components/bookings/correct-booking-panel';
+import { BookingCorrections } from '@/components/bookings/booking-corrections';
 import {
   emptyShiftRates,
   ShiftRateChips,
@@ -50,6 +52,10 @@ const errorText = (err: unknown, fallback: string) => (err instanceof ApiError &
  * be edited - its pattern or caregiver from a chosen day on - and each shift
  * can be changed: times, a cover caregiver, what happened, and its own rates.
  * Every change is re-checked against the caregivers' other shifts.
+ *
+ * Work that already happened, or is already on an invoice or pay statement,
+ * is changed through Correct instead (CorrectBookingPanel), which adjusts the
+ * documents with it.
  */
 export default function BookingPage() {
   const { t, locale } = useTranslation();
@@ -58,6 +64,7 @@ export default function BookingPage() {
   const router = useRouter();
   const { data: booking, isLoading, isError } = useBooking(id);
   const [editing, setEditing] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user && user.role !== 'ADMIN' && user.role !== 'STAFF') router.replace('/dashboard');
@@ -102,10 +109,23 @@ export default function BookingPage() {
             </p>
           )}
         </div>
-        <BookingActions booking={booking} onEdit={() => setEditing((v) => !v)} editing={editing} />
+        <BookingActions
+          booking={booking}
+          onEdit={() => {
+            setEditing((v) => !v);
+            setCorrecting(false);
+          }}
+          editing={editing}
+          onCorrect={() => {
+            setCorrecting((v) => !v);
+            setEditing(false);
+          }}
+          correcting={correcting}
+        />
       </div>
 
       {open && editing && <EditBookingPanel booking={booking} onClose={() => setEditing(false)} />}
+      {correcting && <CorrectBookingPanel booking={booking} onClose={() => setCorrecting(false)} />}
 
       {booking.status === 'DRAFT' && (
         <p className="mb-4 rounded border border-accent/30 bg-accent-light px-3 py-2 text-sm text-accent">{t('bookings.detail.draftBanner')}</p>
@@ -157,6 +177,7 @@ export default function BookingPage() {
         <div className="space-y-4">
           {open && <AddShiftCard booking={booking} />}
           {booking.status !== 'DRAFT' && <RelatedInvoices bookingId={booking.id} />}
+          {booking.status !== 'DRAFT' && <BookingCorrections bookingId={booking.id} />}
         </div>
         <BookingHistory booking={booking} />
       </div>
@@ -164,7 +185,19 @@ export default function BookingPage() {
   );
 }
 
-function BookingActions({ booking, onEdit, editing }: { booking: BookingDetail; onEdit: () => void; editing: boolean }) {
+function BookingActions({
+  booking,
+  onEdit,
+  editing,
+  onCorrect,
+  correcting,
+}: {
+  booking: BookingDetail;
+  onEdit: () => void;
+  editing: boolean;
+  onCorrect: () => void;
+  correcting: boolean;
+}) {
   const { t } = useTranslation();
   const confirm = useConfirmBooking(booking.id);
   const complete = useCompleteBooking(booking.id);
@@ -175,7 +208,15 @@ function BookingActions({ booking, onEdit, editing }: { booking: BookingDetail; 
   const [newEnd, setNewEnd] = useState('');
   const err = [confirm, complete, cancel, extend].find((m) => m.isError)?.error;
 
-  if (booking.status === 'COMPLETED' || booking.status === 'CANCELLED') return null;
+  const correctButton = (
+    <Button variant="secondary" aria-expanded={correcting} onClick={onCorrect} title={t('bookings.correct.buttonHint')}>
+      <Wrench size={14} aria-hidden />
+      {t('bookings.correct.button')}
+    </Button>
+  );
+  if (booking.status === 'CANCELLED') return null;
+  // Closed, but what happened can still be put right.
+  if (booking.status === 'COMPLETED') return <div className="flex gap-2">{correctButton}</div>;
   return (
     <div className="flex max-w-md flex-col items-start gap-2 sm:items-end">
       <div className="flex flex-wrap gap-2">
@@ -183,6 +224,7 @@ function BookingActions({ booking, onEdit, editing }: { booking: BookingDetail; 
           <Pencil size={14} aria-hidden />
           {t('bookings.detail.editBooking')}
         </Button>
+        {booking.status === 'CONFIRMED' && correctButton}
         {booking.status === 'DRAFT' && (
           <Button
             disabled={confirm.isPending || booking.blockingConflicts > 0 || booking.shifts.length === 0}
@@ -434,6 +476,9 @@ function ShiftRow({ booking, shift }: { booking: BookingDetail; shift: BookingSh
   const [start, setStart] = useState(isoToColomboLocal(shift.startsAt));
   const [end, setEnd] = useState(isoToColomboLocal(shift.endsAt));
   const open = booking.status === 'DRAFT' || booking.status === 'CONFIRMED';
+  // On an invoice or pay statement: only marking it done stays here; anything that changes money goes through Correct.
+  const billed = Boolean(shift.invoice || shift.payout);
+  const statuses = billed ? shift.allowedStatuses.filter((st) => shift.status === 'SCHEDULED' && st === 'COMPLETED') : shift.allowedStatuses;
   const blocking = shift.conflicts.filter((c) => c.kind === 'BLOCKING');
   const nextDay = toColombo(shift.endsAt).date !== toColombo(shift.startsAt).date;
 
@@ -483,12 +528,17 @@ function ShiftRow({ booking, shift }: { booking: BookingDetail; shift: BookingSh
             <ShiftStatusBadge status={shift.status} label={t(`bookings.shiftStatus.${shift.status}`)} />
             {open && (
               <div className="flex items-center gap-1">
-                {shift.status !== 'CANCELLED' && shift.status !== 'MISSED' && (
+                {billed && (
+                  <span className="p-1.5 text-ink/40" title={t('bookings.correct.billedLocked')} aria-label={t('bookings.correct.billedLocked')}>
+                    <Lock size={14} />
+                  </span>
+                )}
+                {!billed && shift.status !== 'CANCELLED' && shift.status !== 'MISSED' && (
                   <button type="button" onClick={() => setEditing(true)} className="rounded p-1.5 text-ink/50 hover:bg-paper hover:text-ink" aria-label={t('bookings.detail.editTimes')} title={t('bookings.detail.editTimes')}>
                     <Pencil size={14} />
                   </button>
                 )}
-                {shift.status !== 'CANCELLED' && (
+                {!billed && shift.status !== 'CANCELLED' && (
                   <button
                     type="button"
                     onClick={() => setPricing((v) => !v)}
@@ -500,12 +550,12 @@ function ShiftRow({ booking, shift }: { booking: BookingDetail; shift: BookingSh
                     <Banknote size={14} />
                   </button>
                 )}
-                {shift.status !== 'CANCELLED' && (
+                {!billed && shift.status !== 'CANCELLED' && (
                   <button type="button" onClick={() => setCovering((v) => !v)} className="rounded p-1.5 text-ink/50 hover:bg-paper hover:text-ink" aria-label={t('bookings.detail.cover')} title={t('bookings.detail.cover')}>
                     <UserRoundCog size={14} />
                   </button>
                 )}
-                {shift.allowedStatuses.length > 0 && (
+                {statuses.length > 0 && (
                   <Select
                     className="h-8 w-36 py-0 text-xs"
                     value=""
@@ -514,7 +564,7 @@ function ShiftRow({ booking, shift }: { booking: BookingDetail; shift: BookingSh
                     onChange={(e) => e.target.value && save({ shiftId: shift.id, status: e.target.value as ShiftStatus })}
                   >
                     <option value="">{t('bookings.detail.setStatus')}</option>
-                    {shift.allowedStatuses.map((st) => (
+                    {statuses.map((st) => (
                       <option key={st} value={st}>
                         {t(`bookings.shiftAction.${st}`)}
                       </option>

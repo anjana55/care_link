@@ -142,7 +142,8 @@ export const bookingShifts = mysqlTable(
 /**
  * Staff-side history of a booking. UPDATED: rates, notes, language or the
  * booked caregiver on a draft; RESCHEDULED: a confirmed booking's pattern or
- * caregiver changed from a given day on.
+ * caregiver changed from a given day on; AMENDED: a correction to work that
+ * already happened (see booking_amendments).
  */
 export const bookingEventTypeEnum = [
   'CREATED',
@@ -157,6 +158,7 @@ export const bookingEventTypeEnum = [
   'NOTE',
   'COMPLETED',
   'CANCELLED',
+  'AMENDED',
 ] as const;
 export type BookingEventType = (typeof bookingEventTypeEnum)[number];
 
@@ -172,5 +174,30 @@ export const bookingEvents = mysqlTable(
   },
   (table) => ({
     bookingIdx: index('booking_events_booking_idx').on(table.bookingId, table.createdAt),
+  }),
+);
+
+/**
+ * A correction to work that already happened - a shift that ran longer, was
+ * missed, was covered by someone else, or was priced wrong - made after the
+ * fact, usually once it is on an invoice or a pay statement.
+ *
+ * Issued documents are never rewritten by it. What the correction did to them
+ * is recorded in `summary` (JSON, see BookingAmendmentSummary in
+ * packages/shared): draft documents refreshed, an unpaid invoice replaced by a
+ * corrected copy, or the difference carried forward as a billing adjustment.
+ */
+export const bookingAmendments = mysqlTable(
+  'booking_amendments',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    bookingId: varchar('booking_id', { length: 36 }).notNull(),
+    reason: varchar('reason', { length: 500 }).notNull(),
+    summary: text('summary').notNull(),
+    actorUserId: varchar('actor_user_id', { length: 36 }),
+    createdAt: datetime('created_at', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => ({
+    bookingIdx: index('booking_amendments_booking_idx').on(table.bookingId, table.createdAt),
   }),
 );

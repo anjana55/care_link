@@ -35,6 +35,7 @@ import { BillingSettingsService } from './billing-settings.service';
 import { BillingNotifier } from './billing-notifier.service';
 import { buildLines, type BilledPeriod } from './line-builder';
 import { fromBuilt, normalizeLines, type StoredLine } from './billing-lines';
+import { appliedAdjustments, openAdjustmentLines } from './adjustments';
 import { CreateInvoiceDto, InvoiceQueryDto, IssueInvoiceDto, RecordPaymentDto, ReplaceLinesDto, UpdateInvoiceDto } from './dto/billing.dto';
 
 type Tx = Database;
@@ -167,7 +168,7 @@ export class InvoicesService {
     };
   }
 
-  private async invoiceOrThrow(id: string, db: Tx = this.db, lock = false): Promise<InvoiceRow> {
+  async invoiceOrThrow(id: string, db: Tx = this.db, lock = false): Promise<InvoiceRow> {
     if (lock) await db.execute(sql`SELECT id FROM invoices WHERE id = ${id} FOR UPDATE`);
     const [row] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
     if (!row) throw new NotFoundException('Invoice not found');
@@ -240,7 +241,7 @@ export class InvoicesService {
     return map;
   }
 
-  private async event(db: Tx, invoiceId: string, type: InvoiceEventType, actor: AuthenticatedUser | null, note?: string | null) {
+  async event(db: Tx, invoiceId: string, type: InvoiceEventType, actor: AuthenticatedUser | null, note?: string | null) {
     await db.insert(invoiceEvents).values({ id: uuid(), invoiceId, type, note: note ?? null, actorUserId: actor?.userId ?? null });
   }
 
@@ -312,7 +313,7 @@ export class InvoicesService {
   }
 
   /** What is already on a live invoice - drafts count, void ones do not. */
-  private async billed(db: Tx, shiftIds: string[], bookingIds: string[]) {
+  async billed(db: Tx, shiftIds: string[], bookingIds: string[]) {
     const billedShiftIds = new Set<string>();
     if (shiftIds.length) {
       const rows = await db
@@ -380,6 +381,8 @@ export class InvoicesService {
         dto.basis === 'MANUAL'
           ? { lines: [] as StoredLine[], skipped: 0, unpriced: 0 }
           : await this.linesFromShifts(t, { bookingIds, from: dto.periodStart!, to: dto.periodEnd!, statuses: BASIS_STATUSES[dto.basis], language: lang, startAt: 0 });
+      // Corrections waiting for this client (this booking's, on a booking invoice).
+      const carried = await openAdjustmentLines(t, { side: 'CLIENT', partyId: patientId!, bookingIds: dto.bookingId ? [dto.bookingId] : null, language: lang, startAt: built.lines.length });
       generated = { added: built.lines.length, skipped: built.skipped, unpriced: built.unpriced };
       await tx.insert(invoices).values({
         id,
@@ -398,20 +401,18 @@ export class InvoicesService {
         taxRate: settings.taxEnabled ? settings.taxRate : null,
         createdByUserId: actor.userId,
       });
-      await this.insertLines(t, id, built.lines);
+      await this.insertLines(t, id, [...built.lines, ...carried]);
       await this.recalc(t, id);
-      await this.event(
-        t,
-        id,
-        'CREATED',
-        actor,
+      const notes = [
         dto.basis === 'MANUAL' ? null : `${built.lines.length} lines from shifts${built.skipped ? `; ${built.skipped} already billed, left out` : ''}`,
-      );
+        carried.length ? `${carried.length} correction${carried.length === 1 ? '' : 's'} carried from earlier invoices` : null,
+      ].filter(Boolean);
+      await this.event(t, id, 'CREATED', actor, notes.length ? notes.join('; ') : null);
     });
     return { ...(await this.findOne(id)), generated };
   }
 
-  private async insertLines(db: Tx, invoiceId: string, lines: StoredLine[]) {
+  async insertLines(db: Tx, invoiceId: string, lines: StoredLine[]) {
     for (let i = 0; i < lines.length; i += 200) {
       await db.insert(invoiceLines).values(
         lines.slice(i, i + 200).map((l) => ({
@@ -427,7 +428,7 @@ export class InvoicesService {
    * Re-works the stored totals from the lines, discount and tax - and, for an
    * issued invoice, the status from the payments. Every write ends here.
    */
-  private async recalc(db: Tx, id: string) {
+  async recalc(db: Tx, id: string) {
     const [inv] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
     const lines = await db.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, id)).orderBy(asc(invoiceLines.position));
     const totals = computeTotals({ lines, discountType: inv.discountType, discountValue: inv.discountValue, taxRate: inv.taxRate });
@@ -537,10 +538,17 @@ export class InvoicesService {
         startAt: Number(maxPos) + 1,
       });
       // Already on THIS invoice is "billed" too - which is exactly what we want.
+      const carried = await openAdjustmentLines(t, {
+        side: 'CLIENT',
+        partyId: inv.patientId,
+        bookingIds: inv.bookingId ? [inv.bookingId] : null,
+        language: inv.language,
+        startAt: Number(maxPos) + 1 + built.lines.length,
+      });
       generated = { added: built.lines.length, skipped: built.skipped, unpriced: built.unpriced };
-      await this.insertLines(t, id, built.lines);
+      await this.insertLines(t, id, [...built.lines, ...carried]);
       await this.recalc(t, id);
-      await this.event(t, id, 'LINES_CHANGED', actor, `${built.lines.length} lines added from shifts`);
+      await this.event(t, id, 'LINES_CHANGED', actor, `${built.lines.length} lines added from shifts${carried.length ? `, ${carried.length} corrections carried` : ''}`);
     });
     return { ...(await this.findOne(id)), generated };
   }
@@ -605,15 +613,54 @@ export class InvoicesService {
   async void(id: string, reason: string, actor: AuthenticatedUser) {
     if (!reason?.trim()) throw new BadRequestException('Give a reason');
     await this.db.transaction(async (tx) => {
-      const t = tx as unknown as Tx;
-      const inv = await this.invoiceOrThrow(id, t, true);
-      if (inv.status === 'DRAFT') throw new BadRequestException('A draft is not voided - delete it instead');
-      if (inv.status === 'VOID') throw new BadRequestException('This invoice is already void');
-      if (toCents(inv.amountPaid) !== 0) throw new BadRequestException('Refund the payments on this invoice before voiding it');
-      await tx.update(invoices).set({ status: 'VOID', voidedAt: new Date(), voidReason: reason.trim(), updatedAt: new Date() }).where(eq(invoices.id, id));
-      await this.event(t, id, 'VOIDED', actor, reason.trim());
+      await this.voidIn(tx as unknown as Tx, id, reason.trim(), actor);
     });
     return this.findOne(id);
+  }
+
+  /** The void itself, inside the caller's transaction (also used by booking corrections). */
+  async voidIn(t: Tx, id: string, reason: string, actor: AuthenticatedUser) {
+    const inv = await this.invoiceOrThrow(id, t, true);
+    if (inv.status === 'DRAFT') throw new BadRequestException('A draft is not voided - delete it instead');
+    if (inv.status === 'VOID') throw new BadRequestException('This invoice is already void');
+    if (toCents(inv.amountPaid) !== 0) throw new BadRequestException('Refund the payments on this invoice before voiding it');
+    await t.update(invoices).set({ status: 'VOID', voidedAt: new Date(), voidReason: reason, updatedAt: new Date() }).where(eq(invoices.id, id));
+    await this.event(t, id, 'VOIDED', actor, reason);
+  }
+
+  /**
+   * A new draft copying `inv`'s addressing, discount and notes, with the given
+   * lines - the corrected copy of a voided invoice. Tax follows today's
+   * settings (as on any new draft) if the original was taxed.
+   */
+  async copyAsDraftIn(t: Tx, inv: InvoiceRow, lines: StoredLine[], actor: AuthenticatedUser, note: string) {
+    const copyId = uuid();
+    const settings = await this.settings.getResolved();
+    await t.insert(invoices).values({
+      id: copyId,
+      patientId: inv.patientId,
+      bookingId: inv.bookingId,
+      status: 'DRAFT',
+      basis: inv.basis,
+      periodStart: inv.periodStart,
+      periodEnd: inv.periodEnd,
+      language: inv.language,
+      billToName: inv.billToName,
+      billToAddress: inv.billToAddress,
+      billToPhone: inv.billToPhone,
+      billToEmail: inv.billToEmail,
+      discountType: inv.discountType,
+      discountValue: inv.discountValue,
+      discountReason: inv.discountReason,
+      taxName: inv.taxRate && settings.taxEnabled ? settings.taxName : null,
+      taxRate: inv.taxRate && settings.taxEnabled ? settings.taxRate : null,
+      notes: inv.notes,
+      createdByUserId: actor.userId,
+    });
+    await this.insertLines(t, copyId, lines.map((l, i) => ({ ...l, id: uuid(), position: i })));
+    await this.recalc(t, copyId);
+    await this.event(t, copyId, 'CREATED', actor, note);
+    return copyId;
   }
 
   /**
@@ -623,47 +670,25 @@ export class InvoicesService {
   async revise(id: string, reason: string, actor: AuthenticatedUser) {
     const original = await this.invoiceOrThrow(id);
     if (original.status !== 'VOID') await this.void(id, reason, actor);
-    const copyId = uuid();
+    let copyId = '';
     await this.db.transaction(async (tx) => {
       const t = tx as unknown as Tx;
       const inv = await this.invoiceOrThrow(id, t, true);
       const lines = await tx.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, id)).orderBy(asc(invoiceLines.position));
-      // The copy may only take shifts nobody else has billed since the void.
+      // The copy may only take shifts (and carried corrections) nobody else has billed since the void.
       const { billedShiftIds, billedPeriods } = await this.billed(
         t,
         lines.map((l) => l.shiftId).filter((v): v is string => Boolean(v)),
         [...new Set(lines.map((l) => l.bookingId).filter((v): v is string => Boolean(v)))],
       );
+      const applied = await appliedAdjustments(t, lines.map((l) => l.adjustmentId).filter((v): v is string => Boolean(v)));
       const free = lines.filter(
         (l) =>
           !(l.shiftId && billedShiftIds.has(l.shiftId)) &&
+          !(l.adjustmentId && applied.has(l.adjustmentId)) &&
           !(l.periodStart && billedPeriods.some((p) => p.bookingId === l.bookingId && p.periodStart <= l.periodEnd! && l.periodStart! <= p.periodEnd)),
       );
-      const settings = await this.settings.getResolved();
-      await tx.insert(invoices).values({
-        id: copyId,
-        patientId: inv.patientId,
-        bookingId: inv.bookingId,
-        status: 'DRAFT',
-        basis: inv.basis,
-        periodStart: inv.periodStart,
-        periodEnd: inv.periodEnd,
-        language: inv.language,
-        billToName: inv.billToName,
-        billToAddress: inv.billToAddress,
-        billToPhone: inv.billToPhone,
-        billToEmail: inv.billToEmail,
-        discountType: inv.discountType,
-        discountValue: inv.discountValue,
-        discountReason: inv.discountReason,
-        taxName: inv.taxRate && settings.taxEnabled ? settings.taxName : null,
-        taxRate: inv.taxRate && settings.taxEnabled ? settings.taxRate : null,
-        notes: inv.notes,
-        createdByUserId: actor.userId,
-      });
-      await this.insertLines(t, copyId, free.map((l, i) => ({ ...l, id: uuid(), position: i })));
-      await this.recalc(t, copyId);
-      await this.event(t, copyId, 'CREATED', actor, `Corrected copy of ${inv.number ?? 'a void invoice'}`);
+      copyId = await this.copyAsDraftIn(t, inv, free, actor, `Corrected copy of ${inv.number ?? 'a void invoice'}`);
     });
     return this.findOne(copyId);
   }

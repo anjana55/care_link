@@ -3,11 +3,12 @@ import { randomInt, randomUUID as uuid } from 'crypto';
 import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, like, lt, ne, or, sql, type SQL } from 'drizzle-orm';
 import { addDays, colomboToUtc, colomboToday, computeTotals, daysInclusive, isValidDate, type CaregiverPayout } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { bookings, bookingShifts, caregivers, payoutLines, payoutStatements, users } from '../database/schema';
+import { billingAdjustments, bookings, bookingShifts, caregivers, payoutLines, payoutStatements, users } from '../database/schema';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { BillingNotifier } from './billing-notifier.service';
 import { buildLines, type BilledPeriod } from './line-builder';
 import { fromBuilt, normalizeLines, type StoredLine } from './billing-lines';
+import { openAdjustmentLines } from './adjustments';
 import { CreatePayoutDto, GeneratePayoutsDto, PayPayoutDto, PayoutQueryDto, ReplaceLinesDto, UpdatePayoutDto } from './dto/billing.dto';
 import { MAX_INVOICE_DAYS } from './invoices.service';
 
@@ -89,7 +90,7 @@ export class PayoutsService {
     return { byStatus, approvedTotal: toPay.toFixed(2) };
   }
 
-  private async statementOrThrow(id: string, db: Tx = this.db, lock = false): Promise<Row> {
+  async statementOrThrow(id: string, db: Tx = this.db, lock = false): Promise<Row> {
     if (lock) await db.execute(sql`SELECT id FROM payout_statements WHERE id = ${id} FOR UPDATE`);
     const [row] = await db.select().from(payoutStatements).where(eq(payoutStatements.id, id)).limit(1);
     if (!row) throw new NotFoundException('Payout statement not found');
@@ -216,13 +217,13 @@ export class PayoutsService {
     return { lines: fromBuilt(built.lines, startAt), skipped: built.skipped, unpriced: built.unpriced };
   }
 
-  private async insertLines(db: Tx, statementId: string, lines: StoredLine[]) {
+  async insertLines(db: Tx, statementId: string, lines: StoredLine[]) {
     for (let i = 0; i < lines.length; i += 200) {
       await db.insert(payoutLines).values(lines.slice(i, i + 200).map(({ taxable: _taxable, ...l }) => ({ ...l, statementId })));
     }
   }
 
-  private async recalc(db: Tx, id: string) {
+  async recalc(db: Tx, id: string) {
     const lines = await db.select().from(payoutLines).where(eq(payoutLines.statementId, id));
     const totals = computeTotals({ lines: lines.map((l) => ({ ...l, taxable: false })) });
     await db.update(payoutStatements).set({ total: totals.total, updatedAt: new Date() }).where(eq(payoutStatements.id, id));
@@ -249,9 +250,10 @@ export class PayoutsService {
     await this.db.transaction(async (tx) => {
       const t = tx as unknown as Tx;
       const built = await this.linesFor(t, dto.caregiverId, dto.periodStart, dto.periodEnd, 0);
+      const carried = await openAdjustmentLines(t, { side: 'CAREGIVER', partyId: dto.caregiverId, language: 'en', startAt: built.lines.length });
       generated = { added: built.lines.length, skipped: built.skipped, unpriced: built.unpriced };
       await this.insertStatement(t, { id, caregiverId: dto.caregiverId, periodStart: dto.periodStart, periodEnd: dto.periodEnd, createdByUserId: actor.userId });
-      await this.insertLines(t, id, built.lines);
+      await this.insertLines(t, id, [...built.lines, ...carried]);
       await this.recalc(t, id);
     });
     return { ...(await this.findOne(id)), generated };
@@ -259,8 +261,9 @@ export class PayoutsService {
 
   /**
    * Pay run: a draft statement for every caregiver who completed a shift in
-   * the period that is not on a statement yet. Caregivers with nothing new are
-   * left alone, so running it twice makes nothing twice.
+   * the period that is not on a statement yet, or has a correction waiting.
+   * Caregivers with nothing new are left alone, so running it twice makes
+   * nothing twice.
    */
   async generate(dto: GeneratePayoutsDto, actor: AuthenticatedUser) {
     this.validatePeriod(dto.periodStart, dto.periodEnd);
@@ -274,17 +277,24 @@ export class PayoutsService {
           lt(bookingShifts.startsAt, colomboToUtc(addDays(dto.periodEnd, 1), '00:00')),
         ),
       );
+    // Caregivers owed (or owing) a correction get a statement even without new shifts.
+    const owed = await this.db
+      .selectDistinct({ caregiverId: billingAdjustments.caregiverId })
+      .from(billingAdjustments)
+      .where(and(eq(billingAdjustments.side, 'CAREGIVER'), eq(billingAdjustments.status, 'OPEN')));
+    const caregiverIds = [...new Set([...workers.map((w) => w.caregiverId), ...owed.map((o) => o.caregiverId).filter((v): v is string => Boolean(v))])];
     const created: string[] = [];
-    for (const { caregiverId } of workers) {
+    for (const caregiverId of caregiverIds) {
       await this.db.transaction(async (tx) => {
         const t = tx as unknown as Tx;
         // One pay run at a time per caregiver: the caregiver row is the lock.
         await t.execute(sql`SELECT id FROM caregivers WHERE id = ${caregiverId} FOR UPDATE`);
         const built = await this.linesFor(t, caregiverId, dto.periodStart, dto.periodEnd, 0);
-        if (!built.lines.length) return;
+        const carried = await openAdjustmentLines(t, { side: 'CAREGIVER', partyId: caregiverId, language: 'en', startAt: built.lines.length });
+        if (!built.lines.length && !carried.length) return;
         const id = uuid();
         await this.insertStatement(t, { id, caregiverId, periodStart: dto.periodStart, periodEnd: dto.periodEnd, createdByUserId: actor.userId });
-        await this.insertLines(t, id, built.lines);
+        await this.insertLines(t, id, [...built.lines, ...carried]);
         await this.recalc(t, id);
         created.push(id);
       });
@@ -321,8 +331,9 @@ export class PayoutsService {
       const p = await this.draftOrThrow(id, t, true);
       const [{ maxPos }] = await tx.select({ maxPos: sql<number>`COALESCE(MAX(${payoutLines.position}), -1)` }).from(payoutLines).where(eq(payoutLines.statementId, id));
       const built = await this.linesFor(t, p.caregiverId, p.periodStart, p.periodEnd, Number(maxPos) + 1);
+      const carried = await openAdjustmentLines(t, { side: 'CAREGIVER', partyId: p.caregiverId, language: 'en', startAt: Number(maxPos) + 1 + built.lines.length });
       generated = { added: built.lines.length, skipped: built.skipped, unpriced: built.unpriced };
-      await this.insertLines(t, id, built.lines);
+      await this.insertLines(t, id, [...built.lines, ...carried]);
       await this.recalc(t, id);
     });
     return { ...(await this.findOne(id)), generated };
@@ -344,11 +355,16 @@ export class PayoutsService {
   /** APPROVED -> DRAFT, to correct something before it is paid. */
   async reopen(id: string) {
     await this.db.transaction(async (tx) => {
-      const p = await this.statementOrThrow(id, tx as unknown as Tx, true);
-      if (p.status !== 'APPROVED') throw new BadRequestException('Only an approved statement can go back to draft');
-      await tx.update(payoutStatements).set({ status: 'DRAFT', approvedAt: null, approvedByUserId: null, updatedAt: new Date() }).where(eq(payoutStatements.id, id));
+      await this.reopenIn(tx as unknown as Tx, id);
     });
     return this.findOne(id);
+  }
+
+  /** The reopen itself, inside the caller's transaction (also used by booking corrections). */
+  async reopenIn(t: Tx, id: string) {
+    const p = await this.statementOrThrow(id, t, true);
+    if (p.status !== 'APPROVED') throw new BadRequestException('Only an approved statement can go back to draft');
+    await t.update(payoutStatements).set({ status: 'DRAFT', approvedAt: null, approvedByUserId: null, updatedAt: new Date() }).where(eq(payoutStatements.id, id));
   }
 
   async pay(id: string, dto: PayPayoutDto, actor: AuthenticatedUser) {
