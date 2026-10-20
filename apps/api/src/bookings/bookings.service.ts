@@ -412,8 +412,13 @@ export class BookingsService {
     return { ...base, unpriced, units, total: computeTotals({ lines: lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice })) }).total };
   }
 
+  // billingRefs, assertNoOverlap, lockCaregivers, event, liveCaregiver,
+  // parseRange and resolveShiftRates are also used by booking corrections
+  // (corrections/corrections.service.ts), so a corrected shift follows exactly
+  // the same rules as an edited one.
+
   /** For each shift, the live (not void) invoice and payout statement it is on. */
-  private async billingRefs(shiftIds: string[], db: Tx = this.db) {
+  async billingRefs(shiftIds: string[], db: Tx = this.db) {
     const out = {
       invoices: new Map<string, { id: string; number: string | null; status: string }>(),
       payouts: new Map<string, { id: string; reference: string; status: string }>(),
@@ -525,7 +530,7 @@ export class BookingsService {
    * Refuses a write that would leave any of `shifts` overlapping a held shift
    * (or each other). Call inside the write's transaction, after lockCaregivers.
    */
-  private async assertNoOverlap(db: Tx, shifts: ShiftRow[], ignoreDrafts = true) {
+  async assertNoOverlap(db: Tx, shifts: ShiftRow[], ignoreDrafts = true) {
     // Within the set itself (e.g. a cover and the booked caregiver both on one slot).
     const sorted = [...shifts].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
     for (let i = 0; i < sorted.length; i++) {
@@ -544,16 +549,16 @@ export class BookingsService {
   }
 
   /** Serialises writes per caregiver: a second transaction for the same person waits here. */
-  private async lockCaregivers(db: Tx, caregiverIds: string[]) {
+  async lockCaregivers(db: Tx, caregiverIds: string[]) {
     const ids = [...new Set(caregiverIds)].sort();
     if (ids.length) await db.execute(sql`SELECT id FROM caregivers WHERE id IN (${sql.join(ids.map((i) => sql`${i}`), sql`, `)}) FOR UPDATE`);
   }
 
-  private async event(db: Tx, bookingId: string, type: BookingEventType, actor: AuthenticatedUser | null, note?: string | null) {
+  async event(db: Tx, bookingId: string, type: BookingEventType, actor: AuthenticatedUser | null, note?: string | null) {
     await db.insert(bookingEvents).values({ id: uuid(), bookingId, type, note: note ?? null, actorUserId: actor?.userId ?? null });
   }
 
-  private async liveCaregiver(caregiverId: string, db: Tx = this.db) {
+  async liveCaregiver(caregiverId: string, db: Tx = this.db) {
     const [row] = await db
       .select({ id: caregivers.id })
       .from(caregivers)
@@ -991,7 +996,7 @@ export class BookingsService {
 
   // --- single shifts -----------------------------------------------------------
 
-  private parseRange(start: string, end: string) {
+  parseRange(start: string, end: string) {
     const s = colomboLocalToIso(start);
     const e = colomboLocalToIso(end);
     if (!s || !e) throw new BadRequestException('Enter valid start and end times');
@@ -1009,7 +1014,7 @@ export class BookingsService {
    * clearMonthlyShiftRates): asking for it is refused; a rate the shift
    * already had is dropped when it moves back to the booked caregiver.
    */
-  private resolveShiftRates(
+  resolveShiftRates(
     booking: { rateType: RateTypeValue | null; payRateType: RateTypeValue | null; caregiverId: string },
     caregiverId: string,
     dto: { rateType?: ShiftRateType | null; rateAmount?: string | null; payRateType?: ShiftRateType | null; payRateAmount?: string | null },
@@ -1121,6 +1126,22 @@ export class BookingsService {
     const rates = this.resolveShiftRates(booking, caregiverId, dto, shift);
     // Only times, caregiver or status can create an overlap; a rate or note change alone needs no check.
     const timeOrHolder = startsAt.getTime() !== new Date(shift.startsAt).getTime() || endsAt.getTime() !== new Date(shift.endsAt).getTime() || caregiverId !== shift.caregiverId || status !== shift.status;
+    const ratesChanged =
+      rates.rateType !== shift.rateType || rates.rateAmount !== shift.rateAmount || rates.payRateType !== shift.payRateType || rates.payRateAmount !== shift.payRateAmount;
+    // Marking a scheduled shift done changes no money (an invoice billed in
+    // advance already counts it). Anything else on a shift that is already on
+    // an invoice or pay statement goes through a correction, which adjusts the
+    // document with it - otherwise the bill would quietly stop matching the roster.
+    const moneyNeutral = !ratesChanged && (!timeOrHolder || (shift.status === 'SCHEDULED' && status === 'COMPLETED' && caregiverId === shift.caregiverId && startsAt.getTime() === new Date(shift.startsAt).getTime() && endsAt.getTime() === new Date(shift.endsAt).getTime()));
+    if (!moneyNeutral) {
+      const refs = await this.billingRefs([shift.id]);
+      const inv = refs.invoices.get(shift.id);
+      const pay = refs.payouts.get(shift.id);
+      if (inv || pay) {
+        const on = [inv ? (inv.number ? `invoice ${inv.number}` : 'a draft invoice') : null, pay ? `pay statement ${pay.reference}` : null].filter(Boolean).join(' and ');
+        throw new ConflictException(`This shift is already on ${on} - use Correct on the booking, so the document is adjusted with it`);
+      }
+    }
 
     await this.db.transaction(async (tx) => {
       const t = tx as unknown as Tx;

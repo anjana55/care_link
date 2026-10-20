@@ -159,6 +159,9 @@ const lineColumns = () => ({
   // For a monthly-rate line: the days it covers.
   periodStart: date('period_start', { mode: 'string' }),
   periodEnd: date('period_end', { mode: 'string' }),
+  // For a line carrying a billing adjustment: which one. Like shift_id, a line
+  // on a live document is what marks the adjustment as applied.
+  adjustmentId: varchar('adjustment_id', { length: 36 }),
 });
 
 export const invoiceLines = mysqlTable(
@@ -173,6 +176,7 @@ export const invoiceLines = mysqlTable(
     invoiceIdx: index('invoice_lines_invoice_idx').on(table.invoiceId, table.position),
     shiftIdx: index('invoice_lines_shift_idx').on(table.shiftId),
     bookingIdx: index('invoice_lines_booking_idx').on(table.bookingId),
+    adjustmentIdx: index('invoice_lines_adjustment_idx').on(table.adjustmentId),
   }),
 );
 
@@ -311,5 +315,60 @@ export const payoutLines = mysqlTable(
     statementIdx: index('payout_lines_statement_idx').on(table.statementId, table.position),
     shiftIdx: index('payout_lines_shift_idx').on(table.shiftId),
     bookingIdx: index('payout_lines_booking_idx').on(table.bookingId),
+    adjustmentIdx: index('payout_lines_adjustment_idx').on(table.adjustmentId),
+  }),
+);
+
+/**
+ * Money a booking correction left owing on a document that can no longer
+ * change - an invoice already paid (or that staff chose not to replace), a pay
+ * statement already paid. It waits here and is carried onto the next invoice
+ * to that client, or the next statement for that caregiver, as an ADJUSTMENT
+ * line.
+ *
+ * `amount` is signed from that party's side of the document: on CLIENT, more
+ * than zero means the client owes more, less than zero is a credit; on
+ * CAREGIVER, more than zero means CareLink owes the caregiver more, less than
+ * zero is a deduction.
+ *
+ * Status:
+ * - OPEN       waiting. Whether it is already on a document is not stored:
+ *              like a shift, it is applied while a line on a live (not void)
+ *              document carries its id, and open again once that line or
+ *              document goes - so the two can never disagree.
+ * - SETTLED    dealt with outside the documents (a cash refund, a transfer),
+ *              with a note saying how.
+ * - CANCELLED  dropped, with a note saying why.
+ */
+export const billingAdjustmentSideEnum = ['CLIENT', 'CAREGIVER'] as const;
+export const billingAdjustmentStatusEnum = ['OPEN', 'SETTLED', 'CANCELLED'] as const;
+export type BillingAdjustmentSideDb = (typeof billingAdjustmentSideEnum)[number];
+
+export const billingAdjustments = mysqlTable(
+  'billing_adjustments',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    side: mysqlEnum('side', billingAdjustmentSideEnum).notNull(),
+    // CLIENT: who is billed. CAREGIVER: who is paid.
+    patientId: varchar('patient_id', { length: 36 }),
+    caregiverId: varchar('caregiver_id', { length: 36 }),
+    bookingId: varchar('booking_id', { length: 36 }).notNull(),
+    amendmentId: varchar('amendment_id', { length: 36 }),
+    // The document the difference is against - INV-0012 or a statement
+    // reference - and what changed, for the line's description.
+    sourceLabel: varchar('source_label', { length: 40 }),
+    description: varchar('description', { length: 300 }).notNull(),
+    amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+    status: mysqlEnum('status', billingAdjustmentStatusEnum).notNull().default('OPEN'),
+    closedNote: varchar('closed_note', { length: 500 }),
+    closedAt: datetime('closed_at'),
+    closedByUserId: varchar('closed_by_user_id', { length: 36 }),
+    createdByUserId: varchar('created_by_user_id', { length: 36 }),
+    createdAt: datetime('created_at', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => ({
+    patientIdx: index('billing_adjustments_patient_idx').on(table.patientId, table.status),
+    caregiverIdx: index('billing_adjustments_caregiver_idx').on(table.caregiverId, table.status),
+    bookingIdx: index('billing_adjustments_booking_idx').on(table.bookingId),
   }),
 );

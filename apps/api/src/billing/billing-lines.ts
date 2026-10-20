@@ -22,12 +22,14 @@ export interface StoredLine {
   caregiverId: string | null;
   periodStart: string | null;
   periodEnd: string | null;
+  /** The billing adjustment this line carries (see billing_adjustments), if any. */
+  adjustmentId?: string | null;
   taxable?: boolean;
 }
 
 /**
  * The editor sends the whole table back. Lines it already had keep their link
- * to the shift (or monthly period) they bill - the browser can change the
+ * to the shift (or monthly period, or carried adjustment) they bill - the browser can change the
  * words and the price, never what a line is for. New lines are extras: an
  * ITEM (a charge or allowance) or an ADJUSTMENT (a credit or deduction, the
  * only kind that may be negative). Returns the lines in order with their
@@ -65,6 +67,7 @@ export function normalizeLines(input: BillingLineDto[], existing: StoredLine[], 
       caregiverId: prior?.caregiverId ?? null,
       periodStart: prior?.periodStart ?? null,
       periodEnd: prior?.periodEnd ?? null,
+      adjustmentId: prior?.adjustmentId ?? null,
       ...(withTax ? { taxable: dto.taxable ?? prior?.taxable ?? true } : {}),
     };
   });

@@ -1430,7 +1430,8 @@
       "COMPLETED": "Booking completed",
       "CANCELLED": "Booking cancelled",
       "UPDATED": "Booking updated",
-      "RESCHEDULED": "Booking rescheduled"
+      "RESCHEDULED": "Booking rescheduled",
+      "AMENDED": "Booking corrected"
     },
     "shiftRateUnit": {
       "HOURLY": "per hour",
@@ -1470,6 +1471,71 @@
       "saveNotify": "Save and notify",
       "nothing": "Nothing has changed yet.",
       "draftInvoice": "a draft invoice"
+    },
+    "correct": {
+      "button": "Correct",
+      "buttonHint": "Fix work that already happened or is already billed",
+      "title": "Correct this booking",
+      "intro": "For work that already happened or is already billed. Drafts are updated in place. An invoice or pay statement the client or caregiver has seen is never rewritten: an unpaid invoice can be replaced by a corrected copy, and any other difference is carried to the next invoice or pay statement.",
+      "reason": "What was wrong?",
+      "reasonPlaceholder": "e.g. The timesheet shows Tuesday ran until 7 pm",
+      "workedBy": "Worked by {name}",
+      "changeCaregiver": "Someone else worked it",
+      "whatHappened": "What happened",
+      "statusKeep": "As recorded ({status})",
+      "remove": "Take out of this correction",
+      "missingShift": "Shift missing from the roster",
+      "missingHint": "Added as done. It must not overlap the caregiver's other shifts.",
+      "pickShift": "Correct a shift…",
+      "addMissing": "Add a missing shift",
+      "rateWrong": "The agreed rate itself was wrong",
+      "rateHint": "Re-prices every shift of this booking, on every invoice and pay statement it is on.",
+      "preview": "Preview the effect",
+      "previewing": "Working it out…",
+      "apply": "Apply correction",
+      "applying": "Applying…",
+      "previewFirst": "Preview the correction first",
+      "stale": "The correction changed - preview it again before applying.",
+      "changesTitle": "What changes",
+      "documentsTitle": "Invoices and pay statements",
+      "noDocuments": "Nothing on an invoice or pay statement changes.",
+      "adjustmentsTitle": "Carried forward",
+      "adjustmentClient": "{name} · next invoice",
+      "adjustmentCaregiver": "{name} · next pay statement",
+      "unbilledTitle": "Not billed yet",
+      "unbilledClient": "On no invoice yet: {shifts}. The next invoice covering those days picks them up.",
+      "unbilledPay": "On no pay statement yet: {shifts}. The next pay run covering those days picks them up.",
+      "invoice": "Invoice {label}",
+      "draftInvoice": "Draft invoice",
+      "payout": "Pay statement {label}",
+      "action": {
+        "REFRESH": "Draft updated in place",
+        "REPLACE": "Void it and make a corrected copy to issue",
+        "CARRY": "Leave it as it is and carry the difference forward",
+        "REOPEN": "Sent back to draft and updated",
+        "NONE": "No change"
+      },
+      "lineRemoved": "taken off",
+      "billedLocked": "On an invoice or pay statement - use Correct to change it",
+      "historyTitle": "Corrections",
+      "replacement": "corrected copy",
+      "adjustmentStatus": {
+        "OPEN": "Waiting",
+        "APPLIED": "On {doc}",
+        "SETTLED": "Settled",
+        "CANCELLED": "Dropped"
+      },
+      "settle": "Settled another way",
+      "cancelAdj": "Drop it",
+      "settleReason": "How was it settled? e.g. refunded in cash",
+      "cancelReason": "Why drop it?",
+      "done": {
+        "REFRESH": "draft updated",
+        "REPLACE": "voided and replaced by a corrected draft",
+        "CARRY": "difference carried forward",
+        "REOPEN": "sent back to draft and updated",
+        "NONE": "unchanged"
+      }
     }
   },
   "filters": {

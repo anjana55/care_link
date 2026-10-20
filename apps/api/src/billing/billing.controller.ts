@@ -9,6 +9,7 @@ import { AddCareRequestNoteDto } from '../care-requests/dto/update-care-request-
 import { BillingSettingsService } from './billing-settings.service';
 import { InvoicesService } from './invoices.service';
 import { PayoutsService } from './payouts.service';
+import { AdjustmentsService } from './adjustments.service';
 import { PayhereService } from './payhere.service';
 import type { PayhereNotification } from './payhere';
 import { UpdateBillingSettingsDto } from './dto/billing-settings.dto';
@@ -297,5 +298,32 @@ export class PayhereNotifyController {
     const result = await this.payhere.handleNotification(body ?? {});
     if (result === 'BAD_SIGNATURE') throw new BadRequestException('Invalid signature');
     return 'OK';
+  }
+}
+
+/**
+ * Billing adjustments left by booking corrections. They are listed on the
+ * booking they came from (GET /bookings/:id/amendments); here staff close one
+ * that will not ride onto a document - settled another way, or dropped.
+ */
+@ApiTags('invoices')
+@ApiBearerAuth()
+@Roles('ADMIN', 'STAFF')
+@Controller('billing-adjustments')
+export class BillingAdjustmentsController {
+  constructor(private readonly adjustments: AdjustmentsService) {}
+
+  @Post(':id/settle')
+  @HttpCode(200)
+  @Audit({ action: 'SETTLE_BILLING_ADJUSTMENT', entityType: 'BillingAdjustment' })
+  settle(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ReasonDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.adjustments.close(id, 'SETTLED', dto.reason, user);
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(200)
+  @Audit({ action: 'CANCEL_BILLING_ADJUSTMENT', entityType: 'BillingAdjustment' })
+  cancel(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ReasonDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.adjustments.close(id, 'CANCELLED', dto.reason, user);
   }
 }
