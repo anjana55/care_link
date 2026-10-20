@@ -290,7 +290,11 @@
         "expectedMonthlyRate": "Expected monthly rate (LKR)",
         "expectedLeaveDays": "Expected leave days / month",
         "preferredLeavePattern": "Preferred leave pattern",
-        "placeholder": "e.g. 4 consecutive days monthly"
+        "placeholder": "e.g. 4 consecutive days monthly",
+        "availableFromRequired": "Select the date the caregiver can start",
+        "expectedRate": "Expected rate",
+        "rateHint": "Enter a daily rate, a monthly rate, or both.",
+        "rateRequired": "Enter a daily or monthly rate"
       },
       "documents": {
         "title": "Documents",

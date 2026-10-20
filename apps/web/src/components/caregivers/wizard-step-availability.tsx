@@ -50,9 +50,19 @@ export function AvailabilityStep({ caregiverId, onNext, onBack }: { caregiverId:
 
   const saveMutation = useMutation({
     mutationFn: () =>
+      // Blank optional fields are left out rather than sent as '': the DTO's
+      // @IsOptional() skips only null/undefined, so an empty string would fail
+      // @IsNumberString() / @IsDateString() and the whole save would 400.
       api.put(`/caregivers/${caregiverId}/availability`, {
-        ...form,
+        dayDuty: form.dayDuty,
+        nightDuty: form.nightDuty,
+        liveIn24h: form.liveIn24h,
+        preferredShift: form.preferredShift,
+        availableFrom: form.availableFrom,
+        expectedDailyRate: form.expectedDailyRate || undefined,
+        expectedMonthlyRate: form.expectedMonthlyRate || undefined,
         expectedLeaveDays: form.expectedLeaveDays ? Number(form.expectedLeaveDays) : undefined,
+        preferredLeavePattern: form.preferredLeavePattern.trim() || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['availability', caregiverId] });
@@ -60,7 +70,7 @@ export function AvailabilityStep({ caregiverId, onNext, onBack }: { caregiverId:
     },
   });
 
-  // The one rule this step enforces.
+  // The rules this step enforces.
   //
   // Every field in UpsertAvailabilityDto is @IsOptional() and the database
   // defaults preferred_shift to FLEXIBLE, so the API will happily store a
@@ -70,19 +80,23 @@ export function AvailabilityStep({ caregiverId, onNext, onBack }: { caregiverId:
   // unticked can never match a DAY, NIGHT or TWENTY_FOUR_HOUR_LIVE_IN search
   // and is effectively invisible to the public finder. One tick is the
   // minimum that makes the record mean anything.
-  const noDutyType = !form.dayDuty && !form.nightDuty && !form.liveIn24h;
-  const [showDutyTypeError, setShowDutyTypeError] = useState(false);
-  // Ticking any box clears the complaint immediately; leaving it on until
-  // submit would keep pointing at something already fixed.
-  const setDutyType = (key: 'dayDuty' | 'nightDuty' | 'liveIn24h', value: boolean) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    if (value) setShowDutyTypeError(false);
+  //
+  // Staff registration also needs a start date and a rate: the finder ranks
+  // on budget against expectedDailyRate/expectedMonthlyRate, and either one is
+  // enough. These are enforced here only - the caregiver portal shares the
+  // endpoint and deliberately lets caregivers leave pay blank.
+  const [submitted, setSubmitted] = useState(false);
+  const errors = {
+    dutyType: !form.dayDuty && !form.nightDuty && !form.liveIn24h ? t('caregivers.me.availability.dutyTypeRequired') : undefined,
+    availableFrom: !form.availableFrom ? t('caregivers.me.availability.availableFromRequired') : undefined,
+    rate: !form.expectedDailyRate && !form.expectedMonthlyRate ? t('caregivers.me.availability.rateRequired') : undefined,
   };
+  // Errors appear only after the first Next press, then track the form live so
+  // fixing a field clears its message straight away.
+  const shown = (key: keyof typeof errors) => (submitted ? errors[key] : undefined);
   const handleNext = () => {
-    if (noDutyType) {
-      setShowDutyTypeError(true);
-      return;
-    }
+    setSubmitted(true);
+    if (Object.values(errors).some(Boolean)) return;
     saveMutation.mutate();
   };
 
@@ -107,45 +121,88 @@ export function AvailabilityStep({ caregiverId, onNext, onBack }: { caregiverId:
               <input
                 type="checkbox"
                 checked={form[key]}
-                onChange={(e) => setDutyType(key, e.target.checked)}
+                onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
                 className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
               />
               {key === 'dayDuty' ? t('caregivers.me.availability.dayDuty') : key === 'nightDuty' ? t('caregivers.me.availability.nightDuty') : t('caregivers.me.availability.liveIn24h')}
             </label>
           ))}
         </div>
-        <FieldError message={showDutyTypeError && noDutyType ? t('caregivers.me.availability.dutyTypeRequired') : undefined} />
+        <FieldError message={shown('dutyType')} />
       </fieldset>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <Label>{t('caregivers.me.availability.preferredShift')}</Label>
-          <Select value={form.preferredShift} onChange={(e) => setForm({ ...form, preferredShift: e.target.value })}>
+          <Label htmlFor="availableFrom" required>
+            {t('caregivers.me.availability.availableFrom')}
+          </Label>
+          <Input
+            id="availableFrom"
+            type="date"
+            required
+            aria-invalid={Boolean(shown('availableFrom'))}
+            value={form.availableFrom}
+            onChange={(e) => setForm({ ...form, availableFrom: e.target.value })}
+          />
+          <FieldError message={shown('availableFrom')} />
+        </div>
+        <div>
+          <Label htmlFor="preferredShift">{t('caregivers.me.availability.preferredShift')}</Label>
+          <Select id="preferredShift" value={form.preferredShift} onChange={(e) => setForm({ ...form, preferredShift: e.target.value })}>
             <option value="DAY">{t('caregivers.me.availability.day')}</option>
             <option value="NIGHT">{t('caregivers.me.availability.night')}</option>
             <option value="TWENTY_FOUR_HOUR_LIVE_IN">{t('caregivers.me.availability.twentyFourHourLiveIn')}</option>
             <option value="FLEXIBLE">{t('caregivers.me.availability.flexible')}</option>
           </Select>
         </div>
+      </div>
+
+      {/* Same treatment as duty types: one `*` on the group, because it is
+          "daily or monthly" that is required, not both. */}
+      <fieldset>
+        <legend className="mb-1.5 block text-sm font-medium text-ink">
+          {t('caregivers.me.availability.expectedRate')}
+          <span aria-hidden="true" className="ml-0.5 text-danger">
+            *
+          </span>
+        </legend>
+        <p className="mb-2 text-xs text-ink/50">{t('caregivers.me.availability.rateHint')}</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="expectedDailyRate">{t('caregivers.me.availability.expectedDailyRate')}</Label>
+            <Input
+              id="expectedDailyRate"
+              type="number"
+              min={0}
+              aria-invalid={Boolean(shown('rate'))}
+              value={form.expectedDailyRate}
+              onChange={(e) => setForm({ ...form, expectedDailyRate: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="expectedMonthlyRate">{t('caregivers.me.availability.expectedMonthlyRate')}</Label>
+            <Input
+              id="expectedMonthlyRate"
+              type="number"
+              min={0}
+              aria-invalid={Boolean(shown('rate'))}
+              value={form.expectedMonthlyRate}
+              onChange={(e) => setForm({ ...form, expectedMonthlyRate: e.target.value })}
+            />
+          </div>
+        </div>
+        <FieldError message={shown('rate')} />
+      </fieldset>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <Label>{t('caregivers.me.availability.availableFrom')}</Label>
-          <Input type="date" value={form.availableFrom} onChange={(e) => setForm({ ...form, availableFrom: e.target.value })} />
+          <Label htmlFor="expectedLeaveDays">{t('caregivers.me.availability.expectedLeaveDays')}</Label>
+          <Input id="expectedLeaveDays" type="number" min={0} value={form.expectedLeaveDays} onChange={(e) => setForm({ ...form, expectedLeaveDays: e.target.value })} />
         </div>
         <div>
-          <Label>{t('caregivers.me.availability.expectedDailyRate')}</Label>
-          <Input type="number" value={form.expectedDailyRate} onChange={(e) => setForm({ ...form, expectedDailyRate: e.target.value })} />
-        </div>
-        <div>
-          <Label>{t('caregivers.me.availability.expectedMonthlyRate')}</Label>
-          <Input type="number" value={form.expectedMonthlyRate} onChange={(e) => setForm({ ...form, expectedMonthlyRate: e.target.value })} />
-        </div>
-        <div>
-          <Label>{t('caregivers.me.availability.expectedLeaveDays')}</Label>
-          <Input type="number" value={form.expectedLeaveDays} onChange={(e) => setForm({ ...form, expectedLeaveDays: e.target.value })} />
-        </div>
-        <div>
-          <Label>{t('caregivers.me.availability.preferredLeavePattern')}</Label>
+          <Label htmlFor="preferredLeavePattern">{t('caregivers.me.availability.preferredLeavePattern')}</Label>
           <Input
+            id="preferredLeavePattern"
             value={form.preferredLeavePattern}
             onChange={(e) => setForm({ ...form, preferredLeavePattern: e.target.value })}
             placeholder={t('caregivers.me.availability.placeholder')}

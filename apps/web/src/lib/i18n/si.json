@@ -290,7 +290,11 @@
         "expectedMonthlyRate": "බලාපොරොත්තු වන මාසික ගාස්තුව (LKR)",
         "expectedLeaveDays": "බලාපොරොත්තු වන නිවාඩු දින / මසකට",
         "preferredLeavePattern": "කැමති නිවාඩු රටාව",
-        "placeholder": "උදා: මසකට පිට පිට දින 4ක්"
+        "placeholder": "උදා: මසකට පිට පිට දින 4ක්",
+        "availableFromRequired": "රැකබලාගන්නාට වැඩ ආරම්භ කළ හැකි දිනය තෝරන්න",
+        "expectedRate": "බලාපොරොත්තු වන ගාස්තුව",
+        "rateHint": "දෛනික ගාස්තුවක්, මාසික ගාස්තුවක් හෝ දෙකම ඇතුළත් කරන්න.",
+        "rateRequired": "දෛනික හෝ මාසික ගාස්තුවක් ඇතුළත් කරන්න"
       },
       "documents": {
         "title": "ලේඛන",
