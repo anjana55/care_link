@@ -98,15 +98,27 @@ export const searchRequestSchema = z
   });
 export type SearchRequest = z.infer<typeof searchRequestSchema>;
 
-/** The natural-language box in AI Search mode. */
+/**
+ * The natural-language box in AI Search mode. Deliberately short minimum: a
+ * bare "Galle" is a usable start - the assistant asks for whatever is missing
+ * rather than refusing to begin.
+ */
 export const aiSearchRequestSchema = z.object({
-  query: z.string().min(10).max(1000),
+  query: z.string().min(2).max(1000),
 });
 export type AiSearchRequest = z.infer<typeof aiSearchRequestSchema>;
 
+/** Inputs a search cannot run without, which the AI assistant asks for when the description did not give them. */
+export const aiMissingFieldValues = ['location'] as const;
+export type AiMissingField = (typeof aiMissingFieldValues)[number];
+
+/** Inputs the AI filled in with a sensible default instead of asking (shown to the visitor, editable). */
+export const aiAssumedFieldValues = ['desiredStartDate'] as const;
+export type AiAssumedField = (typeof aiAssumedFieldValues)[number];
+
 /** What the AI extraction step produces — same shape as SearchRequest, plus
- * a confidence/echo layer so the UI can show "here's what we understood"
- * and let the guardian correct it before the search actually runs. */
+ * an echo layer so the UI can show "here's what we understood" next to the
+ * results, ask for anything still missing, and let the guardian adjust it. */
 export interface ExtractedRequirements {
   requirements: SearchRequest;
   /** Human-readable summary lines for the "extracted requirements" panel,
@@ -117,6 +129,10 @@ export interface ExtractedRequirements {
     care: string[];
     preferences: string[];
   };
+  /** Public AI Search only: required inputs still unknown - the assistant asks for these before searching. */
+  missing?: AiMissingField[];
+  /** Public AI Search only: required inputs defaulted rather than asked (e.g. start date -> today). */
+  assumed?: AiAssumedField[];
 }
 
 export interface PublicSkillMatch {

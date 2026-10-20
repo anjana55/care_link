@@ -1,4 +1,13 @@
-import { addDays, colomboToday, isValidDate, type Locale, type SearchRequest, type ExtractedRequirements } from '@care-platform/shared';
+import {
+  addDays,
+  colomboToday,
+  isValidDate,
+  type AiAssumedField,
+  type AiMissingField,
+  type Locale,
+  type SearchRequest,
+  type ExtractedRequirements,
+} from '@care-platform/shared';
 
 /**
  * Turning free text ("my mother in Kandy has dementia, needs a female carer at
@@ -31,6 +40,8 @@ export function extractionPrompt(catalog: Catalog, today: string, extra?: string
     'Put a skill in "mandatorySkillIds" only when the text says it is essential; otherwise use "optionalSkillIds". Medical conditions go in patient.medicalConditions as short English terms.',
     'shift: DAY, NIGHT, TWENTY_FOUR_HOUR_LIVE_IN (live-in / round the clock) or FLEXIBLE. caregiverGenderPreference: MALE, FEMALE or ANY.',
     'Budgets are in Sri Lankan rupees per day (dailyBudget) or per month (monthlyBudget).',
+    'Location: if only a town, suburb or village is named, set "city" to that name AND set "districtId" to the district it lies in. Never invent a location that is not mentioned.',
+    'The text may be several messages from the same family, one per line, each adding detail; later lines refine or correct earlier ones.',
     '',
     'Skills (use the S-codes):',
     skills || '(none)',
@@ -141,6 +152,7 @@ const LABELS: Record<Locale, Record<string, string>> = {
     prefFEMALE: 'Female caregiver',
     prefMALE: 'Male caregiver',
     start: 'Starting {d}',
+    asap: 'Starting as soon as possible',
     speaks: 'Speaks {x}',
     years: '{n}+ years of experience',
     daily: 'Up to Rs {n} a day',
@@ -158,6 +170,7 @@ const LABELS: Record<Locale, Record<string, string>> = {
     prefFEMALE: 'කාන්තා රැකවරණකරුවෙක්',
     prefMALE: 'පිරිමි රැකවරණකරුවෙක්',
     start: 'ආරම්භය {d}',
+    asap: 'හැකි ඉක්මනින් ආරම්භ කිරීම',
     speaks: 'භාෂාව: {x}',
     years: 'අවුරුදු {n}+ පළපුරුද්ද',
     daily: 'දිනකට රු. {n} දක්වා',
@@ -175,6 +188,7 @@ const LABELS: Record<Locale, Record<string, string>> = {
     prefFEMALE: 'பெண் பராமரிப்பாளர்',
     prefMALE: 'ஆண் பராமரிப்பாளர்',
     start: 'தொடக்கம் {d}',
+    asap: 'கூடிய விரைவில் தொடக்கம்',
     speaks: 'மொழி: {x}',
     years: '{n}+ ஆண்டு அனுபவம்',
     daily: 'நாளொன்றுக்கு ரூ. {n} வரை',
@@ -188,6 +202,7 @@ export function summarize(
   catalog: Catalog,
   locale: Locale,
   cityLabel: string | null,
+  assumed: readonly AiAssumedField[] = [],
 ): ExtractedRequirements['summary'] {
   const L = LABELS[locale] ?? LABELS.en;
   const fill = (key: string, vars: Record<string, string | number>) => L[key].replace(/\{(\w+)\}/g, (_m, k: string) => String(vars[k] ?? ''));
@@ -208,7 +223,9 @@ export function summarize(
     if (n) summary.care.push(n);
   }
   if (request.shift) summary.care.push(L[request.shift]);
-  if (request.desiredStartDate) summary.care.push(fill('start', { d: request.desiredStartDate }));
+  if (request.desiredStartDate) {
+    summary.care.push(assumed.includes('desiredStartDate') ? L.asap : fill('start', { d: request.desiredStartDate }));
+  }
 
   const nice = (request.optionalSkillIds ?? []).map(skillName).filter(Boolean);
   if (nice.length) summary.preferences.push(fill('nice', { x: nice.join(', ') }));
@@ -221,6 +238,36 @@ export function summarize(
   if (request.budget?.dailyRate) summary.preferences.push(fill('daily', { n: request.budget.dailyRate.toLocaleString('en-US') }));
   if (request.budget?.monthlyRate) summary.preferences.push(fill('monthly', { n: request.budget.monthlyRate.toLocaleString('en-US') }));
   return summary;
+}
+
+// --- public AI Search: search now, ask only for what blocks it ----------------
+
+/**
+ * Readies an extracted request for the public finder, whose goal is to show
+ * caregivers after as few questions as possible:
+ *
+ *  - no district -> `missing: ['location']`. The district is the one hard
+ *    filter a search cannot run without, so the assistant asks for it.
+ *  - no start date -> today, flagged in `assumed`. The date is required by the
+ *    search contract but a family who did not mention one almost always means
+ *    "as soon as possible"; asking would cost a round trip for no better
+ *    results. The visitor sees "Starting as soon as possible" and can change it.
+ *
+ * Pure, so it is unit-tested.
+ */
+export function completeForPublicSearch(
+  request: SearchRequest,
+  today: string,
+): { request: SearchRequest; missing: AiMissingField[]; assumed: AiAssumedField[] } {
+  const next: SearchRequest = { ...request };
+  const missing: AiMissingField[] = [];
+  const assumed: AiAssumedField[] = [];
+  if (!next.location?.districtId) missing.push('location');
+  if (!next.desiredStartDate) {
+    next.desiredStartDate = today;
+    assumed.push('desiredStartDate');
+  }
+  return { request: next, missing, assumed };
 }
 
 export function todayInColombo(): string {

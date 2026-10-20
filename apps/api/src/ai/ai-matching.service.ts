@@ -17,7 +17,7 @@ import type { SearchRequestDto } from '../public-search/dto/search-request.dto';
 import { AiSettingsService, type ResolvedAiSettings } from './ai-settings.service';
 import { AiProviderService, AiUnavailableError } from './ai-provider.service';
 import { parseJsonObject } from './ai-protocol';
-import { extractionPrompt, normalizeExtraction, summarize, todayInColombo, type Catalog } from './requirements';
+import { completeForPublicSearch, extractionPrompt, normalizeExtraction, summarize, todayInColombo, type Catalog } from './requirements';
 import { applyRanking, candidateCard, rerankPrompt } from './rerank';
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -81,8 +81,19 @@ export class AiMatchingService {
 
   // --- extraction ----------------------------------------------------------------
 
-  /** Free text -> a validated search request. Throws AiUnavailableError if the model cannot be used. */
-  async extract(settings: ResolvedAiSettings, text: string, locale: Locale): Promise<ExtractedRequirements> {
+  /**
+   * Free text -> a validated search request. Throws AiUnavailableError if the model cannot be used.
+   *
+   * `forPublicSearch` readies the result for the public finder (see
+   * completeForPublicSearch): it reports what is still missing and defaults
+   * the start date, so the site can search straight away or ask one question.
+   */
+  async extract(
+    settings: ResolvedAiSettings,
+    text: string,
+    locale: Locale,
+    options: { forPublicSearch?: boolean } = {},
+  ): Promise<ExtractedRequirements> {
     const catalog = await this.catalog(locale);
     const today = todayInColombo();
     const reply = await this.provider.chat(settings, {
@@ -103,14 +114,22 @@ export class AiMatchingService {
       }
     }
     request.locale = locale;
-    return { requirements: request, summary: summarize(request, catalog, locale, cityLabel) };
+    if (!options.forPublicSearch) return { requirements: request, summary: summarize(request, catalog, locale, cityLabel) };
+
+    const completed = completeForPublicSearch(request, today);
+    return {
+      requirements: completed.request,
+      summary: summarize(completed.request, catalog, locale, cityLabel, completed.assumed),
+      missing: completed.missing,
+      assumed: completed.assumed,
+    };
   }
 
   async publicExtract(query: string, locale?: string): Promise<ExtractedRequirements> {
     const settings = await this.settings.forFeature('publicSearch');
     if (!settings) throw new ServiceUnavailableException('AI search is not available right now - please use the search form');
     try {
-      return await this.extract(settings, query, resolveLocale(locale));
+      return await this.extract(settings, query, resolveLocale(locale), { forPublicSearch: true });
     } catch (err) {
       if (err instanceof AiUnavailableError) {
         throw new ServiceUnavailableException('AI search is not available right now - please use the search form');

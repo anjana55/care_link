@@ -8,10 +8,15 @@ const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? val
 
 /** POST /public/ai/extract */
 export class AiExtractDto implements AiExtractRequest {
-  @ApiProperty({ minLength: 10, maxLength: 1000, example: 'My 78 year old mother in Kandy has dementia and needs a female caregiver at night' })
+  /**
+   * The family's words - one or more messages, newline-separated, when the
+   * assistant has asked a follow-up (e.g. "where is the care needed?") and
+   * the answer was appended. Short is fine: a bare town name is a valid start.
+   */
+  @ApiProperty({ minLength: 2, maxLength: 1000, example: 'My 78 year old mother in Kandy has dementia and needs a female caregiver at night' })
   @Transform(trim)
   @IsString()
-  @MinLength(10, { message: 'Tell us a little more about the care you need' })
+  @MinLength(2, { message: 'Tell us a little more about the care you need' })
   @MaxLength(1000, { message: 'Please keep the description under 1000 characters' })
   query: string;
 
