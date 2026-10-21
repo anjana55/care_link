@@ -1,0 +1,47 @@
+# What `docker compose build` is NOT sent. The build context is the whole repo
+# root (the apps need packages/shared), and without this file every build
+# shipped - and `COPY apps/<app>` copied into an image layer - anything lying
+# around on the server: node_modules and .next from a local `npm install`,
+# uploaded caregiver documents, database backups, the git history, and the
+# env files with every secret in them. Each rebuild then stored a fresh copy
+# of all that in the build cache.
+#
+# The Dockerfiles install dependencies and build everything themselves, so
+# nothing below is needed inside an image.
+
+# Dependencies and build output - rebuilt inside the image
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/.turbo
+
+# Secrets - never in an image or the build cache
+**/.env
+**/.env.*
+!**/.env*.example
+
+# Data that lives on the server, not in the code
+storage
+backups
+.deploy
+
+# Version control and editor/OS clutter
+.git
+.gitignore
+**/.DS_Store
+**/*.log
+
+# Repo files no image uses
+*.zip
+*.patch
+i18n-review
+**/__tests__
+**/*.spec.ts
+**/*.test.ts
+**/*.test.tsx
+DEPLOYMENT.md
+IMPLEMENTATION_REPORT.md
+WHATSAPP_DEPLOYMENT_GUIDE.md
+learn-codebase-complete.md

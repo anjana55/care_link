@@ -16,3 +16,7 @@ storage/caregiver-documents/**
 # substituted for __DOMAIN__. Per-deployment, so it stays out of the repo.
 deploy/nginx.local.conf
 .DS_Store
+# Written by setup.sh / update.sh on the server: database backups taken
+# before migrations, and which commit and image tag are deployed.
+backups/
+.deploy/

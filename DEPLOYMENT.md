@@ -46,7 +46,7 @@ running, part by part, so you can pick up from wherever it stopped.
 - [Part 13 - Add HTTPS (the padlock icon)](#part-13---add-https-the-padlock-icon)
 - [Part 14 - Everyday commands](#part-14---everyday-commands-cheat-sheet)
 - [Part 15 - Backups](#part-15---backups)
-- [Part 16 - Updating to a newer version later](#part-16---updating-to-a-newer-version-later)
+- [Part 16 - Updating to a newer version later](#part-16---updating-to-a-newer-version-later) (`update.sh`, trying PRs, rollback, disk space)
 - [Part 16b - Taking the whole thing down](#part-16b---taking-the-whole-thing-down)
 - [Part 17 - Troubleshooting](#part-17---troubleshooting)
 
@@ -963,6 +963,10 @@ Run all of these from inside the `~/care_link` folder.
 | Stop everything | `docker compose -f docker-compose.prod.yml --env-file .env.production down` |
 | Start everything again | `docker compose -f docker-compose.prod.yml --env-file .env.production up -d` |
 | Restart just one service | `docker compose -f docker-compose.prod.yml --env-file .env.production restart api` |
+| Deploy the latest code | `./update.sh` (Part 16) |
+| Try a pull request | `./update.sh --pr=17` (Part 16.2) |
+| Go back to the previous release | `./update.sh --rollback` (Part 16.3) |
+| See what is using the disk | `docker system df` (Part 16.5) |
 
 `logs -f` keeps running until you press `Ctrl+C` - that only stops the
 log view, it does not stop the app.
@@ -1024,35 +1028,158 @@ ask for help with once the app itself is running.
 
 ## Part 16 - Updating to a newer version later
 
-When you get new code changes for this app:
+Once `setup.sh` has deployed the site, **don't run it again to ship new
+code** - use `update.sh`. It skips everything that only matters the first
+time (installing Docker, swap, secrets, the certificate) and does just what
+an update needs:
+
+- fetches the code you name,
+- rebuilds **only the apps the change touches** - a change to the staff app
+  rebuilds the staff app, not all three (a change to `packages/shared` or
+  `package-lock.json` does rebuild all three, because they all use it),
+- **backs up the database** into `backups/` if the change adds migrations,
+- swaps in the new containers, runs migrations, refreshes reference data and
+  reloads nginx - apps the change doesn't touch keep running untouched,
+- checks every app comes up healthy, and **puts the previous release back
+  automatically** if one doesn't,
+- cleans up, keeping the previous release's images so you can roll back in
+  seconds.
 
 ```bash
 cd ~/care_link
-git pull
-docker compose -f docker-compose.prod.yml --env-file .env.production build
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+./update.sh --dry-run      # see what would happen first (optional)
+./update.sh                # deploy the latest main
 ```
 
-Then, **only if you were told new database changes were included**:
+### 16.1 Deploying a merged pull request
+
+Merge the PR on GitHub, then on the server:
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.production exec -w /app/apps/api api node dist/src/database/migrate.js
+./update.sh
 ```
 
-If you're not sure whether new database changes were included, it's
-always safe to run this command anyway - it silently does nothing if
-there's nothing new to apply.
+### 16.2 Trying a pull request before merging it
 
-If you were told the update changed reference data (e.g. an updated
-locations.csv, or new skills/languages), also re-run the Part 11.2 seed
-command with the same `INITIAL_ADMIN_EMAIL`/`INITIAL_ADMIN_PASSWORD`
-values you used the first time - it's a no-op for the admin account at
-that point and only refreshes the reference data.
+```bash
+./update.sh --pr=17        # deploys PR #17 exactly as it is now
+```
 
-### 16.1 The caregiver sign-in recovery update (migration 0003)
+The script warns that a PR's branch may be behind main. When you're done,
+go back with either of these:
 
-This update **includes database changes** - run the migrate command above.
-Take a database backup first (Part 15.1): migration 0003 also changes
+```bash
+./update.sh                # back to the latest main
+./update.sh --rollback     # back to whatever was running before the PR
+```
+
+Be careful trying a PR that adds **database migrations** on the live site:
+switching back to main doesn't undo them (see 16.3). Trying those is safer
+on a separate test server.
+
+### 16.3 Rolling back
+
+```bash
+./update.sh --rollback
+```
+
+This switches back to the release that was running before the last update.
+It is instant - nothing is rebuilt - and running it again switches forward
+again. It does **not** undo database migrations. If the release you are
+leaving added some and the old code doesn't work with them, restore the
+backup `update.sh` took before migrating. The rollback prints the exact
+command, which looks like this:
+
+```bash
+gunzip -c backups/db-YYYYMMDD-HHMMSS-before-<commit>.sql.gz \
+  | docker compose -f docker-compose.prod.yml --env-file .env.production exec -T mysql \
+    sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
+```
+
+### 16.4 Other things update.sh can do
+
+| You want to | Run |
+|---|---|
+| Deploy a branch, tag or commit | `./update.sh --ref=release-1.4` |
+| Rebuild all three apps anyway | `./update.sh --full` |
+| Back up the database even without migrations | `./update.sh --backup` |
+| Keep more (or fewer) database backups | `./update.sh --keep-backups=10` (default 5) |
+| Leave a failed release running to debug it | `./update.sh --no-auto-rollback` |
+| Skip the "Deploy?" question | `./update.sh -y` |
+
+`update.sh` refuses to run if files tracked by git have been edited on the
+server, since those edits would be deployed under the wrong name. Your
+`.env.production`, the generated nginx config and `backups/` are not
+tracked, so they never get in the way.
+
+If a change adds new settings to `.env.production.example`, `update.sh`
+says so. Add them to your `.env.production` before (or straight after)
+deploying.
+
+### 16.5 Keeping the disk from filling up
+
+Every build used to leave gigabytes behind: the build cache (old `npm ci`
+and `next build` layers) was never cleared, the previous release's images
+were never removed, and container logs had no size limit. On EC2's
+default 8 GB disk, a few re-runs of `setup.sh` were enough to run out of
+space. Both `setup.sh` and `update.sh` now clean up after every run (and
+after a failed one):
+
+- They keep the **current and the previous release's images** and remove
+  older ones.
+- They keep **at most 1 GB of build cache** (3 GB on a disk of 18 GB or
+  more), so the next build is still quick. Choose your own limit with
+  `--build-cache=GB`; `--build-cache=0` keeps none.
+- They remove **leftover one-off containers and anonymous volumes** from this
+  project. They never touch named volumes: the database, uploaded documents
+  and the certificate are safe.
+- If the disk is short **before** a build, they clear the cache first
+  instead of failing half way.
+
+Container logs are capped at 30 MB per container (in
+`docker-compose.prod.yml`).
+
+To see what is using the space:
+
+```bash
+docker system df
+```
+
+### 16.6 Doing it by hand
+
+If you can't use the script for some reason, this is what it does. Run it
+from the repo root, and only rebuild what changed:
+
+```bash
+git fetch origin && git checkout --detach origin/main
+docker compose -f docker-compose.prod.yml --env-file .env.production build web    # the apps that changed
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --no-deps --force-recreate web
+docker compose -f docker-compose.prod.yml --env-file .env.production exec -w /app/apps/api api node dist/src/database/migrate.js
+docker compose -f docker-compose.prod.yml --env-file .env.production exec nginx nginx -s reload
+docker image prune -f && docker builder prune -f
+```
+
+The nginx reload matters. nginx looks up the apps' addresses only when it
+starts, so after recreating one app on its own it keeps sending traffic to
+the old container (502 errors) until it is reloaded.
+
+### 16.7 Faster still, later: build the images somewhere else
+
+Every update still builds the changed apps **on the server**, which on a
+small instance takes a few minutes and briefly uses a lot of memory. Once
+you outgrow that, have GitHub Actions build the three images on every
+merge and push them to a registry (e.g. GitHub Container Registry, tagged
+by commit). The server then only pulls and restarts - no Node.js builds,
+almost no build cache, and the same image you tested is the one that runs.
+`docker-compose.prod.yml` already names images by commit
+(`IMAGE_PREFIX`/`IMAGE_TAG`), so this is a matter of pointing those names
+at the registry and replacing the build step with `docker compose pull`.
+
+### 16.8 The caregiver sign-in recovery update (migration 0003)
+
+This update **includes database changes**. `update.sh` runs them and backs
+up the database first (on a deployment from before `update.sh`, take a
+backup by hand first, Part 15.1). Migration 0003 also changes
 existing data, once:
 
 - every caregiver that was deleted *before* this update has their login
@@ -1480,3 +1607,31 @@ device names with `lsblk`). 20 GB is a comfortable size.
 The site runs fine on a `t3.small` once built. A `t3.micro` works but is
 tight; if you can, build on a `t3.medium` and downsize the instance
 afterwards (stop, change instance type, start).
+
+### 17.15 `no space left on device`, or the disk keeps filling up
+
+Older versions of `setup.sh` never cleared Docker's build cache or the
+previous release's images, so every re-run left gigabytes behind (see Part
+16.5). Updating to this version fixes that from the next run on. To free the
+space right away:
+
+```bash
+docker system df                 # what is using it
+docker image prune -f            # untagged old images
+docker builder prune -af         # the whole build cache (the next build is slower)
+```
+
+**Never** run `docker volume prune -a` or `docker system prune --volumes`
+on this server. The database and uploaded documents live in Docker volumes,
+and those commands delete unused volumes, including theirs if the stack
+happens to be stopped.
+
+If the disk is still nearly full, find what else is using it:
+
+```bash
+sudo du -xh / --max-depth=2 2>/dev/null | sort -h | tail -20
+```
+
+The usual suspects are `/var/lib/docker` (above) and a `/swapfile`
+(`setup.sh` makes one on small servers; it is needed). The best fix is to
+grow the EBS volume to 20 GB, as in Part 17.14.
