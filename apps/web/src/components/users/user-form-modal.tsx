@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { Button } from '@/components/ui/button';
 import { Input, Label, Select, FieldError } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import type { StaffRole, StaffUser } from '@/lib/api/types';
 
 const ROLES: StaffRole[] = ['ADMIN', 'STAFF', 'VERIFIER'];
@@ -29,9 +30,13 @@ export function UserFormModal({ editing, submitting, error, onSubmit, onClose }:
   const [fullName, setFullName] = useState(editing?.fullName ?? '');
   const [email, setEmail] = useState(editing?.email ?? '');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<StaffRole>(editing?.role ?? 'STAFF');
 
-  const canSubmit = fullName.trim().length > 0 && email.trim().length > 0 && (editing || password.length >= 8);
+  // Shown as soon as the confirmation is filled in, so the admin sees the problem before pressing Save.
+  const mismatch = !editing && confirmPassword.length > 0 && confirmPassword !== password;
+  const canSubmit =
+    fullName.trim().length > 0 && email.trim().length > 0 && (editing || (password.length >= 8 && confirmPassword === password));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
@@ -47,10 +52,21 @@ export function UserFormModal({ editing, submitting, error, onSubmit, onClose }:
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           {!editing && (
-            <div>
-              <Label>{t('users.form.password')}</Label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-            </div>
+            <>
+              <div>
+                <Label>{t('users.form.password')}</Label>
+                <PasswordInput autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </div>
+              <div>
+                <Label>{t('users.form.confirmPassword')}</Label>
+                <PasswordInput
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+                <FieldError message={mismatch ? t('users.passwordMismatch') : undefined} />
+              </div>
+            </>
           )}
           <div>
             <Label>{t('users.form.role')}</Label>

@@ -657,6 +657,8 @@
   },
   "common": {
     "requiredField": "Required field",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "loading": "Loading...",
     "locationsUnavailable": "Districts and cities could not be loaded. Check your connection and reload the page.",
     "save": "Save",

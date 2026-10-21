@@ -15,6 +15,7 @@ import {
 } from '@/components/caregivers/caregiver-register-layout';
 import { Button } from '@/components/ui/button';
 import { Input, Label, FieldError, RequiredLegend } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
 import { makePersonalInfoSchema, requiredFieldsOf } from '@/lib/schemas/personal-info';
 import { useLocationTree } from '@/lib/hooks/use-public-search';
@@ -141,12 +142,12 @@ export default function CaregiverRegisterPage() {
           </div>
           <div>
             <Label htmlFor="password" required>{t('caregiverRegister.password')}</Label>
-            <Input id="password" type="password" {...register('password')} />
+            <PasswordInput id="password" autoComplete="new-password" {...register('password')} />
             <FieldError message={errors.password?.message as string | undefined} />
           </div>
           <div>
             <Label htmlFor="confirmPassword" required>{t('caregiverRegister.confirmPassword')}</Label>
-            <Input id="confirmPassword" type="password" {...register('confirmPassword')} />
+            <PasswordInput id="confirmPassword" autoComplete="new-password" {...register('confirmPassword')} />
             <FieldError message={errors.confirmPassword?.message as string | undefined} />
           </div>
         </div>

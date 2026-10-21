@@ -13,6 +13,7 @@ import { HeroBanner } from '@/components/register/hero-banner';
 import { api, ApiError } from '@/lib/api/client';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
 import { FieldError, Input, Label, RequiredLegend } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { PatientIntakeFields } from '@/components/register/patient-intake-fields';
 import { useLocationTree } from '@/lib/hooks/use-public-search';
 import { UNSET_ID } from '@/lib/schemas/personal-info';
@@ -221,9 +222,9 @@ export default function RegisterPage() {
                   <Label htmlFor="password" required>
                     {t('register.password')}
                   </Label>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
+                    autoComplete="new-password"
                     {...register('password')}
                   />
                   {errors.password && <p className="mt-1 text-xs text-danger">{errors.password.message}</p>}
@@ -232,9 +233,9 @@ export default function RegisterPage() {
                   <Label htmlFor="confirmPassword" required>
                     {t('register.confirmPassword')}
                   </Label>
-                  <Input
+                  <PasswordInput
                     id="confirmPassword"
-                    type="password"
+                    autoComplete="new-password"
                     {...register('confirmPassword')}
                   />
                   {errors.confirmPassword && <p className="mt-1 text-xs text-danger">{errors.confirmPassword.message}</p>}
