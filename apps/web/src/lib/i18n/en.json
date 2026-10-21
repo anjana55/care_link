@@ -609,6 +609,8 @@
   },
   "common": {
     "loading": "Loading...",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "save": "Save",
     "cancel": "Cancel",
     "add": "Add",
@@ -821,9 +823,11 @@
       "email": "Email",
       "password": "Password",
       "role": "Role",
-      "newPassword": "New password"
+      "newPassword": "New password",
+      "confirmPassword": "Confirm password"
     },
-    "you": "you"
+    "you": "you",
+    "passwordMismatch": "Passwords do not match."
   },
   "changePassword": {
     "title": "Change password",

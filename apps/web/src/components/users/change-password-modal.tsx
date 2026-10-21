@@ -5,7 +5,8 @@ import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from '@/lib/i18n/provider';
 import { api, ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
-import { Input, Label, FieldError } from '@/components/ui/input';
+import { Label, FieldError } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 
 export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -50,15 +51,15 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
             <div className="space-y-3">
               <div>
                 <Label>{t('changePassword.currentPassword')}</Label>
-                <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+                <PasswordInput autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
               </div>
               <div>
                 <Label>{t('changePassword.newPassword')}</Label>
-                <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                <PasswordInput autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
               </div>
               <div>
                 <Label>{t('changePassword.confirmPassword')}</Label>
-                <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                <PasswordInput autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
               </div>
               <FieldError message={error ?? undefined} />
             </div>

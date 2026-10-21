@@ -609,6 +609,8 @@
   },
   "common": {
     "loading": "පූරණය වෙමින්...",
+    "showPassword": "මුරපදය පෙන්වන්න",
+    "hidePassword": "මුරපදය සඟවන්න",
     "save": "සුරකින්න",
     "cancel": "අවලංගු කරන්න",
     "add": "එකතු කරන්න",
@@ -821,9 +823,11 @@
       "email": "විද්‍යුත් තැපෑල",
       "password": "මුරපදය",
       "role": "භූමිකාව",
-      "newPassword": "නව මුරපදය"
+      "newPassword": "නව මුරපදය",
+      "confirmPassword": "මුරපදය තහවුරු කරන්න"
     },
-    "you": "ඔබ"
+    "you": "ඔබ",
+    "passwordMismatch": "මුරපද නොගැලපේ."
   },
   "changePassword": {
     "title": "මුරපදය වෙනස් කරන්න",
