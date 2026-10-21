@@ -53,21 +53,45 @@ export class ApiError extends Error {
 
 let refreshPromise: Promise<Tokens | null> | null = null;
 
+/**
+ * Fired when the refresh token is refused - the session is over (7 days,
+ * signed out elsewhere, or reset by an admin). AuthProvider drops the user, so
+ * the layouts send them to sign in instead of leaving every screen failing
+ * with "Unauthorized".
+ */
+export const SESSION_EXPIRED_EVENT = 'care-platform:staff-session-expired';
+
+/**
+ * Refresh tokens are single use, so two tabs refreshing at once race and the
+ * loser is refused. A refused refresh looks at storage again first: a newer
+ * pair stored by another tab means the session is fine.
+ */
 async function refreshTokens(): Promise<Tokens | null> {
   const current = getStoredTokens();
   if (!current) return null;
-  const res = await fetch(`${API_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken: current.refreshToken }),
-  });
-  if (!res.ok) {
-    clearTokens();
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: current.refreshToken }),
+    });
+  } catch {
+    // Offline: the session may well be fine.
     return null;
   }
-  const tokens = (await res.json()) as Tokens;
-  storeTokens(tokens);
-  return tokens;
+  if (res.ok) {
+    const tokens = (await res.json()) as Tokens;
+    storeTokens(tokens);
+    return tokens;
+  }
+  const latest = getStoredTokens();
+  if (latest && latest.refreshToken !== current.refreshToken) return latest;
+  if (res.status === 401 || res.status === 403) {
+    clearTokens();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
+  return null;
 }
 
 interface RequestOptions {

@@ -6,6 +6,7 @@ import { CurrentUser, type AuthenticatedUser } from '../common/decorators/curren
 import { AuditService } from '../audit/audit.service';
 import { AccountAccessService } from './account-access.service';
 import { ResetSignInDto } from './dto/reset-sign-in.dto';
+import { ChangeCaregiverContactDto } from './dto/change-contact.dto';
 
 /**
  * Staff tools for a caregiver's sign-in, under the caregiver they belong to.
@@ -49,6 +50,31 @@ export class AccountAccessController {
       ipAddress: req.ip,
     });
     return result.methods;
+  }
+
+  /**
+   * Correct the email address or phone number - staff for an account not
+   * secured yet (an abandoned registration), admins for any account. Audited
+   * with the old and new values.
+   */
+  @Post(':id/sign-in/contact')
+  @Roles('ADMIN', 'STAFF')
+  async changeContact(@Param('id') id: string, @Body() dto: ChangeCaregiverContactDto, @CurrentUser() user: AuthenticatedUser, @Req() req: Request) {
+    const result = await this.access.changeContact(id, dto, user);
+    await this.audit.record({
+      userId: user.userId,
+      action: 'CHANGE_CAREGIVER_CONTACT',
+      entityType: 'Caregiver',
+      entityId: id,
+      metadata: {
+        email: result.change.email,
+        phone: result.change.phone,
+        verificationSent: result.change.verificationSent,
+        loginCreated: result.change.loginCreated,
+      },
+      ipAddress: req.ip,
+    });
+    return { ...result.methods, verificationSent: result.change.verificationSent };
   }
 
   /**

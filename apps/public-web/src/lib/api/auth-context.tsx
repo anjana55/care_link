@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { api, ApiError, clearTokens, getStoredTokens, storeTokens, type Tokens } from './client';
+import { api, ApiError, clearTokens, getStoredTokens, refreshSession, SESSION_EXPIRED_EVENT, storeTokens, type Tokens } from './client';
 
 export interface AuthUser {
   userId: string;
@@ -27,9 +27,27 @@ export function postLoginPath(user: AuthUser): string {
   return user.role === 'CAREGIVER' ? '/caregiver/dashboard' : '/';
 }
 
+function jwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const binary = atob(part.padEnd(part.length + ((4 - (part.length % 4)) % 4), '='));
+    // UTF-8 safe (a name in Sinhala or Tamil): bytes -> %XX -> text.
+    return JSON.parse(decodeURIComponent(Array.from(binary, (c) => `%${c.charCodeAt(0).toString(16).padStart(2, '0')}`).join('')));
+  } catch {
+    return null;
+  }
+}
+
+/** Whether an access token is past its expiry (with a little slack for clock drift). */
+function isExpired(token: string): boolean {
+  const exp = jwtPayload(token)?.exp;
+  return typeof exp === 'number' && exp * 1000 < Date.now() + 5000;
+}
+
 function decodeJwt(token: string): AuthUser | null {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const payload = jwtPayload(token) as Record<string, any> | null;
+    if (!payload) return null;
     // An allowlist, not a deleted check. Widening it to "accept anything but
     // patients" would let an ADMIN/STAFF/VERIFIER token sign someone in on the
     // public site, where there is nothing for them to see.
@@ -74,9 +92,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const tokens = getStoredTokens();
-    if (tokens) setUser(decodeJwt(tokens.accessToken));
-    setLoading(false);
+    if (!tokens) {
+      setLoading(false);
+    } else if (!isExpired(tokens.accessToken)) {
+      setUser(decodeJwt(tokens.accessToken));
+      setLoading(false);
+    } else {
+      // The access token lapsed while the visitor was away (15 minutes). Check
+      // the session is still alive before showing them as signed in: a page
+      // that says "signed in" and then fails every action with "Unauthorized"
+      // is worse than one that offers sign-in straight away.
+      void refreshSession().then((fresh) => {
+        if (cancelled) return;
+        const still = fresh ?? getStoredTokens();
+        setUser(still ? decodeJwt(still.accessToken) : null);
+        setLoading(false);
+      });
+    }
+
+    // The session ended mid-visit (see SESSION_EXPIRED_EVENT), or another tab
+    // signed in or out.
+    const onExpired = () => setUser(null);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== null && e.key !== 'care-platform-patient-tokens') return;
+      const now = getStoredTokens();
+      setUser(now ? decodeJwt(now.accessToken) : null);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
 
   /**

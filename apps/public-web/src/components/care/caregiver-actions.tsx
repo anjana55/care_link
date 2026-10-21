@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CheckCircle2, Heart } from 'lucide-react';
@@ -31,6 +31,9 @@ export function CaregiverActions({ publicId, caregiverLabel }: { publicId: strin
   const pathname = usePathname();
   const [gateOpen, setGateOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  /** The session ended while they were on this page (usually mid-request). */
+  const [sessionEnded, setSessionEnded] = useState(false);
+  const wasClient = useRef(client);
   const relations = useCaregiverRelations(client ? [publicId] : []);
   const relation = relations.byId.get(publicId);
   const hasOpenRequest = Boolean(relation?.openRequest);
@@ -44,6 +47,20 @@ export function CaregiverActions({ publicId, caregiverLabel }: { publicId: strin
     clearPendingContact();
     if (!hasOpenRequest) setContactOpen(true);
   }, [client, relations.isFetched, hasOpenRequest, publicId]);
+
+  // Signed out under them - the session expired or was ended elsewhere. If
+  // they were sending a request, it did not go: offer sign-in straight away,
+  // and bring them back here with the request dialog open again.
+  useEffect(() => {
+    if (wasClient.current && !client && !loading) {
+      setSessionEnded(true);
+      if (contactOpen) {
+        setContactOpen(false);
+        setGateOpen(true);
+      }
+    }
+    wasClient.current = client;
+  }, [client, loading, contactOpen]);
 
   if (loading) return <div className="mt-8 h-11" aria-hidden />;
 
@@ -67,6 +84,7 @@ export function CaregiverActions({ publicId, caregiverLabel }: { publicId: strin
         <RegistrationGate
           open={gateOpen}
           onClose={() => setGateOpen(false)}
+          sessionEnded={sessionEnded}
           reason="contact"
           caregiverPublicId={publicId}
           returnTo={pathname ?? undefined}

@@ -411,7 +411,17 @@
       "clearEmailHint": "Needed when they will sign in with a Google, Microsoft or Facebook account that uses a different address.",
       "resetSessionsNote": "Every session on their devices ends immediately, whatever you choose.",
       "resetConfirm": "Reset sign-in",
-      "resetError": "Could not reset sign-in. Please try again."
+      "resetError": "Could not reset sign-in. Please try again.",
+      "changeContactButton": "Change email or phone",
+      "changeContactTitle": "Change email or phone",
+      "changeContactBody": "Correct where this caregiver is reached - for example a typo made at registration. Codes and links already sent to the old details stop working.",
+      "changeContactNote": "The new email or phone stays unverified until the caregiver proves it. They stay signed in. The change is recorded in the audit log.",
+      "changeContactConfirm": "Save",
+      "changeEmailProviderHint": "Google, Microsoft and Facebook links stay as they are. A new link needs the provider's email to match this one.",
+      "contactChanged": "Contact details updated.",
+      "contactChangedLinkSent": "Contact details updated. A new verification link was sent to the new email address.",
+      "contactError": "Couldn't change the contact details.",
+      "contactPhone": "Phone on the caregiver record:"
     },
     "subtitle": "Caregivers registered by staff or through the public site.",
     "countNoun": "caregivers",

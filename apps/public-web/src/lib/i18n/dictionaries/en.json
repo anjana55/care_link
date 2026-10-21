@@ -144,7 +144,9 @@
     "haveAccount": "Already have an account?",
     "signIn": "Sign in",
     "signInWhatsapp": "Sign in with WhatsApp",
-    "cancel": "Not now"
+    "cancel": "Not now",
+    "sessionEndedTitle": "Please sign in again",
+    "sessionEndedBody": "Your session has ended, so your request was not sent. Sign in and we'll bring you back here to send it."
   },
   "sections": {
     "howItWorksTitle": "How it works",
@@ -326,9 +328,14 @@
     "successTitle": "Email verified",
     "successBody": "Your account is now active and you're signed in.",
     "errorTitle": "Verification failed",
-    "errorBody": "This link is invalid or has expired. Request a new one from the sign-in page.",
+    "errorBody": "This link is invalid or has expired. Enter your email address below and we'll send a new one.",
     "backHome": "Back to home",
-    "goToLogin": "Go to sign in"
+    "goToLogin": "Go to sign in",
+    "alreadyTitle": "Email already verified",
+    "alreadyBody": "This link has already been used, so your email address is verified. Sign in to continue.",
+    "resendLabel": "Need a new link? Enter your email address",
+    "resendButton": "Send a new link",
+    "resendError": "We couldn't send a new link. Please try again."
   },
   "whatsapp": {
     "unavailable": "WhatsApp sign-in is not available right now. Please use your email address instead.",

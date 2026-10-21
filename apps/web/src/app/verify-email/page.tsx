@@ -1,90 +1,37 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { Suspense, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n/provider';
-import { useAuth, postLoginPath } from '@/lib/api/auth-context';
-import { api, ApiError, type Tokens } from '@/lib/api/client';
-import { Button } from '@/components/ui/button';
-import { Input, Label } from '@/components/ui/input';
 import { AuthHeader } from '@/components/layout/brand-mark';
 
-function VerifyEmailInner() {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const { applyTokens } = useAuth();
-  const searchParams = useSearchParams();
-  const token = searchParams.get('token');
+/**
+ * Old verification links land here (/staff/verify-email). Verification is the
+ * public site's job now: caregivers and clients sign in and work there, and
+ * verifying here signed caregivers into this app instead, leaving them signed
+ * out on the site they actually use (and the second request from this page
+ * then failed the already-used link). So this page only hands the link on,
+ * token and all, without using it.
+ *
+ * The public site is this origin's root in production (nginx); set
+ * NEXT_PUBLIC_PUBLIC_SITE_URL where it lives elsewhere (local dev: :3002).
+ */
+const PUBLIC_SITE = (process.env.NEXT_PUBLIC_PUBLIC_SITE_URL ?? '').replace(/\/+$/, '');
 
-  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
-  const [resendEmail, setResendEmail] = useState('');
-  const [resendMessage, setResendMessage] = useState<string | null>(null);
+function ForwardToPublicSite() {
+  const { t } = useTranslation();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      return;
-    }
-    api
-      .post<Tokens>('/auth/verify-email', { token })
-      .then((tokens) => {
-        const user = applyTokens(tokens);
-        setStatus('success');
-        setTimeout(() => router.push(user ? postLoginPath(user) : '/login'), 1200);
-      })
-      .catch(() => setStatus('error'));
-    // Only run once, on mount - token comes from the URL and doesn't change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
-  const resend = async () => {
-    setResendMessage(null);
-    try {
-      const res = await api.post<{ message: string }>('/auth/resend-verification', { email: resendEmail });
-      setResendMessage(res.message);
-    } catch (err) {
-      setResendMessage(err instanceof ApiError ? err.message : 'Something went wrong.');
-    }
-  };
+    const token = searchParams.get('token');
+    window.location.replace(`${PUBLIC_SITE}/verify-email${token ? `?token=${encodeURIComponent(token)}` : ''}`);
+  }, [searchParams]);
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
       <AuthHeader />
       <div className="flex flex-1 items-center justify-center px-4 py-10">
-        <div className="w-full max-w-sm rounded-lg border border-border bg-white p-8 text-center">
-        {status === 'verifying' && <p className="text-sm text-ink/60">{t('verifyEmail.verifying')}</p>}
-
-        {status === 'success' && (
-          <>
-            <CheckCircle2 size={40} className="mx-auto mb-4 text-brand" />
-            <h1 className="mb-2 text-lg font-semibold text-ink">{t('verifyEmail.successTitle')}</h1>
-            <p className="text-sm text-ink/60">{t('verifyEmail.successBody')}</p>
-          </>
-        )}
-
-        {status === 'error' && (
-          <>
-            <XCircle size={40} className="mx-auto mb-4 text-danger" />
-            <h1 className="mb-2 text-lg font-semibold text-ink">{t('verifyEmail.errorTitle')}</h1>
-            <p className="mb-5 text-sm text-ink/60">{t('verifyEmail.errorBody')}</p>
-
-            <div className="mb-4 text-left">
-              <Label htmlFor="resendEmail">{t('verifyEmail.resendLabel')}</Label>
-              <Input id="resendEmail" type="email" value={resendEmail} onChange={(e) => setResendEmail(e.target.value)} />
-            </div>
-            <Button className="w-full" disabled={!resendEmail} onClick={resend}>
-              {t('verifyEmail.resendButton')}
-            </Button>
-            {resendMessage && <p className="mt-3 text-xs text-ink/60">{resendMessage}</p>}
-
-            <Link href="/login" className="mt-5 block text-sm font-medium text-brand-dark hover:underline">
-              {t('verifyEmail.backToLogin')}
-            </Link>
-          </>
-        )}
-        </div>
+        <p className="text-sm text-ink/60">{t('verifyEmail.verifying')}</p>
       </div>
     </div>
   );
@@ -93,7 +40,7 @@ function VerifyEmailInner() {
 export default function VerifyEmailPage() {
   return (
     <Suspense fallback={null}>
-      <VerifyEmailInner />
+      <ForwardToPublicSite />
     </Suspense>
   );
 }

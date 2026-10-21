@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, clearTokens, getStoredTokens, storeTokens, type Tokens } from './client';
+import { api, clearTokens, getStoredTokens, SESSION_EXPIRED_EVENT, storeTokens, type Tokens } from './client';
 
 export interface AuthUser {
   userId: string;
@@ -48,6 +48,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const tokens = getStoredTokens();
     if (tokens) setUser(decodeJwt(tokens.accessToken));
     setLoading(false);
+    // The session ended mid-visit: drop the user so the layouts send them to sign in.
+    const onExpired = () => setUser(null);
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
   }, []);
 
   const applyTokens = useCallback((tokens: Tokens) => {
