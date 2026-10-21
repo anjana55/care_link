@@ -1279,7 +1279,8 @@
       "DRAFT": "Drafts",
       "COMPLETED": "Completed",
       "CANCELLED": "Cancelled",
-      "all": "All"
+      "all": "All",
+      "issues": "Reported issues"
     },
     "status": {
       "DRAFT": "Draft",
@@ -1431,7 +1432,9 @@
       "CANCELLED": "Booking cancelled",
       "UPDATED": "Booking updated",
       "RESCHEDULED": "Booking rescheduled",
-      "AMENDED": "Booking corrected"
+      "AMENDED": "Booking corrected",
+      "ISSUE_REPORTED": "Issue reported",
+      "ISSUE_CLOSED": "Issue answered"
     },
     "shiftRateUnit": {
       "HOURLY": "per hour",
@@ -1535,7 +1538,60 @@
         "CARRY": "difference carried forward",
         "REOPEN": "sent back to draft and updated",
         "NONE": "unchanged"
-      }
+      },
+      "fromReport": "{who} reported: {message}",
+      "closeTitle": {
+        "COMPLETED": "Complete this booking",
+        "CANCELLED": "Cancel this booking"
+      },
+      "closeIntro": "Some upcoming shifts are already on an invoice or pay statement. Closing the booking cancels them, so it goes through a correction: preview what it does to those documents, then apply. You can correct other shifts at the same time.",
+      "closeApply": {
+        "COMPLETED": "Complete booking",
+        "CANCELLED": "Cancel booking"
+      },
+      "closing": {
+        "COMPLETED": "The booking will be marked completed and {count} upcoming shifts cancelled.",
+        "CANCELLED": "The booking will be cancelled, with {count} upcoming shifts, and the client and caregiver told."
+      },
+      "reportsTitle": "Reports this answers",
+      "reply": "Answer to send them",
+      "replyPlaceholder": "e.g. Thanks - we added the extra hours; a corrected invoice follows.",
+      "plusTax": "tax added on the next invoice",
+      "reasonClose": "Why is it closing?",
+      "reasonClosePlaceholder": "e.g. The family ended care early - the last day was yesterday"
+    },
+    "issues": {
+      "title": "Reported by the client or caregiver",
+      "openCount": "{count} reports waiting",
+      "banner": "{count} reports from the client or caregiver are waiting - see Corrections below.",
+      "role": {
+        "CLIENT": "Client",
+        "CAREGIVER": "Caregiver"
+      },
+      "category": {
+        "TIMES": "Times were wrong",
+        "DID_NOT_HAPPEN": "A shift did not happen",
+        "WRONG_CAREGIVER": "A different caregiver came",
+        "CHARGE": "The charge is wrong",
+        "PAY": "The pay is wrong",
+        "OTHER": "Something else"
+      },
+      "status": {
+        "OPEN": "Waiting",
+        "RESOLVED": "Resolved",
+        "DISMISSED": "Nothing to change"
+      },
+      "answer": "Answer: {note}",
+      "closedBy": "answered by {name}",
+      "correctFrom": "Correct the booking",
+      "answerWithout": "Answer without a correction",
+      "closeAs": {
+        "DISMISSED": "Nothing needs changing",
+        "RESOLVED": "Put right another way"
+      },
+      "notePlaceholder": "What to tell them",
+      "send": "Send answer",
+      "sentTo": "They are told by email or WhatsApp."
     }
   },
   "filters": {

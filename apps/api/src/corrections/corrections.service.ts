@@ -14,6 +14,7 @@ import { DRIZZLE, type Database } from '../database/database.module';
 import {
   billingAdjustments,
   bookingAmendments,
+  bookingIssueReports,
   bookings,
   bookingShifts,
   caregivers,
@@ -33,6 +34,7 @@ import { AdjustmentsService } from '../billing/adjustments.service';
 import type { StoredLine } from '../billing/billing-lines';
 import { describeChanges, planAmendment, type AmendmentPlan, type PlanBooking, type PlanDocument, type PlanLine, type PlanShift, type RebuiltLine } from './amendment-plan';
 import type { AmendBookingDto } from './dto/amend-booking.dto';
+import { CorrectionsNotifier, type CorrectionNotices } from './corrections-notifier.service';
 
 type Tx = Database;
 type BookingRow = typeof bookings.$inferSelect;
@@ -68,14 +70,17 @@ export class CorrectionsService {
     private readonly invoicesService: InvoicesService,
     private readonly payoutsService: PayoutsService,
     private readonly adjustments: AdjustmentsService,
+    private readonly notifier: CorrectionsNotifier,
   ) {}
 
   async preview(bookingId: string, dto: AmendBookingDto, actor: AuthenticatedUser): Promise<AmendmentPreview> {
-    return (await this.run(bookingId, dto, actor, false))!;
+    return (await this.run(bookingId, dto, actor, false)) as AmendmentPreview;
   }
 
   async apply(bookingId: string, dto: AmendBookingDto, actor: AuthenticatedUser) {
-    await this.run(bookingId, dto, actor, true);
+    const notices = (await this.run(bookingId, dto, actor, true)) as CorrectionNotices;
+    // After the commit, and never holding up the reply: whoever's money or shifts changed is told.
+    void this.notifier.send(notices);
     return this.bookingsService.findOne(bookingId);
   }
 
@@ -100,17 +105,20 @@ export class CorrectionsService {
 
   // --- the work -----------------------------------------------------------------
 
-  /** Works the correction out; with `commit`, writes it. A preview writes nothing and returns what would happen. */
-  private async run(bookingId: string, dto: AmendBookingDto, actor: AuthenticatedUser, commit: boolean): Promise<AmendmentPreview | null> {
+  /**
+   * Works the correction out. A preview writes nothing and returns what would
+   * happen; with `commit` it is written, and what comes back is who to tell.
+   */
+  private async run(bookingId: string, dto: AmendBookingDto, actor: AuthenticatedUser, commit: boolean): Promise<AmendmentPreview | CorrectionNotices> {
     if (!dto.reason?.trim()) throw new BadRequestException('Say what was wrong');
-    if (!dto.shifts?.length && !dto.addShifts?.length && dto.rateAmount === undefined && dto.payRateAmount === undefined) {
+    if (!dto.shifts?.length && !dto.addShifts?.length && dto.rateAmount === undefined && dto.payRateAmount === undefined && !dto.close) {
       throw new BadRequestException('Choose what to correct: a shift, a missing shift, or the rate');
     }
     for (const [id, choice] of Object.entries(dto.invoiceActions ?? {})) {
       if (choice !== 'REPLACE' && choice !== 'CARRY') throw new BadRequestException(`Choose how invoice ${id} takes the correction`);
     }
 
-    return this.db.transaction(async (tx): Promise<AmendmentPreview | null> => {
+    return this.db.transaction(async (tx): Promise<AmendmentPreview | CorrectionNotices> => {
       const t = tx as unknown as Tx;
       // One correction at a time per booking.
       await t.execute(sql`SELECT id FROM bookings WHERE id = ${bookingId} FOR UPDATE`);
@@ -119,11 +127,13 @@ export class CorrectionsService {
       if (booking.status !== 'CONFIRMED' && booking.status !== 'COMPLETED') {
         throw new BadRequestException(booking.status === 'DRAFT' ? 'A draft booking is edited directly - nothing has happened or been billed yet' : 'A cancelled booking cannot be corrected');
       }
+      if (dto.close && booking.status !== 'CONFIRMED') throw new BadRequestException('This booking is already closed');
+      const issues = await this.openIssues(t, bookingId, dto.issueIds ?? []);
 
       const shiftRows = await t.select().from(bookingShifts).where(eq(bookingShifts.bookingId, bookingId)).orderBy(asc(bookingShifts.startsAt));
       const before = { booking: toPlanBooking(booking), shifts: shiftRows.map(toPlanShift) };
       const after = await this.corrected(t, booking, shiftRows, dto);
-      const touched = new Set([...(dto.shifts ?? []).map((s) => s.shiftId), ...after.added.map((s) => s.id)]);
+      const touched = new Set([...(dto.shifts ?? []).map((s) => s.shiftId), ...after.added.map((s) => s.id), ...after.closing]);
 
       // The roster's one hard rule: no caregiver holds two overlapping shifts.
       const held = after.shifts.filter((s) => {
@@ -142,16 +152,28 @@ export class CorrectionsService {
       const [client] = await t.select({ fullName: patients.fullName }).from(patients).where(eq(patients.id, booking.patientId)).limit(1);
 
       const plan = planAmendment({ before, after: { booking: after.booking, shifts: after.shifts }, touched, documents, caregiverNames: names, clientName: client?.fullName ?? null, invoiceChoices: dto.invoiceActions });
-      const changes = describeChanges(before, { booking: after.booking, shifts: after.shifts }, touched, names);
-      const anyChange = changes.some((c) => !(c.changes.length === 1 && c.changes[0].startsWith('re-checked')));
+      // Shifts cancelled only because the booking is closing read as one line, not one each.
+      const closing = new Set(after.closing);
+      const changes = describeChanges(before, { booking: after.booking, shifts: after.shifts }, new Set([...touched].filter((id) => !closing.has(id))), names);
+      if (dto.close) {
+        changes.push({
+          shiftId: null,
+          date: '',
+          changes: [
+            `booking ${dto.close === 'COMPLETED' ? 'completed' : 'cancelled'}${closing.size ? `; ${closing.size} upcoming shift${closing.size === 1 ? '' : 's'} cancelled` : ''}`,
+          ],
+        });
+      }
+      const anyChange = Boolean(dto.close) || changes.some((c) => !(c.changes.length === 1 && c.changes[0].startsWith('re-checked')));
       if (!anyChange && !plan.documents.length) throw new BadRequestException('Nothing here changes the booking or its billing');
 
       const preview: AmendmentPreview = {
         changes,
         documents: plan.documents.map(({ rebuilt: _rebuilt, ...d }) => d),
-        adjustments: plan.adjustments.map((a) => ({ side: a.side, partyName: a.partyName, amount: a.amount, description: a.description, sourceLabel: a.sourceLabel })),
+        adjustments: plan.adjustments.map((a) => ({ side: a.side, partyName: a.partyName, amount: a.amount, taxable: a.taxable, description: a.description, sourceLabel: a.sourceLabel })),
         unbilled: plan.unbilled,
         warnings: plan.warnings,
+        ...(dto.close ? { close: { status: dto.close, upcomingCancelled: closing.size } } : {}),
       };
       if (!commit) return preview;
 
@@ -180,15 +202,48 @@ export class CorrectionsService {
           sourceLabel: a.sourceLabel,
           description: a.description.slice(0, 300),
           amount: a.amount,
+          taxable: a.taxable,
           createdByUserId: actor.userId,
         });
         adjustmentIds.push({ id, side: a.side, amount: a.amount, partyName: a.partyName });
       }
-      const stored: BookingAmendmentSummary = { changes, documents: summary, adjustments: adjustmentIds };
+      const stored: BookingAmendmentSummary = { changes, documents: summary, adjustments: adjustmentIds, issueIds: issues.map((i) => i.id) };
       await t.insert(bookingAmendments).values({ id: amendmentId, bookingId, reason: dto.reason.trim(), summary: JSON.stringify(stored), actorUserId: actor.userId });
       await this.bookingsService.event(t, bookingId, 'AMENDED', actor, historyNote(dto.reason.trim(), stored));
-      return null;
+
+      if (dto.close) await this.closeBooking(t, bookingId, dto.close, dto.reason.trim(), actor);
+      const now = new Date();
+      for (const issue of issues) {
+        await t
+          .update(bookingIssueReports)
+          .set({ status: 'RESOLVED', amendmentId, resolutionNote: dto.reply?.trim() || null, closedByUserId: actor.userId, closedAt: now })
+          .where(eq(bookingIssueReports.id, issue.id));
+      }
+      if (issues.length) await this.bookingsService.event(t, bookingId, 'ISSUE_CLOSED', actor, `${issues.length} report${issues.length === 1 ? '' : 's'} resolved by this correction`);
+
+      return noticesFor(booking, plan, documents, dto.close ?? null, issues.map((i) => i.id));
     }, CHECKED);
+  }
+
+  /** The open reports the correction says it answers - each must be on this booking and still open. */
+  private async openIssues(t: Tx, bookingId: string, ids: string[]) {
+    if (!ids.length) return [];
+    const rows = await t.select({ id: bookingIssueReports.id, bookingId: bookingIssueReports.bookingId, status: bookingIssueReports.status }).from(bookingIssueReports).where(inArray(bookingIssueReports.id, [...new Set(ids)]));
+    if (rows.length !== new Set(ids).size || rows.some((r) => r.bookingId !== bookingId)) throw new NotFoundException('Report not found');
+    if (rows.some((r) => r.status !== 'OPEN')) throw new ConflictException('One of these reports is already closed - reload and try again');
+    return rows;
+  }
+
+  /** The booking's own close, as Mark completed / Cancel booking do it - after the correction has dealt with the upcoming shifts. */
+  private async closeBooking(t: Tx, bookingId: string, close: 'COMPLETED' | 'CANCELLED', reason: string, actor: AuthenticatedUser) {
+    const now = new Date();
+    if (close === 'COMPLETED') {
+      await t.update(bookings).set({ status: 'COMPLETED', completedAt: now, updatedAt: now }).where(eq(bookings.id, bookingId));
+      await this.bookingsService.event(t, bookingId, 'COMPLETED', actor);
+    } else {
+      await t.update(bookings).set({ status: 'CANCELLED', cancelledAt: now, cancelReason: reason.slice(0, 500), updatedAt: now }).where(eq(bookings.id, bookingId));
+      await this.bookingsService.event(t, bookingId, 'CANCELLED', actor, reason);
+    }
   }
 
   /** The booking and its shifts as the correction would leave them - validated like any roster edit. */
@@ -251,8 +306,18 @@ export class CorrectionsService {
       added.push({ id: uuid(), bookingId: booking.id, caregiverId, startsAt, endsAt, status: 'COMPLETED', ...rates, note: a.note?.trim() || null });
     }
 
+    // Closing the booking: every upcoming scheduled shift not otherwise corrected is cancelled.
+    const closing: string[] = [];
+    if (dto.close) {
+      for (const s of shiftRows) {
+        if (changed.has(s.id) || s.status !== 'SCHEDULED' || new Date(s.startsAt) <= now) continue;
+        changed.set(s.id, { ...toPlanShift(s), status: 'CANCELLED' });
+        closing.push(s.id);
+      }
+    }
+
     const shifts = [...shiftRows.map((s) => changed.get(s.id) ?? toPlanShift(s)), ...added];
-    return { booking: next, shifts, added };
+    return { booking: next, shifts, added, closing };
   }
 
   /**
@@ -293,8 +358,9 @@ export class CorrectionsService {
           basis: inv.basis,
           language: inv.language,
           amountPaid: inv.amountPaid,
-          discounted: Boolean(inv.discountType && inv.discountValue && toCents(inv.discountValue) > 0),
-          taxed: Boolean(inv.taxRate && toCents(inv.taxRate) > 0),
+          discountType: inv.discountType,
+          discountValue: inv.discountValue,
+          taxRate: inv.taxRate,
           partyName: inv.billToName ?? client?.fullName ?? null,
           lines: lines.filter((l) => l.invoiceId === inv.id) as PlanLine[],
         });
@@ -455,6 +521,42 @@ function toPlanShift(s: ShiftRow): PlanShift {
     payRateType: s.payRateType,
     payRateAmount: s.payRateAmount,
     note: s.note,
+  };
+}
+
+/**
+ * Who hears about a correction once it is committed. Only what they have
+ * seen and what touches their money: an issued or paid invoice replaced or
+ * carried (the client), an approved or paid statement reopened or carried, or
+ * pay owed for a shift they turned out to have worked (the caregiver) - plus a
+ * cancelled booking, and the reports it resolved. Drafts change silently.
+ */
+function noticesFor(booking: BookingRow, plan: AmendmentPlan, docs: PlanDocument[], close: 'COMPLETED' | 'CANCELLED' | null, issueIds: string[]): CorrectionNotices {
+  const seen = new Map(docs.map((d) => [d.id, d]));
+  const client: CorrectionNotices['client'] = [];
+  const caregivers = new Map<string, CorrectionNotices['caregivers'][number]['items']>();
+  const pay = (id: string) => caregivers.get(id) ?? caregivers.set(id, []).get(id)!;
+  for (const d of plan.documents) {
+    if (d.kind === 'INVOICE' && d.action === 'REPLACE') client.push({ action: 'REPLACE', label: d.label, amount: d.difference });
+    if (d.kind === 'PAYOUT' && d.action === 'REOPEN') {
+      const cg = seen.get(d.id)?.caregiverId;
+      if (cg) pay(cg).push({ action: 'REOPEN', label: d.label, amount: d.difference });
+    }
+  }
+  for (const a of plan.adjustments) {
+    if (toCents(a.amount) === 0) continue;
+    if (a.side === 'CLIENT') client.push({ action: 'CARRY', label: a.sourceLabel, amount: a.amount });
+    else if (a.caregiverId) pay(a.caregiverId).push({ action: 'CARRY', label: a.sourceLabel, amount: a.amount });
+  }
+  return {
+    bookingId: booking.id,
+    reference: booking.reference,
+    language: booking.language,
+    patientId: booking.patientId,
+    client,
+    caregivers: [...caregivers].map(([caregiverId, items]) => ({ caregiverId, items })),
+    cancelled: close === 'CANCELLED',
+    issueIds,
   };
 }
 

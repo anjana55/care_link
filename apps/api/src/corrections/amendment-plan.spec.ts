@@ -93,7 +93,8 @@ describe('planAmendment', () => {
       clientName: 'Client',
     });
     const inv = plan.documents.find((d) => d.kind === 'INVOICE')!;
-    expect(inv).toMatchObject({ action: 'CARRY', choices: ['CARRY'], before: '4000.00', after: '5500.00', difference: '1500.00' });
+    // The whole invoice (two shifts) before and after.
+    expect(inv).toMatchObject({ action: 'CARRY', choices: ['CARRY'], before: '8000.00', after: '9500.00', difference: '1500.00' });
     const pay = plan.documents.find((d) => d.kind === 'PAYOUT')!;
     expect(pay).toMatchObject({ action: 'REFRESH', difference: '900.00' });
     expect(pay.rebuilt.get(pay.lines[0].lineId)).toMatchObject({ quantity: '11.00', amount: '3300.00' });
@@ -188,13 +189,29 @@ describe('planAmendment', () => {
       before: { booking: daily, shifts: [s1, s2] },
       after: { booking: { ...daily, rateAmount: '3500.00' }, shifts: [s1, s2] },
       touched: new Set(),
-      documents: [doc('INVOICE', daily, [s1, s2], { status: 'PAID', amountPaid: '6000.00', taxed: true })],
+      documents: [doc('INVOICE', daily, [s1, s2], { status: 'PAID', amountPaid: '6000.00', taxRate: '18.00' })],
       caregiverNames: names,
       clientName: 'Client',
     });
-    expect(plan.documents[0]).toMatchObject({ action: 'CARRY', before: '6000.00', after: '7000.00', difference: '1000.00' });
-    expect(plan.adjustments[0]).toMatchObject({ amount: '1000.00', description: 'BK-TEST01 · 12 Oct, 13 Oct' });
-    expect(plan.warnings.some((w) => w.includes('before that discount and tax'))).toBe(true);
+    // The invoice moves by 1,180 with its 18% tax; 1,000 is carried, taxable, and the next invoice adds its own tax.
+    expect(plan.documents[0]).toMatchObject({ action: 'CARRY', before: '7080.00', after: '8260.00', difference: '1180.00' });
+    expect(plan.adjustments[0]).toMatchObject({ amount: '1000.00', taxable: true, description: 'BK-TEST01 · 12 Oct, 13 Oct' });
+    expect(plan.warnings.some((w) => w.includes('carried amount is before tax'))).toBe(true);
+  });
+
+  it('carries the difference after the invoice discount, untaxed when the invoice was', () => {
+    const plan = planAmendment({
+      before: { booking: b, shifts: [s1, s2] },
+      after: { booking: b, shifts: [{ ...s1, status: 'MISSED' }, s2] },
+      touched: new Set(['s1']),
+      documents: [doc('INVOICE', b, [s1, s2], { status: 'PAID', amountPaid: '7200.00', discountType: 'PERCENT', discountValue: '10.00' })],
+      caregiverNames: names,
+      clientName: 'Client',
+    });
+    // 8,000 less 10% = 7,200 paid; with one shift missed it is 4,000 less 10% = 3,600.
+    expect(plan.documents[0]).toMatchObject({ before: '7200.00', after: '3600.00', difference: '-3600.00' });
+    expect(plan.adjustments[0]).toMatchObject({ amount: '-3600.00', taxable: false });
+    expect(plan.warnings.some((w) => w.includes('carried amount is before tax'))).toBe(false);
   });
 
   it('leaves a document the client has seen alone when only the wording would change', () => {

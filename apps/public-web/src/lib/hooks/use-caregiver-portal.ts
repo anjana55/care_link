@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CaregiverPayout, CaregiverShift } from '@care-platform/shared';
+import type { CaregiverPayout, CaregiverShift, CreateIssueReportBody, MyIssueReport } from '@care-platform/shared';
 import { api } from '../api/client';
 import { useAuth } from '../api/auth-context';
 import type {
@@ -175,5 +175,25 @@ export function useMyPayouts() {
     queryKey: ['portal', id, 'payouts'],
     queryFn: () => api.get<CaregiverPayout[]>('/me/payouts'),
     enabled: Boolean(id),
+  });
+}
+
+/** The caregiver's own problem reports and staff's answers (GET /me/issues). */
+export function useMyShiftIssues() {
+  const id = useCaregiverId();
+  return useQuery({
+    queryKey: ['portal', id, 'issues'],
+    queryFn: () => api.get<MyIssueReport[]>('/me/issues'),
+    enabled: Boolean(id),
+  });
+}
+
+/** Tell staff something about one of their shifts is wrong - its times, whether it happened, or the pay. */
+export function useReportShiftIssue() {
+  const id = useCaregiverId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ shiftId, ...body }: CreateIssueReportBody & { shiftId: string }) => api.post<MyIssueReport>(`/me/shifts/${shiftId}/issues`, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', id, 'issues'] }),
   });
 }

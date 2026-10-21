@@ -5,24 +5,28 @@ import Link from 'next/link';
 import { formatLkr } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { ApiError } from '@/lib/api/client';
-import { useBookingCorrections, useCloseAdjustment } from '@/lib/hooks/use-bookings';
-import { fmtDateTime } from '@/lib/colombo-time';
+import { useBookingCorrections, useCloseAdjustment, useCloseIssueReport } from '@/lib/hooks/use-bookings';
+import { fmtDateTime, fmtDay } from '@/lib/colombo-time';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Input, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import type { BillingAdjustmentView } from '@/lib/api/types';
+import type { BillingAdjustmentView, IssueReportView } from '@/lib/api/types';
 
 /**
- * The booking's corrections - why, by whom, and what each did to the
- * documents - and the money they left waiting for the next invoice or pay
- * statement. An adjustment not yet on a document can be closed by hand: settled
+ * What clients and caregivers have reported on the booking, the booking's
+ * corrections - why, by whom, and what each did to the documents - and the
+ * money they left waiting for the next invoice or pay statement.
+ *
+ * An open report is answered with a correction (Correct from it) or a note
+ * (resolved another way, or nothing to change); either way the reporter is
+ * told. An adjustment not yet on a document can be closed by hand: settled
  * some other way (a cash refund, a transfer) or dropped.
  */
-export function BookingCorrections({ bookingId }: { bookingId: string }) {
+export function BookingCorrections({ bookingId, canCorrect, onCorrectFrom }: { bookingId: string; canCorrect: boolean; onCorrectFrom: (issue: IssueReportView) => void }) {
   const { t, locale } = useTranslation();
   const { data } = useBookingCorrections(bookingId);
-  if (!data || (data.amendments.length === 0 && data.adjustments.length === 0)) return null;
+  if (!data || (data.amendments.length === 0 && data.adjustments.length === 0 && data.reports.length === 0)) return null;
   const docTitle = (kind: 'INVOICE' | 'PAYOUT', label: string | null) =>
     kind === 'INVOICE' ? (label ? t('bookings.correct.invoice', { label }) : t('bookings.correct.draftInvoice')) : t('bookings.correct.payout', { label: label ?? '' });
 
@@ -32,6 +36,16 @@ export function BookingCorrections({ bookingId }: { bookingId: string }) {
         <CardTitle>{t('bookings.correct.historyTitle')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {data.reports.length > 0 && (
+          <div>
+            <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-ink/50">{t('bookings.issues.title')}</h3>
+            <ul className="divide-y divide-border">
+              {data.reports.map((r) => (
+                <ReportRow key={r.id} bookingId={bookingId} report={r} canCorrect={canCorrect} onCorrect={() => onCorrectFrom(r)} />
+              ))}
+            </ul>
+          </div>
+        )}
         {data.adjustments.length > 0 && (
           <div>
             <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-ink/50">{t('bookings.correct.adjustmentsTitle')}</h3>
@@ -79,6 +93,82 @@ export function BookingCorrections({ bookingId }: { bookingId: string }) {
         </ol>
       </CardContent>
     </Card>
+  );
+}
+
+function ReportRow({ bookingId, report: r, canCorrect, onCorrect }: { bookingId: string; report: IssueReportView; canCorrect: boolean; onCorrect: () => void }) {
+  const { t, locale } = useTranslation();
+  const close = useCloseIssueReport(bookingId);
+  const [answering, setAnswering] = useState(false);
+  const [status, setStatus] = useState<'RESOLVED' | 'DISMISSED'>('DISMISSED');
+  const [note, setNote] = useState('');
+  const open = r.status === 'OPEN';
+
+  return (
+    <li className={cn('py-2 text-sm', open && 'rounded bg-accent-light/40 px-2')}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-ink">
+            <span className="font-medium">
+              {t(`bookings.issues.role.${r.reporterRole}`)}
+              {r.reporterName ? ` · ${r.reporterName}` : ''}
+            </span>
+            <span className="ml-1 text-xs text-ink/50">
+              {t(`bookings.issues.category.${r.category}`)}
+              {r.shiftStartsAt ? ` · ${fmtDay(r.shiftStartsAt, locale)}` : ''}
+            </span>
+          </p>
+          <p className="mt-0.5 whitespace-pre-wrap text-ink/80">{r.message}</p>
+        </div>
+        <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-medium', open ? 'bg-accent-light text-accent' : 'bg-paper text-ink/60')}>
+          {t(`bookings.issues.status.${r.status}`)}
+        </span>
+      </div>
+      {r.resolutionNote && <p className="mt-1 text-xs text-ink/60">{t('bookings.issues.answer', { note: r.resolutionNote })}</p>}
+      <p className="mt-0.5 text-xs text-ink/50">
+        {fmtDateTime(r.createdAt, locale)}
+        {r.closedBy && ` · ${t('bookings.issues.closedBy', { name: r.closedBy.fullName })}`}
+      </p>
+      {open && !answering && (
+        <div className="mt-1 flex gap-3 text-xs">
+          {canCorrect && (
+            <button type="button" className="font-medium text-brand-dark hover:underline" onClick={onCorrect}>
+              {t('bookings.issues.correctFrom')}
+            </button>
+          )}
+          <button type="button" className="text-brand-dark hover:underline" onClick={() => setAnswering(true)}>
+            {t('bookings.issues.answerWithout')}
+          </button>
+        </div>
+      )}
+      {answering && (
+        <div className="mt-2 space-y-2">
+          <div className="flex flex-wrap gap-3 text-sm" role="radiogroup" aria-label={t('bookings.issues.answerWithout')}>
+            {(['DISMISSED', 'RESOLVED'] as const).map((st) => (
+              <label key={st} className="flex items-center gap-1.5">
+                <input type="radio" name={`close-${r.id}`} checked={status === st} onChange={() => setStatus(st)} />
+                {t(`bookings.issues.closeAs.${st}`)}
+              </label>
+            ))}
+          </div>
+          <Textarea rows={2} maxLength={500} autoFocus placeholder={t('bookings.issues.notePlaceholder')} aria-label={t('bookings.issues.notePlaceholder')} value={note} onChange={(e) => setNote(e.target.value)} />
+          <div className="flex gap-2">
+            <Button size="sm" disabled={note.trim().length < 3 || close.isPending} onClick={() => close.mutate({ id: r.id, status, note: note.trim() }, { onSuccess: () => setAnswering(false) })}>
+              {t('bookings.issues.send')}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setAnswering(false)}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+          <p className="text-xs text-ink/50">{t('bookings.issues.sentTo')}</p>
+        </div>
+      )}
+      {close.isError && (
+        <p role="alert" className="mt-1 text-xs text-danger">
+          {close.error instanceof ApiError && close.error.message ? close.error.message : t('requests.detail.saveFailed')}
+        </p>
+      )}
+    </li>
   );
 }
 

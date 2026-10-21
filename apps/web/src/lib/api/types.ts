@@ -1,4 +1,8 @@
-import type { BillingAdjustmentView as SharedBillingAdjustmentView, BookingAmendmentView as SharedBookingAmendmentView } from '@care-platform/shared';
+import type {
+  BillingAdjustmentView as SharedBillingAdjustmentView,
+  BookingAmendmentView as SharedBookingAmendmentView,
+  IssueReportView as SharedIssueReportView,
+} from '@care-platform/shared';
 import type { BillingLineKind, BillingParty, BillingUnit, DiscountType, InvoiceBasis, InvoiceStatus, PaymentMethod, PayoutStatus } from '@care-platform/shared';
 export type CaregiverStatus =
   | 'DRAFT'
@@ -602,6 +606,8 @@ export interface BookingListItem {
   caregiverRegistrationNumber: string;
   nextShiftAt: string | null;
   createdAt: string;
+  /** Reports from the client or caregiver waiting for staff. */
+  openIssues: number;
 }
 
 export interface BookingListResponse {
@@ -719,6 +725,8 @@ export interface ShiftRateInput {
 export interface BookingSummary {
   byStatus: Record<BookingStatus, number>;
   shiftsToday: number;
+  /** Reports from clients and caregivers waiting for staff, across every booking. */
+  openIssues: number;
 }
 
 export interface BookingPatternInput {
@@ -753,12 +761,17 @@ export type {
   AmendmentPreview,
   BillingAdjustmentView,
   BookingAmendmentView,
+  IssueReportCategory,
+  IssueReportStatus,
+  IssueReportView,
 } from '@care-platform/shared';
 
 /** GET /bookings/:id/amendments */
 export interface BookingCorrections {
   amendments: SharedBookingAmendmentView[];
   adjustments: SharedBillingAdjustmentView[];
+  /** What clients and caregivers have reported on the booking, newest first. */
+  reports: SharedIssueReportView[];
 }
 
 // --- billing: invoices, payments, payouts ------------------------------------------

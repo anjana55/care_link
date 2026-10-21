@@ -974,7 +974,7 @@
     },
     "bookings": {
       "title": "Bookings",
-      "subtitle": "Care our team has arranged for you, with every scheduled shift in Sri Lanka time. To change anything, call us and quote the reference.",
+      "subtitle": "Care our team has arranged for you, with every scheduled shift in Sri Lanka time. If something is not right, tell us below - or call us and quote the reference.",
       "empty": "No bookings yet. Once our team arranges care, it will appear here.",
       "reference": "Reference",
       "dates": "Dates",
@@ -1088,6 +1088,36 @@
       "balance": "Balance due",
       "paidInFull": "Paid in full - thank you",
       "payments": "Payments received"
+    }
+  },
+  "issues": {
+    "report": "Something's not right? Tell us",
+    "reportShort": "Report a problem",
+    "formIntro": "Tell our team what is wrong. We will check it against our records, put it right if needed, and let you know.",
+    "whatsWrong": "What is wrong?",
+    "choose": "Choose…",
+    "whichShift": "Which shift?",
+    "wholeBooking": "The booking in general",
+    "tellUs": "Tell us what happened",
+    "placeholderClient": "e.g. On Tuesday she stayed until 7 pm, not 4 pm.",
+    "placeholderCaregiver": "e.g. I stayed three hours longer because the family asked me to.",
+    "send": "Send to our team",
+    "cancel": "Cancel",
+    "sent": "Thanks - your report has reached our team. We will let you know what we find.",
+    "yourReports": "Your reports",
+    "ourAnswer": "Our answer: {note}",
+    "category": {
+      "TIMES": "The times were wrong",
+      "DID_NOT_HAPPEN": "A shift did not happen",
+      "WRONG_CAREGIVER": "A different caregiver came",
+      "CHARGE": "I was charged the wrong amount",
+      "PAY": "My pay is wrong",
+      "OTHER": "Something else"
+    },
+    "status": {
+      "OPEN": "With our team",
+      "RESOLVED": "Put right",
+      "DISMISSED": "Checked - no change"
     }
   }
 }

@@ -1,13 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import type { BookingStatus } from '@care-platform/shared';
+import type { BookingStatus, ClientBooking, MyIssueReport } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
-import { useMyBookings } from '@/lib/hooks/use-client-care';
+import { useMyBookings, useMyIssueReports, useReportBookingIssue } from '@/lib/hooks/use-client-care';
 import { fmtDate } from '@/lib/colombo-time';
 import { LoadingState, ErrorState } from '@/components/common/states';
 import { CaregiverSummary } from '@/components/care/caregiver-summary';
 import { ShiftList } from '@/components/care/shift-list';
+import { IssueReportList, ReportIssueForm } from '@/components/care/report-issue';
 
 const TONE: Record<BookingStatus, string> = {
   DRAFT: 'bg-paper text-ink/60',
@@ -16,10 +18,15 @@ const TONE: Record<BookingStatus, string> = {
   CANCELLED: 'bg-paper text-ink/60',
 };
 
-/** The client's confirmed bookings: caregiver (public profile), dates, agreed rate and shifts. */
+/**
+ * The client's confirmed bookings: caregiver (public profile), dates, agreed
+ * rate and shifts - and, on each, a way to tell us something is not right,
+ * with the reports they have sent and our answers.
+ */
 export default function MyBookingsPage() {
   const { t, locale } = useTranslation();
   const { data, isLoading, isError, refetch } = useMyBookings();
+  const { data: reports } = useMyIssueReports();
 
   return (
     <div>
@@ -74,11 +81,56 @@ export default function MyBookingsPage() {
                     <ShiftList shifts={b.shifts} coverLabel={t('account.bookings.cover')} />
                   )}
                 </div>
+                <BookingIssues booking={b} reports={(reports ?? []).filter((r) => r.bookingId === b.id)} />
               </li>
             ))}
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+/** "Something's not right?" on one booking, and the reports already sent about it. */
+function BookingIssues({ booking, reports }: { booking: ClientBooking; reports: MyIssueReport[] }) {
+  const { t } = useTranslation();
+  const report = useReportBookingIssue(booking.id);
+  const [open, setOpen] = useState(false);
+  const [sent, setSent] = useState(false);
+  return (
+    <div className="mt-3 border-t border-border pt-3">
+      {reports.length > 0 && (
+        <div className="mb-3">
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink/50">{t('issues.yourReports')}</p>
+          <IssueReportList reports={reports} />
+        </div>
+      )}
+      {sent && !open && (
+        <p role="status" className="mb-2 text-sm text-brand-dark">
+          {t('issues.sent')}
+        </p>
+      )}
+      {open ? (
+        <ReportIssueForm
+          role="CLIENT"
+          shifts={booking.shifts}
+          pending={report.isPending}
+          error={report.error}
+          onCancel={() => setOpen(false)}
+          onSubmit={(body) =>
+            report.mutate(body, {
+              onSuccess: () => {
+                setOpen(false);
+                setSent(true);
+              },
+            })
+          }
+        />
+      ) : (
+        <button type="button" className="text-sm font-medium text-brand hover:underline" onClick={() => setOpen(true)}>
+          {t('issues.report')}
+        </button>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { randomUUID as uuid } from 'crypto';
 import { and, eq, inArray, ne, type SQL } from 'drizzle-orm';
+import { fromCents, toCents } from '@care-platform/shared';
 import type { Database } from '../database/database.module';
 import { billingAdjustments, invoiceLines, invoices, payoutLines, payoutStatements, type CareRequestLanguage } from '../database/schema';
 import { withAmounts, type StoredLine } from './billing-lines';
@@ -73,7 +74,8 @@ export function adjustmentLine(a: AdjustmentRow, position: number, mode: 'INVOIC
       periodStart: null,
       periodEnd: null,
       adjustmentId: a.id,
-      taxable: true,
+      // A statement is never taxed; on an invoice, only if the invoice it came from was.
+      taxable: mode === 'INVOICE' ? a.taxable : true,
     },
   ])[0];
 }
@@ -83,10 +85,17 @@ export function adjustmentLine(a: AdjustmentRow, position: number, mode: 'INVOIC
  * caregiver (CAREGIVER) and not on a live document yet. An invoice for one
  * booking takes only that booking's adjustments; one for the whole client
  * takes them all.
+ *
+ * A document never goes below zero this way: `baseCents` is what its other
+ * lines already come to, amounts owed to the party are added first, and a
+ * credit (or deduction) bigger than what is left is split - the part that
+ * fits goes on this document, the rest stays open, as its own adjustment, for
+ * the next one. Splitting writes to the database, so call this inside the
+ * document's transaction.
  */
 export async function openAdjustmentLines(
   db: Tx,
-  opts: { side: 'CLIENT' | 'CAREGIVER'; partyId: string; bookingIds?: string[] | null; language: CareRequestLanguage; startAt: number },
+  opts: { side: 'CLIENT' | 'CAREGIVER'; partyId: string; bookingIds?: string[] | null; language: CareRequestLanguage; startAt: number; baseCents: number },
 ): Promise<StoredLine[]> {
   const conditions: SQL[] = [
     eq(billingAdjustments.side, opts.side),
@@ -103,7 +112,31 @@ export async function openAdjustmentLines(
     db,
     rows.map((r) => r.id),
   );
-  return rows
-    .filter((r) => !applied.has(r.id))
-    .map((r, i) => adjustmentLine(r, opts.startAt + i, opts.side === 'CLIENT' ? 'INVOICE' : 'PAYOUT', opts.language));
+  const waiting = rows.filter((r) => !applied.has(r.id));
+  // What is owed to them first, so it makes room for credits; each kind in the order it arose.
+  const ordered = [...waiting.filter((r) => toCents(r.amount) >= 0), ...waiting.filter((r) => toCents(r.amount) < 0)];
+
+  let room = opts.baseCents;
+  const taken: AdjustmentRow[] = [];
+  for (const a of ordered) {
+    const cents = toCents(a.amount);
+    if (cents >= 0) {
+      room += cents;
+      taken.push(a);
+      continue;
+    }
+    if (room <= 0) continue;
+    if (-cents <= room) {
+      room += cents;
+      taken.push(a);
+      continue;
+    }
+    // Too big for this document: what fits goes on it, the rest waits for the next.
+    const remainder = cents + room;
+    await db.update(billingAdjustments).set({ amount: fromCents(-room) }).where(eq(billingAdjustments.id, a.id));
+    await db.insert(billingAdjustments).values({ ...a, id: uuid(), amount: fromCents(remainder), splitFromId: a.id, createdAt: undefined });
+    taken.push({ ...a, amount: fromCents(-room) });
+    room = 0;
+  }
+  return taken.map((r, i) => adjustmentLine(r, opts.startAt + i, opts.side === 'CLIENT' ? 'INVOICE' : 'PAYOUT', opts.language));
 }

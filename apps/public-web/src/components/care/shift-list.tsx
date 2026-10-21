@@ -19,7 +19,21 @@ const TONE: Record<ShiftStatus, string> = {
  * and the caregiver's own roster. `extra` lets each side add its own detail
  * (the caregiver sees the booking reference and area).
  */
-export function ShiftList<T extends PortalShift>({ shifts, extra, coverLabel }: { shifts: T[]; extra?: (s: T) => React.ReactNode; coverLabel?: string }) {
+export function ShiftList<T extends PortalShift>({
+  shifts,
+  extra,
+  coverLabel,
+  action,
+  below,
+}: {
+  shifts: T[];
+  extra?: (s: T) => React.ReactNode;
+  coverLabel?: string;
+  /** Something to do on a shift (the caregiver's "report a problem"), shown at the row's end. */
+  action?: (s: T) => React.ReactNode;
+  /** Anything that opens under a row - a form, say. */
+  below?: (s: T) => React.ReactNode;
+}) {
   const { t, locale } = useTranslation();
   const now = Date.now();
   return (
@@ -27,8 +41,9 @@ export function ShiftList<T extends PortalShift>({ shifts, extra, coverLabel }: 
       {shifts.map((s) => {
         const past = new Date(s.endsAt).getTime() < now;
         const nextDay = toColombo(s.endsAt).date !== toColombo(s.startsAt).date;
+        const underneath = below?.(s);
         return (
-          <li key={s.id} className={cn('flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5', past && 'opacity-60')}>
+          <li key={s.id} className={cn('flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5', past && !underneath && 'opacity-60')}>
             <span className="w-32 text-sm font-medium text-ink">{fmtDay(s.startsAt, locale)}</span>
             <span className="text-sm tabular-nums text-ink/80">
               {fmtTime(s.startsAt, locale)}–{fmtTime(s.endsAt, locale)}
@@ -39,6 +54,8 @@ export function ShiftList<T extends PortalShift>({ shifts, extra, coverLabel }: 
               {s.isCover && coverLabel && <span className="ml-1 text-amber-700">{coverLabel}</span>}
             </span>
             <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', TONE[s.status])}>{t(`bookings.shiftStatus.${s.status}`)}</span>
+            {action?.(s)}
+            {underneath && <div className="w-full">{underneath}</div>}
           </li>
         );
       })}

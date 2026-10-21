@@ -256,6 +256,32 @@ describe('overview', () => {
 });
 
 describe('shifts', () => {
+  it('lets the caregiver report a problem on a shift they worked, but not on one still to come', async () => {
+    serve();
+    const base = get.getMockImplementation()!;
+    const worked = { id: 'sh1', startsAt: '2026-10-06T02:30:00.000Z', endsAt: '2026-10-06T10:30:00.000Z', status: 'COMPLETED', isCover: false, bookingReference: 'BK-7K2QM9', scheduleType: 'DAY', area: 'Dehiwala' };
+    const upcoming = { ...worked, id: 'sh2', startsAt: '2099-01-01T02:30:00.000Z', endsAt: '2099-01-01T10:30:00.000Z', status: 'SCHEDULED' };
+    get.mockImplementation((path: string) => {
+      if (path === '/me/shifts') return Promise.resolve([worked, upcoming]);
+      if (path === '/me/issues') return Promise.resolve([]);
+      return base(path);
+    });
+    post.mockResolvedValue({ id: 'r1', bookingId: 'b1', bookingReference: 'BK-7K2QM9', shiftId: 'sh1', shiftStartsAt: worked.startsAt, category: 'PAY', message: 'x', status: 'OPEN', resolutionNote: null, createdAt: '', closedAt: null });
+    renderPage(<ShiftsPage />);
+
+    const buttons = await screen.findAllByRole('button', { name: 'Report a problem' });
+    expect(buttons).toHaveLength(1);
+    fireEvent.click(buttons[0]);
+    // A caregiver reports on their own shift, so there is no shift to choose - and they may report pay.
+    expect(screen.queryByLabelText('Which shift?')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/What is wrong/), { target: { value: 'PAY' } });
+    fireEvent.change(screen.getByLabelText(/Tell us what happened/), { target: { value: 'I worked a double shift that day' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send to our team' }));
+
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/me/shifts/sh1/issues', { category: 'PAY', message: 'I worked a double shift that day' }));
+    expect(await screen.findByText(/your report has reached our team/)).toBeInTheDocument();
+  });
+
   it('shows what is saved', async () => {
     serve({
       availability: {

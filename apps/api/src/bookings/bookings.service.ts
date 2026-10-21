@@ -23,6 +23,7 @@ import {
   bookings,
   bookingShifts,
   bookingEvents,
+  bookingIssueReports,
   careRequests,
   careRequestEvents,
   caregivers,
@@ -154,6 +155,10 @@ export class BookingsService {
     if (query.patientId) conditions.push(eq(bookings.patientId, query.patientId));
     if (query.caregiverId) conditions.push(eq(bookings.caregiverId, query.caregiverId));
     if (query.careRequestId) conditions.push(eq(bookings.careRequestId, query.careRequestId));
+    // Bookings a client or caregiver has reported a problem on that staff have not answered yet.
+    if (query.hasOpenIssues) {
+      conditions.push(sql`EXISTS (SELECT 1 FROM ${bookingIssueReports} WHERE ${bookingIssueReports.bookingId} = ${bookings.id} AND ${bookingIssueReports.status} = 'OPEN')`);
+    }
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
       conditions.push(
@@ -212,9 +217,17 @@ export class BookingsService {
           .groupBy(bookingShifts.bookingId)
       : [];
     const nextBy = new Map(next.map((n) => [n.bookingId, n.nextAt]));
+    const issues = ids.length
+      ? await this.db
+          .select({ bookingId: bookingIssueReports.bookingId, n: count() })
+          .from(bookingIssueReports)
+          .where(and(inArray(bookingIssueReports.bookingId, ids), eq(bookingIssueReports.status, 'OPEN')))
+          .groupBy(bookingIssueReports.bookingId)
+      : [];
+    const issuesBy = new Map(issues.map((i) => [i.bookingId, i.n]));
 
     return {
-      items: rows.map((r) => ({ ...r, nextShiftAt: nextBy.get(r.id) ? new Date(nextBy.get(r.id)!).toISOString() : null })),
+      items: rows.map((r) => ({ ...r, nextShiftAt: nextBy.get(r.id) ? new Date(nextBy.get(r.id)!).toISOString() : null, openIssues: issuesBy.get(r.id) ?? 0 })),
       page: query.page,
       pageSize: query.pageSize,
       total,
@@ -238,7 +251,8 @@ export class BookingsService {
           lt(bookingShifts.startsAt, colomboToUtc(addDays(today, 1), '00:00')),
         ),
       );
-    return { byStatus, shiftsToday };
+    const [{ openIssues }] = await this.db.select({ openIssues: count() }).from(bookingIssueReports).where(eq(bookingIssueReports.status, 'OPEN'));
+    return { byStatus, shiftsToday, openIssues };
   }
 
   private async bookingOrThrow(id: string, db: Tx = this.db) {
@@ -924,6 +938,7 @@ export class BookingsService {
     if (booking.status !== 'DRAFT' && booking.status !== 'CONFIRMED') throw new BadRequestException('This booking is already closed');
     if (!reason?.trim()) throw new BadRequestException('Say why the booking is being cancelled');
     const now = new Date();
+    if (booking.status === 'CONFIRMED') await this.assertUpcomingNotBilled(id, now);
     await this.db.transaction(async (tx) => {
       await tx.update(bookings).set({ status: 'CANCELLED', cancelledAt: now, cancelReason: reason.trim(), updatedAt: now }).where(eq(bookings.id, id));
       await tx
@@ -942,10 +957,32 @@ export class BookingsService {
   }
 
   /** The engagement is over. Shifts still to come are cancelled; past ones keep their status. */
+  /**
+   * Closing a booking cancels its upcoming scheduled shifts. When some of
+   * those are already on an invoice (billed in advance) or a pay statement,
+   * a plain close would leave the document billing work that will not
+   * happen - so it is refused, and the close goes through a correction
+   * (POST /bookings/:id/amendments with `close`), which adjusts the document.
+   */
+  private async assertUpcomingNotBilled(id: string, now: Date) {
+    const upcoming = await this.db
+      .select({ id: bookingShifts.id })
+      .from(bookingShifts)
+      .where(and(eq(bookingShifts.bookingId, id), eq(bookingShifts.status, 'SCHEDULED'), gt(bookingShifts.startsAt, now)));
+    const refs = await this.billingRefs(upcoming.map((s) => s.id));
+    const docs = new Set<string>();
+    for (const i of refs.invoices.values()) docs.add(i.number ? `invoice ${i.number}` : 'a draft invoice');
+    for (const p of refs.payouts.values()) docs.add(`pay statement ${p.reference}`);
+    if (docs.size) {
+      throw new ConflictException(`Upcoming shifts of this booking are already on ${[...docs].join(', ')} - close it through Correct, so the documents are adjusted with it`);
+    }
+  }
+
   async complete(id: string, actor: AuthenticatedUser) {
     const booking = await this.bookingOrThrow(id);
     if (booking.status !== 'CONFIRMED') throw new BadRequestException('Only a confirmed booking can be completed');
     const now = new Date();
+    await this.assertUpcomingNotBilled(id, now);
     await this.db.transaction(async (tx) => {
       await tx.update(bookings).set({ status: 'COMPLETED', completedAt: now, updatedAt: now }).where(eq(bookings.id, id));
       await tx

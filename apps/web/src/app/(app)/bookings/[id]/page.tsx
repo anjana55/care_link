@@ -12,6 +12,7 @@ import {
   useAddBookingNote,
   useAddShift,
   useBooking,
+  useBookingCorrections,
   useCancelBooking,
   useCompleteBooking,
   useConfirmBooking,
@@ -41,7 +42,10 @@ import {
   type ShiftRateValue,
 } from '@/components/bookings/shift-rate-fields';
 import { cn } from '@/lib/utils';
-import type { BookingDetail, BookingShift, RateType, ShiftStatus } from '@/lib/api/types';
+import type { BookingDetail, BookingShift, IssueReportView, RateType, ShiftStatus } from '@/lib/api/types';
+
+/** How the Correct panel was opened: plain, to close a booking billed in advance, or from a report. */
+type Correcting = { close?: 'COMPLETED' | 'CANCELLED'; issue?: IssueReportView };
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError && err.message ? err.message : fallback);
 
@@ -64,7 +68,14 @@ export default function BookingPage() {
   const router = useRouter();
   const { data: booking, isLoading, isError } = useBooking(id);
   const [editing, setEditing] = useState(false);
-  const [correcting, setCorrecting] = useState(false);
+  const [correcting, setCorrecting] = useState<Correcting | null>(null);
+  const { data: corrections } = useBookingCorrections(booking?.status && booking.status !== 'DRAFT' ? id : '');
+  const openReports = (corrections?.reports ?? []).filter((r) => r.status === 'OPEN');
+  const startCorrecting = (how: Correcting) => {
+    setEditing(false);
+    setCorrecting(how);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     if (!authLoading && user && user.role !== 'ADMIN' && user.role !== 'STAFF') router.replace('/dashboard');
@@ -113,19 +124,34 @@ export default function BookingPage() {
           booking={booking}
           onEdit={() => {
             setEditing((v) => !v);
-            setCorrecting(false);
+            setCorrecting(null);
           }}
           editing={editing}
-          onCorrect={() => {
-            setCorrecting((v) => !v);
+          onCorrect={(how) => {
             setEditing(false);
+            setCorrecting((v) => (v && !how ? null : (how ?? {})));
           }}
-          correcting={correcting}
+          correcting={Boolean(correcting)}
         />
       </div>
 
       {open && editing && <EditBookingPanel booking={booking} onClose={() => setEditing(false)} />}
-      {correcting && <CorrectBookingPanel booking={booking} onClose={() => setCorrecting(false)} />}
+      {openReports.length > 0 && !correcting && (
+        <p className="mb-4 rounded border border-accent/30 bg-accent-light px-3 py-2 text-sm text-accent" role="status">
+          {t('bookings.issues.banner', { count: openReports.length })}
+        </p>
+      )}
+      {correcting && (
+        <CorrectBookingPanel
+          // A new way in starts a fresh form.
+          key={`${correcting.close ?? ''}-${correcting.issue?.id ?? ''}`}
+          booking={booking}
+          close={correcting.close}
+          issue={correcting.issue}
+          openReports={openReports}
+          onClose={() => setCorrecting(null)}
+        />
+      )}
 
       {booking.status === 'DRAFT' && (
         <p className="mb-4 rounded border border-accent/30 bg-accent-light px-3 py-2 text-sm text-accent">{t('bookings.detail.draftBanner')}</p>
@@ -177,7 +203,9 @@ export default function BookingPage() {
         <div className="space-y-4">
           {open && <AddShiftCard booking={booking} />}
           {booking.status !== 'DRAFT' && <RelatedInvoices bookingId={booking.id} />}
-          {booking.status !== 'DRAFT' && <BookingCorrections bookingId={booking.id} />}
+          {booking.status !== 'DRAFT' && (
+            <BookingCorrections bookingId={booking.id} canCorrect={booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'} onCorrectFrom={(issue) => startCorrecting({ issue })} />
+          )}
         </div>
         <BookingHistory booking={booking} />
       </div>
@@ -195,12 +223,15 @@ function BookingActions({
   booking: BookingDetail;
   onEdit: () => void;
   editing: boolean;
-  onCorrect: () => void;
+  /** No argument: toggle a plain correction. With one: open it for that purpose. */
+  onCorrect: (how?: Correcting) => void;
   correcting: boolean;
 }) {
   const { t } = useTranslation();
   const confirm = useConfirmBooking(booking.id);
   const complete = useCompleteBooking(booking.id);
+  // Closing cancels upcoming shifts; when some are already billed, the close goes through a correction instead.
+  const billedUpcoming = booking.status === 'CONFIRMED' && booking.shifts.some((s) => s.status === 'SCHEDULED' && new Date(s.startsAt).getTime() > Date.now() && Boolean(s.invoice || s.payout));
   const cancel = useCancelBooking(booking.id);
   const extend = useExtendBooking(booking.id);
   const [mode, setMode] = useState<'cancel' | 'extend' | null>(null);
@@ -209,7 +240,7 @@ function BookingActions({
   const err = [confirm, complete, cancel, extend].find((m) => m.isError)?.error;
 
   const correctButton = (
-    <Button variant="secondary" aria-expanded={correcting} onClick={onCorrect} title={t('bookings.correct.buttonHint')}>
+    <Button variant="secondary" aria-expanded={correcting} onClick={() => onCorrect()} title={t('bookings.correct.buttonHint')}>
       <Wrench size={14} aria-hidden />
       {t('bookings.correct.button')}
     </Button>
@@ -238,11 +269,11 @@ function BookingActions({
           {t('bookings.detail.extend')}
         </Button>
         {booking.status === 'CONFIRMED' && (
-          <Button variant="secondary" disabled={complete.isPending} onClick={() => complete.mutate(undefined)}>
+          <Button variant="secondary" disabled={complete.isPending} onClick={() => (billedUpcoming ? onCorrect({ close: 'COMPLETED' }) : complete.mutate(undefined))}>
             {t('bookings.detail.complete')}
           </Button>
         )}
-        <Button variant="secondary" onClick={() => setMode(mode === 'cancel' ? null : 'cancel')}>
+        <Button variant="secondary" onClick={() => (billedUpcoming ? onCorrect({ close: 'CANCELLED' }) : setMode(mode === 'cancel' ? null : 'cancel'))}>
           {t('bookings.detail.cancel')}
         </Button>
       </div>
