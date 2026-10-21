@@ -55,7 +55,9 @@ it('walks from registration number to code to the provider buttons', async () =>
   fireEvent.click(screen.getByRole('button', { name: 'Send me a code' }));
 
   await screen.findByLabelText(/^Code/);
-  expect(post).toHaveBeenCalledWith('/auth/caregiver/claim/start', { registrationNumber: 'cg-2026-123456' });
+  // Normalised before it is sent or shown.
+  expect(post).toHaveBeenCalledWith('/auth/caregiver/claim/start', { registrationNumber: 'CG-2026-123456' });
+  expect(screen.getByText(/Registration number: CG-2026-123456/)).toBeInTheDocument();
   // Hedged wording: the API answers the same whether or not anything was sent.
   expect(screen.getByText(/If this registration can be finished online/)).toBeInTheDocument();
 
@@ -63,7 +65,7 @@ it('walks from registration number to code to the provider buttons', async () =>
   fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
   const google = await screen.findByRole('button', { name: 'Continue with Google' });
-  expect(post).toHaveBeenCalledWith('/auth/caregiver/claim/verify', { registrationNumber: 'cg-2026-123456', code: '482915' });
+  expect(post).toHaveBeenCalledWith('/auth/caregiver/claim/verify', { registrationNumber: 'CG-2026-123456', code: '482915' });
 
   const assign = jest.fn();
   Object.defineProperty(window, 'location', { value: { ...window.location, assign }, writable: true });
@@ -90,4 +92,29 @@ it('asks for the registration number before doing anything', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Send me a code' }));
   expect(screen.getByRole('alert')).toHaveTextContent('Enter your registration number');
   expect(post).not.toHaveBeenCalled();
+});
+
+// A pasted note in the number box used to be carried to the code step and
+// echoed as "Registration number: ADD A WAY TO CHANGE...", failing only when
+// the code was submitted, with a misleading "Enter your registration number".
+it.each([
+  ['Send me a code'],
+  ['I have a code from the CareLink office'],
+])('stops on step one when the number is not a registration number (%s)', (button) => {
+  renderPage();
+  fireEvent.change(screen.getByLabelText(/Registration number/), {
+    target: { value: 'add a way to change caregiver email address. right now, before signin' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: button }));
+  expect(screen.getByRole('alert')).toHaveTextContent("That doesn't look like a registration number");
+  expect(screen.queryByLabelText(/^Code/)).not.toBeInTheDocument();
+  expect(post).not.toHaveBeenCalled();
+});
+
+it('accepts the ways people retype a registration number', async () => {
+  renderPage();
+  fireEvent.change(screen.getByLabelText(/Registration number/), { target: { value: ' cg 2026\u2013123456 ' } });
+  fireEvent.click(screen.getByRole('button', { name: 'I have a code from the CareLink office' }));
+  await screen.findByLabelText(/^Code/);
+  expect(screen.getByText(/Registration number: CG-2026-123456/)).toBeInTheDocument();
 });

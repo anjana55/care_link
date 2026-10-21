@@ -886,6 +886,7 @@
     "numberLabel": "Registration number",
     "numberHint": "It looks like CG-2026-123456.",
     "numberRequired": "Enter your registration number",
+    "numberInvalid": "That doesn't look like a registration number. It should look like CG-2026-123456.",
     "sendCode": "Send me a code",
     "haveStaffCode": "I have a code from the {brand} office",
     "codeSentBody": "If this registration can be finished online, we have sent a code by WhatsApp to the phone number on it, or by email. Enter it below.",

@@ -88,6 +88,7 @@ const ENTRIES: Triple[] = [
   ['If this registration can be finished online, we have sent a code to the phone number or email address on it.', 'මෙම ලියාපදිංචිය මාර්ගගතව සම්පූර්ණ කළ හැකි නම්, එහි ඇති දුරකථන අංකයට හෝ විද්‍යුත් ලිපිනයට අපි කේතයක් යවා ඇත.', 'இந்தப் பதிவை இணையத்தில் நிறைவு செய்ய முடியுமானால், அதிலுள்ள தொலைபேசி எண்ணுக்கு அல்லது மின்னஞ்சல் முகவரிக்கு ஒரு குறியீட்டை அனுப்பியுள்ளோம்.'],
   ['Code accepted. Sign in with Google, Microsoft or Facebook to finish setting up your account.', 'කේතය පිළිගත්තා. ඔබේ ගිණුම සකසා අවසන් කිරීමට Google, Microsoft හෝ Facebook මගින් පුරනය වන්න.', 'குறியீடு ஏற்கப்பட்டது. உங்கள் கணக்கை அமைத்து முடிக்க Google, Microsoft அல்லது Facebook மூலம் உள்நுழையவும்.'],
   ['Enter your registration number', 'ඔබේ ලියාපදිංචි අංකය ඇතුළත් කරන්න', 'உங்கள் பதிவு எண்ணை உள்ளிடவும்'],
+  ["That doesn't look like a registration number. It should look like CG-2026-123456.", 'එය ලියාපදිංචි අංකයක් ලෙස නොපෙනේ. එය CG-2026-123456 ලෙස විය යුතුය.', 'இது பதிவு எண் போல் தெரியவில்லை. இது CG-2026-123456 போல இருக்க வேண்டும்.'],
   ['Enter the code you received', 'ඔබට ලැබුණු කේතය ඇතුළත් කරන්න', 'நீங்கள் பெற்ற குறியீட்டை உள்ளிடவும்'],
   ['Unknown sign-in provider', 'නොදන්නා පුරනය වීමේ සපයන්නෙක්', 'தெரியாத உள்நுழைவு வழங்குநர்'],
   ['Choose at least one sign-in method to reset', 'යළි සැකසීමට අවම වශයෙන් එක් පුරනය වීමේ ක්‍රමයක් තෝරන්න', 'மீட்டமைக்க குறைந்தது ஒரு உள்நுழைவு முறையைத் தேர்ந்தெடுக்கவும்'],
