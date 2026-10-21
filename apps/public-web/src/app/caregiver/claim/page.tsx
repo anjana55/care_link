@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
 import { CaregiverRegisterShell } from '@/components/caregivers/caregiver-register-layout';
 import { ProviderChoices } from '@/components/caregivers/provider-choices';
+import { isRegistrationNumber, normaliseRegistrationNumber } from '@/lib/registration-number';
 
 /**
  * "Finish setting up your account", for a caregiver who filled in the
@@ -59,11 +60,31 @@ export default function CaregiverClaimPage() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  const requestCode = async () => {
+  /**
+   * Checks step one before leaving it. Without this, whatever was in the box -
+   * a pasted note, an email address - was carried to the code step and echoed
+   * as "Registration number: ...", and only failed there with a misleading
+   * "Enter your registration number" once the code was submitted.
+   */
+  const acceptNumber = (): string | null => {
+    if (!registrationNumber.trim()) {
+      setError(t('caregiverClaim.numberRequired'));
+      return null;
+    }
+    if (!isRegistrationNumber(registrationNumber)) {
+      setError(t('caregiverClaim.numberInvalid'));
+      return null;
+    }
+    const normalised = normaliseRegistrationNumber(registrationNumber);
+    setRegistrationNumber(normalised);
+    return normalised;
+  };
+
+  const requestCode = async (number: string = registrationNumber) => {
     setError(null);
     setBusy(true);
     try {
-      const res = await api.post<StartResponse>('/auth/caregiver/claim/start', { registrationNumber: registrationNumber.trim() });
+      const res = await api.post<StartResponse>('/auth/caregiver/claim/start', { registrationNumber: number });
       setStarted(res);
       setCooldown(res.resendAfterSeconds);
       setStep('code');
@@ -76,19 +97,13 @@ export default function CaregiverClaimPage() {
 
   const onNumber = (e: FormEvent) => {
     e.preventDefault();
-    if (!registrationNumber.trim()) {
-      setError(t('caregiverClaim.numberRequired'));
-      return;
-    }
-    void requestCode();
+    const number = acceptNumber();
+    if (number) void requestCode(number);
   };
 
   // A staff-issued code needs no code to be sent first.
   const skipToCode = () => {
-    if (!registrationNumber.trim()) {
-      setError(t('caregiverClaim.numberRequired'));
-      return;
-    }
+    if (!acceptNumber()) return;
     setError(null);
     setStarted(null);
     setStep('code');
@@ -104,7 +119,7 @@ export default function CaregiverClaimPage() {
     setBusy(true);
     try {
       const res = await api.post<VerifyResponse>('/auth/caregiver/claim/verify', {
-        registrationNumber: registrationNumber.trim(),
+        registrationNumber,
         code: code.trim(),
       });
       setResult(res);
@@ -141,7 +156,9 @@ export default function CaregiverClaimPage() {
               autoCapitalize="characters"
               placeholder="CG-2026-123456"
               value={registrationNumber}
+              maxLength={32}
               onChange={(e) => setRegistrationNumber(e.target.value)}
+              aria-invalid={error ? true : undefined}
               aria-describedby="registrationNumberHint"
             />
             <p id="registrationNumberHint" className="mt-1 text-xs text-ink/40">
@@ -167,7 +184,7 @@ export default function CaregiverClaimPage() {
               {started ? t('caregiverClaim.codeSentBody') : t('caregiverClaim.staffCodeBody')}
             </p>
             <p className="mb-5 text-xs text-ink/40">
-              {t('caregiverClaim.forNumber')} {registrationNumber.trim().toUpperCase()}
+              {t('caregiverClaim.forNumber')} {registrationNumber}
             </p>
             {started?.devCode && (
               <p className="mb-4 rounded border border-border bg-paper p-3 text-xs text-ink/60">
