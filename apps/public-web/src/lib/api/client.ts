@@ -94,6 +94,24 @@ export class SessionExpiredError extends ApiError {
   }
 }
 
+const SESSION_CHECK_FAILED_MESSAGE: Record<string, string> = {
+  en: "We couldn't confirm you're signed in. Please check your connection and try again.",
+  si: 'ඔබ පුරනය වී ඇති බව තහවුරු කළ නොහැකි විය. කරුණාකර ඔබේ සම්බන්ධතාවය පරීක්ෂා කර නැවත උත්සාහ කරන්න.',
+  ta: 'நீங்கள் உள்நுழைந்துள்ளீர்கள் என்பதை உறுதிப்படுத்த முடியவில்லை. உங்கள் இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.',
+};
+
+/**
+ * The access token was refused and the refresh could not be completed for a
+ * reason that says nothing about the session - offline, a server error, the
+ * rate limit. The session is kept (it may well be fine), but the visitor is
+ * told what happened instead of the API's bare "Unauthorized".
+ */
+export class SessionCheckFailedError extends ApiError {
+  constructor() {
+    super(401, SESSION_CHECK_FAILED_MESSAGE[currentLanguage()] ?? SESSION_CHECK_FAILED_MESSAGE.en);
+  }
+}
+
 /**
  * Trades the stored refresh token for a new pair. Returns null when there is
  * no session to refresh any more.
@@ -195,6 +213,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     } else if (!getStoredTokens()) {
       // The session is over: say so, rather than the API's bare "Unauthorized".
       throw new SessionExpiredError();
+    } else {
+      // Could not refresh, but not because the session ended.
+      throw new SessionCheckFailedError();
     }
   }
 
@@ -241,6 +262,7 @@ export async function fetchBlob(path: string): Promise<Blob> {
     const refreshed = await refreshSession();
     if (refreshed) res = await send(refreshed.accessToken);
     else if (!getStoredTokens()) throw new SessionExpiredError();
+    else throw new SessionCheckFailedError();
   }
   if (!res.ok) throw new ApiError(res.status, res.statusText);
   return res.blob();

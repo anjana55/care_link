@@ -4,7 +4,7 @@
  * showed them signed in from the stored tokens. These pin down what happens
  * now when the API refuses the refresh.
  */
-import { api, ApiError, getStoredTokens, SESSION_EXPIRED_EVENT, SessionExpiredError, storeTokens } from '@/lib/api/client';
+import { api, ApiError, getStoredTokens, SESSION_EXPIRED_EVENT, SessionCheckFailedError, SessionExpiredError, storeTokens } from '@/lib/api/client';
 
 const TOKEN_KEY = 'care-platform-patient-tokens';
 
@@ -75,7 +75,23 @@ describe('a request after the session has ended', () => {
     storeTokens({ accessToken: 'old-access', refreshToken: 'fine' });
     fetchMock.mockImplementation((url: string) => (String(url).endsWith('/auth/refresh') ? Promise.reject(new TypeError('Failed to fetch')) : respond(401)));
 
-    await expect(api.get('/me/care-requests')).rejects.toBeInstanceOf(ApiError);
+    const err = (await api.get('/me/care-requests').catch((e) => e)) as ApiError;
+    expect(err).toBeInstanceOf(SessionCheckFailedError);
+    expect(err.message).not.toBe('Unauthorized');
+    expect(getStoredTokens()).toEqual({ accessToken: 'old-access', refreshToken: 'fine' });
+  });
+
+  // The other way the bare "Unauthorized" could still reach Contact -> Send
+  // request: the refresh failed for a reason unrelated to the session.
+  it.each([429, 500, 502])('explains a refresh that failed with %i instead of showing "Unauthorized"', async (status) => {
+    storeTokens({ accessToken: 'old-access', refreshToken: 'fine' });
+    fetchMock.mockImplementation((url: string) => (String(url).endsWith('/auth/refresh') ? respond(status) : respond(401, { message: 'Unauthorized' })));
+
+    const err = (await api.post('/me/care-requests', { caregiverPublicId: 'x' }).catch((e) => e)) as ApiError;
+
+    expect(err).toBeInstanceOf(SessionCheckFailedError);
+    expect(err.message).toMatch(/couldn't confirm you're signed in/);
+    // Not a reason to sign them out.
     expect(getStoredTokens()).toEqual({ accessToken: 'old-access', refreshToken: 'fine' });
   });
 });
