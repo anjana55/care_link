@@ -257,6 +257,31 @@ fi
 # ---------------------------------------------------------------------------
 # 6. Files.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# 5b. Release images and the build cache.
+#
+# `down --rmi all` removes only the images of the release that is running.
+# setup.sh / update.sh tag every release by commit and keep the previous one
+# for rollback, so those are removed by name here. Build cache is shared with
+# any other project on the host, so only the part nothing uses is cleared.
+#
+# The database backups update.sh took (backups/) are deliberately KEPT: they
+# are the way back if this purge was a mistake. They are named in the report.
+# ---------------------------------------------------------------------------
+if [ "$PURGE" -eq 1 ]; then
+  IMAGE_PREFIX_VAL="$(grep '^IMAGE_PREFIX=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)"
+  IMAGE_PREFIX_VAL="${IMAGE_PREFIX_VAL:-$PROJECT}"
+  RELEASE_IMAGES="$(for s in api web public-web; do docker image ls --format '{{.Repository}}:{{.Tag}}' --filter "reference=${IMAGE_PREFIX_VAL}-${s}" 2>/dev/null; done)"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    [ -n "$RELEASE_IMAGES" ] && info "would remove release images: $(echo "$RELEASE_IMAGES" | tr '\n' ' ')"
+    info "would clear unused build cache"
+  else
+    for ref in $RELEASE_IMAGES; do docker rmi "$ref" >/dev/null 2>&1 || true; done
+    docker builder prune -af >/dev/null 2>&1 || true
+    rm -rf .deploy
+  fi
+fi
+
 if [ "$PURGE" -eq 1 ]; then
   for f in "$ENV_FILE" "$GENERATED_CONF"; do
     if [ -f "$f" ]; then
@@ -343,9 +368,14 @@ else
   fi
   cat <<EOF
   Removed: containers, network, all volumes (database, caregiver documents,
-  certificate), Docker images, $ENV_FILE, and the renewal cron entry.
+  certificate), Docker images of every release, $ENV_FILE, and the renewal
+  cron entry.
 
   Nothing from this project remains on the host. The repo itself is still
   here - delete the directory if you are finished with it.
 EOF
+  if ls backups/db-*.sql.gz >/dev/null 2>&1; then
+    echo "  Kept: the database backups update.sh took, in $(pwd)/backups/ - delete them"
+    echo "  yourself once you are sure you won't need them."
+  fi
 fi

@@ -7,10 +7,21 @@
 # See DEPLOYMENT.md for the full walkthrough (migrations, TLS, backups,
 # secrets, and what this file deliberately leaves for you to plug in).
 
+# Container logs. Docker's default json-file driver keeps every line a
+# container ever writes, forever, under /var/lib/docker/containers - on a
+# small disk a chatty or crash-looping container fills it on its own. Three
+# 10 MB files per container is plenty for `docker compose logs`.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
 services:
   mysql:
     image: mysql:8.0
     restart: unless-stopped
+    logging: *logging
     # performance_schema costs ~250 MB of RAM. setup.sh writes
     # MYSQL_PERFORMANCE_SCHEMA=OFF into .env.production on servers with under
     # 4 GB (t3.micro / t3.small); everywhere else it stays on, as MySQL ships.
@@ -36,7 +47,12 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    # Tagged with the deployed commit (setup.sh / update.sh write IMAGE_TAG into
+    # .env.production), so the previous release's images stay on disk for an
+    # instant rollback and older ones can be removed by name.
+    image: ${IMAGE_PREFIX:-carelink}-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    logging: *logging
     depends_on:
       mysql:
         condition: service_healthy
@@ -93,7 +109,12 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL in .env.production, e.g. https://yourdomain.example/api}
         # Set by setup.sh on small servers (see its step 1b); blank = Node's default.
         NODE_BUILD_HEAP_MB: ${NODE_BUILD_HEAP_MB:-}
+    # Tagged with the deployed commit (setup.sh / update.sh write IMAGE_TAG into
+    # .env.production), so the previous release's images stay on disk for an
+    # instant rollback and older ones can be removed by name.
+    image: ${IMAGE_PREFIX:-carelink}-web:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    logging: *logging
     environment:
       # Server-side rendering reads Settings > Branding (name, colours, logo,
       # languages) straight from the API over the compose network.
@@ -111,7 +132,12 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?}
         # Set by setup.sh on small servers (see its step 1b); blank = Node's default.
         NODE_BUILD_HEAP_MB: ${NODE_BUILD_HEAP_MB:-}
+    # Tagged with the deployed commit (setup.sh / update.sh write IMAGE_TAG into
+    # .env.production), so the previous release's images stay on disk for an
+    # instant rollback and older ones can be removed by name.
+    image: ${IMAGE_PREFIX:-carelink}-public-web:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    logging: *logging
     environment:
       # Server-side rendering reads Settings > Branding (name, colours, logo,
       # languages) straight from the API over the compose network.
@@ -124,6 +150,7 @@ services:
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
+    logging: *logging
     depends_on:
       - api
       - web
@@ -164,6 +191,7 @@ services:
   certbot:
     image: certbot/certbot:latest
     profiles: ['tools']
+    logging: *logging
     volumes:
       - certbot-conf:/etc/letsencrypt
       - certbot-webroot:/var/www/certbot

@@ -20,9 +20,15 @@
 #   ./setup.sh --domain=example.com --skip-tls   # deploy HTTP only, add TLS later
 #
 # Safe to re-run: it won't overwrite an existing .env.production, and the
-# build/start/migrate/seed steps are all idempotent (see DEPLOYMENT.md
-# Part 16). An existing certificate is detected and never re-requested -
-# re-running will not burn Let's Encrypt rate limit.
+# build/start/migrate/seed steps are all idempotent. An existing certificate
+# is detected and never re-requested - re-running will not burn Let's Encrypt
+# rate limit. Every run cleans up after itself (old images, build cache past
+# a budget, stray volumes), so repeated runs no longer fill the disk.
+#
+# This is for the FIRST deploy, and for repairing one. To deploy new code -
+# a merged PR, a branch, a single PR to try out - use ./update.sh, which
+# rebuilds only what changed, backs up the database before migrations, and
+# can roll back. See DEPLOYMENT.md Part 16.
 
 set -euo pipefail
 
@@ -43,6 +49,11 @@ TLS_EMAIL=""
 SKIP_TLS=0
 SKIP_SWAP=0
 ASSUME_YES=0
+# Build cache kept after a deploy, in GB: enough that the next build reuses
+# the npm installs, not so much that it fills a small disk. Blank = by disk
+# size (deploy/lib.sh cl_default_build_cache_gb).
+BUILD_CACHE_GB=""
+CLEANUP=1
 PASSWORD_SOURCE="generated"
 TLS_ENABLED=0
 
@@ -69,6 +80,11 @@ Options:
   --skip-swap             Don't create a swap file on a small server (under 4 GB
                            of RAM). Only use this if you manage swap yourself -
                            without enough memory the image build stalls.
+  --build-cache=GB        Build cache to keep after the deploy so the next build is
+                           quick (default 1 on a disk under 18 GB, else 3). 0 clears
+                           it all - smallest disk use,
+                           slowest next build.
+  --no-cleanup            Don't remove old images and build cache afterwards.
   -y, --yes               Don't pause for confirmation before starting.
   -h, --help              Show this help.
 EOF
@@ -86,6 +102,8 @@ for arg in "$@"; do
     --tls-email=*) TLS_EMAIL="${arg#*=}" ;;
     --skip-tls) SKIP_TLS=1 ;;
     --skip-swap) SKIP_SWAP=1 ;;
+    --build-cache=*) BUILD_CACHE_GB="${arg#*=}"; [[ "$BUILD_CACHE_GB" =~ ^[0-9]+$ ]] || die "--build-cache takes a whole number of GB" ;;
+    --no-cleanup) CLEANUP=0 ;;
     -y|--yes) ASSUME_YES=1 ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $arg (see --help)" ;;
@@ -97,6 +115,9 @@ done
 # 1. Preflight checks
 # ---------------------------------------------------------------------------
 [ -f "$COMPOSE_FILE" ] || die "Run this from the repo root (couldn't find $COMPOSE_FILE here)."
+[ -f deploy/lib.sh ] || die "deploy/lib.sh is missing - is this a complete checkout?"
+# shellcheck source=deploy/lib.sh
+. deploy/lib.sh
 
 # Install Docker Engine + the Compose plugin if Docker is missing.
 # Supports Ubuntu/Debian using Docker's official apt repository. Installation
@@ -135,6 +156,8 @@ ensure_docker() {
 
   $SUDO apt-get update
   $SUDO apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  # The downloaded .deb files are no use once installed.
+  $SUDO apt-get clean
 
   if command -v systemctl >/dev/null 2>&1; then
     $SUDO systemctl enable --now docker
@@ -151,6 +174,8 @@ ensure_docker() {
 ensure_docker
 docker compose version >/dev/null 2>&1 || die "The 'docker compose' plugin isn't available - see DEPLOYMENT.md Part 4."
 command -v openssl >/dev/null 2>&1 || die "openssl isn't installed (needed to generate secrets)."
+cl_lock
+BUILD_CACHE_GB="${BUILD_CACHE_GB:-$(cl_default_build_cache_gb)}"
 
 # ---------------------------------------------------------------------------
 # 1b. Small servers (t3.micro / t3.small and similar).
@@ -260,21 +285,7 @@ ensure_swap() {
   echo "  Swap is now ${SWAP_MB} MB (memory + swap: $(( MEM_MB + SWAP_MB )) MB)."
 }
 
-check_disk_space() {
-  # Three node images plus build cache need roughly 6 GB; a full disk shows up
-  # as a confusing "no space left on device" deep inside an npm install.
-  local root free_mb
-  root="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)"
-  [ -d "$root" ] || root="/"
-  free_mb="$(df -Pm "$root" 2>/dev/null | awk 'NR==2 {print $4}')"
-  if [ -n "$free_mb" ] && [ "$free_mb" -lt 6144 ]; then
-    warn "Only ${free_mb} MB of disk free for Docker ($root). The build needs about 6 GB and may fail with"
-    warn "'no space left on device'. Grow the volume to 20 GB or more, or free space with: docker system prune"
-  fi
-}
-
 ensure_swap
-check_disk_space
 
 # Can this Docker actually publish port 80?
 #
@@ -305,8 +316,6 @@ if [ "$(sysctl -n net.ipv4.ip_unprivileged_port_start 2>/dev/null || echo 1024)"
   turns out not to be your problem - see DEPLOYMENT.md Part 5."
   fi
 fi
-
-compose() { docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"; }
 
 # ---------------------------------------------------------------------------
 # 2. Create .env.production if it doesn't exist yet
@@ -478,6 +487,34 @@ else
   esac
 fi
 
+# ---------------------------------------------------------------------------
+# 3c. Name this release's images after the commit (see deploy/lib.sh), and
+#     remember the one before it so its images survive for a rollback.
+# ---------------------------------------------------------------------------
+PROJECT="$(cl_project_name)"
+PREV_IMAGE_TAG="$(cl_env_get IMAGE_TAG)"
+PREV_COMMIT="$(cl_state_get DEPLOYED_COMMIT)"
+IMAGE_TAG="$(cl_image_tag)"
+cl_env_set IMAGE_PREFIX "$PROJECT"
+cl_env_set IMAGE_TAG "$IMAGE_TAG"
+[ "$PREV_IMAGE_TAG" = "$IMAGE_TAG" ] && PREV_IMAGE_TAG="$(cl_state_get PREVIOUS_IMAGE_TAG)"
+
+# A run that fails half way (most often the build) still tidies up after
+# itself - otherwise every failed retry left another set of layers behind,
+# which is how repeated runs filled the disk. The successful path does the
+# full cleanup at the end instead.
+on_exit() {
+  local rc=$?
+  [ -n "${DRYRUN_LOG:-}" ] && rm -f "$DRYRUN_LOG"
+  if [ "$rc" -ne 0 ] && [ "$CLEANUP" -eq 1 ]; then
+    echo
+    warn "setup.sh stopped with an error - removing leftovers from this run so a retry has room."
+    docker image prune -f >/dev/null 2>&1 || true
+    cl_prune_build_cache $(( BUILD_CACHE_GB * 1024 ))
+  fi
+}
+trap on_exit EXIT
+
 log "About to build and start CareLink using $ENV_FILE"
 echo "  Domain:      ${ENV_DOMAIN:-<not set>}"
 echo "  Admin email: ${ADMIN_EMAIL}"
@@ -487,6 +524,7 @@ if [ "$TLS_PLANNED" -eq 1 ]; then
 else
   echo "  HTTPS:       no - this deployment will be HTTP-only"
 fi
+echo "  Release:     ${IMAGE_TAG}${PREV_IMAGE_TAG:+ (previous: ${PREV_IMAGE_TAG}, kept for rollback)}"
 if [ "$ASSUME_YES" -ne 1 ]; then
   read -r -p "Continue? [y/N] " reply
   [[ "$reply" =~ ^[Yy]$ ]] || die "Aborted."
@@ -495,24 +533,23 @@ fi
 # ---------------------------------------------------------------------------
 # 4. Build the images (DEPLOYMENT.md Part 9) - slow the first time.
 # ---------------------------------------------------------------------------
+# Three node images plus build cache need roughly 6 GB; a full disk shows up
+# as a confusing "no space left on device" deep inside an npm install. If it
+# is short, clear what a previous run left first instead of only warning.
+cl_make_room 6144 "$IMAGE_TAG" "$PREV_IMAGE_TAG"
+
 if [ "$LOW_MEMORY" -eq 1 ]; then
   # One image at a time (see 1b): three builds side by side need ~4 GB, one
   # at a time fits in RAM + swap. Slower, but it finishes. The heap limit
   # lets Node use that swap instead of aborting at its RAM-based default.
   log "Building images one at a time for this small server (allow 15-30 minutes the first time)"
-  export NODE_BUILD_HEAP_MB=2048
-  for service in api web public-web; do
-    echo "  Building $service ..."
-    compose build "$service"
-  done
 else
   log "Building images (this can take 5-15 minutes the first time)"
-  compose build
 fi
-# Each rebuild leaves the previous image behind untagged; on an 8 GB volume
-# a few re-runs are enough to fill the disk. Build cache is kept, so the
-# next build is still fast.
-docker image prune -f >/dev/null 2>&1 || true
+cl_build "${CL_BUILT_SERVICES[@]}"
+# Old images are NOT pruned here: the running containers still use them, so
+# a prune at this point skips them (this is what used to leave every
+# release's images behind). Cleanup runs at the end, after recreating.
 
 # `compose build` only refreshes the image; it does not recreate containers
 # that are already running. `up -d` then sees the same container and leaves
@@ -745,9 +782,8 @@ if [ "$TLS_ENABLED" -eq 1 ]; then
   # Keep the output. Sending it to /dev/null means a failure here is
   # undiagnosable without re-running the command by hand, which is exactly
   # the round trip this is meant to avoid.
+  # Removed by on_exit (step 3c), which owns the EXIT trap.
   DRYRUN_LOG="$(mktemp)"
-  # shellcheck disable=SC2064
-  trap "rm -f '$DRYRUN_LOG'" EXIT
 
   if ! command -v timeout >/dev/null 2>&1; then
     warn "'timeout' isn't available, so the renewal self-test was skipped rather than risk hanging."
@@ -844,6 +880,21 @@ compose exec -T -w /app/apps/api \
   -e INITIAL_ADMIN_NAME="$ADMIN_NAME" \
   api node dist/src/database/seed-production.js
 
+# The release is up: record it, so update.sh knows what is deployed and what to roll back to.
+cl_state_save "$(git rev-parse HEAD 2>/dev/null || echo unknown)" "$IMAGE_TAG" "${PREV_COMMIT:-}" "${PREV_IMAGE_TAG:-}"
+
+# ---------------------------------------------------------------------------
+# 6b. Clean up (see deploy/lib.sh for why each of these used to pile up):
+#     old images except this release and the previous one, the build cache
+#     past its budget, stray anonymous volumes and stopped one-off containers.
+# ---------------------------------------------------------------------------
+if [ "$CLEANUP" -eq 1 ]; then
+  log "Cleaning up old images and build cache"
+  cl_cleanup $(( BUILD_CACHE_GB * 1024 )) "$IMAGE_TAG" "$PREV_IMAGE_TAG"
+else
+  log "Skipping cleanup (--no-cleanup) - see 'docker system df' for what is using the disk"
+fi
+
 # ---------------------------------------------------------------------------
 # 7. Verify (Part 12) - best-effort; DNS/firewall issues are separate from
 #    whether the deploy itself worked, so this warns rather than fails.
@@ -902,3 +953,4 @@ else
   fi
 fi
 echo "  For backups, see DEPLOYMENT.md Part 15."
+echo "  To deploy new code later (or try a PR): ./update.sh - see DEPLOYMENT.md Part 16."
