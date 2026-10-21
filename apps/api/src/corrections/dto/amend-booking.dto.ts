@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsEnum, IsIn, IsObject, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength, ValidateNested } from 'class-validator';
+import { MAX_ISSUE_MESSAGE } from '@care-platform/shared';
+import { issueReportCategoryEnum, type IssueReportCategory } from '../../database/schema';
 import { shiftRateTypeEnum, type ShiftRateType } from '../../database/schema';
 
 /** A datetime-local value, read as Colombo time. */
@@ -121,4 +123,56 @@ export class AmendBookingDto {
   @IsOptional()
   @IsObject()
   invoiceActions?: Record<string, 'REPLACE' | 'CARRY'>;
+
+  @ApiPropertyOptional({ enum: ['COMPLETED', 'CANCELLED'], description: 'Also close the booking: its upcoming shifts are cancelled and any document billing them adjusted' })
+  @IsOptional()
+  @IsIn(['COMPLETED', 'CANCELLED'], { message: 'Choose how the booking is closed' })
+  close?: 'COMPLETED' | 'CANCELLED';
+
+  @ApiPropertyOptional({ description: 'With issueIds: the answer sent to whoever reported them' })
+  @IsOptional()
+  @Transform(trimToUndefined)
+  @IsString()
+  @MaxLength(500)
+  reply?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Open issue reports on this booking that the correction answers' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsUUID('all', { each: true, message: 'Choose a valid report' })
+  issueIds?: string[];
+}
+
+/** A client's or caregiver's report of a problem on a booking. */
+export class CreateIssueReportDto {
+  @ApiProperty({ enum: issueReportCategoryEnum })
+  @IsIn(issueReportCategoryEnum, { message: 'Choose what is wrong' })
+  category: IssueReportCategory;
+
+  @ApiProperty()
+  @Transform(trimToUndefined)
+  @IsString({ message: 'Tell us what is wrong' })
+  @MinLength(5, { message: 'Tell us what is wrong' })
+  @MaxLength(MAX_ISSUE_MESSAGE, { message: 'Please keep it under 1000 characters' })
+  message: string;
+
+  @ApiPropertyOptional({ description: 'Client only: the shift it is about' })
+  @IsOptional()
+  @IsUUID('all', { message: 'Choose a valid shift' })
+  shiftId?: string;
+}
+
+/** Staff closing a report without a correction (or after fixing it another way). */
+export class CloseIssueReportDto {
+  @ApiProperty({ enum: ['RESOLVED', 'DISMISSED'] })
+  @IsIn(['RESOLVED', 'DISMISSED'], { message: 'Choose how the report is closed' })
+  status: 'RESOLVED' | 'DISMISSED';
+
+  @ApiProperty({ description: 'Sent to the reporter' })
+  @Transform(trimToUndefined)
+  @IsString({ message: 'Write a short answer for them' })
+  @MinLength(3, { message: 'Write a short answer for them' })
+  @MaxLength(500)
+  note: string;
 }

@@ -306,4 +306,39 @@ describe('client account', () => {
     expect(screen.getByText(/another caregiver covering/)).toBeInTheDocument();
     expect(screen.getByText(/LKR 4,000.00 per day/)).toBeInTheDocument();
   });
+
+  it('lets a client report a problem on one shift, and shows where earlier reports stand', async () => {
+    auth = { user: CLIENT, loading: false };
+    pathname = '/account/bookings';
+    const booking = {
+      id: 'b1', reference: 'BK-7K2QM9', status: 'COMPLETED', scheduleType: 'DAY', startDate: '2026-10-05', endDate: '2026-10-09',
+      rateType: 'HOURLY', rateAmount: '500.00', caregiverPublicId: PUBLIC_ID, caregiver: profile,
+      shifts: [{ id: 's1', startsAt: '2026-10-06T02:30:00.000Z', endsAt: '2026-10-06T10:30:00.000Z', status: 'COMPLETED', isCover: false }],
+    };
+    const answered = {
+      id: 'r0', bookingId: 'b1', bookingReference: 'BK-7K2QM9', shiftId: null, shiftStartsAt: null, category: 'CHARGE',
+      message: 'Charged twice for Monday', status: 'RESOLVED', resolutionNote: 'Refunded - sorry about that.', createdAt: '2026-10-10T04:00:00.000Z', closedAt: '2026-10-11T04:00:00.000Z',
+    };
+    get.mockImplementation((path: string) => Promise.resolve(path === '/me/issues' ? [answered] : [booking]));
+    post.mockResolvedValue({ ...answered, id: 'r1', status: 'OPEN', resolutionNote: null });
+    renderUi(<MyBookingsPage />);
+
+    // An earlier report, with our answer.
+    expect(await screen.findByText('Charged twice for Monday')).toBeInTheDocument();
+    expect(screen.getByText('Put right')).toBeInTheDocument();
+    expect(screen.getByText('Our answer: Refunded - sorry about that.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: "Something's not right? Tell us" }));
+    const send = screen.getByRole('button', { name: 'Send to our team' });
+    expect(send).toBeDisabled();
+    // Pay is the caregiver's to report, not the client's.
+    expect(screen.queryByRole('option', { name: 'My pay is wrong' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/What is wrong/), { target: { value: 'TIMES' } });
+    fireEvent.change(screen.getByLabelText('Which shift?'), { target: { value: 's1' } });
+    fireEvent.change(screen.getByLabelText(/Tell us what happened/), { target: { value: 'She stayed until 7 pm, not 4 pm' } });
+    fireEvent.click(send);
+
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/me/bookings/b1/issues', { category: 'TIMES', message: 'She stayed until 7 pm, not 4 pm', shiftId: 's1' }));
+    expect(await screen.findByText(/your report has reached our team/)).toBeInTheDocument();
+  });
 });

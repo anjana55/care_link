@@ -8,6 +8,8 @@ import type {
   SavedCaregiverItem,
   ClientBooking,
   ClientInvoice,
+  CreateIssueReportBody,
+  MyIssueReport,
   PayhereCheckout,
 } from '@care-platform/shared';
 import { api } from '../api/client';
@@ -108,6 +110,26 @@ export function useMyBookings() {
     queryKey: [...key, 'bookings', locale],
     queryFn: () => api.get<ClientBooking[]>('/me/bookings'),
     enabled: Boolean(client),
+  });
+}
+
+/** The client's own problem reports and staff's answers (GET /me/issues). */
+export function useMyIssueReports() {
+  const client = useIsClient();
+  const key = useClientKey();
+  return useQuery({
+    queryKey: [...key, 'issues'],
+    queryFn: () => api.get<MyIssueReport[]>('/me/issues'),
+    enabled: Boolean(client),
+  });
+}
+
+/** Tell staff something on a booking is wrong. The client never changes the booking themselves. */
+export function useReportBookingIssue(bookingId: string) {
+  const invalidate = useInvalidateClient();
+  return useMutation({
+    mutationFn: (body: CreateIssueReportBody) => api.post<MyIssueReport>(`/me/bookings/${bookingId}/issues`, body),
+    onSuccess: () => invalidate(),
   });
 }
 

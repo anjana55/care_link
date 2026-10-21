@@ -52,6 +52,9 @@ const BASIS_STATUSES: Record<'COMPLETED' | 'SCHEDULED', ShiftStatus[]> = {
 };
 
 /** How a payment reads in the history - English, like every other history note. */
+/** What some lines come to, in cents - the room a carried credit has on the document. */
+const linesCents = (lines: StoredLine[]) => lines.reduce((s, l) => s + toCents(l.amount), 0);
+
 const METHOD_NOTE: Record<string, string> = { CASH: 'cash', BANK_TRANSFER: 'bank transfer', CHEQUE: 'cheque', CARD: 'card', PAYHERE: 'PayHere', OTHER: 'other' };
 const paymentNote = (amount: string, method: string, reference?: string | null) =>
   [formatLkr(amount), METHOD_NOTE[method] ?? method, reference].filter(Boolean).join(' · ');
@@ -382,7 +385,7 @@ export class InvoicesService {
           ? { lines: [] as StoredLine[], skipped: 0, unpriced: 0 }
           : await this.linesFromShifts(t, { bookingIds, from: dto.periodStart!, to: dto.periodEnd!, statuses: BASIS_STATUSES[dto.basis], language: lang, startAt: 0 });
       // Corrections waiting for this client (this booking's, on a booking invoice).
-      const carried = await openAdjustmentLines(t, { side: 'CLIENT', partyId: patientId!, bookingIds: dto.bookingId ? [dto.bookingId] : null, language: lang, startAt: built.lines.length });
+      const carried = await openAdjustmentLines(t, { side: 'CLIENT', partyId: patientId!, bookingIds: dto.bookingId ? [dto.bookingId] : null, language: lang, startAt: built.lines.length, baseCents: linesCents(built.lines) });
       generated = { added: built.lines.length, skipped: built.skipped, unpriced: built.unpriced };
       await tx.insert(invoices).values({
         id,
@@ -544,6 +547,8 @@ export class InvoicesService {
         bookingIds: inv.bookingId ? [inv.bookingId] : null,
         language: inv.language,
         startAt: Number(maxPos) + 1 + built.lines.length,
+        // What the draft already comes to, plus what is being added.
+        baseCents: linesCents((await tx.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, id))) as StoredLine[]) + linesCents(built.lines),
       });
       generated = { added: built.lines.length, skipped: built.skipped, unpriced: built.unpriced };
       await this.insertLines(t, id, [...built.lines, ...carried]);

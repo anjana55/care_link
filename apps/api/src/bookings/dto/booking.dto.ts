@@ -17,6 +17,7 @@ import {
   Min,
   ValidateIf,
   ValidateNested,
+  IsBoolean,
 } from 'class-validator';
 import {
   bookingStatusEnum,
@@ -315,6 +316,12 @@ export class BookingQueryDto {
   @IsOptional()
   @IsUUID()
   careRequestId?: string;
+
+  @ApiPropertyOptional({ description: 'Only bookings with a client or caregiver report waiting for staff' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  hasOpenIssues?: boolean;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

@@ -93,6 +93,8 @@ export interface PlanLine {
   caregiverId: string | null;
   periodStart: string | null;
   periodEnd: string | null;
+  /** Invoice lines: whether tax applies to it. */
+  taxable?: boolean;
 }
 
 export interface PlanDocument {
@@ -106,9 +108,10 @@ export interface PlanDocument {
   caregiverId?: string;
   language: CareRequestLanguage;
   amountPaid?: string;
-  /** INVOICE: a discount on the whole invoice, or tax - for the "before discount and tax" warning. */
-  discounted?: boolean;
-  taxed?: boolean;
+  /** INVOICE: the discount on the whole invoice, and the tax rate (null = untaxed). */
+  discountType?: DiscountType | null;
+  discountValue?: string | null;
+  taxRate?: string | null;
   partyName: string | null;
   lines: PlanLine[];
 }
@@ -138,6 +141,8 @@ export interface PlannedAdjustment {
   caregiverId: string | null;
   partyName: string | null;
   amount: string;
+  /** CLIENT: carried onto the next invoice as a taxable line (the original invoice was taxed). */
+  taxable: boolean;
   description: string;
   sourceLabel: string | null;
 }
@@ -267,6 +272,26 @@ function adjustmentText(reference: string, dates: string[]) {
   return `${reference} · ${shown.join(', ')}${unique.length > 6 ? ` +${unique.length - 6}` : ''}`;
 }
 
+/**
+ * What a whole document comes to with some of its lines replaced: for an
+ * invoice its total, and what it comes to after its own discount but before
+ * tax (which is what a carried difference is - the next invoice adds its own
+ * tax); for a statement simply its total.
+ */
+function documentTotals(doc: PlanDocument, rebuilt?: ReadonlyMap<string, RebuiltLine>) {
+  const lines = doc.lines.flatMap((l) => {
+    if (!rebuilt?.has(l.id)) return [l];
+    const next = rebuilt.get(l.id);
+    return next ? [{ ...l, ...next }] : [];
+  });
+  if (doc.kind === 'PAYOUT') {
+    const t = computeTotals({ lines: lines.map((l) => ({ ...l, taxable: false })) });
+    return { total: toCents(t.total), beforeTax: toCents(t.total) };
+  }
+  const t = computeTotals({ lines, discountType: doc.discountType, discountValue: doc.discountValue, taxRate: doc.taxRate });
+  return { total: toCents(t.total), beforeTax: toCents(t.subtotal) - toCents(t.discount) };
+}
+
 export function planAmendment(input: PlanInput): AmendmentPlan {
   const { before, after } = input;
   const rateChanged = {
@@ -309,8 +334,8 @@ export function planAmendment(input: PlanInput): AmendmentPlan {
     }
     if (!found.length) continue;
 
-    const difference = found.reduce((sum, f) => sum + (f.next ? toCents(f.next.amount) : 0) - toCents(f.line.amount), 0);
-    const { action, choices } = actionFor(doc, difference, doc.kind === 'INVOICE' ? input.invoiceChoices?.[doc.id] : undefined);
+    const lineDifference = found.reduce((sum, f) => sum + (f.next ? toCents(f.next.amount) : 0) - toCents(f.line.amount), 0);
+    const { action, choices } = actionFor(doc, lineDifference, doc.kind === 'INVOICE' ? input.invoiceChoices?.[doc.id] : undefined);
     // A document that stays as it is only cares about the money; one that is
     // rewritten (a draft, a replacement copy) takes the new wording too.
     const kept = action === 'CARRY' || action === 'NONE' ? found.filter((f) => f.money) : found;
@@ -319,27 +344,26 @@ export function planAmendment(input: PlanInput): AmendmentPlan {
     const rebuilt = new Map<string, RebuiltLine>();
     const lines: AmendmentDocumentImpact['lines'] = [];
     const dates: string[] = [];
-    let beforeCents = 0;
-    let afterCents = 0;
     for (const { line, next } of kept) {
       rebuilt.set(line.id, next);
-      beforeCents += toCents(line.amount);
-      afterCents += next ? toCents(next.amount) : 0;
       if (next === null && line.shiftId) stillOn[doc.kind].delete(line.shiftId);
       if (doc.kind === 'PAYOUT' && doc.status === 'PAID' && line.shiftId && next === null) lockedPayout.set(line.shiftId, doc);
       if (next === null || next.amount !== line.amount) dates.push(line.serviceDate ?? line.periodStart ?? '');
       lines.push({ lineId: line.id, description: line.description, serviceDate: line.serviceDate, before: line.amount, after: next ? next.amount : null });
     }
 
+    // The whole document before and after, with its own discount and tax.
+    const was = documentTotals(doc);
+    const now = documentTotals(doc, rebuilt);
     documents.push({
       kind: doc.kind,
       id: doc.id,
       label: doc.label,
       status: doc.status,
       partyName: doc.partyName,
-      before: fromCents(beforeCents),
-      after: fromCents(afterCents),
-      difference: fromCents(difference),
+      before: fromCents(was.total),
+      after: fromCents(now.total),
+      difference: fromCents(now.total - was.total),
       action,
       choices,
       lines,
@@ -359,12 +383,14 @@ export function planAmendment(input: PlanInput): AmendmentPlan {
         patientId: doc.kind === 'INVOICE' ? after.booking.patientId : null,
         caregiverId: doc.kind === 'PAYOUT' ? (doc.caregiverId ?? null) : null,
         partyName: doc.partyName,
-        amount: fromCents(difference),
+        // After the document's own discount, before tax.
+        amount: fromCents(now.beforeTax - was.beforeTax),
+        taxable: doc.kind === 'INVOICE' && Boolean(doc.taxRate && toCents(doc.taxRate) > 0),
         description: adjustmentText(after.booking.reference, dates),
         sourceLabel: doc.label,
       });
-      if (doc.kind === 'INVOICE' && (doc.discounted || doc.taxed)) {
-        warnings.push(`${doc.label ?? 'The invoice'} has a discount on the whole invoice or tax: the carried difference is the line amount, before that discount and tax.`);
+      if (doc.kind === 'INVOICE' && doc.taxRate && toCents(doc.taxRate) > 0) {
+        warnings.push(`${doc.label ?? 'The invoice'} was taxed: the carried amount is before tax, and the next invoice adds tax on it at its own rate.`);
       }
     }
   }
@@ -383,6 +409,7 @@ export function planAmendment(input: PlanInput): AmendmentPlan {
       caregiverId: s.caregiverId,
       partyName: input.caregiverNames.get(s.caregiverId) ?? null,
       amount,
+      taxable: false,
       description: adjustmentText(after.booking.reference, [day(s.startsAt)]),
       sourceLabel: doc.label,
     });
@@ -403,7 +430,7 @@ export function planAmendment(input: PlanInput): AmendmentPlan {
 
   for (const a of adjustments) {
     if (a.side === 'CLIENT' && toCents(a.amount) < 0) {
-      warnings.push(`${formatLkr(a.amount.replace('-', ''))} is owed back to ${a.partyName ?? 'the client'}. It comes off their next invoice - or settle it as a refund from the booking.`);
+      warnings.push(`${formatLkr(a.amount.replace('-', ''))} is owed back to ${a.partyName ?? 'the client'}. It comes off their next invoice (any part bigger than that invoice waits for the one after) - or settle it as a refund from the booking.`);
     }
   }
   return { documents, adjustments, unbilled, warnings };

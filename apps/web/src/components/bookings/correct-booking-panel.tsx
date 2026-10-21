@@ -13,7 +13,7 @@ import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { CaregiverPicker } from '@/components/requests/caregiver-picker';
 import { emptyShiftRates, shiftRatesOf, shiftRatesPayload, shiftRatesValid, ShiftRateFields, type ShiftRateValue } from '@/components/bookings/shift-rate-fields';
 import { cn } from '@/lib/utils';
-import type { AmendBookingInput, AmendShiftStatus, AmendmentDocumentImpact, AmendmentPreview, BookingDetail, BookingShift } from '@/lib/api/types';
+import type { AmendBookingInput, AmendShiftStatus, AmendmentDocumentImpact, AmendmentPreview, BookingDetail, BookingShift, IssueReportView } from '@/lib/api/types';
 
 const MONEY = /^\d{1,8}(\.\d{1,2})?$/;
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError && err.message ? err.message : fallback);
@@ -60,17 +60,55 @@ const startedAt = (local: string, now: number) => {
  * a shift missed off the roster, or the agreed rate itself - preview what that
  * does to every invoice and pay statement, choose how an unpaid issued invoice
  * takes it, and apply. The preview and the apply run the same rules on the API.
+ *
+ * Two other ways in: closing a booking whose upcoming shifts are already
+ * billed (`close` - the correction cancels them and adjusts the documents,
+ * then marks the booking completed or cancelled), and answering a client's or
+ * caregiver's report (`issue` - the report's shift is picked, and applying
+ * resolves the reports ticked here and sends the reply).
  */
-export function CorrectBookingPanel({ booking, onClose }: { booking: BookingDetail; onClose: () => void }) {
+export function CorrectBookingPanel({
+  booking,
+  onClose,
+  close,
+  issue,
+  openReports = [],
+}: {
+  booking: BookingDetail;
+  onClose: () => void;
+  close?: 'COMPLETED' | 'CANCELLED';
+  issue?: IssueReportView;
+  openReports?: IssueReportView[];
+}) {
   const { t, locale } = useTranslation();
   const preview = usePreviewCorrection(booking.id);
   const apply = useApplyCorrection(booking.id);
   const [now] = useState(() => Date.now());
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState(() =>
+    issue ? t('bookings.correct.fromReport', { who: t(`bookings.issues.role.${issue.reporterRole}`), message: issue.message }).slice(0, 500) : '',
+  );
+  const [linked, setLinked] = useState<string[]>(() => (issue ? [issue.id] : []));
+  const [reply, setReply] = useState('');
   const [rateWrong, setRateWrong] = useState(false);
   const [rateAmount, setRateAmount] = useState(booking.rateAmount ?? '');
   const [payRateAmount, setPayRateAmount] = useState(booking.payRateAmount ?? '');
-  const [edits, setEdits] = useState<ShiftEdit[]>([]);
+  const [edits, setEdits] = useState<ShiftEdit[]>(() => {
+    // A report about one shift opens with that shift ready to correct.
+    const s = issue?.shiftId ? booking.shifts.find((x) => x.id === issue.shiftId) : undefined;
+    if (!s || !correctable(s, Date.now())) return [];
+    return [
+      {
+        shiftId: s.id,
+        start: isoToColomboLocal(s.startsAt),
+        end: isoToColomboLocal(s.endsAt),
+        status: '',
+        caregiver: s.caregiver ? { id: s.caregiver.id, fullName: s.caregiver.fullName } : { id: '', fullName: '—' },
+        picking: false,
+        ownRate: Boolean(s.rateType || s.payRateType),
+        rates: shiftRatesOf(s),
+      },
+    ];
+  });
   const [added, setAdded] = useState<AddedShift[]>([]);
   const [choices, setChoices] = useState<Record<string, 'REPLACE' | 'CARRY'>>({});
   const [shown, setShown] = useState<{ key: string; data: AmendmentPreview } | null>(null);
@@ -129,15 +167,18 @@ export function CorrectBookingPanel({ booking, onClose }: { booking: BookingDeta
       ...(addShifts.length ? { addShifts } : {}),
       ...(rateWrong && booking.rateType && rateAmount.trim() !== (booking.rateAmount ?? '') ? { rateAmount: rateAmount.trim() } : {}),
       ...(rateWrong && booking.payRateType && payRateAmount.trim() !== (booking.payRateAmount ?? '') ? { payRateAmount: payRateAmount.trim() } : {}),
+      ...(close ? { close } : {}),
     };
     return input;
     // locksFor and shiftById only read booking, which is in the deps through them.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [edits, added, reason, rateWrong, rateAmount, payRateAmount, booking]);
+  }, [edits, added, reason, rateWrong, rateAmount, payRateAmount, booking, close]);
+  // The reports resolved and the reply change nothing in the preview, so they ride along only on apply.
+  const answer = linked.length ? { issueIds: linked, ...(reply.trim() ? { reply: reply.trim() } : {}) } : {};
 
   const valid =
     reason.trim().length >= 3 &&
-    (edits.length > 0 || added.length > 0 || Boolean(body?.rateAmount || body?.payRateAmount)) &&
+    (edits.length > 0 || added.length > 0 || Boolean(close) || Boolean(body?.rateAmount || body?.payRateAmount)) &&
     edits.every((e) => e.start && e.end && (!e.ownRate || shiftRatesValid(e.rates))) &&
     added.every((a) => a.start && a.end && (!a.ownRate || shiftRatesValid(a.rates))) &&
     (!rateWrong || ((!booking.rateType || MONEY.test(rateAmount.trim())) && (!booking.payRateType || MONEY.test(payRateAmount.trim()))));
@@ -174,9 +215,9 @@ export function CorrectBookingPanel({ booking, onClose }: { booking: BookingDeta
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h2 id="correct-title" className="text-base font-semibold text-ink">
-            {t('bookings.correct.title')}
+            {close ? t(`bookings.correct.closeTitle.${close}`) : t('bookings.correct.title')}
           </h2>
-          <p className="mt-1 max-w-3xl text-sm text-ink/60">{t('bookings.correct.intro')}</p>
+          <p className="mt-1 max-w-3xl text-sm text-ink/60">{close ? t('bookings.correct.closeIntro') : t('bookings.correct.intro')}</p>
         </div>
         <button type="button" onClick={onClose} className="rounded p-1 text-ink/50 hover:bg-paper hover:text-ink" aria-label={t('common.cancel')}>
           <X size={16} />
@@ -186,9 +227,9 @@ export function CorrectBookingPanel({ booking, onClose }: { booking: BookingDeta
       <div className="space-y-4">
         <div>
           <Label htmlFor="correctReason" required>
-            {t('bookings.correct.reason')}
+            {close ? t('bookings.correct.reasonClose') : t('bookings.correct.reason')}
           </Label>
-          <Textarea id="correctReason" rows={2} maxLength={500} placeholder={t('bookings.correct.reasonPlaceholder')} value={reason} onChange={(e) => setReason(e.target.value)} />
+          <Textarea id="correctReason" rows={2} maxLength={500} placeholder={close ? t('bookings.correct.reasonClosePlaceholder') : t('bookings.correct.reasonPlaceholder')} value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
 
         {/* Shifts */}
@@ -337,16 +378,47 @@ export function CorrectBookingPanel({ booking, onClose }: { booking: BookingDeta
           </div>
         )}
 
+        {/* Reports this correction answers */}
+        {openReports.length > 0 && (
+          <fieldset className="rounded border border-accent/30 bg-accent-light/40 p-3">
+            <legend className="px-1 text-sm font-medium text-ink">{t('bookings.correct.reportsTitle')}</legend>
+            <ul className="space-y-1.5">
+              {openReports.map((r) => (
+                <li key={r.id}>
+                  <label className="flex items-start gap-2 text-sm text-ink/80">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-border"
+                      checked={linked.includes(r.id)}
+                      onChange={(e) => setLinked((l) => (e.target.checked ? [...l, r.id] : l.filter((x) => x !== r.id)))}
+                    />
+                    <span>
+                      <span className="font-medium">{t(`bookings.issues.role.${r.reporterRole}`)}</span>
+                      {r.shiftStartsAt && <span className="text-ink/50"> · {fmtDay(r.shiftStartsAt, locale)}</span>} · {t(`bookings.issues.category.${r.category}`)}: {r.message}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            {linked.length > 0 && (
+              <div className="mt-2">
+                <Label htmlFor="correctReply">{t('bookings.correct.reply')}</Label>
+                <Textarea id="correctReply" rows={2} maxLength={500} placeholder={t('bookings.correct.replyPlaceholder')} value={reply} onChange={(e) => setReply(e.target.value)} />
+              </div>
+            )}
+          </fieldset>
+        )}
+
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
           <Button variant="secondary" disabled={!valid || preview.isPending} onClick={() => runPreview()}>
             {preview.isPending ? t('bookings.correct.previewing') : t('bookings.correct.preview')}
           </Button>
           <Button
             disabled={!valid || !fresh || apply.isPending || preview.isPending}
-            onClick={() => body && apply.mutate({ ...body, invoiceActions: choices }, { onSuccess: onClose })}
+            onClick={() => body && apply.mutate({ ...body, invoiceActions: choices, ...answer }, { onSuccess: onClose })}
             title={!fresh ? t('bookings.correct.previewFirst') : undefined}
           >
-            {apply.isPending ? t('bookings.correct.applying') : t('bookings.correct.apply')}
+            {apply.isPending ? t('bookings.correct.applying') : close ? t(`bookings.correct.closeApply.${close}`) : t('bookings.correct.apply')}
           </Button>
           <Button variant="secondary" onClick={onClose}>
             {t('common.cancel')}
@@ -381,8 +453,11 @@ function PreviewView({
     <div className={cn('space-y-4 rounded border border-border bg-paper p-3 transition-opacity', dim && 'opacity-60')} aria-live="polite">
       <div>
         <h3 className="mb-1 text-sm font-semibold text-ink">{t('bookings.correct.changesTitle')}</h3>
+        {preview.close && (
+          <p className="mb-1 text-sm font-medium text-ink">{t(`bookings.correct.closing.${preview.close.status}`, { count: preview.close.upcomingCancelled })}</p>
+        )}
         <ul className="space-y-0.5 text-sm text-ink/80">
-          {preview.changes.map((c, i) => (
+          {preview.changes.filter((c) => !(preview.close && !c.shiftId && !c.date && c.changes[0]?.startsWith('booking '))).map((c, i) => (
             <li key={c.shiftId ?? `b${i}`}>
               {c.date ? <span className="font-medium">{fmtDay(`${c.date}T06:30:00.000Z`, locale)}: </span> : null}
               {c.changes.join('; ')}
@@ -413,6 +488,7 @@ function PreviewView({
                 <span className="text-ink/80">
                   {t(a.side === 'CLIENT' ? 'bookings.correct.adjustmentClient' : 'bookings.correct.adjustmentCaregiver', { name: a.partyName ?? '—' })}
                   <span className="ml-1 text-xs text-ink/50">{a.description}</span>
+                  {a.taxable && <span className="ml-1 text-xs text-ink/50">· {t('bookings.correct.plusTax')}</span>}
                 </span>
                 <span className={cn('tabular-nums font-medium', a.amount.startsWith('-') ? 'text-danger' : 'text-brand-dark')}>{formatLkr(a.amount)}</span>
               </li>

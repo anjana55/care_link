@@ -326,7 +326,9 @@ export const payoutLines = mysqlTable(
  * to that client, or the next statement for that caregiver, as an ADJUSTMENT
  * line.
  *
- * `amount` is signed from that party's side of the document: on CLIENT, more
+ * `amount` is signed from that party's side of the document - for an
+ * invoice, the change in what it came to after its discount and before tax:
+ * on CLIENT, more
  * than zero means the client owes more, less than zero is a credit; on
  * CAREGIVER, more than zero means CareLink owes the caregiver more, less than
  * zero is a deduction.
@@ -359,6 +361,12 @@ export const billingAdjustments = mysqlTable(
     sourceLabel: varchar('source_label', { length: 40 }),
     description: varchar('description', { length: 300 }).notNull(),
     amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+    // CLIENT: whether the invoice it came from was taxed, so the next invoice
+    // taxes the carried amount (at its own rate) only if the original did.
+    taxable: boolean('taxable').notNull().default(true),
+    // Set on the remainder when a credit bigger than the invoice it went onto
+    // was split: the adjustment it was split from.
+    splitFromId: varchar('split_from_id', { length: 36 }),
     status: mysqlEnum('status', billingAdjustmentStatusEnum).notNull().default('OPEN'),
     closedNote: varchar('closed_note', { length: 500 }),
     closedAt: datetime('closed_at'),

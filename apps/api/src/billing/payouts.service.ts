@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomInt, randomUUID as uuid } from 'crypto';
 import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, like, lt, ne, or, sql, type SQL } from 'drizzle-orm';
-import { addDays, colomboToUtc, colomboToday, computeTotals, daysInclusive, isValidDate, type CaregiverPayout } from '@care-platform/shared';
+import { addDays, colomboToUtc, colomboToday, computeTotals, daysInclusive, isValidDate, toCents, type CaregiverPayout } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { billingAdjustments, bookings, bookingShifts, caregivers, payoutLines, payoutStatements, users } from '../database/schema';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -21,6 +21,9 @@ function payoutReference(): string {
   for (let i = 0; i < 6; i++) out += REFERENCE_ALPHABET[randomInt(REFERENCE_ALPHABET.length)];
   return out;
 }
+
+/** What some lines come to, in cents - the room a carried deduction has on the statement. */
+const linesCents = (lines: StoredLine[]) => lines.reduce((s, l) => s + toCents(l.amount), 0);
 
 const isDuplicate = (err: unknown) => {
   const e = err as { code?: string; cause?: { code?: string } };
@@ -250,7 +253,7 @@ export class PayoutsService {
     await this.db.transaction(async (tx) => {
       const t = tx as unknown as Tx;
       const built = await this.linesFor(t, dto.caregiverId, dto.periodStart, dto.periodEnd, 0);
-      const carried = await openAdjustmentLines(t, { side: 'CAREGIVER', partyId: dto.caregiverId, language: 'en', startAt: built.lines.length });
+      const carried = await openAdjustmentLines(t, { side: 'CAREGIVER', partyId: dto.caregiverId, language: 'en', startAt: built.lines.length, baseCents: linesCents(built.lines) });
       generated = { added: built.lines.length, skipped: built.skipped, unpriced: built.unpriced };
       await this.insertStatement(t, { id, caregiverId: dto.caregiverId, periodStart: dto.periodStart, periodEnd: dto.periodEnd, createdByUserId: actor.userId });
       await this.insertLines(t, id, [...built.lines, ...carried]);
@@ -290,7 +293,7 @@ export class PayoutsService {
         // One pay run at a time per caregiver: the caregiver row is the lock.
         await t.execute(sql`SELECT id FROM caregivers WHERE id = ${caregiverId} FOR UPDATE`);
         const built = await this.linesFor(t, caregiverId, dto.periodStart, dto.periodEnd, 0);
-        const carried = await openAdjustmentLines(t, { side: 'CAREGIVER', partyId: caregiverId, language: 'en', startAt: built.lines.length });
+        const carried = await openAdjustmentLines(t, { side: 'CAREGIVER', partyId: caregiverId, language: 'en', startAt: built.lines.length, baseCents: linesCents(built.lines) });
         if (!built.lines.length && !carried.length) return;
         const id = uuid();
         await this.insertStatement(t, { id, caregiverId, periodStart: dto.periodStart, periodEnd: dto.periodEnd, createdByUserId: actor.userId });
@@ -331,7 +334,13 @@ export class PayoutsService {
       const p = await this.draftOrThrow(id, t, true);
       const [{ maxPos }] = await tx.select({ maxPos: sql<number>`COALESCE(MAX(${payoutLines.position}), -1)` }).from(payoutLines).where(eq(payoutLines.statementId, id));
       const built = await this.linesFor(t, p.caregiverId, p.periodStart, p.periodEnd, Number(maxPos) + 1);
-      const carried = await openAdjustmentLines(t, { side: 'CAREGIVER', partyId: p.caregiverId, language: 'en', startAt: Number(maxPos) + 1 + built.lines.length });
+      const carried = await openAdjustmentLines(t, {
+        side: 'CAREGIVER',
+        partyId: p.caregiverId,
+        language: 'en',
+        startAt: Number(maxPos) + 1 + built.lines.length,
+        baseCents: linesCents((await tx.select().from(payoutLines).where(eq(payoutLines.statementId, id))) as StoredLine[]) + linesCents(built.lines),
+      });
       generated = { added: built.lines.length, skipped: built.skipped, unpriced: built.unpriced };
       await this.insertLines(t, id, [...built.lines, ...carried]);
       await this.recalc(t, id);

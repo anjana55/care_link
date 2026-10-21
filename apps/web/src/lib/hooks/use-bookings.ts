@@ -8,6 +8,7 @@ import type {
   BillingAdjustmentView,
   BookingCorrections,
   BookingDetail,
+  IssueReportView,
   BookingListResponse,
   BookingStatus,
   BookingSummary,
@@ -23,6 +24,8 @@ export interface BookingFilters {
   patientId?: string;
   caregiverId?: string;
   careRequestId?: string;
+  /** Only bookings with a client or caregiver report waiting for staff. */
+  hasOpenIssues?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -121,6 +124,7 @@ export function useApplyCorrection(id: string) {
       queryClient.setQueryData(['bookings', 'detail', id], detail);
       queryClient.invalidateQueries({ queryKey: ['bookings', 'corrections', id] });
       queryClient.invalidateQueries({ queryKey: ['bookings', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['bookings', 'summary'] });
       // Invoices and pay statements may have been refreshed, replaced or noted.
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['payouts'] });
@@ -135,5 +139,19 @@ export function useCloseAdjustment(bookingId: string) {
     mutationFn: ({ id, outcome, reason }: { id: string; outcome: 'settle' | 'cancel'; reason: string }) =>
       api.post<BillingAdjustmentView>(`/billing-adjustments/${id}/${outcome}`, { reason }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bookings', 'corrections', bookingId] }),
+  });
+}
+
+/** Answer a client's or caregiver's report without a correction: resolved another way, or nothing to change. */
+export function useCloseIssueReport(bookingId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, note }: { id: string; status: 'RESOLVED' | 'DISMISSED'; note: string }) => api.post<IssueReportView>(`/booking-issues/${id}/close`, { status, note }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings', 'corrections', bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['bookings', 'detail', bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['bookings', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['bookings', 'summary'] });
+    },
   });
 }

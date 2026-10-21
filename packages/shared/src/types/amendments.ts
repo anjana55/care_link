@@ -60,6 +60,16 @@ export interface AmendBookingInput {
   addShifts?: AmendAddShiftInput[];
   /** Apply only: invoice id -> REPLACE or CARRY, for issued invoices with nothing paid. Defaults to REPLACE. */
   invoiceActions?: Record<string, 'REPLACE' | 'CARRY'>;
+  /**
+   * Close a confirmed booking as part of the correction: its upcoming
+   * scheduled shifts are cancelled - and any invoice or pay statement that
+   * already bills them is adjusted - then it is marked completed or cancelled.
+   */
+  close?: 'COMPLETED' | 'CANCELLED';
+  /** Open issue reports on this booking that the correction answers; applying resolves them. */
+  issueIds?: string[];
+  /** With issueIds: the answer sent to whoever reported them. */
+  reply?: string;
 }
 
 export interface AmendmentLineChange {
@@ -79,7 +89,7 @@ export interface AmendmentDocumentImpact {
   status: string;
   /** The client or caregiver it is for. */
   partyName: string | null;
-  /** What the affected lines come to, before and after (line amounts, before any invoice discount or tax). */
+  /** What the whole document comes to before and after (with its own discount and tax). */
   before: string;
   after: string;
   difference: string;
@@ -92,7 +102,9 @@ export interface AmendmentDocumentImpact {
 export interface AmendmentAdjustmentPreview {
   side: 'CLIENT' | 'CAREGIVER';
   partyName: string | null;
+  /** For an invoice: after its discount, before tax - the next invoice adds tax if this one was taxed. */
   amount: string;
+  taxable: boolean;
   description: string;
   sourceLabel: string | null;
 }
@@ -110,6 +122,8 @@ export interface AmendmentPreview {
   /** Shifts that will need billing / paying and are on no document yet. */
   unbilled: { client: string[]; pay: string[] };
   warnings: string[];
+  /** When the correction also closes the booking: how, and how many upcoming shifts that cancels. */
+  close?: { status: 'COMPLETED' | 'CANCELLED'; upcomingCancelled: number };
 }
 
 /** What a correction did, as stored and shown in the booking's history. */
@@ -117,6 +131,8 @@ export interface BookingAmendmentSummary {
   changes: AmendmentShiftChange[];
   documents: { kind: 'INVOICE' | 'PAYOUT'; id: string; label: string | null; action: AmendmentDocumentAction; difference: string; replacementId?: string }[];
   adjustments: { id: string; side: 'CLIENT' | 'CAREGIVER'; amount: string; partyName: string | null }[];
+  /** Issue reports this correction resolved. */
+  issueIds?: string[];
 }
 
 export type BillingAdjustmentStatus = 'OPEN' | 'APPLIED' | 'SETTLED' | 'CANCELLED';
@@ -143,4 +159,45 @@ export interface BookingAmendmentView {
   summary: BookingAmendmentSummary;
   actor: { id: string; fullName: string } | null;
   createdAt: string;
+}
+
+// --- issue reports: clients and caregivers flagging a problem -------------------------
+
+export type IssueReportCategory = 'TIMES' | 'DID_NOT_HAPPEN' | 'WRONG_CAREGIVER' | 'CHARGE' | 'PAY' | 'OTHER';
+export type IssueReportStatus = 'OPEN' | 'RESOLVED' | 'DISMISSED';
+/** What a client may report (pay is the caregiver's business), and what a caregiver may. */
+export const CLIENT_ISSUE_CATEGORIES: IssueReportCategory[] = ['TIMES', 'DID_NOT_HAPPEN', 'WRONG_CAREGIVER', 'CHARGE', 'OTHER'];
+export const CAREGIVER_ISSUE_CATEGORIES: IssueReportCategory[] = ['TIMES', 'DID_NOT_HAPPEN', 'PAY', 'OTHER'];
+export const MAX_ISSUE_MESSAGE = 1000;
+
+/** POST /me/bookings/:id/issues (client) and POST /me/shifts/:id/issues (caregiver). */
+export interface CreateIssueReportBody {
+  category: IssueReportCategory;
+  message: string;
+  /** Client only: the shift it is about, if it is about one. */
+  shiftId?: string;
+}
+
+/** A report as its reporter sees it (GET /me/issues). */
+export interface MyIssueReport {
+  id: string;
+  bookingId: string;
+  bookingReference: string;
+  shiftId: string | null;
+  shiftStartsAt: string | null;
+  category: IssueReportCategory;
+  message: string;
+  status: IssueReportStatus;
+  /** Staff's answer, once closed. */
+  resolutionNote: string | null;
+  createdAt: string;
+  closedAt: string | null;
+}
+
+/** A report as staff see it on the booking. */
+export interface IssueReportView extends MyIssueReport {
+  reporterRole: 'CLIENT' | 'CAREGIVER';
+  reporterName: string | null;
+  amendmentId: string | null;
+  closedBy: { id: string; fullName: string } | null;
 }

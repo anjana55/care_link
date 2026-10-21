@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, Search } from 'lucide-react';
+import { CalendarPlus, MessageSquareWarning, Search } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { useBookings, useBookingSummary } from '@/lib/hooks/use-bookings';
@@ -15,14 +15,16 @@ import { cn } from '@/lib/utils';
 import type { BookingStatus } from '@/lib/api/types';
 import { useInitialParam } from '@/lib/use-initial-param';
 
-const TABS: (BookingStatus | 'all')[] = ['CONFIRMED', 'DRAFT', 'COMPLETED', 'CANCELLED', 'all'];
+/** 'issues': bookings a client or caregiver has reported a problem on that staff have not answered. */
+type Tab = BookingStatus | 'all' | 'issues';
+const TABS: Tab[] = ['CONFIRMED', 'DRAFT', 'COMPLETED', 'CANCELLED', 'all', 'issues'];
 
 /** Every booking, active ones first. ADMIN and STAFF. */
 export default function BookingsPage() {
   const { t, locale } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<BookingStatus | 'all'>('CONFIRMED');
+  const [tab, setTab] = useState<Tab>('CONFIRMED');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   useInitialParam('tab', [...TABS], setTab);
@@ -33,7 +35,10 @@ export default function BookingsPage() {
   }, [authLoading, user, allowed, router]);
 
   const { data: summary } = useBookingSummary(allowed);
-  const { data, isLoading } = useBookings({ status: tab === 'all' ? undefined : tab, search: search.trim() || undefined, page, pageSize: 20 }, allowed);
+  const { data, isLoading } = useBookings(
+    { status: tab === 'all' || tab === 'issues' ? undefined : tab, hasOpenIssues: tab === 'issues' || undefined, search: search.trim() || undefined, page, pageSize: 20 },
+    allowed,
+  );
 
   if (authLoading || !allowed) return <div className="flex min-h-[40vh] items-center justify-center text-sm text-ink/50">{t('common.loading')}</div>;
 
@@ -64,7 +69,8 @@ export default function BookingsPage() {
             )}
           >
             {t(`bookings.tabs.${key}`)}
-            {summary && key !== 'all' && <span className="rounded-full bg-paper px-1.5 text-xs tabular-nums text-ink/60">{summary.byStatus[key]}</span>}
+            {summary && key !== 'all' && key !== 'issues' && <span className="rounded-full bg-paper px-1.5 text-xs tabular-nums text-ink/60">{summary.byStatus[key]}</span>}
+            {summary && key === 'issues' && summary.openIssues > 0 && <span className="rounded-full bg-accent-light px-1.5 text-xs tabular-nums text-accent">{summary.openIssues}</span>}
           </button>
         ))}
       </div>
@@ -112,6 +118,12 @@ export default function BookingsPage() {
                   <Link href={`/bookings/${b.id}`} className="font-medium tabular-nums text-brand-dark hover:underline">
                     {b.reference}
                   </Link>
+                  {b.openIssues > 0 && (
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-accent-light px-1.5 py-0.5 text-xs text-accent" title={t('bookings.issues.openCount', { count: b.openIssues })}>
+                      <MessageSquareWarning size={12} aria-hidden />
+                      {b.openIssues}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <div className="text-ink">{b.clientName}</div>

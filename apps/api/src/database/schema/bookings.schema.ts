@@ -159,6 +159,8 @@ export const bookingEventTypeEnum = [
   'COMPLETED',
   'CANCELLED',
   'AMENDED',
+  'ISSUE_REPORTED',
+  'ISSUE_CLOSED',
 ] as const;
 export type BookingEventType = (typeof bookingEventTypeEnum)[number];
 
@@ -199,5 +201,49 @@ export const bookingAmendments = mysqlTable(
   },
   (table) => ({
     bookingIdx: index('booking_amendments_booking_idx').on(table.bookingId, table.createdAt),
+  }),
+);
+
+/**
+ * A client or caregiver saying something on a booking is wrong - "the shift
+ * on Tuesday ran until 7", "I was charged for a day she didn't come". They
+ * cannot change the record themselves: the report goes to staff, who either
+ * correct the booking (which resolves the report, linking the correction) or
+ * close it with a note. The reporter is told either way.
+ *
+ * - OPEN       waiting for staff.
+ * - RESOLVED   a correction was made, or staff fixed it another way.
+ * - DISMISSED  nothing needed changing; the note says why.
+ */
+export const issueReportCategoryEnum = ['TIMES', 'DID_NOT_HAPPEN', 'WRONG_CAREGIVER', 'CHARGE', 'PAY', 'OTHER'] as const;
+export const issueReportStatusEnum = ['OPEN', 'RESOLVED', 'DISMISSED'] as const;
+export type IssueReportCategory = (typeof issueReportCategoryEnum)[number];
+
+export const bookingIssueReports = mysqlTable(
+  'booking_issue_reports',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    bookingId: varchar('booking_id', { length: 36 }).notNull(),
+    // The shift it is about, when it is about one.
+    shiftId: varchar('shift_id', { length: 36 }),
+    reporterUserId: varchar('reporter_user_id', { length: 36 }).notNull(),
+    reporterRole: mysqlEnum('reporter_role', ['CLIENT', 'CAREGIVER']).notNull(),
+    // The caregiver who reported, so their notices and listing need no join through users.
+    caregiverId: varchar('caregiver_id', { length: 36 }),
+    category: mysqlEnum('category', issueReportCategoryEnum).notNull(),
+    message: text('message').notNull(),
+    // The language the reporter used the site in - their notices go out in it.
+    language: mysqlEnum('language', careRequestLanguageEnum).notNull().default('en'),
+    status: mysqlEnum('status', issueReportStatusEnum).notNull().default('OPEN'),
+    resolutionNote: varchar('resolution_note', { length: 500 }),
+    amendmentId: varchar('amendment_id', { length: 36 }),
+    closedByUserId: varchar('closed_by_user_id', { length: 36 }),
+    closedAt: datetime('closed_at'),
+    createdAt: datetime('created_at', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => ({
+    bookingIdx: index('booking_issue_reports_booking_idx').on(table.bookingId, table.status),
+    reporterIdx: index('booking_issue_reports_reporter_idx').on(table.reporterUserId, table.createdAt),
+    statusIdx: index('booking_issue_reports_status_idx').on(table.status, table.createdAt),
   }),
 );
