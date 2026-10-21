@@ -17,6 +17,7 @@ import type {
   PagedCities,
   Qualification,
   CaregiverSignInMethods,
+  ChangeCaregiverContactRequest,
   ResetSignInRequest,
   IssuedClaimCode,
 } from '../api/types';
@@ -411,6 +412,24 @@ export function useResetCaregiverSignIn(id: string) {
     mutationFn: (body: ResetSignInRequest) => api.post<CaregiverSignInMethods>(`/caregivers/${id}/sign-in/reset`, body),
     onSuccess: (methods) => {
       queryClient.setQueryData(['caregiver-sign-in', id], methods);
+      queryClient.invalidateQueries({ queryKey: ['audit', id] });
+    },
+  });
+}
+
+/**
+ * Corrects the email address / phone number. Staff while the account is not
+ * secured yet, admins always. Codes and links sent to the old details stop working.
+ */
+export function useChangeCaregiverContact(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ChangeCaregiverContactRequest) =>
+      api.post<CaregiverSignInMethods & { verificationSent: boolean }>(`/caregivers/${id}/sign-in/contact`, body),
+    onSuccess: (methods) => {
+      queryClient.setQueryData(['caregiver-sign-in', id], methods);
+      queryClient.invalidateQueries({ queryKey: ['caregiver', id] });
+      queryClient.invalidateQueries({ queryKey: ['caregivers'] });
       queryClient.invalidateQueries({ queryKey: ['audit', id] });
     },
   });

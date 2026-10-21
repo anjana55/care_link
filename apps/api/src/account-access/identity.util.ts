@@ -118,6 +118,8 @@ export interface SignInMethods {
   isActive: boolean;
   email: string | null;
   emailVerified: boolean;
+  /** The phone on the caregiver record - where claim codes go by WhatsApp. */
+  contactPhone: string | null;
   phone: string | null;
   phoneVerified: boolean;
   hasPassword: boolean;

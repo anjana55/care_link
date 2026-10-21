@@ -18,6 +18,8 @@ interface RegistrationGateProps {
   caregiverPublicId?: string;
   /** Where to bring the visitor back to once they are signed in (usually this page). */
   returnTo?: string;
+  /** They were signed in a moment ago and the session ended: lead with signing in again. */
+  sessionEnded?: boolean;
 }
 
 /**
@@ -28,7 +30,7 @@ interface RegistrationGateProps {
  * WhatsApp, which verifies their number in one code and needs no password.
  * Whichever way they go, they come back here with the request dialog open.
  */
-export function RegistrationGate({ open, onClose, caregiverPublicId, returnTo }: RegistrationGateProps) {
+export function RegistrationGate({ open, onClose, caregiverPublicId, returnTo, sessionEnded = false }: RegistrationGateProps) {
   const { t } = useTranslation();
   const { data: whatsapp } = useWhatsappConfig();
   const [search, setSearch] = useState<SearchContext | null>(null);
@@ -58,6 +60,42 @@ export function RegistrationGate({ open, onClose, caregiverPublicId, returnTo }:
   const whatsappLogin = Boolean(whatsapp?.customer.login);
   const primary = 'flex w-full items-center justify-center gap-2 rounded-DEFAULT bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark';
   const secondary = 'flex w-full items-center justify-center gap-2 rounded-DEFAULT border border-border px-4 py-2.5 text-sm font-medium text-ink hover:bg-paper';
+
+  if (sessionEnded) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="registration-gate-title"
+        onClick={onClose}
+      >
+        <div className="w-full max-w-md rounded-t-lg bg-white p-6 shadow-xl sm:rounded-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-start justify-between gap-3">
+            <h2 id="registration-gate-title" className="text-lg font-semibold text-ink">
+              {t('registrationGate.sessionEndedTitle')}
+            </h2>
+            <button type="button" onClick={onClose} aria-label={t('registrationGate.cancel')} className="rounded p-1 text-ink/50 hover:bg-paper hover:text-ink">
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+          </div>
+          <p className="mt-2 text-sm text-ink/70">{t('registrationGate.sessionEndedBody')}</p>
+          <div className="mt-5 space-y-2">
+            <Link href="/login" onClick={leave} className={primary}>
+              <Mail className="h-4 w-4" aria-hidden />
+              {t('registrationGate.signIn')}
+            </Link>
+            {whatsappLogin && (
+              <Link href="/login/whatsapp" onClick={leave} className={secondary}>
+                <MessageCircle className="h-4 w-4" aria-hidden />
+                {t('registrationGate.signInWhatsapp')}
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

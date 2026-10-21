@@ -234,7 +234,15 @@ export class AuthService {
     await assertNoWhatsappLoginForPhone(this.db, normalizePhone(rawPhone, defaultCountryCode));
   }
 
-  async verifyEmail(token: string) {
+  /**
+   * Verifies the address and signs the person in. A link that was already used
+   * - opened twice, or opened first by an email security scanner, which many
+   * mail providers do with every link - is not an error when the address is
+   * verified: the answer says so (and who it was for, so the page can point at
+   * the right sign-in) without signing anyone in, since a used link must never
+   * be able to mint a session.
+   */
+  async verifyEmail(token: string): Promise<{ accessToken: string; refreshToken: string } | { alreadyVerified: true; role: UserRole }> {
     const tokenHash = this.hashToken(token);
     const [record] = await this.db
       .select()
@@ -242,6 +250,14 @@ export class AuthService {
       .where(eq(emailVerificationTokens.tokenHash, tokenHash))
       .limit(1);
 
+    if (record?.usedAt) {
+      const [owner] = await this.db
+        .select({ role: users.role, emailVerifiedAt: users.emailVerifiedAt, isActive: users.isActive })
+        .from(users)
+        .where(eq(users.id, record.userId))
+        .limit(1);
+      if (owner?.isActive && owner.emailVerifiedAt) return { alreadyVerified: true, role: owner.role };
+    }
     if (!record || record.usedAt || record.expiresAt < new Date()) {
       throw new UnauthorizedException('This verification link is invalid or has expired');
     }
@@ -265,17 +281,29 @@ export class AuthService {
     // Deliberately generic response either way - confirming or denying an
     // email's existence to an anonymous caller is its own small leak.
     if (user && SELF_REGISTERED_ROLES.includes(user.role) && !user.emailVerifiedAt) {
-      const token = randomBytes(32).toString('hex');
-      await this.db.insert(emailVerificationTokens).values({
-        id: uuid(),
-        userId: user.id,
-        tokenHash: this.hashToken(token),
-        expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
-      });
-      void this.emailService.sendVerificationEmail(email, `${this.frontendUrl(user.role)}/verify-email?token=${token}`, user.role as 'CAREGIVER' | 'PATIENT_GUARDIAN');
+      await this.sendVerificationLink(user.id);
     }
 
     return { message: 'If an account with this email exists and is not yet verified, a new verification link has been sent.' };
+  }
+
+  /**
+   * A fresh verification link to the address now on the login - after a
+   * resend request, or after staff corrected a mistyped address. Earlier links
+   * keep working until they expire; whichever is used first verifies.
+   */
+  async sendVerificationLink(userId: string): Promise<boolean> {
+    const [user] = await this.db.select({ email: users.email, role: users.role }).from(users).where(eq(users.id, userId)).limit(1);
+    if (!user?.email || !SELF_REGISTERED_ROLES.includes(user.role)) return false;
+    const token = randomBytes(32).toString('hex');
+    await this.db.insert(emailVerificationTokens).values({
+      id: uuid(),
+      userId,
+      tokenHash: this.hashToken(token),
+      expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
+    });
+    void this.emailService.sendVerificationEmail(user.email, `${this.frontendUrl(user.role)}/verify-email?token=${token}`, user.role as 'CAREGIVER' | 'PATIENT_GUARDIAN');
+    return true;
   }
 
   async refresh(refreshToken: string) {
@@ -433,18 +461,16 @@ export class AuthService {
   }
 
   /**
-   * There are two distinct frontends, on different origins: the staff/
-   * caregiver app (apps/web) and the public patient/guardian app
-   * (apps/public-web). Verification links must point at whichever one the
-   * registering role actually uses, so this is role-aware rather than
-   * reading the first CORS_ORIGIN entry (which only happens to be correct
-   * for CAREGIVER).
+   * Where verification links point. Both roles that verify an email -
+   * caregivers and clients - sign in and work on the public site
+   * (apps/public-web): the caregiver area is /caregiver/... there. Caregiver
+   * links used to point at the staff app (CAREGIVER_WEB_URL, /staff), which
+   * verified the address but then signed the caregiver into the staff app's
+   * old caregiver shell, leaving them signed out on the site they actually
+   * use. The staff app's /verify-email now forwards old links here too.
    */
-  private frontendUrl(role: UserRole): string {
-    if (role === 'PATIENT_GUARDIAN') {
-      return this.config.get<string>('PUBLIC_WEB_URL') ?? 'http://localhost:3002';
-    }
-    return this.config.get<string>('CAREGIVER_WEB_URL') ?? 'http://localhost:3000';
+  private frontendUrl(_role: UserRole): string {
+    return (this.config.get<string>('PUBLIC_WEB_URL') ?? 'http://localhost:3002').replace(/\/+$/, '');
   }
 
 }

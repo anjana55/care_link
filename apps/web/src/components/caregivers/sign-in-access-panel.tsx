@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { ApiError } from '@/lib/api/client';
-import { useCaregiverSignIn, useIssueClaimCode, useResetCaregiverSignIn } from '@/lib/hooks/use-caregivers';
+import { useCaregiverSignIn, useChangeCaregiverContact, useIssueClaimCode, useResetCaregiverSignIn } from '@/lib/hooks/use-caregivers';
 import type { CaregiverSignInMethods, IssuedClaimCode, ResetSignInRequest, SocialProviderName } from '@/lib/api/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FieldError } from '@/components/ui/input';
+import { FieldError, Input, Label } from '@/components/ui/input';
 
 const PROVIDER_NAMES: Record<SocialProviderName, string> = { GOOGLE: 'Google', MICROSOFT: 'Microsoft', FACEBOOK: 'Facebook' };
 
@@ -47,6 +47,8 @@ export function SignInAccessPanel({
   const [issued, setIssued] = useState<IssuedClaimCode | null>(null);
   const [issueError, setIssueError] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contactNotice, setContactNotice] = useState<string | null>(null);
 
   if (isLoading || !methods) {
     return <p className="text-sm text-ink/50">{t('common.loading')}</p>;
@@ -111,17 +113,41 @@ export function SignInAccessPanel({
               />
             </div>
           )}
+          {methods.contactPhone && methods.contactPhone !== methods.phone && (
+            <p className="mt-4 text-xs text-ink/50">
+              {t('caregivers.signIn.contactPhone')} <span className="font-medium text-ink">{methods.contactPhone}</span>
+            </p>
+          )}
           {methods.lastLoginAt && (
             <p className="mt-4 text-xs text-ink/50">
               {t('caregivers.signIn.lastSignIn')} {formatDate(methods.lastLoginAt)}
             </p>
           )}
-          {canReset && methods.hasAccount && (
-            <div className="mt-5 border-t border-border pt-4">
-              <Button variant="secondary" size="sm" onClick={() => setResetOpen(true)}>
-                {t('caregivers.signIn.resetButton')}
+          {/* Staff may correct an account not secured yet (an abandoned
+              registration); one that already signs in is for admins. */}
+          {(canReset || methods.claimable) && (
+            <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-4">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setContactNotice(null);
+                  setContactOpen(true);
+                }}
+              >
+                {t('caregivers.signIn.changeContactButton')}
               </Button>
+              {canReset && methods.hasAccount && (
+                <Button variant="secondary" size="sm" onClick={() => setResetOpen(true)}>
+                  {t('caregivers.signIn.resetButton')}
+                </Button>
+              )}
             </div>
+          )}
+          {contactNotice && (
+            <p role="status" className="mt-3 text-sm text-brand-dark">
+              {contactNotice}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -171,6 +197,20 @@ export function SignInAccessPanel({
             )}
           </CardContent>
         </Card>
+      )}
+
+      {contactOpen && (
+        <ChangeContactModal
+          caregiverId={caregiverId}
+          methods={methods}
+          onClose={() => setContactOpen(false)}
+          onDone={(notice) => {
+            setContactOpen(false);
+            setContactNotice(notice);
+            // A code shown before the change may have been meant for the old details.
+            setIssued(null);
+          }}
+        />
       )}
 
       {resetOpen && (
@@ -270,6 +310,88 @@ function ResetSignInModal({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Correct a caregiver's email address and/or phone number - typically a typo
+ * made at registration that stopped the claim code or verification link from
+ * reaching them, or stopped Google/Microsoft/Facebook from linking (the
+ * provider's email must match this one). Unlike a reset this doesn't sign the
+ * caregiver out; it changes where they are reached, and they verify the new
+ * detail.
+ */
+function ChangeContactModal({
+  caregiverId,
+  methods,
+  onClose,
+  onDone,
+}: {
+  caregiverId: string;
+  methods: CaregiverSignInMethods;
+  onClose: () => void;
+  onDone: (notice: string) => void;
+}) {
+  const { t } = useTranslation();
+  const change = useChangeCaregiverContact(caregiverId);
+  const currentPhone = methods.contactPhone ?? methods.phone ?? '';
+  const [email, setEmail] = useState(methods.email ?? '');
+  const [phone, setPhone] = useState(currentPhone);
+  const [error, setError] = useState<string | null>(null);
+
+  const emailChanged = email.trim() !== '' && email.trim().toLowerCase() !== (methods.email ?? '').toLowerCase();
+  const phoneChanged = phone.trim() !== '' && phone.trim() !== currentPhone;
+
+  const submit = () => {
+    setError(null);
+    change.mutate(
+      { ...(emailChanged ? { email: email.trim() } : {}), ...(phoneChanged ? { phone: phone.trim() } : {}) },
+      {
+        onSuccess: (res) => onDone(res.verificationSent ? t('caregivers.signIn.contactChangedLinkSent') : t('caregivers.signIn.contactChanged')),
+        onError: (err) => setError(err instanceof ApiError ? err.message : t('caregivers.signIn.contactError')),
+      },
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true" aria-labelledby="change-contact-title">
+      <form
+        className="w-full max-w-md rounded-lg border border-border bg-white p-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if ((emailChanged || phoneChanged) && !change.isPending) submit();
+        }}
+      >
+        <h3 id="change-contact-title" className="mb-1 text-base font-semibold text-ink">
+          {t('caregivers.signIn.changeContactTitle')}
+        </h3>
+        <p className="mb-4 text-sm text-ink/60">{t('caregivers.signIn.changeContactBody')}</p>
+
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="change-contact-email">{t('caregivers.signIn.email')}</Label>
+            <Input id="change-contact-email" type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />
+            {methods.providers.length > 0 && <p className="mt-1 text-xs text-ink/50">{t('caregivers.signIn.changeEmailProviderHint')}</p>}
+          </div>
+          <div>
+            <Label htmlFor="change-contact-phone">{t('caregivers.signIn.phone')}</Label>
+            <Input id="change-contact-phone" type="tel" autoComplete="off" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+        </div>
+
+        <p className="mt-4 text-xs text-ink/50">{t('caregivers.signIn.changeContactNote')}</p>
+        <FieldError message={error ?? undefined} />
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="submit" size="sm" disabled={!(emailChanged || phoneChanged) || change.isPending}>
+            {t('caregivers.signIn.changeContactConfirm')}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

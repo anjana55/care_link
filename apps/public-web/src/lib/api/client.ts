@@ -24,8 +24,12 @@ export interface Tokens {
 
 export function getStoredTokens(): Tokens | null {
   if (typeof window === 'undefined') return null;
-  const raw = window.localStorage.getItem(TOKEN_KEY);
-  return raw ? (JSON.parse(raw) as Tokens) : null;
+  try {
+    const raw = window.localStorage.getItem(TOKEN_KEY);
+    return raw ? (JSON.parse(raw) as Tokens) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function storeTokens(tokens: Tokens) {
@@ -63,21 +67,74 @@ export class ApiError extends Error {
 
 let refreshPromise: Promise<Tokens | null> | null = null;
 
+/**
+ * Fired when the session is over - the refresh token was refused (expired
+ * after 7 days, revoked by signing out elsewhere or by staff). AuthProvider
+ * listens and signs the visitor out, so pages stop showing them as signed in
+ * and offer sign-in instead. Before this, the page kept showing them signed
+ * in from the stored (dead) tokens, and every action failed with a bare
+ * "Unauthorized".
+ */
+export const SESSION_EXPIRED_EVENT = 'care-platform:session-expired';
+
+const SESSION_EXPIRED_MESSAGE: Record<string, string> = {
+  en: 'Your session has expired. Please sign in again.',
+  si: 'ඔබගේ සැසිය කල් ඉකුත් වී ඇත. කරුණාකර නැවත පුරනය වන්න.',
+  ta: 'உங்கள் அமர்வு காலாவதியாகிவிட்டது. மீண்டும் உள்நுழையவும்.',
+};
+
+/**
+ * A request was refused because the visitor's session has ended. An ApiError
+ * (401), so every screen that shows an API error shows this message - in the
+ * visitor's language - instead of "Unauthorized".
+ */
+export class SessionExpiredError extends ApiError {
+  constructor() {
+    super(401, SESSION_EXPIRED_MESSAGE[currentLanguage()] ?? SESSION_EXPIRED_MESSAGE.en);
+  }
+}
+
+/**
+ * Trades the stored refresh token for a new pair. Returns null when there is
+ * no session to refresh any more.
+ *
+ * Refresh tokens are single use, so two tabs refreshing at once race: the
+ * second is refused because the first already rotated the token. A refused
+ * refresh therefore looks at storage again before giving up - if another tab
+ * has stored a newer pair, that pair is used and the session goes on.
+ */
 async function refreshStoredTokens(): Promise<Tokens | null> {
   const current = getStoredTokens();
   if (!current) return null;
-  const res = await fetch(`${API_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken: current.refreshToken }),
-  });
-  if (!res.ok) {
-    clearTokens();
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept-Language': currentLanguage() },
+      body: JSON.stringify({ refreshToken: current.refreshToken }),
+    });
+  } catch {
+    // Offline or the API is unreachable: the session may be fine, keep it.
     return null;
   }
-  const tokens = (await res.json()) as Tokens;
-  storeTokens(tokens);
-  return tokens;
+  if (res.ok) {
+    const tokens = (await res.json()) as Tokens;
+    storeTokens(tokens);
+    return tokens;
+  }
+  const latest = getStoredTokens();
+  if (latest && latest.refreshToken !== current.refreshToken) return latest;
+  if (res.status === 401 || res.status === 403) {
+    clearTokens();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
+  return null;
+}
+
+/** Refreshes once for every caller waiting at the same time. */
+export function refreshSession(): Promise<Tokens | null> {
+  if (!refreshPromise) refreshPromise = refreshStoredTokens().finally(() => (refreshPromise = null));
+  return refreshPromise;
 }
 
 export interface RequestOptions {
@@ -132,10 +189,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   let res = await doFetch(tokens?.accessToken);
 
   if (res.status === 401 && tokens) {
-    if (!refreshPromise) refreshPromise = refreshStoredTokens().finally(() => (refreshPromise = null));
-    const refreshed = await refreshPromise;
+    const refreshed = await refreshSession();
     if (refreshed) {
       res = await doFetch(refreshed.accessToken);
+    } else if (!getStoredTokens()) {
+      // The session is over: say so, rather than the API's bare "Unauthorized".
+      throw new SessionExpiredError();
     }
   }
 
@@ -179,9 +238,9 @@ export async function fetchBlob(path: string): Promise<Blob> {
   const tokens = getStoredTokens();
   let res = await send(tokens?.accessToken);
   if (res.status === 401 && tokens) {
-    if (!refreshPromise) refreshPromise = refreshStoredTokens().finally(() => (refreshPromise = null));
-    const refreshed = await refreshPromise;
+    const refreshed = await refreshSession();
     if (refreshed) res = await send(refreshed.accessToken);
+    else if (!getStoredTokens()) throw new SessionExpiredError();
   }
   if (!res.ok) throw new ApiError(res.status, res.statusText);
   return res.blob();
