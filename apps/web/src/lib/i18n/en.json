@@ -1003,7 +1003,8 @@
     "billing": "Billing",
     "branding": "Branding",
     "subtitleStaff": "Reference data used across the app. Only administrators can change it.",
-    "ai": "AI"
+    "ai": "AI",
+    "ads": "Ads"
   },
   "brandingAdmin": {
     "companyTitle": "Company",
@@ -2019,6 +2020,42 @@
     "copy": "Copy",
     "copied": "Copied",
     "saved": "Saved."
+  },
+  "adsAdmin": {
+    "title": "Google AdSense",
+    "subtitle": "Show Google ads on the public {brand} website to earn from its visitors. Changes apply on the next page load, with no restart.",
+    "statusLive": "Ads are on: Google ads are shown on the public landing page, search and caregiver profiles.",
+    "statusOff": "Ads are off. No ad code is loaded anywhere on the site.",
+    "accountTitle": "AdSense account",
+    "publisherId": "Publisher ID",
+    "publisherIdHint": "In AdSense under Account > Account information, e.g. ca-pub-0123456789012345. You can also paste the whole AdSense code snippet.",
+    "publisherIdInvalid": "That is not an AdSense publisher ID. It looks like ca-pub- followed by 16 digits.",
+    "enabled": "Show ads on the public website",
+    "enabledHint": "Loads the AdSense code on public pages. Turn on Auto ads for this site in AdSense to let Google place ads automatically.",
+    "enabledNeedsId": "Enter your publisher ID before switching ads on.",
+    "unitsTitle": "Ad units (optional)",
+    "unitsHint": "To put an ad in a fixed spot, create a display ad unit in AdSense and paste its data-ad-slot number here. Leave a field empty for no ad in that spot.",
+    "slot": {
+      "home": "Landing page",
+      "search": "Below search results",
+      "profile": "Caregiver profile"
+    },
+    "slotHint": {
+      "home": "Shown between the 'How it works' and gallery sections of the landing page.",
+      "search": "Shown under the list of caregivers on the search page.",
+      "profile": "Shown below a caregiver's public profile."
+    },
+    "slotInvalid": "Enter only the digits from data-ad-slot, e.g. 1234567890.",
+    "adsTxtTitle": "ads.txt",
+    "adsTxtHint": "AdSense checks this line to confirm the site is yours. It is published automatically at {url} while ads are on - there is nothing to upload.",
+    "adsTxtEmpty": "Appears here once a publisher ID is entered.",
+    "copy": "Copy",
+    "whereTitle": "Where ads appear",
+    "whereShown": "Only on the public landing page, the search page and public caregiver profiles.",
+    "whereNever": "Never in this staff app, on sign-in or registration pages, or in a client's or caregiver's own account.",
+    "whereConsent": "Serving visitors in the EEA, UK or Switzerland? Google requires a certified consent message - set one up in AdSense under Privacy & messaging.",
+    "saved": "Ads settings saved",
+    "saveError": "Could not save the ads settings. Please try again."
   },
   "aiAdmin": {
     "title": "AI",

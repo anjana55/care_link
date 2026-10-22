@@ -16,6 +16,7 @@ import {
 } from '@/components/sections/supporting-sections';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
+import { AdSlot } from '@/components/ads/adsense';
 import { useCaregiverSearch, useMetaSkills, useSearchConfig } from '@/lib/hooks/use-public-search';
 import { loadSearch, rememberSearch } from '@/lib/care-intent';
 
@@ -155,6 +156,8 @@ export function FinderPage() {
               <ResultsList response={data} onPageChange={goToPage} />
             )}
           </div>
+
+          {!isLoading && !isError && data && data.items.length > 0 && <AdSlot placement="search" className="mt-8 px-0" />}
 
           {showRefine && request && (
             <div ref={refineRef} className="mt-10 scroll-mt-6 rounded-lg border border-border bg-white p-5 sm:p-8">

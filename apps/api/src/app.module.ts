@@ -40,6 +40,7 @@ import { BillingModule } from './billing/billing.module';
 import { CorrectionsModule } from './corrections/corrections.module';
 import { InsightsModule } from './insights/insights.module';
 import { BrandingModule } from './branding/branding.module';
+import { AdsModule } from './ads/ads.module';
 import { AiCoreModule, AiModule } from './ai/ai.module';
 
 @Module({
@@ -60,6 +61,7 @@ import { AiCoreModule, AiModule } from './ai/ai.module';
     AuditModule,
     StorageModule,
     BrandingModule,
+    AdsModule,
     AiCoreModule,
     AuthModule,
     UsersModule,

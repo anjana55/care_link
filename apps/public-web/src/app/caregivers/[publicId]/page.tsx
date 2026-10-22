@@ -9,6 +9,7 @@ import { LoadingState, ErrorState } from '@/components/common/states';
 import { CaregiverActions } from '@/components/care/caregiver-actions';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
+import { AdSlot } from '@/components/ads/adsense';
 
 export default function CaregiverProfilePage() {
   const { t, locale } = useTranslation();
@@ -123,6 +124,8 @@ export default function CaregiverProfilePage() {
             <CaregiverActions publicId={caregiver.publicId} caregiverLabel={caregiver.publicId.slice(0, 8)} />
           </article>
         )}
+
+        {caregiver && <AdSlot placement="profile" className="mt-8 px-0" />}
       </main>
 
       <SiteFooter />
