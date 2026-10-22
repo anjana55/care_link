@@ -1004,7 +1004,8 @@
     "branding": "Branding",
     "subtitleStaff": "Reference data used across the app. Only administrators can change it.",
     "ai": "AI",
-    "ads": "Ads"
+    "ads": "Ads",
+    "analytics": "Analytics"
   },
   "brandingAdmin": {
     "companyTitle": "Company",
@@ -2056,6 +2057,31 @@
     "whereConsent": "Serving visitors in the EEA, UK or Switzerland? Google requires a certified consent message - set one up in AdSense under Privacy & messaging.",
     "saved": "Ads settings saved",
     "saveError": "Could not save the ads settings. Please try again."
+  },
+  "analyticsAdmin": {
+    "title": "Google Analytics",
+    "subtitle": "Measure visits to the public {brand} website with Google Analytics 4. Changes apply on the next page load, with no restart.",
+    "statusLive": "Google Analytics is on: visits to the public website's signed-out pages are reported to your Analytics property.",
+    "statusOff": "Google Analytics is off. No Google tag is loaded and nothing is sent to Google.",
+    "propertyTitle": "Analytics property",
+    "measurementId": "Measurement ID",
+    "measurementIdHint": "In Google Analytics under Admin > Data streams > your web stream, e.g. G-AB12CD34EF. You can also paste the whole Google tag snippet.",
+    "measurementIdInvalid": "That is not a Google Analytics 4 measurement ID. It starts with G- (older UA- IDs no longer work).",
+    "enabled": "Measure the public website",
+    "enabledHint": "Loads the Google tag on the public website and reports a page view on each page visited.",
+    "enabledNeedsId": "Enter your measurement ID before switching Google Analytics on.",
+    "setupTitle": "Recommended Analytics settings",
+    "setupIntro": "In Google Analytics, open Admin > Data streams > your web stream > Enhanced measurement and:",
+    "setupHistory": "Turn off 'Page changes based on browser history events' - the site reports its own page views, and this would count each one twice.",
+    "setupSiteSearch": "Turn off 'Site search' - search terms can describe a person's health, and must not be sent to Google.",
+    "setupCheck": "To check it works, open Reports > Realtime and visit the public website.",
+    "whereTitle": "What is measured",
+    "whereShown": "Only the public website's signed-out pages: the landing page, search, caregiver profiles and the sign-in and sign-up pages.",
+    "whereNever": "Never this staff app, a client's account pages or the caregiver portal.",
+    "whereQuery": "Addresses are sent without their query string, so search terms and sign-in links never reach Google.",
+    "whereConsent": "Serving visitors in the EEA, UK or Switzerland? You may need a cookie consent banner before measuring them.",
+    "saved": "Analytics settings saved",
+    "saveError": "Could not save the analytics settings. Please try again."
   },
   "aiAdmin": {
     "title": "AI",

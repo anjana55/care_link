@@ -20,6 +20,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { href: '/settings/email', key: 'settings.email', roles: ADMIN },
   { href: '/settings/billing', key: 'settings.billing', roles: ADMIN },
   { href: '/settings/ads', key: 'settings.ads', roles: ADMIN },
+  { href: '/settings/analytics', key: 'settings.analytics', roles: ADMIN },
   { href: '/settings/skills', key: 'nav.skills', roles: ALL_STAFF },
   { href: '/settings/languages', key: 'nav.languages', roles: ALL_STAFF },
   { href: '/settings/locations', key: 'nav.locations', roles: ALL_STAFF },

@@ -8,6 +8,8 @@ import { BrandingProvider } from '@/lib/branding/provider';
 import { getBranding } from '@/lib/branding/server';
 import { AdsProvider } from '@/components/ads/adsense';
 import { getAdsConfig } from '@/lib/ads/server';
+import { GoogleAnalytics } from '@/components/analytics/google-analytics';
+import { getAnalyticsConfig } from '@/lib/analytics/server';
 
 // Same as the client's API_URL: the browser loads the logo, so it must be the public address.
 const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
@@ -39,7 +41,7 @@ export async function generateViewport(): Promise<Viewport> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [branding, ads] = await Promise.all([getBranding(), getAdsConfig()]);
+  const [branding, ads, analytics] = await Promise.all([getBranding(), getAdsConfig(), getAnalyticsConfig()]);
   return (
     <html lang={branding.defaultLocale}>
       <head>
@@ -47,6 +49,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <style id="brand-theme" dangerouslySetInnerHTML={{ __html: paletteCss(derivePalette(branding.primaryColor, branding.accentColor)) }} />
       </head>
       <body className="min-h-screen bg-paper text-ink antialiased">
+        {/* Google Analytics (Settings > Analytics) - public signed-out pages only, no query strings. */}
+        <GoogleAnalytics config={analytics} />
         <QueryProvider>
           <BrandingProvider initial={branding}>
             <AuthProvider>

@@ -23,5 +23,6 @@ export * from './types/billing';
 export * from './types/amendments';
 export * from './types/branding';
 export * from './types/ads';
+export * from './types/analytics';
 export * from './types/ai';
 export * from './types/insights';
