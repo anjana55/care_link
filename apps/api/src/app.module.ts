@@ -41,6 +41,7 @@ import { CorrectionsModule } from './corrections/corrections.module';
 import { InsightsModule } from './insights/insights.module';
 import { BrandingModule } from './branding/branding.module';
 import { AdsModule } from './ads/ads.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { AiCoreModule, AiModule } from './ai/ai.module';
 
 @Module({
@@ -62,6 +63,7 @@ import { AiCoreModule, AiModule } from './ai/ai.module';
     StorageModule,
     BrandingModule,
     AdsModule,
+    AnalyticsModule,
     AiCoreModule,
     AuthModule,
     UsersModule,
