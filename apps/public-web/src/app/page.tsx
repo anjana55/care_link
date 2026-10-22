@@ -9,6 +9,7 @@ import {
   LandingGallery,
   LandingCta,
 } from '@/components/landing/landing-sections';
+import { AdSlot } from '@/components/ads/adsense';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { companyName, tagline } = await getBranding();
@@ -36,6 +37,7 @@ export default function LandingPage() {
         <LandingHero />
         <LandingApps />
         <LandingHowItWorks />
+        <AdSlot placement="home" className="pb-8" />
         <LandingGallery />
         <LandingCta />
       </main>

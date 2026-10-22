@@ -18,4 +18,5 @@ export * from './care-requests.schema';
 export * from './bookings.schema';
 export * from './billing.schema';
 export * from './branding.schema';
+export * from './ads.schema';
 export * from './ai.schema';

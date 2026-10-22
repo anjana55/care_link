@@ -6,6 +6,8 @@ import { AuthProvider } from '@/lib/api/auth-context';
 import { DeviceShortlistSync } from '@/components/care/device-shortlist-sync';
 import { BrandingProvider } from '@/lib/branding/provider';
 import { getBranding } from '@/lib/branding/server';
+import { AdsProvider } from '@/components/ads/adsense';
+import { getAdsConfig } from '@/lib/ads/server';
 
 // Same as the client's API_URL: the browser loads the logo, so it must be the public address.
 const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
@@ -37,7 +39,7 @@ export async function generateViewport(): Promise<Viewport> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const branding = await getBranding();
+  const [branding, ads] = await Promise.all([getBranding(), getAdsConfig()]);
   return (
     <html lang={branding.defaultLocale}>
       <head>
@@ -49,7 +51,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <BrandingProvider initial={branding}>
             <AuthProvider>
               <DeviceShortlistSync />
-              {children}
+              {/* Google AdSense (Settings > Ads) - public marketing and search pages only. */}
+              <AdsProvider config={ads}>{children}</AdsProvider>
             </AuthProvider>
           </BrandingProvider>
         </QueryProvider>
