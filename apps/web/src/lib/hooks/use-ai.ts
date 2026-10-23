@@ -32,10 +32,10 @@ export function useAiSettings() {
  * may cost a model call - and kept for a few minutes so reopening the panel
  * does not ask again.
  */
-export function useRequestSuggestions(requestId: string, enabled: boolean) {
+export function useRequestSuggestions(requestId: string, enabled: boolean, radiusKm?: number) {
   return useQuery({
-    queryKey: ['care-requests', requestId, 'suggestions'],
-    queryFn: () => api.get<StaffSuggestionsResponse>(`/care-requests/${requestId}/suggestions`),
+    queryKey: ['care-requests', requestId, 'suggestions', radiusKm ?? null],
+    queryFn: () => api.get<StaffSuggestionsResponse>(`/care-requests/${requestId}/suggestions`, radiusKm ? { radiusKm } : undefined),
     enabled,
     staleTime: 5 * 60_000,
     retry: false,

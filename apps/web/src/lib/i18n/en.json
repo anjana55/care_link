@@ -2161,7 +2161,35 @@
     },
     "attach": "Attach",
     "swap": "Swap to",
-    "attached": "Attached"
+    "attached": "Attached",
+    "map": {
+      "title": "Caregivers near the client",
+      "summaryOne": "1 matching caregiver lives or works within {radius} km of {place}",
+      "summaryOther": "{count} matching caregivers live or work within {radius} km of {place}",
+      "summaryDistrictOne": "1 matching caregiver lives or works in or near {place} district",
+      "summaryDistrictOther": "{count} matching caregivers live or work in or near {place} district",
+      "source": {
+        "device": "Measured in a straight line from the client's location.",
+        "searchCity": "Measured in a straight line from {place}, the client's city.",
+        "profileCity": "Measured in a straight line from {place}, the client's city.",
+        "district": "Measured from the centre of {place} district - the client has no city on record."
+      },
+      "noLocation": "This client has no district or city on record, so distances cannot be shown.",
+      "radius": "Within",
+      "radiusOption": "{km} km",
+      "kmAway": "{km} km away",
+      "travelsHere": "Works in {place}, {km} km away",
+      "showOnMap": "Show on map",
+      "hideFromMap": "Hide from map",
+      "pointOne": "1 caregiver in {place}, {km} km away",
+      "pointOther": "{count} caregivers in {place}, {km} km away",
+      "serviceCity": "Works in {place}, {km} km away",
+      "origin": "Client: {place}",
+      "mapLabel": "Map of matching caregivers near the client",
+      "failed": "The map could not be loaded. Distances are still shown in the list.",
+      "noneWithin": "No matching caregivers within {radius} km.",
+      "widen": "Search within {km} km"
+    }
   },
   "assistant": {
     "title": "Assistant",
