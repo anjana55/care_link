@@ -1,0 +1,79 @@
+/**
+ * Just enough of maplibre-gl for jsdom, which has no WebGL. Markers are real
+ * DOM: `addTo` appends the element to the map container, so tests can find
+ * the count bubbles and service-area dots by their accessible names and
+ * check what a visitor would be told.
+ */
+type Handler = () => void;
+
+export class Map {
+  private handlers: Record<string, Handler[]> = {};
+  private sources: Record<string, { data: unknown; setData: (d: unknown) => void }> = {};
+  readonly container: HTMLElement;
+  /** The last bounds the map was framed to - for assertions. */
+  lastBounds: unknown = null;
+
+  constructor(options: { container: HTMLElement }) {
+    this.container = options.container;
+    setTimeout(() => this.handlers.load?.forEach((h) => h()), 0);
+  }
+  on(event: string, handler: Handler) {
+    (this.handlers[event] ??= []).push(handler);
+    return this;
+  }
+  addControl() {
+    return this;
+  }
+  addSource(id: string) {
+    const source = { data: null as unknown, setData: (d: unknown) => (source.data = d) };
+    this.sources[id] = source;
+  }
+  addLayer() {}
+  getSource(id: string) {
+    return this.sources[id];
+  }
+  getStyle() {
+    return { layers: [] };
+  }
+  getLayoutProperty() {
+    return undefined;
+  }
+  setLayoutProperty() {}
+  isStyleLoaded() {
+    return true;
+  }
+  fitBounds(bounds: unknown) {
+    this.lastBounds = bounds;
+    return this;
+  }
+  remove() {}
+}
+
+export class Marker {
+  private element: HTMLElement;
+  constructor(options: { element: HTMLElement }) {
+    this.element = options.element;
+  }
+  setLngLat(lngLat: [number, number]) {
+    this.element.dataset.lngLat = lngLat.join(',');
+    return this;
+  }
+  setPopup() {
+    return this;
+  }
+  addTo(map: Map) {
+    map.container.appendChild(this.element);
+    return this;
+  }
+  remove() {
+    this.element.remove();
+  }
+}
+
+export class Popup {
+  setText() {
+    return this;
+  }
+}
+
+export class NavigationControl {}

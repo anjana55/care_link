@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BadgeCheck, CheckCircle2, MapPin, Languages as LanguagesIcon } from 'lucide-react';
+import { BadgeCheck, CheckCircle2, MapPin, MapPinned, Languages as LanguagesIcon, Route } from 'lucide-react';
 import type { CaregiverRelation, PublicCaregiverSummary } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { DeviceSaveButton, SaveButton } from '@/components/care/caregiver-actions';
@@ -14,15 +14,27 @@ export function ResultCard({
   caregiver,
   relation,
   deviceSave = false,
+  onShowOnMap,
+  shownOnMap = false,
 }: {
   caregiver: PublicCaregiverSummary;
   relation?: CaregiverRelation;
   deviceSave?: boolean;
+  /** Draws this caregiver's home and service area on the results map (toggles). */
+  onShowOnMap?: () => void;
+  shownOnMap?: boolean;
 }) {
   const { t } = useTranslation();
+  // The closest city they travel to, when that - not where they live - is what puts them in range.
+  const nearestServiceCity =
+    caregiver.reach === 'serviceArea'
+      ? [...(caregiver.serviceArea ?? [])].filter((c) => c.distanceKm !== null).sort((a, b) => a.distanceKm! - b.distanceKm!)[0]
+      : undefined;
 
   return (
-    <article className="rounded-lg border border-border bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+    <article
+      className={`rounded-lg border bg-white p-5 shadow-sm transition-shadow hover:shadow-md ${shownOnMap ? 'border-accent ring-1 ring-accent' : 'border-border'}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-ink/40">{t('profile.anonymousId', { id: caregiver.publicId.slice(0, 8) })}</p>
@@ -45,10 +57,19 @@ export function ResultCard({
         </div>
       </div>
 
-      <p className="mt-2 flex items-center gap-1.5 text-sm text-ink/70">
+      <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-sm text-ink/70">
         <MapPin className="h-4 w-4 text-ink/40" aria-hidden />
         {[caregiver.city, caregiver.district].filter(Boolean).join(', ') || '—'}
+        {caregiver.distanceKm !== null && caregiver.distanceKm !== undefined && (
+          <span className="font-medium text-ink">· {t('map.kmAway', { km: caregiver.distanceKm })}</span>
+        )}
       </p>
+      {nearestServiceCity && (
+        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-accent-dark">
+          <Route className="h-4 w-4" aria-hidden />
+          {t('map.travelsHere', { place: nearestServiceCity.name, km: nearestServiceCity.distanceKm! })}
+        </p>
+      )}
 
       {caregiver.languages.length > 0 && (
         <p className="mt-1 flex items-center gap-1.5 text-sm text-ink/70">
@@ -99,6 +120,17 @@ export function ResultCard({
         >
           {t('results.viewProfile')}
         </Link>
+        {onShowOnMap && caregiver.homeLocation && (
+          <button
+            type="button"
+            onClick={onShowOnMap}
+            aria-pressed={shownOnMap}
+            className="flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+          >
+            <MapPinned className="h-4 w-4" aria-hidden />
+            {shownOnMap ? t('map.hideFromMap') : t('map.showOnMap')}
+          </button>
+        )}
         {relation?.openRequest && (
           <Link href="/account/requests" className="flex items-center gap-1.5 text-sm font-medium text-brand-dark hover:underline">
             <CheckCircle2 className="h-4 w-4" aria-hidden />
