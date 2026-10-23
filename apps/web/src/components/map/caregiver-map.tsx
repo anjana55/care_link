@@ -27,6 +27,8 @@ export interface CaregiverMapLabels {
   serviceCity: (city: ServiceAreaCity) => string;
   /** Shown when the map cannot load (offline, tiles blocked). */
   failed: string;
+  /** Key entries: the origin ring, a count bubble, and a highlighted caregiver's work cities. */
+  legend: { origin: string; caregivers: string; serviceArea: string };
 }
 
 export interface CaregiverMapHighlight {
@@ -180,12 +182,27 @@ export function CaregiverMap({ origin, points, highlight, labels, locale = 'en',
         : [],
     });
 
-    const add = (element: HTMLElement, at: GeoPoint, popup?: string) => {
-      const marker = new maplibre.Marker({ element }).setLngLat([at.longitude, at.latitude]);
+    const add = (element: HTMLElement, at: GeoPoint, popup?: string, offset?: [number, number]) => {
+      const marker = new maplibre.Marker({ element, ...(offset ? { offset } : {}) }).setLngLat([at.longitude, at.latitude]);
       if (popup) marker.setPopup(new maplibre.Popup({ offset: 14, closeButton: false }).setText(popup));
       marker.addTo(instance);
       markers.current.push(marker);
     };
+
+    // The origin goes on first so it sits underneath: a ring wide enough to
+    // stay visible around a count bubble in the same city.
+    if (origin) {
+      const el = document.createElement('div');
+      el.title = text.origin;
+      el.setAttribute('role', 'img');
+      el.setAttribute('aria-label', text.origin);
+      el.className = 'relative h-11 w-11';
+      el.innerHTML =
+        '<span class="absolute inset-0 animate-ping rounded-full bg-accent/30 motion-reduce:hidden"></span>' +
+        '<span class="absolute inset-0 rounded-full border-[3px] border-accent bg-white/60"></span>' +
+        '<span class="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent"></span>';
+      add(el, origin);
+    }
 
     for (const point of points) {
       const el = document.createElement('button');
@@ -214,7 +231,7 @@ export function CaregiverMap({ origin, points, highlight, labels, locale = 'en',
       });
       if (home) {
         const ring = document.createElement('div');
-        ring.className = 'pointer-events-none h-11 w-11 rounded-full border-[3px] border-accent bg-accent/10';
+        ring.className = 'pointer-events-none h-10 w-10 rounded-full border-2 border-dashed border-accent';
         ring.setAttribute('aria-hidden', 'true');
         add(ring, home);
       }
@@ -224,22 +241,14 @@ export function CaregiverMap({ origin, points, highlight, labels, locale = 'en',
         el.title = title;
         el.setAttribute('role', 'img');
         el.setAttribute('aria-label', title);
-        el.className = 'h-3.5 w-3.5 rounded-full border-2 border-white bg-accent shadow';
-        add(el, city, title);
+        // MapLibre owns the marker's own transform, so the diamond is an inner
+        // element. Offset to the corner so it stays visible on a count bubble
+        // in the same city.
+        el.innerHTML = '<span class="block h-3 w-3 rotate-45 border-2 border-white bg-accent shadow"></span>';
+        add(el, city, title, [11, -11]);
       }
     } else {
       (instance.getSource('reach') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: [] });
-    }
-
-    if (origin) {
-      const el = document.createElement('div');
-      el.title = text.origin;
-      el.setAttribute('role', 'img');
-      el.setAttribute('aria-label', text.origin);
-      el.className = 'relative h-5 w-5';
-      el.innerHTML =
-        '<span class="absolute inset-0 animate-ping rounded-full bg-accent/40 motion-reduce:hidden"></span><span class="absolute inset-0.5 rounded-full border-2 border-white bg-accent shadow"></span>';
-      add(el, origin);
     }
 
     // Frame the highlighted caregiver when there is one, otherwise the search radius.
@@ -253,12 +262,38 @@ export function CaregiverMap({ origin, points, highlight, labels, locale = 'en',
   }, [ready, origin, points, highlight]);
 
   return (
-    <div className={className ?? 'relative h-72 w-full overflow-hidden rounded-lg border border-border bg-paper sm:h-96'}>
-      <div ref={container} className="absolute inset-0" role="region" aria-label={labels.map} />
-      {failed && (
-        <p role="status" className="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-ink/60">
-          {labels.failed}
-        </p>
+    <div>
+      <div className={className ?? 'relative h-72 w-full overflow-hidden rounded-lg border border-border bg-paper sm:h-96'}>
+        {/* h-full rather than absolute/inset-0: MapLibre's own stylesheet sets
+            .maplibregl-map to position: relative, which would collapse it to 0 px. */}
+        <div ref={container} className="h-full w-full" role="region" aria-label={labels.map} />
+        {failed && (
+          <p role="status" className="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-ink/60">
+            {labels.failed}
+          </p>
+        )}
+      </div>
+      {!failed && (
+        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink/70">
+          {origin && (
+            <li className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-full border-2 border-accent" aria-hidden />
+              {labels.legend.origin}
+            </li>
+          )}
+          <li className="flex items-center gap-1.5">
+            <span className="inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-brand text-[8px] font-bold text-white" aria-hidden>
+              n
+            </span>
+            {labels.legend.caregivers}
+          </li>
+          {highlight && highlight.serviceArea.length > 0 && (
+            <li className="flex items-center gap-1.5">
+              <span className="ml-0.5 inline-block h-2.5 w-2.5 rotate-45 bg-accent" aria-hidden />
+              {labels.legend.serviceArea}
+            </li>
+          )}
+        </ul>
       )}
     </div>
   );

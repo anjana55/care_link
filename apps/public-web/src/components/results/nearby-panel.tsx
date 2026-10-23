@@ -47,6 +47,11 @@ export function NearbyPanel({ response, highlighted, onRadiusChange, onUseMyLoca
     },
     serviceCity: (c: ServiceAreaCity) => t('map.serviceCity', { place: c.name, km: c.distanceKm ?? 0 }),
     failed: t('map.failed'),
+    legend: {
+      origin: origin?.source === 'device' ? t('map.legendOriginDevice') : t('map.legendOrigin'),
+      caregivers: t('map.legendCaregivers'),
+      serviceArea: t('map.legendServiceArea'),
+    },
   };
 
   if (!origin) return null;

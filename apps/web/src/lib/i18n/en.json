@@ -2188,7 +2188,10 @@
       "mapLabel": "Map of matching caregivers near the client",
       "failed": "The map could not be loaded. Distances are still shown in the list.",
       "noneWithin": "No matching caregivers within {radius} km.",
-      "widen": "Search within {km} km"
+      "widen": "Search within {km} km",
+      "legendOrigin": "Client",
+      "legendCaregivers": "Matching caregivers living there",
+      "legendServiceArea": "Also works in"
     }
   },
   "assistant": {

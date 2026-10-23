@@ -52,6 +52,11 @@ function NearbyMap({
         : t('suggestions.map.pointOther', { count: p.count, place: p.name ?? '', km: p.distanceKm ?? 0 }),
     serviceCity: (c: ServiceAreaCity) => t('suggestions.map.serviceCity', { place: c.name, km: c.distanceKm ?? 0 }),
     failed: t('suggestions.map.failed'),
+    legend: {
+      origin: t('suggestions.map.legendOrigin'),
+      caregivers: t('suggestions.map.legendCaregivers'),
+      serviceArea: t('suggestions.map.legendServiceArea'),
+    },
   };
   const count = data.mapPoints.reduce((sum, p) => sum + p.count, 0);
   const place = origin.label ?? '';

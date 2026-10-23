@@ -212,7 +212,7 @@ export function FinderPage() {
             {isLoading && <LoadingState label={t('loading.searching')} />}
             {isError && <ErrorState onRetry={() => refetch()} />}
             {!isLoading && !isError && data && (
-              <div ref={mapRef} className="scroll-mt-6">
+              <div ref={mapRef} className="scroll-mt-20">
                 <NearbyPanel
                   response={data}
                   highlighted={highlighted}
