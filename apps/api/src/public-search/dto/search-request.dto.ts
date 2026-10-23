@@ -14,7 +14,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { LOCALES, type Locale } from '@care-platform/shared';
+import { LOCALES, MAX_SEARCH_RADIUS_KM, type Locale } from '@care-platform/shared';
 import { genderEnum } from '../../database/schema/caregivers.schema';
 import { shiftPreferenceEnum } from '../../database/schema/availability.schema';
 import { RequireSearchCriteria } from './require-search-criteria.validator';
@@ -96,6 +96,40 @@ class LocationDto {
   cityId?: number;
 }
 
+/**
+ * Where distances are measured from when it is not the searched city. Both
+ * kinds are optional and either may be ignored: coordinates are used only if
+ * they are near a known city, and a profile city only if it lies in the
+ * searched district (see PublicSearchService.resolveOrigin).
+ */
+class OriginDto {
+  @ApiPropertyOptional({ description: "Visitor's device latitude ('Use my location'). Never stored." })
+  @IsOptional()
+  @Transform(blankToUndefined)
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiPropertyOptional({ description: "Visitor's device longitude ('Use my location'). Never stored." })
+  @IsOptional()
+  @Transform(blankToUndefined)
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
+
+  @ApiPropertyOptional({ description: "Signed-in client's profile city id, used when the search names no city" })
+  @IsOptional()
+  @Transform(blankToUndefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  cityId?: number;
+}
+
 class BudgetDto {
   @ApiPropertyOptional({ description: 'Daily rate ceiling. Influences ranking only - never a hard filter.' })
   @IsOptional()
@@ -133,6 +167,21 @@ export class SearchRequestDto {
   @ValidateNested()
   @Type(() => LocationDto)
   location?: LocationDto;
+
+  @ApiPropertyOptional({ type: OriginDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OriginDto)
+  origin?: OriginDto;
+
+  @ApiPropertyOptional({ description: 'Search radius in km around the origin (default 25)', maximum: MAX_SEARCH_RADIUS_KM })
+  @IsOptional()
+  @Transform(blankToUndefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(MAX_SEARCH_RADIUS_KM)
+  radiusKm?: number;
 
   /**
    * Which language the response's district/city names are rendered in.

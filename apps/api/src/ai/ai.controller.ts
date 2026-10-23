@@ -1,7 +1,7 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { AiTestResult } from '@care-platform/shared';
+import { MAX_SEARCH_RADIUS_KM, type AiTestResult } from '@care-platform/shared';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
@@ -115,8 +115,11 @@ export class CareRequestSuggestionsController {
 
   @Get(':id/suggestions')
   @Throttle({ default: { limit: 15, ttl: 60_000 } })
-  suggestions(@Param('id', ParseUUIDPipe) id: string) {
-    return this.matching.suggestForRequest(id);
+  @ApiQuery({ name: 'radiusKm', required: false, description: 'Search radius around the client, in km (default 25)' })
+  suggestions(@Param('id', ParseUUIDPipe) id: string, @Query('radiusKm') radiusKm?: string) {
+    const radius = Number(radiusKm);
+    const valid = Number.isInteger(radius) && radius >= 1 && radius <= MAX_SEARCH_RADIUS_KM;
+    return this.matching.suggestForRequest(id, 10, valid ? radius : undefined);
   }
 }
 

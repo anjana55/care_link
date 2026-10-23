@@ -16,7 +16,7 @@ export function candidateCard(handle: string, c: PublicCaregiverSummary): string
   const shifts = [c.availability.dayDuty && 'day', c.availability.nightDuty && 'night', c.availability.liveIn24h && '24h live-in'].filter(Boolean);
   return [
     `${handle}: ${c.gender.toLowerCase()}, about ${c.approxAge}, ${c.yearsExperience} yrs experience`,
-    `  based: ${[c.city, c.district].filter(Boolean).join(', ') || 'n/a'}; also works in: ${c.preferredLocations.slice(0, 6).join(', ') || 'n/a'}`,
+    `  based: ${[c.city, c.district].filter(Boolean).join(', ') || 'n/a'}${c.distanceKm !== null && c.distanceKm !== undefined ? ` (${c.distanceKm} km from the family)` : ''}; also works in: ${c.preferredLocations.slice(0, 6).join(', ') || 'n/a'}`,
     `  skills: ${c.skills.map((s) => s.name).join(', ') || 'none listed'}`,
     `  languages: ${c.languages.map((l) => `${l.name} (${l.proficiency.toLowerCase()})`).join(', ') || 'n/a'}`,
     `  shifts: ${shifts.join(', ') || 'n/a'}; verified qualification: ${c.hasVerifiedQualification ? 'yes' : 'no'}`,

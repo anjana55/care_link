@@ -15,6 +15,7 @@
 // So the rule is: anything reachable from here must compile to JS with no
 // runtime dependencies beyond what is in this package's `dependencies`.
 export * from './types/locale';
+export * from './types/geo';
 export * from './types/public-search';
 export * from './types/whatsapp';
 export * from './types/care-requests';

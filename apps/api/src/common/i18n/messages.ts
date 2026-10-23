@@ -392,6 +392,8 @@ const ENTRIES: Triple[] = [
   ['You already have several reports waiting on this booking - our team will get back to you', 'මෙම වෙන්කිරීම සම්බන්ධයෙන් ඔබගේ වාර්තා කිහිපයක් දැනටමත් රැඳී ඇත - අපගේ කණ්ඩායම ඔබව සම්බන්ධ කර ගනු ඇත', 'இந்த முன்பதிவில் உங்கள் பல புகார்கள் ஏற்கனவே காத்திருக்கின்றன - எங்கள் குழு உங்களைத் தொடர்புகொள்ளும்'],
 
   // --- AI search and the staff assistant -----------------------------------
+  ['No locations are configured', 'කිසිදු ස්ථානයක් සකසා නැත', 'எந்த இடங்களும் அமைக்கப்படவில்லை'],
+  ['This location is outside the area we cover', 'මෙම ස්ථානය අප සේවය සපයන ප්‍රදේශයෙන් පිටත ය', 'இந்த இடம் நாங்கள் சேவை வழங்கும் பகுதிக்கு வெளியே உள்ளது'],
   ['AI search is not available right now - please use the search form', 'AI සෙවීම දැනට ලබා ගත නොහැක - කරුණාකර සෙවුම් පෝරමය භාවිතා කරන්න', 'AI தேடல் தற்போது கிடைக்கவில்லை - தேடல் படிவத்தைப் பயன்படுத்தவும்'],
   ['Tell us a little more about the care you need', 'ඔබට අවශ්‍ය රැකවරණය ගැන තව ටිකක් කියන්න', 'உங்களுக்குத் தேவையான பராமரிப்பு பற்றி இன்னும் சற்று கூறுங்கள்'],
   ['Please keep the description under 1000 characters', 'කරුණාකර විස්තරය අක්ෂර 1000කට අඩුවෙන් තබන්න', 'விளக்கத்தை 1000 எழுத்துகளுக்குள் வைக்கவும்'],
