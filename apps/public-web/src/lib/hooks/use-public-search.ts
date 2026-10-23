@@ -66,3 +66,17 @@ export function useCaregiverProfile(publicId: string | null, locale: Locale) {
     enabled: publicId !== null,
   });
 }
+
+/**
+ * A signed-in client's profile city - where distances are measured from when
+ * they searched without naming a city (and are not using their location).
+ */
+export function useClientSearchOrigin(patientId: string | null) {
+  return useQuery({
+    // Keyed by the client, so signing in as someone else never reuses the last one's city.
+    queryKey: ['client', patientId, 'search-origin'],
+    queryFn: publicSearchApi.clientSearchOrigin,
+    enabled: patientId !== null,
+    staleTime: 5 * 60 * 1000,
+  });
+}

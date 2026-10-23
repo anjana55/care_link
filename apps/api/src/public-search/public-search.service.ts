@@ -1,7 +1,27 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, gt, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
-import type { PublicCaregiverProfile, PublicCaregiverSummary, PublicSearchResponse } from '@care-platform/shared';
-import { resolveLocale, type Locale, addDays, colomboToUtc, isValidDate } from '@care-platform/shared';
+import type {
+  CaregiverHomeLocation,
+  GeoPoint,
+  MapCityPoint,
+  OriginSource,
+  PublicCaregiverProfile,
+  PublicCaregiverSummary,
+  PublicSearchResponse,
+  SearchOrigin,
+  ServiceAreaCity,
+} from '@care-platform/shared';
+import {
+  resolveLocale,
+  type Locale,
+  addDays,
+  colomboToUtc,
+  isValidDate,
+  haversineKm,
+  roundKm,
+  DEFAULT_SEARCH_RADIUS_KM,
+  MAX_DEVICE_DISTANCE_FROM_CITY_KM,
+} from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
   caregivers,
@@ -18,7 +38,8 @@ import {
   bookingShifts,
 } from '../database/schema';
 import { SearchRequestDto } from './dto/search-request.dto';
-import { RankingService, type LocationLabels, type RankedCandidate, type RankingCandidate } from './ranking/ranking.service';
+import { RankingService, type RankedCandidate, type RankingCandidate } from './ranking/ranking.service';
+import { GeoService, localName } from '../geo/geo.service';
 
 /** Hard cap on how many hard-filter matches we ever pull into memory to
  * score - independent of the page size the caller asked for. Bounds both
@@ -59,12 +80,26 @@ type PoolRow = {
   cityId: number | null;
 };
 
+/** Where a search measures distances from, after choosing between the candidates for it. */
+export interface ResolvedOrigin extends GeoPoint {
+  source: OriginSource;
+  label: string | null;
+  radiusKm: number;
+  /** The searched district, when the origin is only its centre (see resolveLocationFilterIds). */
+  districtId: number | null;
+}
+
 /** A ranked candidate pool plus what is needed to render any of it. */
 export interface RankedPool {
   ranked: RankedCandidate[];
   rows: Map<string, PoolRow>;
   enriched: Map<string, EnrichedCandidate>;
+  origin: ResolvedOrigin | null;
+  /** The whole pool grouped by where each caregiver lives - counts only, never ids. */
+  mapPoints: MapCityPoint[];
 }
+
+const EMPTY_POOL = (origin: ResolvedOrigin | null): RankedPool => ({ ranked: [], rows: new Map(), enriched: new Map(), origin, mapPoints: [] });
 
 export interface EnrichedCandidate {
   skills: { id: string; name: string }[];
@@ -74,6 +109,13 @@ export interface EnrichedCandidate {
   preferredLocationDistrictIds: number[];
   districtName: string | null;
   cityName: string | null;
+  homeLocation: CaregiverHomeLocation | null;
+  /** Key of the map point this caregiver is counted under (`c<cityId>` / `d<districtId>`). */
+  homeKey: string | null;
+  homeDistanceKm: number | null;
+  serviceArea: ServiceAreaCity[];
+  nearestServiceCity: { name: string; distanceKm: number } | null;
+  reach: 'home' | 'serviceArea' | null;
   matchedOptionalSkillCount: number;
   matchedLanguageCount: number;
   matchedConditionCount: number;
@@ -103,6 +145,7 @@ export class PublicSearchService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly ranking: RankingService,
+    private readonly geo: GeoService,
   ) {}
 
   /** Caregiver IDs that have ALL of the given skill IDs - mirrors
@@ -120,37 +163,91 @@ export class PublicSearchService {
   }
 
   /**
-   * Caregiver ids matching a district and/or city, by id.
+   * Where this search measures distances from. In order of preference:
+   *  1. the visitor's device ("Use my location") - only if it is near a city
+   *     the platform knows, so a wrong or foreign reading is ignored, not used;
+   *  2. the searched city;
+   *  3. the signed-in client's profile city - only if it lies in the searched
+   *     district, so searching Galle for a parent while living in Colombo does
+   *     not measure from Colombo;
+   *  4. the centre of the searched district.
+   * Null when the request names no location the reference data knows.
+   */
+  async resolveOrigin(request: SearchRequestDto): Promise<ResolvedOrigin | null> {
+    const locale = resolveLocale(request.locale);
+    const radiusKm = request.radiusKm ?? DEFAULT_SEARCH_RADIUS_KM;
+    const searchedDistrictId = request.location?.districtId ?? null;
+    const base = { radiusKm, districtId: null };
+
+    const { latitude, longitude } = request.origin ?? {};
+    if (typeof latitude === 'number' && typeof longitude === 'number' && Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      const nearest = await this.geo.nearestCity({ latitude, longitude }, locale);
+      if (nearest && nearest.distanceKm <= MAX_DEVICE_DISTANCE_FROM_CITY_KM) {
+        return { ...base, latitude, longitude, source: 'device', label: nearest.name };
+      }
+    }
+
+    const searchCity = await this.geo.city(request.location?.cityId);
+    if (searchCity) return { ...base, latitude: searchCity.latitude, longitude: searchCity.longitude, source: 'searchCity', label: localName(searchCity, locale) };
+
+    const profileCity = await this.geo.city(request.origin?.cityId);
+    if (profileCity && (!searchedDistrictId || profileCity.districtId === searchedDistrictId)) {
+      return { ...base, latitude: profileCity.latitude, longitude: profileCity.longitude, source: 'profileCity', label: localName(profileCity, locale) };
+    }
+
+    const district = await this.geo.district(searchedDistrictId);
+    if (district) {
+      return { ...base, latitude: district.latitude, longitude: district.longitude, source: 'district', label: localName(district, locale), districtId: district.id };
+    }
+    return null;
+  }
+
+  /**
+   * Caregiver ids within reach of the origin: those who live within the
+   * radius, and those who list a preferred work city within it.
+   *
+   * A caregiver with no city on record is placed at their district's centre.
+   * When the origin is itself only a district centre (no city to measure
+   * from), everyone based in - or travelling to - that district also counts,
+   * as it did before distances existed: a big district's far corner is still
+   * "in the district" the visitor asked for.
    *
    * Returns null for "no location filter at all", which the caller treats
    * differently from an empty array - an empty array means the filter was
    * applied and matched nobody, which has to collapse the result set rather
    * than silently returning everyone.
    */
-  private async resolveLocationFilterIds(cityId?: number, districtId?: number): Promise<string[] | null> {
-    if (!cityId && !districtId) return null;
+  private async resolveLocationFilterIds(origin: ResolvedOrigin | null): Promise<string[] | null> {
+    if (!origin) return null;
+
+    const [cityIds, districtIds] = await Promise.all([
+      this.geo.cityIdsWithin(origin, origin.radiusKm),
+      this.geo.districtIdsWithin(origin, origin.radiusKm),
+    ]);
+    let preferredCityIds = cityIds;
+    if (origin.districtId) {
+      const { cities: all } = await this.geo.all();
+      const inDistrict = [...all.values()].filter((c) => c.districtId === origin.districtId).map((c) => c.id);
+      preferredCityIds = [...new Set([...cityIds, ...inDistrict])];
+    }
 
     const ownConditions = [
-      cityId ? eq(caregivers.cityId, cityId) : null,
-      districtId ? eq(caregivers.districtId, districtId) : null,
-    ].filter((c): c is NonNullable<typeof c> => c !== null);
-    const ownMatches = await this.db
-      .select({ id: caregivers.id })
-      .from(caregivers)
-      .where(or(...ownConditions));
+      cityIds.length ? inArray(caregivers.cityId, cityIds) : null,
+      districtIds.length ? and(isNull(caregivers.cityId), inArray(caregivers.districtId, districtIds)) : null,
+      origin.districtId ? eq(caregivers.districtId, origin.districtId) : null,
+    ].filter((c): c is NonNullable<typeof c> => c !== null && c !== undefined);
 
-    // A caregiver who lists a searched city as a preferred work location counts
-    // too, not only one whose own record names it.
-    const preferredMatches = cityId
-      ? (
-          await this.db
+    const [ownMatches, preferredMatches] = await Promise.all([
+      ownConditions.length ? this.db.select({ id: caregivers.id }).from(caregivers).where(or(...ownConditions)) : Promise.resolve([]),
+      preferredCityIds.length
+        ? this.db
             .selectDistinct({ caregiverId: preferredLocations.caregiverId })
             .from(preferredLocations)
-            .where(eq(preferredLocations.cityId, cityId))
-        ).map((r) => r.caregiverId)
-      : [];
+            .where(inArray(preferredLocations.cityId, preferredCityIds))
+        : Promise.resolve([]),
+    ]);
 
-    return [...new Set([...preferredMatches, ...ownMatches.map((r) => r.id)])];
+    return [...new Set([...preferredMatches.map((r) => r.caregiverId), ...ownMatches.map((r) => r.id)])];
   }
 
   async search(request: SearchRequestDto): Promise<PublicSearchResponse> {
@@ -171,9 +268,14 @@ export class PublicSearchService {
       conditions.push(matches.length ? inArray(caregivers.id, matches) : NONE);
     }
 
-    const locationMatches = await this.resolveLocationFilterIds(request.location?.cityId, request.location?.districtId);
+    const origin = await this.resolveOrigin(request);
+    const locationMatches = await this.resolveLocationFilterIds(origin);
     if (locationMatches !== null) {
       conditions.push(locationMatches.length ? inArray(caregivers.id, locationMatches) : NONE);
+    } else if (request.location?.districtId || request.location?.cityId) {
+      // A location was asked for but none of it exists in the reference data:
+      // that is "nobody matches", not "no filter".
+      conditions.push(NONE);
     }
 
     if (request.minimumExperienceYears) {
@@ -223,21 +325,20 @@ export class PublicSearchService {
       .where(whereClause)
       .limit(MAX_CANDIDATE_POOL);
 
-    if (!rows.length) return { ranked: [], rows: new Map(), enriched: new Map() };
+    if (!rows.length) return EMPTY_POOL(origin);
 
     const candidateIds = rows.map((r) => r.id);
-    const enriched = await this.enrichCandidates(candidateIds, request);
+    const enriched = await this.enrichCandidates(candidateIds, request, origin);
 
     const rankingInputs: RankingCandidate[] = rows.map((row) => {
       const e = enriched.get(row.id)!;
       return {
         caregiverId: row.id,
-        districtId: row.districtId,
-        cityId: row.cityId,
-        preferredLocationCityIds: e.preferredLocationCityIds,
-        preferredLocationDistrictIds: e.preferredLocationDistrictIds,
         districtName: e.districtName,
         cityName: e.cityName,
+        homeDistanceKm: e.homeDistanceKm,
+        nearestServiceCity: e.nearestServiceCity,
+        reach: e.reach,
         gender: row.gender,
         matchedOptionalSkillCount: e.matchedOptionalSkillCount,
         matchedLanguageCount: e.matchedLanguageCount,
@@ -252,8 +353,38 @@ export class PublicSearchService {
       };
     });
 
-    const ranked = this.ranking.rankAll(rankingInputs, request, await this.locationLabels(request));
-    return { ranked, rows: new Map(rows.map((r) => [r.id, r])), enriched };
+    const ranked = this.ranking.rankAll(rankingInputs, request, { radiusKm: origin?.radiusKm ?? null });
+    return { ranked, rows: new Map(rows.map((r) => [r.id, r])), enriched, origin, mapPoints: this.mapPointsOf(enriched) };
+  }
+
+  /** The pool grouped by where each caregiver lives, nearest first. Counts only - no caregiver ids leave here. */
+  private mapPointsOf(enriched: Map<string, EnrichedCandidate>): MapCityPoint[] {
+    const points = new Map<string, MapCityPoint>();
+    for (const e of enriched.values()) {
+      if (!e.homeLocation || !e.homeKey) continue;
+      const point = points.get(e.homeKey);
+      if (point) {
+        point.count += 1;
+        continue;
+      }
+      points.set(e.homeKey, {
+        key: e.homeKey,
+        latitude: e.homeLocation.latitude,
+        longitude: e.homeLocation.longitude,
+        precision: e.homeLocation.precision,
+        name: e.homeLocation.precision === 'city' ? e.cityName : e.districtName,
+        distanceKm: e.homeDistanceKm,
+        count: 1,
+      });
+    }
+    return [...points.values()].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+  }
+
+  /** The origin as the response shows it. */
+  private originOf(origin: ResolvedOrigin | null): SearchOrigin | null {
+    if (!origin) return null;
+    const { districtId, ...shown } = origin;
+    return shown;
   }
 
   /**
@@ -265,7 +396,8 @@ export class PublicSearchService {
     const byId = new Map(pool.ranked.map((r) => [r.caregiverId, r]));
     const ordered = ai ? ai.order.map((id) => byId.get(id)).filter((r): r is NonNullable<typeof r> => Boolean(r)) : pool.ranked;
     const total = ordered.length;
-    if (!total) return { items: [], page: request.page, pageSize: request.pageSize, total: 0, totalPages: 0 };
+    const geo = { origin: this.originOf(pool.origin), mapPoints: pool.mapPoints };
+    if (!total) return { items: [], page: request.page, pageSize: request.pageSize, total: 0, totalPages: 0, ...geo };
 
     const start = (request.page - 1) * request.pageSize;
     const items: PublicCaregiverSummary[] = ordered.slice(start, start + request.pageSize).map((r) => {
@@ -274,7 +406,7 @@ export class PublicSearchService {
       return aiReason ? { ...summary, aiReason } : summary;
     });
 
-    return { items, page: request.page, pageSize: request.pageSize, total, totalPages: Math.ceil(total / request.pageSize) };
+    return { items, page: request.page, pageSize: request.pageSize, total, totalPages: Math.ceil(total / request.pageSize), ...geo };
   }
 
   /** The public summary of one pooled candidate - what the AI is allowed to see about them. */
@@ -315,7 +447,7 @@ export class PublicSearchService {
       locale: resolveLocale(locale),
     } as SearchRequestDto);
     const e = enriched.get(row.id)!;
-    const { matchScore, matchReasons, ...profile } = this.toSummary(row, e, 0, []);
+    const { matchScore, matchReasons, reach, ...profile } = this.toSummary(row, e, 0, []);
     return profile;
   }
 
@@ -353,33 +485,19 @@ export class PublicSearchService {
     for (const row of rows) {
       const e = enriched.get(row.id);
       if (!e) continue;
-      const { matchScore, matchReasons, ...profile } = this.toSummary(row, e, 0, []);
+      const { matchScore, matchReasons, reach, ...profile } = this.toSummary(row, e, 0, []);
       result.set(row.id, profile);
     }
     return result;
   }
 
-  /**
-   * The names behind the requested location ids, so a match reason can say
-   * "based in Dehiwala" rather than "based in 340". Resolved once per search
-   * rather than per candidate - it is the same answer every time.
-   */
-  private async locationLabels(request: SearchRequestDto): Promise<LocationLabels> {
-    const locale = resolveLocale(request.locale);
-    const [city, district] = await Promise.all([
-      request.location?.cityId
-        ? this.db.select({ nameEn: cities.nameEn, nameSi: cities.nameSi, nameTa: cities.nameTa }).from(cities).where(eq(cities.id, request.location.cityId)).limit(1)
-        : Promise.resolve([]),
-      request.location?.districtId
-        ? this.db.select({ nameEn: districts.nameEn, nameSi: districts.nameSi, nameTa: districts.nameTa }).from(districts).where(eq(districts.id, request.location.districtId)).limit(1)
-        : Promise.resolve([]),
-    ]);
-    return { city: city[0] ? pick(city[0], locale) : null, district: district[0] ? pick(district[0], locale) : null };
-  }
-
   /** Fetches everything ranking + the public DTO need for a set of
    * caregiver IDs, batched (never N+1). */
-  private async enrichCandidates(caregiverIds: string[], request: SearchRequestDto): Promise<Map<string, EnrichedCandidate>> {
+  private async enrichCandidates(
+    caregiverIds: string[],
+    request: SearchRequestDto,
+    origin: ResolvedOrigin | null = null,
+  ): Promise<Map<string, EnrichedCandidate>> {
     const locale = resolveLocale(request.locale);
     const optionalSkillIds = request.optionalSkillIds ?? [];
     const requestedLanguageIds = request.languageIds ?? [];
@@ -445,6 +563,7 @@ export class PublicSearchService {
         .select({
           caregiverId: caregivers.id,
           cityId: caregivers.cityId,
+          districtId: caregivers.districtId,
           cityEn: cities.nameEn,
           citySi: cities.nameSi,
           cityTa: cities.nameTa,
@@ -459,6 +578,8 @@ export class PublicSearchService {
     ]);
 
     const ownRows = new Map(ownLocationRows.map((r) => [r.caregiverId, r]));
+    const places = await this.geo.all();
+    const distanceTo = (point: GeoPoint | null) => (origin && point ? roundKm(haversineKm(origin, point)) : null);
 
     const result = new Map<string, EnrichedCandidate>();
 
@@ -484,6 +605,36 @@ export class PublicSearchService {
       const totalYears = mySkills.reduce((sum, s) => sum + (s.yearsOfExperience ?? 0), 0);
       const hasVerifiedQualification = myQualifications.some((q) => q.verificationStatus === 'VERIFIED');
 
+      // City-level only: the centre of the city they live in, or of their
+      // district when no city is on record. Never anything finer.
+      const homeCity = myOwn?.cityId ? places.cities.get(myOwn.cityId) : undefined;
+      const homeDistrict = !homeCity && myOwn?.districtId ? places.districts.get(myOwn.districtId) : undefined;
+      const homeLocation: CaregiverHomeLocation | null = homeCity
+        ? { latitude: homeCity.latitude, longitude: homeCity.longitude, precision: 'city' }
+        : homeDistrict
+          ? { latitude: homeDistrict.latitude, longitude: homeDistrict.longitude, precision: 'district' }
+          : null;
+      const homeKey = homeCity ? `c${homeCity.id}` : homeDistrict ? `d${homeDistrict.id}` : null;
+      const homeDistanceKm = distanceTo(homeLocation);
+
+      const serviceArea: ServiceAreaCity[] = myLocations.flatMap((l) => {
+        const point = places.cities.get(l.cityId);
+        return point
+          ? [{ cityId: l.cityId, name: pick(l, locale), latitude: point.latitude, longitude: point.longitude, distanceKm: distanceTo(point) }]
+          : [];
+      });
+      const nearestService = serviceArea
+        .filter((c): c is ServiceAreaCity & { distanceKm: number } => c.distanceKm !== null)
+        .sort((a, b) => a.distanceKm - b.distanceKm)[0];
+
+      let reach: EnrichedCandidate['reach'] = null;
+      if (origin) {
+        if (homeDistanceKm !== null && homeDistanceKm <= origin.radiusKm) reach = 'home';
+        else if (nearestService && nearestService.distanceKm <= origin.radiusKm) reach = 'serviceArea';
+        else if (origin.districtId && myOwn?.districtId === origin.districtId) reach = 'home';
+        else if (origin.districtId && myLocations.some((l) => l.districtId === origin.districtId)) reach = 'serviceArea';
+      }
+
       result.set(id, {
         skills: mySkills.map((s) => ({ id: s.skillId, name: s.skillName })),
         languages: myLanguages.map((l) => ({ name: l.languageName, proficiency: l.proficiency })),
@@ -492,6 +643,12 @@ export class PublicSearchService {
         preferredLocationDistrictIds: [...new Set(myLocations.map((l) => l.districtId))],
         districtName: myOwn ? pickDistrict(myOwn, locale) : null,
         cityName: myOwn?.cityId ? pickOwnCity(myOwn, locale) : null,
+        homeLocation,
+        homeKey,
+        homeDistanceKm,
+        serviceArea,
+        nearestServiceCity: nearestService ? { name: nearestService.name, distanceKm: nearestService.distanceKm } : null,
+        reach,
         matchedOptionalSkillCount,
         matchedLanguageCount,
         matchedConditionCount,
@@ -552,6 +709,10 @@ export class PublicSearchService {
       hasVerifiedQualification: enriched.hasVerifiedQualification,
       qualificationSummary: enriched.qualificationSummary,
       relevantExperienceSummary: enriched.relevantExperienceSummary,
+      homeLocation: enriched.homeLocation,
+      distanceKm: enriched.homeDistanceKm,
+      serviceArea: enriched.serviceArea,
+      reach: enriched.reach,
       matchScore: score,
       matchReasons: reasons,
     };

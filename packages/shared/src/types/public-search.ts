@@ -1,5 +1,12 @@
 import { z } from 'zod';
 import { LOCALES, type Locale } from './locale';
+import {
+  MAX_SEARCH_RADIUS_KM,
+  type CaregiverHomeLocation,
+  type MapCityPoint,
+  type SearchOrigin,
+  type ServiceAreaCity,
+} from './geo';
 
 /**
  * Domain types shared between apps/api (source of truth, validated again with
@@ -67,6 +74,18 @@ export const searchRequestSchema = z
         cityId: optionalOf(z.number().int().positive()),
       }),
     ),
+    // Where distances are measured from, when it is not the searched city:
+    // the visitor's device ("Use my location", rounded before it is sent) or,
+    // for a signed-in client, their profile city. Never stored.
+    origin: optionalOf(
+      z.object({
+        latitude: optionalOf(z.number().min(-90).max(90)),
+        longitude: optionalOf(z.number().min(-180).max(180)),
+        cityId: optionalOf(z.number().int().positive()),
+      }),
+    ),
+    // How far from the origin a caregiver may live (or travel to) and still match.
+    radiusKm: optionalOf(z.number().int().min(1).max(MAX_SEARCH_RADIUS_KM)),
     // Only selects which name column the response renders. Never a filter.
     locale: optionalOf(z.enum(LOCALES)),
     caregiverGenderPreference: optionalOf(z.enum(genderPreferenceValues)),
@@ -172,6 +191,14 @@ export interface PublicCaregiverSummary {
   hasVerifiedQualification: boolean;
   qualificationSummary: string[];
   relevantExperienceSummary: string[];
+  /** Centre of the caregiver's city (or district when no city is on record) - never an address. */
+  homeLocation: CaregiverHomeLocation | null;
+  /** Straight-line km from the search origin to `homeLocation`. Null outside a search, or with no origin. */
+  distanceKm: number | null;
+  /** The cities the caregiver will travel to, with their distance from the search origin. */
+  serviceArea: ServiceAreaCity[];
+  /** Why this caregiver is within the search radius: they live there, or they travel there. */
+  reach?: 'home' | 'serviceArea' | null;
   /** Present only in search results, absent on a profile fetched directly. */
   matchScore?: number;
   /** Short, factual reasons — never subjective claims. Generated
@@ -184,7 +211,7 @@ export interface PublicCaregiverSummary {
 /** Full public profile preview — a superset of the summary shape today,
  * kept as a separate type since profile and result-card fields are
  * expected to diverge (e.g. a longer relevant-experience list). */
-export type PublicCaregiverProfile = Omit<PublicCaregiverSummary, 'matchScore' | 'matchReasons' | 'aiReason'>;
+export type PublicCaregiverProfile = Omit<PublicCaregiverSummary, 'matchScore' | 'matchReasons' | 'aiReason' | 'reach'>;
 
 export interface PublicSearchResponse {
   items: PublicCaregiverSummary[];
@@ -192,6 +219,10 @@ export interface PublicSearchResponse {
   pageSize: number;
   total: number;
   totalPages: number;
+  /** Where distances were measured from. Null when the search had no location at all. */
+  origin?: SearchOrigin | null;
+  /** Every matching caregiver (not just this page), grouped by where they live, as counts. */
+  mapPoints?: MapCityPoint[];
 }
 
 export interface PublicMetaSkill {

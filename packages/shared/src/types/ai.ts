@@ -4,6 +4,7 @@
  *
  * Types only - see index.ts for why nothing here may need a runtime import.
  */
+import type { CaregiverHomeLocation, MapCityPoint, SearchOrigin, ServiceAreaCity } from './geo';
 
 /**
  * Which wire protocol the configured model speaks.
@@ -96,6 +97,11 @@ export interface StaffCaregiverSuggestion {
   /** Deterministic reasons plus, when the model re-ranked, its one-line explanation. */
   reasons: string[];
   aiReason: string | null;
+  homeLocation: CaregiverHomeLocation | null;
+  /** Straight-line km from the client's location. Null when the client has no location on record. */
+  distanceKm: number | null;
+  serviceArea: ServiceAreaCity[];
+  reach: 'home' | 'serviceArea' | null;
 }
 
 export interface StaffSuggestionsResponse {
@@ -106,6 +112,10 @@ export interface StaffSuggestionsResponse {
   aiRanked: boolean;
   /** Set when the model could not be used, so staff know why the list is plain. */
   notice: string | null;
+  /** The client's location the distances are measured from; null when none is on record. */
+  origin: SearchOrigin | null;
+  /** Every matching caregiver, grouped by where they live, as counts. */
+  mapPoints: MapCityPoint[];
 }
 
 // --- staff assistant ---------------------------------------------------------

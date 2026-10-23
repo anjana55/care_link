@@ -2,14 +2,12 @@ import { Injectable } from '@nestjs/common';
 import type { SearchRequestDto } from '../dto/search-request.dto';
 
 /**
- * The names behind the requested location ids, for the human-readable match
- * reasons. Ids decide *whether* a caregiver matches; these only decide what the
- * reason line says, so they are passed in already resolved rather than looked
- * up per candidate.
+ * What ranking needs to know about the search as a whole, resolved once per
+ * search rather than per candidate.
  */
-export interface LocationLabels {
-  district: string | null;
-  city: string | null;
+export interface RankingContext {
+  /** The search radius when the search had an origin to measure from; null otherwise. */
+  radiusKm: number | null;
 }
 
 /**
@@ -19,15 +17,15 @@ export interface LocationLabels {
  */
 export interface RankingCandidate {
   caregiverId: string;
-  districtId: number | null;
-  cityId: number | null;
-  /** Ids of the districts and cities this caregiver lists as preferred work
-   * locations. Compared against the request's ids directly - see
-   * score() for why these are ids and not names. */
-  preferredLocationCityIds: number[];
-  preferredLocationDistrictIds: number[];
-  districtName: string | null;
+  /** The caregiver's own city name, in the visitor's language, for the reason line. */
   cityName: string | null;
+  districtName: string | null;
+  /** Straight-line km from the search origin to where the caregiver lives. */
+  homeDistanceKm: number | null;
+  /** The closest of the caregiver's preferred work cities to the origin, and how far it is. */
+  nearestServiceCity: { name: string; distanceKm: number } | null;
+  /** Why the caregiver is in the result set at all - see PublicSearchService.reachOf. */
+  reach: 'home' | 'serviceArea' | null;
   gender: 'MALE' | 'FEMALE' | 'OTHER';
   matchedOptionalSkillCount: number;
   matchedLanguageCount: number;
@@ -63,8 +61,9 @@ const WEIGHTS = {
   experienceCap: 20,
   conditionMatch: 12,
   conditionMatchCap: 24,
-  exactCityMatch: 15,
-  districtOnlyMatch: 7,
+  // Up to this many points for proximity, falling linearly from the full
+  // amount at 0 km to nothing at the edge of the search radius.
+  proximity: 15,
   shiftExactMatch: 10,
   genderPreferenceMatch: 5,
   budgetWithinRange: 10,
@@ -77,7 +76,7 @@ export class RankingService {
    * produces the same score and the same reasons. That determinism is the
    * whole point of "Normal Search": it must never require an AI model.
    */
-  score(candidate: RankingCandidate, request: SearchRequestDto, labels: LocationLabels): RankedCandidate {
+  score(candidate: RankingCandidate, request: SearchRequestDto, context: RankingContext): RankedCandidate {
     let score = 0;
     const reasons: string[] = [];
 
@@ -114,27 +113,25 @@ export class RankingService {
       reasons.push(`has ${candidate.yearsOfRelevantExperience}+ years of relevant experience`);
     }
 
-    // Id equality, not name equality. These used to be lowercased string
-    // comparisons while public-search's filter matched the same fields
-    // case-sensitively and untrimmed - so a caregiver could be filtered in by
-    // one rule and then scored as "not in this district" by the other. Ids
-    // cannot disagree with themselves.
-    const requestedCityId = request.location?.cityId;
-    const requestedDistrictId = request.location?.districtId;
-
-    if (requestedCityId && candidate.cityId === requestedCityId) {
-      score += WEIGHTS.exactCityMatch;
-      reasons.push(`based in ${candidate.cityName ?? 'the requested city'}`);
-    } else if (requestedCityId && candidate.preferredLocationCityIds.includes(requestedCityId)) {
-      score += WEIGHTS.exactCityMatch;
-      reasons.push(`covers ${labels.city ?? 'the requested city'} as a preferred work location`);
-    } else if (
-      requestedDistrictId &&
-      (candidate.districtId === requestedDistrictId ||
-        candidate.preferredLocationDistrictIds.includes(requestedDistrictId))
-    ) {
-      score += WEIGHTS.districtOnlyMatch;
-      reasons.push(`works in the ${candidate.districtName ?? labels.district ?? 'requested'} district`);
+    // Proximity: how close the caregiver is to the origin, measured to where
+    // they live or - if that is closer - to the nearest city they travel to.
+    // Membership (who is in the result set at all) is decided by the radius
+    // filter in PublicSearchService; this only orders within it.
+    if (context.radiusKm && candidate.reach) {
+      const homeKm = candidate.homeDistanceKm;
+      const serviceKm = candidate.nearestServiceCity?.distanceKm ?? null;
+      const viaService = candidate.reach === 'serviceArea' || (serviceKm !== null && (homeKm === null || serviceKm < homeKm));
+      const km = viaService ? serviceKm : homeKm;
+      if (km !== null) {
+        score += WEIGHTS.proximity * Math.max(0, 1 - km / context.radiusKm);
+      }
+      if (candidate.reach === 'home' && homeKm !== null) {
+        reasons.push(`based in ${candidate.cityName ?? candidate.districtName ?? 'the area'}, ${homeKm} km away`);
+      } else if (candidate.reach === 'home') {
+        reasons.push(`based in the ${candidate.districtName ?? 'requested'} district`);
+      } else if (candidate.nearestServiceCity) {
+        reasons.push(`works in ${candidate.nearestServiceCity.name}, ${candidate.nearestServiceCity.distanceKm} km away`);
+      }
     }
 
     if (request.shift) {
@@ -180,7 +177,7 @@ export class RankingService {
     return { caregiverId: candidate.caregiverId, score: Math.round(score * 100) / 100, reasons };
   }
 
-  rankAll(candidates: RankingCandidate[], request: SearchRequestDto, labels: LocationLabels): RankedCandidate[] {
-    return candidates.map((c) => this.score(c, request, labels)).sort((a, b) => b.score - a.score);
+  rankAll(candidates: RankingCandidate[], request: SearchRequestDto, context: RankingContext): RankedCandidate[] {
+    return candidates.map((c) => this.score(c, request, context)).sort((a, b) => b.score - a.score);
   }
 }

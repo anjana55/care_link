@@ -18,6 +18,7 @@ jest.mock('@/components/sections/supporting-sections', () => ({
 jest.mock('@/components/results/results-list', () => ({
   ResultsList: ({ response }: { response: { total: number } }) => <p>{response.total} caregivers found</p>,
 }));
+jest.mock('@/lib/hooks/use-client-care', () => ({ useIsClient: () => null }));
 jest.mock('@/lib/api/public-search', () => ({
   publicSearchApi: { aiExtract: (...a: unknown[]) => aiExtract(...a) },
 }));
@@ -27,6 +28,7 @@ jest.mock('@/lib/hooks/use-public-search', () => ({
   useMetaLanguages: () => ({ data: [] }),
   useLocationTree: () => ({ data: [{ id: 1, name: 'Central', districts: [{ id: 5, name: 'Kandy' }] }] }),
   useCities: () => ({ data: [] }),
+  useClientSearchOrigin: () => ({ data: undefined }),
   useCaregiverSearch: (...args: unknown[]) => {
     searchCalls.push(args);
     return args[0]

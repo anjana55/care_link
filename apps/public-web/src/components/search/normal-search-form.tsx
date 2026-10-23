@@ -5,7 +5,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { searchRequestSchema, type SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
+import { LocateFixed, Loader2 } from 'lucide-react';
 import { useMetaSkills, useMetaLanguages, useLocationTree, useCities } from '@/lib/hooks/use-public-search';
+import { useDeviceLocation } from '@/lib/hooks/use-device-location';
 import { cn } from '@/lib/utils';
 import { Input, Select, Label } from '@/components/ui/input';
 
@@ -105,6 +107,7 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
   const districtField = register('location.districtId', {
     setValueAs: (v: string) => (v === '' ? undefined : Number(v)),
   });
+  const cityField = register('location.cityId', { setValueAs: (v: string) => (v === '' ? undefined : Number(v)) });
 
   // Both lookups are keyed by locale, so switching language re-fetches and the
   // dropdowns relabel in place instead of showing the previous language.
@@ -131,6 +134,33 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
   // do, and a <select> cannot show a value it has no option for yet. Re-apply
   // the remembered ids once their options exist so the form shows what will
   // actually be searched.
+  // "Use my location" picks a city before that district's city list has
+  // loaded; held here until its option exists, like a restored search below.
+  const [locatedCityId, setLocatedCityId] = useState<number | null>(null);
+  const [locatedName, setLocatedName] = useState<string | null>(null);
+  const device = useDeviceLocation(locale);
+
+  async function locateMe() {
+    const here = await device.locate();
+    if (!here) return;
+    setValue('location.districtId', here.city.districtId, { shouldValidate: true });
+    setValue('location.cityId', undefined);
+    setLocatedCityId(here.city.cityId);
+    setLocatedName(here.city.name);
+    setValue('origin', { latitude: here.latitude, longitude: here.longitude });
+  }
+
+  /** Choosing a place by hand replaces the device location as where distances are measured from. */
+  function forgetDeviceLocation() {
+    setLocatedCityId(null);
+    setLocatedName(null);
+    setValue('origin', undefined);
+  }
+
+  useEffect(() => {
+    if (locatedCityId && sortedCities.some((c) => c.id === locatedCityId)) setValue('location.cityId', locatedCityId);
+  }, [sortedCities, locatedCityId, setValue]);
+
   const initialDistrictId = initialValues?.location?.districtId;
   const initialCityId = initialValues?.location?.cityId;
   useEffect(() => {
@@ -248,6 +278,23 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
       {/* Location */}
       <fieldset className="space-y-3">
         <legend className="text-sm font-semibold text-ink/80">{t('normalSearch.locationSection')}</legend>
+        <div>
+          <button
+            type="button"
+            onClick={locateMe}
+            disabled={device.locating}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline disabled:opacity-60"
+          >
+            {device.locating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <LocateFixed className="h-4 w-4" aria-hidden />}
+            {device.locating ? t('map.locating') : t('map.useMyLocation')}
+          </button>
+        </div>
+        {device.error && (
+          <p role="alert" className="rounded border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
+            {t(`map.errors.${device.error}`)}
+          </p>
+        )}
+        {locatedName && <p className="text-xs text-accent-dark">{t('map.usingDevice', { place: locatedName })}</p>}
         {/*
           A failed locations fetch used to be indistinguishable from "no
           locations exist": `data` falls back to [] and the dropdowns simply
@@ -274,6 +321,7 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
               onChange={(e) => {
                 districtField.onChange(e);
                 setValue('location.cityId', undefined);
+                forgetDeviceLocation();
               }}
               // aria-required rather than `required`: the native attribute would
               // make the browser block submit with its own untranslated tooltip
@@ -303,7 +351,11 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
             </Label>
             <Select
               id="city"
-              {...register('location.cityId', { setValueAs: (v: string) => (v === '' ? undefined : Number(v)) })}
+              {...cityField}
+              onChange={(e) => {
+                cityField.onChange(e);
+                forgetDeviceLocation();
+              }}
               disabled={!watchedDistrictId}
               defaultValue=""
             >

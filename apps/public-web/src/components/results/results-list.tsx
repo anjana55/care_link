@@ -7,9 +7,12 @@ import { ResultCard } from './result-card';
 interface ResultsListProps {
   response: PublicSearchResponse;
   onPageChange: (page: number) => void;
+  /** Public id of the caregiver drawn on the map, and how to change it. */
+  shownOnMap?: string | null;
+  onShowOnMap?: (publicId: string | null) => void;
 }
 
-export function ResultsList({ response, onPageChange }: ResultsListProps) {
+export function ResultsList({ response, onPageChange, shownOnMap = null, onShowOnMap }: ResultsListProps) {
   const { t } = useTranslation();
   // One call for the whole page of results, and only for a signed-in client:
   // whether each caregiver is saved or already has an open request.
@@ -35,6 +38,8 @@ export function ResultsList({ response, onPageChange }: ResultsListProps) {
             caregiver={item}
             relation={isClient ? (relations.byId.get(item.publicId) ?? { caregiverPublicId: item.publicId, saved: false, openRequest: null }) : undefined}
             deviceSave={signedOut}
+            shownOnMap={shownOnMap === item.publicId}
+            onShowOnMap={onShowOnMap ? () => onShowOnMap(shownOnMap === item.publicId ? null : item.publicId) : undefined}
           />
         ))}
       </div>

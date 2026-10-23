@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { LoadingState, EmptyResultsState, ErrorState } from '@/components/common/states';
@@ -8,6 +8,7 @@ import { SearchModeToggle, type SearchMode } from '@/components/search/search-mo
 import { NormalSearchForm } from '@/components/search/normal-search-form';
 import { AiSearchPanel } from '@/components/search/ai-search-panel';
 import { ResultsList } from '@/components/results/results-list';
+import { NearbyPanel } from '@/components/results/nearby-panel';
 import {
   HowItWorksSection,
   TrustSection,
@@ -17,7 +18,9 @@ import {
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { AdSlot } from '@/components/ads/adsense';
-import { useCaregiverSearch, useMetaSkills, useSearchConfig } from '@/lib/hooks/use-public-search';
+import { useCaregiverSearch, useClientSearchOrigin, useMetaSkills, useSearchConfig } from '@/lib/hooks/use-public-search';
+import { useDeviceLocation } from '@/lib/hooks/use-device-location';
+import { useIsClient } from '@/lib/hooks/use-client-care';
 import { loadSearch, rememberSearch } from '@/lib/care-intent';
 
 /**
@@ -28,8 +31,19 @@ import { loadSearch, rememberSearch } from '@/lib/care-intent';
  * (the brand link was a plain span in one and a link in the other). It is a
  * component now so there is a single definition of the search experience.
  */
+/**
+ * Adds the signed-in client's profile city as the fallback origin - used only
+ * when the search names no city and the visitor is not using their location.
+ * Done at request time rather than stored, so it is always the current profile.
+ */
+export function withProfileOrigin(request: SearchRequest, profileCityId: number | null | undefined): SearchRequest {
+  const hasDevice = typeof request.origin?.latitude === 'number' && typeof request.origin?.longitude === 'number';
+  if (hasDevice || request.location?.cityId || !profileCityId) return request;
+  return { ...request, origin: { cityId: profileCityId } };
+}
+
 export function FinderPage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { data: config, isLoading: configLoading } = useSearchConfig();
   // null until the visitor (or a restored normal search) picks a mode: AI
   // Search is the default whenever it is switched on, Normal Search otherwise.
@@ -75,6 +89,8 @@ export function FinderPage() {
     setAiQuery(aiQuery || undefined);
     setRefined(Boolean(options.refined));
     if (!options.refined) setRefineKey((k) => k + 1);
+    setShownOnMap(null);
+    device.clearError();
     setRequest(next);
   }
 
@@ -85,13 +101,57 @@ export function FinderPage() {
     setFormKey((k) => k + 1);
   }
 
-  const { data, isLoading, isError, refetch } = useCaregiverSearch(request, aiEnabled ? aiQuery : undefined);
+  const client = useIsClient();
+  const { data: profileOrigin } = useClientSearchOrigin(client?.patientId ?? null);
+  const effectiveRequest = useMemo(() => (request ? withProfileOrigin(request, profileOrigin?.cityId) : null), [request, profileOrigin?.cityId]);
+  const { data, isLoading, isError, refetch } = useCaregiverSearch(effectiveRequest, aiEnabled ? aiQuery : undefined);
+
+  // The caregiver whose home and service area are drawn on the map.
+  const [shownOnMap, setShownOnMap] = useState<string | null>(null);
+  const highlighted = useMemo(() => data?.items.find((i) => i.publicId === shownOnMap) ?? null, [data, shownOnMap]);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const device = useDeviceLocation(locale);
+
+  function showOnMap(publicId: string | null) {
+    setShownOnMap(publicId);
+    if (publicId) mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /** Same search, a different reach. */
+  function changeRadius(radiusKm: number) {
+    if (!request) return;
+    setShownOnMap(null);
+    search({ ...request, radiusKm, page: 1 }, aiQuery, { refined: refined });
+  }
+
+  /**
+   * "Use my location": searches around where the visitor is. The district and
+   * city become the ones they are in (so the form, the AI chips and a
+   * sign-up started from these results all agree), and the exact point is
+   * the origin distances are measured from.
+   */
+  async function locateMe() {
+    if (!request) return;
+    const here = await device.locate();
+    if (!here) return;
+    setShownOnMap(null);
+    search(
+      {
+        ...request,
+        location: { districtId: here.city.districtId, cityId: here.city.cityId },
+        origin: { latitude: here.latitude, longitude: here.longitude },
+        page: 1,
+      },
+      aiQuery,
+    );
+  }
 
   function goToPage(page: number) {
     if (!request) return;
     const next = { ...request, page };
     const remembered = loadSearch();
     rememberSearch({ ...(remembered ?? {}), request: next });
+    setShownOnMap(null);
     setRequest(next);
   }
 
@@ -151,9 +211,21 @@ export function FinderPage() {
           <div className="mt-8">
             {isLoading && <LoadingState label={t('loading.searching')} />}
             {isError && <ErrorState onRetry={() => refetch()} />}
+            {!isLoading && !isError && data && (
+              <div ref={mapRef} className="scroll-mt-20">
+                <NearbyPanel
+                  response={data}
+                  highlighted={highlighted}
+                  onRadiusChange={changeRadius}
+                  onUseMyLocation={locateMe}
+                  locating={device.locating}
+                  locationError={device.error}
+                />
+              </div>
+            )}
             {!isLoading && !isError && data && data.items.length === 0 && <EmptyResultsState onClear={clearSearch} />}
             {!isLoading && !isError && data && data.items.length > 0 && (
-              <ResultsList response={data} onPageChange={goToPage} />
+              <ResultsList response={data} onPageChange={goToPage} shownOnMap={shownOnMap} onShowOnMap={showOnMap} />
             )}
           </div>
 

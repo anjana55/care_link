@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/mysql-proxy';
 import { PublicSearchService } from './public-search.service';
 import { RankingService } from './ranking/ranking.service';
+import { GeoService } from '../geo/geo.service';
 import * as schema from '../database/schema';
 import type { Database } from '../database/database.module';
 import type { SearchRequestDto } from './dto/search-request.dto';
@@ -20,6 +21,9 @@ import type { SearchRequestDto } from './dto/search-request.dto';
  * assertion fails.
  */
 
+// Real coordinates (approximate city centres), so the distances below are
+// the ones the platform would compute: Dehiwala-Colombo ~9 km,
+// Dehiwala-Moratuwa ~9 km, Dehiwala-Gampaha ~33 km, Dehiwala-Galle ~96 km.
 const DEHIWALA = {
   id: 340,
   districtId: 1,
@@ -27,7 +31,15 @@ const DEHIWALA = {
   nameSi: 'දෙහිවල',
   nameTa: 'தேவிவாலை',
   postcode: '10350',
+  latitude: 6.8511,
+  longitude: 79.8659,
 };
+const COLOMBO_CITY = { id: 1, districtId: 1, nameEn: 'Colombo', nameSi: 'කොළඹ', nameTa: 'கொழும்பு', latitude: 6.9319, longitude: 79.8478 };
+const MORATUWA = { id: 654, districtId: 1, nameEn: 'Moratuwa', nameSi: 'මොරටුව', nameTa: 'மொரட்டுவை', latitude: 6.773, longitude: 79.8816 };
+const GAMPAHA = { id: 548, districtId: 2, nameEn: 'Gampaha', nameSi: 'ගම්පහ', nameTa: 'கம்பஹா', latitude: 7.084, longitude: 80.0098 };
+const GALLE = { id: 900, districtId: 3, nameEn: 'Galle', nameSi: 'ගාල්ල', nameTa: 'காலி', latitude: 6.0535, longitude: 80.221 };
+const ALL_CITIES = [DEHIWALA, COLOMBO_CITY, MORATUWA, GAMPAHA, GALLE];
+
 const COLOMBO_DISTRICT = {
   id: 1,
   provinceId: 1,
@@ -35,6 +47,9 @@ const COLOMBO_DISTRICT = {
   nameSi: 'කොළඹ',
   nameTa: 'கொழும்பு',
 };
+const GAMPAHA_DISTRICT = { id: 2, provinceId: 1, nameEn: 'Gampaha', nameSi: 'ගම්පහ', nameTa: 'கம்பஹா' };
+const GALLE_DISTRICT = { id: 3, provinceId: 2, nameEn: 'Galle', nameSi: 'ගාල්ල', nameTa: 'காலி' };
+const ALL_DISTRICTS = [COLOMBO_DISTRICT, GAMPAHA_DISTRICT, GALLE_DISTRICT];
 
 /**
  * Column names the generated SQL selects, in order.
@@ -121,12 +136,13 @@ function stubDb(tables: Record<string, Row[]>, ownLocation: unknown[] = []) {
 
 /**
  * The select list of the own-location query in `enrichCandidates`, in order:
- * caregiverId, cityId, cityEn, citySi, cityTa, districtEn, districtSi,
+ * caregiverId, cityId, districtId, cityEn, citySi, cityTa, districtEn, districtSi,
  * districtTa. Used only to assert the fixture has not gone stale.
  */
 const OWN_LOCATION_SELECT = [
   'id',
   'city_id',
+  'district_id',
   'name_en',
   'name_si',
   'name_ta',
@@ -135,97 +151,145 @@ const OWN_LOCATION_SELECT = [
   'name_ta',
 ];
 
-/** The queries that filter caregivers by location, as (sql, params) pairs. */
+/** The queries that decide location membership, as (sql, params) pairs. */
 function locationQueries(queries: QueryLog[]): QueryLog[] {
-  return queries.filter((q) => /`caregivers`\.`(city_id|district_id)`|from `preferred_locations`/.test(q.sql));
+  return queries.filter(
+    (q) => /`caregivers`\.`(city_id|district_id)` (in|=)/.test(q.sql) || (q.sql.includes('from `preferred_locations`') && q.sql.includes(' in ')),
+  );
 }
 
 function serviceWith(db: Database) {
-  return new PublicSearchService(db, new RankingService());
+  return new PublicSearchService(db, new RankingService(), new GeoService(db));
 }
+
+/** Reference data every test can see. */
+const REFERENCE = { cities: ALL_CITIES, districts: ALL_DISTRICTS };
 
 const base: Partial<SearchRequestDto> = { page: 1, pageSize: 20 };
 
+const ownQuery = (queries: QueryLog[]) => locationQueries(queries).find((q) => q.sql.includes('from `caregivers`'));
+const preferredQuery = (queries: QueryLog[]) => locationQueries(queries).find((q) => q.sql.includes('from `preferred_locations`'));
+
 describe('PublicSearchService location filtering', () => {
-  it('filters on the city id column, never on a name', async () => {
-    const { db, queries } = stubDb({});
-    await serviceWith(db).search({ ...base, location: { cityId: 340 } } as SearchRequestDto);
+  it('matches caregivers living in any city within the radius, by id', async () => {
+    const { db, queries } = stubDb(REFERENCE);
+    await serviceWith(db).search({ ...base, location: { districtId: 1, cityId: 340 }, radiusKm: 10 } as SearchRequestDto);
 
-    const sql = locationQueries(queries).map((q) => q.sql).join('\n');
-    expect(sql).toContain('`caregivers`.`city_id` = ?');
-    // The old implementation compared `city` and `district` text columns, so
-    // this is the assertion that would have failed before the id migration.
-    expect(sql).not.toContain('`caregivers`.`city`');
-    expect(sql).not.toContain('`caregivers`.`district`');
+    const own = ownQuery(queries);
+    expect(own?.sql).toContain('`caregivers`.`city_id` in');
+    // Dehiwala itself, Colombo and Moratuwa are inside 10 km; Gampaha and Galle are not.
+    expect(own?.params).toEqual(expect.arrayContaining([340, 1, 654]));
+    expect(own?.params).not.toContain(548);
+    expect(own?.params).not.toContain(900);
+    // Never by name.
+    expect(own?.sql).not.toContain('`caregivers`.`city`');
+    expect(own?.sql).not.toContain('`caregivers`.`district`');
   });
 
-  it('binds the id that was requested', async () => {
-    const { db, queries } = stubDb({});
-    await serviceWith(db).search({ ...base, location: { cityId: 340, districtId: 1 } } as SearchRequestDto);
-
-    const own = locationQueries(queries).find((q) => q.sql.includes('`caregivers`.`city_id`'));
-    expect(own?.params).toEqual([340, 1]);
+  it('widens with the radius', async () => {
+    const { db, queries } = stubDb(REFERENCE);
+    await serviceWith(db).search({ ...base, location: { districtId: 1, cityId: 340 }, radiusKm: 50 } as SearchRequestDto);
+    expect(ownQuery(queries)?.params).toContain(548);
+    expect(ownQuery(queries)?.params).not.toContain(900);
   });
 
-  it('treats city and district as independent conditions, not as a pair', async () => {
-    // The old code matched on the (district, city) pair together, so a city id
-    // whose district column differed would silently match nothing. A city
-    // filter is now exactly one predicate on one column.
-    const { db, queries } = stubDb({});
-    await serviceWith(db).search({ ...base, location: { cityId: 340 } } as SearchRequestDto);
+  it('includes caregivers who travel to a city within the radius', async () => {
+    const { db, queries } = stubDb(REFERENCE);
+    await serviceWith(db).search({ ...base, location: { districtId: 1, cityId: 340 }, radiusKm: 10 } as SearchRequestDto);
 
-    const own = locationQueries(queries).find((q) => q.sql.includes('`caregivers`.`city_id`'));
-    expect(own?.sql).toContain('`caregivers`.`city_id` = ?');
-    expect(own?.sql).not.toContain('`caregivers`.`district_id`');
+    const preferred = preferredQuery(queries);
+    expect(preferred?.sql).toContain('`preferred_locations`.`city_id` in');
+    expect(preferred?.params).toEqual(expect.arrayContaining([340, 1, 654]));
+    expect(preferred?.params).not.toContain(548);
   });
 
-  it('includes preferred work locations, joined on the city id', async () => {
-    const { db, queries } = stubDb({});
-    await serviceWith(db).search({ ...base, location: { cityId: 340 } } as SearchRequestDto);
-
-    const preferred = locationQueries(queries).find((q) => q.sql.includes('from `preferred_locations`'));
-    expect(preferred).toBeDefined();
-    expect(preferred?.sql).toContain('`preferred_locations`.`city_id` = ?');
-    expect(preferred?.params).toContain(340);
+  it('places a caregiver with no city at their district centre', async () => {
+    const { db, queries } = stubDb(REFERENCE);
+    await serviceWith(db).search({ ...base, location: { districtId: 1, cityId: 340 }, radiusKm: 10 } as SearchRequestDto);
+    const own = ownQuery(queries);
+    expect(own?.sql).toContain('`caregivers`.`city_id` is null');
+    expect(own?.sql).toContain('`caregivers`.`district_id` in');
   });
 
-  it('does not query preferred locations for a district-only filter', async () => {
-    // preferred_locations holds cities, not districts. There is no
-    // preferred-district column to join on, so this second query would be a
-    // full scan of the table returning every caregiver with any preference.
-    const { db, queries } = stubDb({});
-    await serviceWith(db).search({ ...base, location: { districtId: 1 } } as SearchRequestDto);
-
-    expect(queries.some((q) => q.sql.includes('from `preferred_locations`') && q.sql.includes('where'))).toBe(false);
+  it('keeps the whole searched district when there is no city to measure from', async () => {
+    // A district-only search measures from the district's centre, but a big
+    // district's far corner is still in the district the visitor asked for.
+    const { db, queries } = stubDb(REFERENCE);
+    await serviceWith(db).search({ ...base, location: { districtId: 1 }, radiusKm: 5 } as SearchRequestDto);
+    expect(ownQuery(queries)?.sql).toContain('`caregivers`.`district_id` = ?');
+    // Every city of the district counts for preferred work locations too.
+    expect(preferredQuery(queries)?.params).toEqual(expect.arrayContaining([340, 1, 654]));
   });
 
   it('does not narrow by location at all when no location is given', async () => {
     // The distinction `search()` depends on: an absent filter must not become
     // an empty id set, which would return nobody instead of everybody.
-    const { db, queries } = stubDb({});
+    const { db, queries } = stubDb(REFERENCE);
     await serviceWith(db).search({ ...base } as SearchRequestDto);
-
-    expect(queries.some((q) => q.sql.includes('`caregivers`.`city_id`') || q.sql.includes('`caregivers`.`district_id`'))).toBe(
-      false,
-    );
+    expect(locationQueries(queries)).toHaveLength(0);
+    const pool = queries.find((q) => q.sql.includes('from `caregivers`') && q.sql.includes('limit'));
+    expect(pool?.sql).not.toContain('1 = 0');
   });
 
-  it('collapses to a never-matching predicate when the filter matched nobody', async () => {
-    // `[]` and `null` both mean "no ids", but only `[]` means "no matches":
-    // this is the branch that stops an empty district returning the country.
-    const { db, queries } = stubDb({ caregivers: [] });
-    await serviceWith(db).search({ ...base, location: { districtId: 25 } } as SearchRequestDto);
-
+  it('matches nobody for a location the reference data does not have', async () => {
+    const { db, queries } = stubDb(REFERENCE);
+    await serviceWith(db).search({ ...base, location: { districtId: 99 } } as SearchRequestDto);
     const pool = queries.find((q) => q.sql.includes('from `caregivers`') && q.sql.includes('limit'));
     expect(pool?.sql).toContain('1 = 0');
   });
 
-  it('does not collapse to a never-matching predicate when no location was asked for', async () => {
-    const { db, queries } = stubDb({ caregivers: [] });
-    await serviceWith(db).search({ ...base } as SearchRequestDto);
-
+  it('collapses to a never-matching predicate when the filter matched nobody', async () => {
+    // `[]` and `null` both mean "no ids", but only `[]` means "no matches":
+    // this is the branch that stops an empty area returning the country.
+    const { db, queries } = stubDb({ ...REFERENCE, caregivers: [] });
+    await serviceWith(db).search({ ...base, location: { districtId: 3 } } as SearchRequestDto);
     const pool = queries.find((q) => q.sql.includes('from `caregivers`') && q.sql.includes('limit'));
-    expect(pool?.sql).not.toContain('1 = 0');
+    expect(pool?.sql).toContain('1 = 0');
+  });
+
+  describe('choosing the origin', () => {
+    const originOf = async (request: Partial<SearchRequestDto>) => {
+      const { db } = stubDb(REFERENCE);
+      return serviceWith(db).resolveOrigin({ ...base, ...request } as SearchRequestDto);
+    };
+
+    it("prefers the visitor's device location", async () => {
+      const origin = await originOf({ location: { districtId: 1, cityId: 654 }, origin: { latitude: 6.86, longitude: 79.87 } });
+      expect(origin).toMatchObject({ source: 'device', latitude: 6.86, longitude: 79.87, label: 'Dehiwala' });
+    });
+
+    it('ignores a device location nowhere near a known city', async () => {
+      // London: a wrong reading, or a visitor abroad. Measuring from the
+      // least-far Sri Lankan city would be a confident lie.
+      const origin = await originOf({ location: { districtId: 1, cityId: 654 }, origin: { latitude: 51.5, longitude: -0.12 } });
+      expect(origin).toMatchObject({ source: 'searchCity', label: 'Moratuwa' });
+    });
+
+    it('uses the searched city before the profile city', async () => {
+      const origin = await originOf({ location: { districtId: 1, cityId: 654 }, origin: { cityId: 340 } });
+      expect(origin).toMatchObject({ source: 'searchCity', label: 'Moratuwa' });
+    });
+
+    it('falls back to the profile city when no city was searched', async () => {
+      const origin = await originOf({ location: { districtId: 1 }, origin: { cityId: 340 } });
+      expect(origin).toMatchObject({ source: 'profileCity', label: 'Dehiwala', latitude: DEHIWALA.latitude });
+    });
+
+    it('does not use a profile city outside the searched district', async () => {
+      // Searching Galle for a parent while living in Colombo: distances from
+      // Colombo would be wrong for every result.
+      const origin = await originOf({ location: { districtId: 3 }, origin: { cityId: 340 } });
+      expect(origin).toMatchObject({ source: 'district', label: 'Galle', latitude: GALLE.latitude });
+    });
+
+    it('uses the default radius unless one is given', async () => {
+      expect((await originOf({ location: { districtId: 1, cityId: 340 } }))?.radiusKm).toBe(25);
+      expect((await originOf({ location: { districtId: 1, cityId: 340 }, radiusKm: 50 }))?.radiusKm).toBe(50);
+    });
+
+    it('has no origin without a location', async () => {
+      expect(await originOf({})).toBeNull();
+    });
   });
 
   describe('rendering', () => {
@@ -238,15 +302,15 @@ describe('PublicSearchService location filtering', () => {
       city_id: 340,
     };
     const tables = {
+      ...REFERENCE,
       caregivers: [caregiverRow],
-      cities: [DEHIWALA],
-      districts: [COLOMBO_DISTRICT],
     };
 
-    const searchIn = async (locale?: string) => {
+    const searchIn = async (locale?: string, request: Partial<SearchRequestDto> = {}) => {
       const { db } = stubDb(tables, [
         'cg-1',
         340,
+        1,
         'Dehiwala',
         'දෙහිවල',
         'தேவிவாலை',
@@ -258,6 +322,7 @@ describe('PublicSearchService location filtering', () => {
         ...base,
         location: { districtId: 1, cityId: 340 },
         locale,
+        ...request,
       } as SearchRequestDto);
     };
 
@@ -287,6 +352,27 @@ describe('PublicSearchService location filtering', () => {
       const ids = async (locale?: string) => (await searchIn(locale)).items.map((i) => i.publicId);
       expect(await ids('si')).toEqual(await ids('en'));
       expect(await ids('ta')).toEqual(await ids('en'));
+    });
+
+    it('places the caregiver at their city centre, never finer', async () => {
+      const { items } = await searchIn();
+      expect(items[0].homeLocation).toEqual({ latitude: DEHIWALA.latitude, longitude: DEHIWALA.longitude, precision: 'city' });
+    });
+
+    it('gives the straight-line distance from the origin in km, to one decimal', async () => {
+      const fromMoratuwa = await searchIn('en', { location: { districtId: 1, cityId: 654 } });
+      expect(fromMoratuwa.items[0].distanceKm).toBeCloseTo(8.9, 0);
+      expect(Number.isInteger(fromMoratuwa.items[0].distanceKm! * 10)).toBe(true);
+      expect(fromMoratuwa.items[0].reach).toBe('home');
+    });
+
+    it('describes the origin and the map points in the response', async () => {
+      const result = await searchIn();
+      expect(result.origin).toMatchObject({ source: 'searchCity', label: 'Dehiwala', radiusKm: 25 });
+      expect(result.origin).not.toHaveProperty('districtId');
+      expect(result.mapPoints).toEqual([
+        { key: 'c340', name: 'Dehiwala', latitude: DEHIWALA.latitude, longitude: DEHIWALA.longitude, precision: 'city', distanceKm: 0, count: 1 },
+      ]);
     });
   });
 });

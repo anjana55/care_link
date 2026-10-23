@@ -1,4 +1,7 @@
 import type {
+  ClientSearchOrigin,
+  NearestCity,
+  NearestCityRequest,
   AiSearchRequestBody,
   AiSearchResponse,
   ExtractedRequirements,
@@ -26,6 +29,10 @@ export const publicSearchApi = {
   getCities: (districtId: number, locale?: Locale) =>
     api.get<PublicMetaCity[]>('/public/meta/locations/cities', { districtId, locale }),
   getSearchConfig: () => api.get<PublicSearchConfig>('/public/meta/search-config'),
+  // "Use my location": a POST so the coordinates never appear in a URL or an access log.
+  nearestCity: (body: NearestCityRequest) => api.post<NearestCity>('/public/geo/nearest-city', body),
+  // Signed-in clients only: the profile city distances fall back to.
+  clientSearchOrigin: () => api.get<ClientSearchOrigin>('/me/search-origin'),
   // AI Search: the visitor's words -> structured requirements they can check,
   // then a search whose hard-filtered results the AI may re-order.
   aiExtract: (query: string, locale?: Locale) => api.post<ExtractedRequirements>('/public/ai/extract', { query, locale }),

@@ -20,6 +20,11 @@ jest.mock('@/lib/hooks/use-public-search', () => ({
   }),
 }));
 
+const locate = jest.fn();
+jest.mock('@/lib/hooks/use-device-location', () => ({
+  useDeviceLocation: () => ({ locate, locating: false, error: null, clearError: jest.fn() }),
+}));
+
 const district = () => screen.getByLabelText(/district/i);
 const startDate = () => screen.getByLabelText(/desired start date/i);
 const submit = () => screen.getByRole('button', { name: /search caregivers/i });
@@ -131,5 +136,44 @@ describe('NormalSearchForm', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
     expect(onSubmit.mock.calls[1][0]).toMatchObject({ location: { districtId: 2 } });
     expect((onSubmit.mock.calls[1][0] as SearchRequest).location?.cityId).toBeUndefined();
+  });
+
+  describe('Use my location', () => {
+    beforeEach(() => locate.mockReset());
+    const here = { latitude: 6.901, longitude: 79.859, city: { cityId: 118, districtId: 1, name: 'Colombo 15', districtName: 'Colombo', latitude: 6.9, longitude: 79.8, distanceKm: 0.3 } };
+
+    it("fills in the visitor's district and city and searches from their exact point", async () => {
+      locate.mockResolvedValue(here);
+      const onSubmit = jest.fn();
+      render(renderWithProviders(<NormalSearchForm onSubmit={onSubmit} />));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Use my location' }));
+      await waitFor(() => expect(screen.getByText('Using your location near Colombo 15')).toBeInTheDocument());
+      expect(district()).toHaveValue('1');
+      chooseStartDate();
+      fireEvent.click(submit());
+
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+      expect(onSubmit.mock.calls[0][0]).toMatchObject({
+        location: { districtId: 1, cityId: 118 },
+        origin: { latitude: 6.901, longitude: 79.859 },
+      });
+    });
+
+    it('drops the device location once a place is chosen by hand', async () => {
+      locate.mockResolvedValue(here);
+      const onSubmit = jest.fn();
+      render(renderWithProviders(<NormalSearchForm onSubmit={onSubmit} />));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Use my location' }));
+      await waitFor(() => expect(district()).toHaveValue('1'));
+      fireEvent.change(district(), { target: { value: '2' } });
+      chooseStartDate();
+      fireEvent.click(submit());
+
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+      expect(onSubmit.mock.calls[0][0].origin).toBeUndefined();
+      expect(onSubmit.mock.calls[0][0].location).toEqual({ districtId: 2 });
+    });
   });
 });

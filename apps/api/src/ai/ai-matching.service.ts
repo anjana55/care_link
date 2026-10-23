@@ -225,7 +225,7 @@ export class AiMatchingService {
    * which shift, caregiver gender, the care recipient) and - when AI matching
    * is on - what their care-needs text and request message say.
    */
-  async suggestForRequest(requestId: string, limit = 10): Promise<StaffSuggestionsResponse> {
+  async suggestForRequest(requestId: string, limit = 10, radiusKm?: number): Promise<StaffSuggestionsResponse> {
     const [row] = await this.db
       .select({ request: careRequests, patient: patients })
       .from(careRequests)
@@ -235,7 +235,7 @@ export class AiMatchingService {
     if (!row) throw new NotFoundException('Request not found');
     const { request: careRequest, patient } = row;
 
-    const base: SearchRequest = { page: 1, pageSize: limit, locale: 'en' };
+    const base: SearchRequest = { page: 1, pageSize: limit, locale: 'en', ...(radiusKm ? { radiusKm } : {}) };
     if (patient.districtId) base.location = { districtId: patient.districtId, ...(patient.cityId ? { cityId: patient.cityId } : {}) };
     if (patient.careSchedule && patient.careSchedule !== 'NOT_SURE') base.shift = SCHEDULE_TO_SHIFT[patient.careSchedule];
     if (patient.preferredCaregiverGender === 'MALE' || patient.preferredCaregiverGender === 'FEMALE') {
@@ -330,11 +330,23 @@ export class AiMatchingService {
           score: s.matchScore ?? 0,
           reasons: s.matchReasons ?? [],
           aiReason: reasons.get(id) ?? null,
+          homeLocation: s.homeLocation,
+          distanceKm: s.distanceKm,
+          serviceArea: s.serviceArea,
+          reach: s.reach ?? null,
         },
       ];
     });
 
     const s = summarize(request, catalog, 'en', null);
-    return { criteria: [...s.patient, ...s.location, ...s.care, ...s.preferences], items, aiRanked, notice };
+    const page = this.search.toPage(pool, dto);
+    return {
+      criteria: [...s.patient, ...s.location, ...s.care, ...s.preferences],
+      items,
+      aiRanked,
+      notice,
+      origin: page.origin ?? null,
+      mapPoints: page.mapPoints ?? [],
+    };
   }
 }
