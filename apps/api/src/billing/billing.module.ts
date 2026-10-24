@@ -7,12 +7,13 @@ import { InvoicesService } from './invoices.service';
 import { PayoutsService } from './payouts.service';
 import { PayhereService } from './payhere.service';
 import { AdjustmentsService } from './adjustments.service';
-import { BillingAdjustmentsController, BillingSettingsController, InvoicesController, MyBillingController, PayhereNotifyController, PayoutsController } from './billing.controller';
+import { BankAccountsService } from './bank-accounts.service';
+import { BankAccountsController, BillingAdjustmentsController, BillingSettingsController, InvoicesController, MyBillingController, PayhereNotifyController, PayoutsController } from './billing.controller';
 
 @Module({
   imports: [EmailModule, WhatsappModule],
-  controllers: [BillingSettingsController, InvoicesController, PayoutsController, BillingAdjustmentsController, MyBillingController, PayhereNotifyController],
-  providers: [BillingSettingsService, BillingNotifier, InvoicesService, PayoutsService, PayhereService, AdjustmentsService],
+  controllers: [BillingSettingsController, BankAccountsController, InvoicesController, PayoutsController, BillingAdjustmentsController, MyBillingController, PayhereNotifyController],
+  providers: [BillingSettingsService, BillingNotifier, InvoicesService, PayoutsService, PayhereService, AdjustmentsService, BankAccountsService],
   // Booking corrections adjust invoices and pay statements through these.
   exports: [InvoicesService, PayoutsService, AdjustmentsService],
 })

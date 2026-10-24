@@ -31,6 +31,7 @@ import {
   type InvoiceEventType,
 } from '../database/schema';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { BankAccountsService } from './bank-accounts.service';
 import { BillingSettingsService } from './billing-settings.service';
 import { BillingNotifier } from './billing-notifier.service';
 import { buildLines, type BilledPeriod } from './line-builder';
@@ -55,9 +56,7 @@ const BASIS_STATUSES: Record<'COMPLETED' | 'SCHEDULED', ShiftStatus[]> = {
 /** What some lines come to, in cents - the room a carried credit has on the document. */
 const linesCents = (lines: StoredLine[]) => lines.reduce((s, l) => s + toCents(l.amount), 0);
 
-const METHOD_NOTE: Record<string, string> = { CASH: 'cash', BANK_TRANSFER: 'bank transfer', CHEQUE: 'cheque', CARD: 'card', PAYHERE: 'PayHere', OTHER: 'other' };
-const paymentNote = (amount: string, method: string, reference?: string | null) =>
-  [formatLkr(amount), METHOD_NOTE[method] ?? method, reference].filter(Boolean).join(' · ');
+const paymentNote = (amount: string, how: string, reference?: string | null) => [formatLkr(amount), how, reference].filter(Boolean).join(' · ');
 
 /**
  * Invoices to clients.
@@ -79,6 +78,7 @@ export class InvoicesService {
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly settings: BillingSettingsService,
     private readonly notifier: BillingNotifier,
+    private readonly bankAccounts: BankAccountsService,
   ) {}
 
   // --- reading ---------------------------------------------------------------
@@ -202,6 +202,7 @@ export class InvoicesService {
       this.settings.getResolved(),
     ]);
     const names = await this.userNames([inv.createdByUserId, inv.issuedByUserId, ...events.map((e) => e.actorUserId), ...payments.map((p) => p.recordedByUserId)]);
+    const accounts = await this.bankAccounts.labels(payments.map((p) => p.bankAccountId));
     const totals = computeTotals({ lines, discountType: inv.discountType, discountValue: inv.discountValue, taxRate: inv.taxRate });
     const balance = fromCents(toCents(inv.total) - toCents(inv.amountPaid));
     return {
@@ -216,7 +217,11 @@ export class InvoicesService {
       unpricedLines: lines.filter((l) => l.kind === 'SHIFT' && toCents(l.unitPrice) === 0).length,
       tax: { available: settings.taxEnabled, name: settings.taxName, rate: settings.taxRate },
       payhere: { usable: settings.payhereUsable },
-      payments: payments.map((p) => ({ ...p, recordedBy: p.recordedByUserId ? (names.get(p.recordedByUserId) ?? null) : null })),
+      payments: payments.map((p) => ({
+        ...p,
+        bankAccount: p.bankAccountId ? (accounts.get(p.bankAccountId) ?? null) : null,
+        recordedBy: p.recordedByUserId ? (names.get(p.recordedByUserId) ?? null) : null,
+      })),
       checkouts: checkouts.map((c) => ({ id: c.id, amount: c.amount, status: c.status, mode: c.mode, method: c.method, paymentId: c.paymentId, createdAt: c.createdAt, updatedAt: c.updatedAt })),
       createdBy: inv.createdByUserId ? (names.get(inv.createdByUserId) ?? null) : null,
       issuedBy: inv.issuedByUserId ? (names.get(inv.issuedByUserId) ?? null) : null,
@@ -713,6 +718,7 @@ export class InvoicesService {
     if (dto.paidOn > colomboToday()) throw new BadRequestException('A payment cannot be dated in the future');
     const cents = toCents(dto.amount);
     if (cents <= 0) throw new BadRequestException('The amount must be more than zero');
+    const how = await this.bankAccounts.resolvePayment(dto);
     let change = { before: 'ISSUED', after: 'ISSUED' } as Awaited<ReturnType<InvoicesService['recalc']>>;
     await this.db.transaction(async (tx) => {
       const t = tx as unknown as Tx;
@@ -726,14 +732,16 @@ export class InvoicesService {
         id: uuid(),
         invoiceId: id,
         amount,
-        method: dto.method,
+        paymentType: how.paymentType,
+        method: how.method,
+        bankAccountId: how.bankAccountId,
         paidOn: dto.paidOn,
         reference: dto.reference ?? null,
         note: dto.note ?? null,
         recordedByUserId: actor.userId,
       });
       change = await this.recalc(t, id);
-      await this.event(t, id, kind, actor, paymentNote(amount, dto.method, dto.reference));
+      await this.event(t, id, kind, actor, paymentNote(amount, how.note, dto.reference));
       if (change.before !== change.after) await this.event(t, id, change.after === 'PAID' ? 'PAID' : 'REOPENED', actor);
     });
     if (change.after === 'PAID' && change.before !== 'PAID' && dto.notify !== false) void this.notifier.invoicePaid(id);
@@ -752,9 +760,10 @@ export class InvoicesService {
         .limit(1);
       if (!p) throw new NotFoundException('Payment not found');
       if (p.method === 'PAYHERE') throw new BadRequestException('An online payment cannot be deleted - record a refund instead');
+      const account = (await this.bankAccounts.labels([p.bankAccountId])).get(p.bankAccountId ?? '');
       await tx.delete(invoicePayments).where(eq(invoicePayments.id, paymentId));
       const change = await this.recalc(t, id);
-      await this.event(t, id, 'PAYMENT_DELETED', actor, `${paymentNote(p.amount, p.method, p.reference)} · ${p.paidOn}`);
+      await this.event(t, id, 'PAYMENT_DELETED', actor, `${paymentNote(p.amount, BankAccountsService.noteFor(p, account), p.reference)} · ${p.paidOn}`);
       if (change.before !== change.after) await this.event(t, id, change.after === 'PAID' ? 'PAID' : 'REOPENED', actor);
     });
     return this.findOne(id);
@@ -777,6 +786,7 @@ export class InvoicesService {
       id: uuid(),
       invoiceId,
       amount: p.amount,
+      paymentType: 'ONLINE',
       method: p.method,
       paidOn: colomboToday(),
       reference: p.reference,
@@ -785,7 +795,7 @@ export class InvoicesService {
       recordedByUserId: null,
     });
     const change = await this.recalc(tx, invoiceId);
-    await this.event(tx, invoiceId, toCents(p.amount) < 0 ? 'REFUND' : 'PAYMENT', null, paymentNote(p.amount, 'PAYHERE', p.reference));
+    await this.event(tx, invoiceId, toCents(p.amount) < 0 ? 'REFUND' : 'PAYMENT', null, paymentNote(p.amount, 'PayHere', p.reference));
     if (change.before !== change.after) await this.event(tx, invoiceId, change.after === 'PAID' ? 'PAID' : 'REOPENED', null);
     void inv;
     return { applied: true, settled: change.after === 'PAID' && change.before !== 'PAID' };
@@ -860,7 +870,7 @@ export class InvoicesService {
       overdue: inv.status === 'ISSUED' && inv.dueDate! < colomboToday(),
       notes: inv.notes,
       footer: inv.footer,
-      payments: payments.map((p) => ({ paidOn: p.paidOn, amount: p.amount, method: p.method, reference: p.reference })),
+      payments: payments.map((p) => ({ paidOn: p.paidOn, amount: p.amount, paymentType: p.paymentType, method: p.method, reference: p.reference })),
       canPayOnline: inv.status === 'ISSUED' && toCents(balance) > 0 && settings.payhereUsable,
     };
   }

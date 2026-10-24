@@ -14,7 +14,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { LOCALES, MAX_SEARCH_RADIUS_KM, type Locale } from '@care-platform/shared';
+import { LOCALES, MAX_SEARCH_RADIUS_KM, careTypeValues, type CareType, type Locale } from '@care-platform/shared';
 import { genderEnum } from '../../database/schema/caregivers.schema';
 import { shiftPreferenceEnum } from '../../database/schema/availability.schema';
 import { RequireSearchCriteria } from './require-search-criteria.validator';
@@ -40,12 +40,12 @@ const blankToUndefined = ({ value }: TransformFnParams) => {
 };
 
 /**
- * District and desired start date are the only mandatory inputs; everything
+ * Care type, district and desired start date are the only mandatory inputs; everything
  * else is a refinement, deliberately a "guardian fills in whatever they know"
  * shape rather than a set of required hard filters. Which of those become
  * hard filters vs. ranking signals is decided in PublicSearchService, not here
- * (see the architecture: only status + mandatory skills are hard filters;
- * gender/budget/optional skills influence ranking only).
+ * (see the architecture: status, care type, location and mandatory skills are
+ * hard filters; gender/optional skills/languages influence ranking only).
  *
  * `desiredStartDate` drops caregivers who already hold a confirmed booking
  * shift on that day (see PublicSearchService.search).
@@ -130,24 +130,6 @@ class OriginDto {
   cityId?: number;
 }
 
-class BudgetDto {
-  @ApiPropertyOptional({ description: 'Daily rate ceiling. Influences ranking only - never a hard filter.' })
-  @IsOptional()
-  @Transform(blankToUndefined)
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  dailyRate?: number;
-
-  @ApiPropertyOptional({ description: 'Monthly rate ceiling. Influences ranking only - never a hard filter.' })
-  @IsOptional()
-  @Transform(blankToUndefined)
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  monthlyRate?: number;
-}
-
 export class SearchRequestDto {
   /**
    * Declaration target for the class-level {@link RequireSearchCriteria}
@@ -218,6 +200,14 @@ export class SearchRequestDto {
   @IsUUID('4', { each: true })
   languageIds?: string[];
 
+  @ApiPropertyOptional({ enum: careTypeValues, description: 'Required. The kind of care needed - caregivers who do not take it on are left out.' })
+  // Optional at field level for the same reason as desiredStartDate below: a
+  // missing value gets the single class-level "careType is required" message.
+  @IsOptional()
+  @Transform(blankToUndefined)
+  @IsEnum(careTypeValues)
+  careType?: CareType;
+
   @ApiPropertyOptional({ enum: shiftPreferenceEnum })
   @IsOptional()
   @Transform(blankToUndefined)
@@ -240,12 +230,6 @@ export class SearchRequestDto {
   @Min(0)
   @Max(50)
   minimumExperienceYears?: number;
-
-  @ApiPropertyOptional({ type: BudgetDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => BudgetDto)
-  budget?: BudgetDto;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { civilStatusEnum, genderEnum } from '../../database/schema/caregivers.schema';
 import { TextField } from '../../common/validation/text-field.validator';
 
@@ -143,4 +143,12 @@ export class CreateCaregiverDto {
   @IsInt({ message: 'City id must be a number' })
   @Min(1, { message: 'City id must be a valid city' })
   cityId?: number;
+
+  // Staff-only (not on UpdateOwnProfileDto's allowlist): tell this caregiver
+  // straight away when a client asks for them. Off by default - staff notify
+  // by hand from the request.
+  @ApiPropertyOptional({ default: false, description: 'Notify the caregiver automatically when a client requests them' })
+  @IsOptional()
+  @IsBoolean({ message: 'Auto notify must be on or off' })
+  autoNotifyRequests?: boolean;
 }

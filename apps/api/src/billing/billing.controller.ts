@@ -13,6 +13,8 @@ import { AdjustmentsService } from './adjustments.service';
 import { PayhereService } from './payhere.service';
 import type { PayhereNotification } from './payhere';
 import { UpdateBillingSettingsDto } from './dto/billing-settings.dto';
+import { BankAccountsService } from './bank-accounts.service';
+import { CreateBankAccountDto, UpdateBankAccountDto } from './dto/bank-account.dto';
 import {
   CreateInvoiceDto,
   CreatePayoutDto,
@@ -46,6 +48,43 @@ export class BillingSettingsController {
   @Audit({ action: 'UPDATE_BILLING_SETTINGS', entityType: 'BillingSettings' })
   update(@Body() dto: UpdateBillingSettingsDto, @CurrentUser() user: AuthenticatedUser) {
     return this.settings.update(dto, user.userId);
+  }
+}
+
+/**
+ * The business's bank accounts, picked on BANK payments in and out. Staff read
+ * the list to record payments; only admins change it (Settings > Billing).
+ */
+@ApiTags('settings')
+@ApiBearerAuth()
+@Controller('billing/bank-accounts')
+@Roles('ADMIN')
+export class BankAccountsController {
+  constructor(private readonly accounts: BankAccountsService) {}
+
+  @Get()
+  @Roles('ADMIN', 'STAFF')
+  list() {
+    return this.accounts.list();
+  }
+
+  @Post()
+  @Audit({ action: 'CREATE_BANK_ACCOUNT', entityType: 'BankAccount' })
+  create(@Body() dto: CreateBankAccountDto) {
+    return this.accounts.create(dto);
+  }
+
+  @Patch(':id')
+  @Audit({ action: 'UPDATE_BANK_ACCOUNT', entityType: 'BankAccount' })
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateBankAccountDto) {
+    return this.accounts.update(id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @Audit({ action: 'DELETE_BANK_ACCOUNT', entityType: 'BankAccount' })
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    await this.accounts.remove(id);
   }
 }
 

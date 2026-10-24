@@ -10,6 +10,15 @@ export const availability = mysqlTable('availability', {
   dayDuty: boolean('day_duty').notNull().default(false),
   nightDuty: boolean('night_duty').notNull().default(false),
   liveIn24h: boolean('live_in_24h').notNull().default(false),
+  // The kinds of care this caregiver takes on (see careTypeValues in
+  // @care-platform/shared). A search for a care type leaves out caregivers
+  // who have it switched off. All on by default so nobody drops out of
+  // search until they (or staff) narrow it down.
+  careHomeShift: boolean('care_home_shift').notNull().default(true),
+  careLiveIn: boolean('care_live_in').notNull().default(true),
+  careHospital: boolean('care_hospital').notNull().default(true),
+  careNursingHome: boolean('care_nursing_home').notNull().default(true),
+  careRetirementHome: boolean('care_retirement_home').notNull().default(true),
   availableFrom: date('available_from'),
   preferredShift: mysqlEnum('preferred_shift', shiftPreferenceEnum).notNull().default('FLEXIBLE'),
   expectedDailyRate: decimal('expected_daily_rate', { precision: 10, scale: 2 }),
@@ -19,3 +28,12 @@ export const availability = mysqlTable('availability', {
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+/** Which availability column records each care type. */
+export const CARE_TYPE_COLUMNS = {
+  HOME_SHIFT: 'careHomeShift',
+  LIVE_IN: 'careLiveIn',
+  HOSPITAL: 'careHospital',
+  NURSING_HOME: 'careNursingHome',
+  RETIREMENT_HOME: 'careRetirementHome',
+} as const satisfies Record<string, keyof typeof availability.$inferSelect>;

@@ -236,7 +236,15 @@ export class AiMatchingService {
     const { request: careRequest, patient } = row;
 
     const base: SearchRequest = { page: 1, pageSize: limit, locale: 'en', ...(radiusKm ? { radiusKm } : {}) };
-    if (patient.districtId) base.location = { districtId: patient.districtId, ...(patient.cityId ? { cityId: patient.cityId } : {}) };
+    // Where and what the request itself asks for comes first; the client's
+    // profile fills in when the request does not say (older and phone requests).
+    if (careRequest.districtId) {
+      base.location = { districtId: careRequest.districtId, ...(careRequest.cityId ? { cityId: careRequest.cityId } : {}) };
+    } else if (patient.districtId) {
+      base.location = { districtId: patient.districtId, ...(patient.cityId ? { cityId: patient.cityId } : {}) };
+    }
+    if (careRequest.careType) base.careType = careRequest.careType;
+    if (careRequest.desiredStartDate) base.desiredStartDate = careRequest.desiredStartDate;
     if (patient.careSchedule && patient.careSchedule !== 'NOT_SURE') base.shift = SCHEDULE_TO_SHIFT[patient.careSchedule];
     if (patient.preferredCaregiverGender === 'MALE' || patient.preferredCaregiverGender === 'FEMALE') {
       base.caregiverGenderPreference = patient.preferredCaregiverGender;

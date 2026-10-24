@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
@@ -64,6 +64,14 @@ export class CareRequestsController {
   @Audit({ action: 'SET_CARE_REQUEST_CAREGIVER', entityType: 'CareRequest' })
   setCaregiver(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetCareRequestCaregiverDto, @CurrentUser() user: AuthenticatedUser) {
     return this.requests.setCaregiver(id, dto.caregiverId ?? null, user);
+  }
+
+  /** Tells the attached caregiver about the request now (for caregivers not set to auto-notify). */
+  @Post(':id/notify-caregiver')
+  @HttpCode(200)
+  @Audit({ action: 'NOTIFY_CARE_REQUEST_CAREGIVER', entityType: 'CareRequest' })
+  notifyCaregiver(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.requests.notifyCaregiver(id, user);
   }
 
   @Patch(':id/assign')

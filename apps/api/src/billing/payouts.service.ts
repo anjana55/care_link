@@ -6,6 +6,7 @@ import { DRIZZLE, type Database } from '../database/database.module';
 import { billingAdjustments, bookings, bookingShifts, caregivers, payoutLines, payoutStatements, users } from '../database/schema';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { BillingNotifier } from './billing-notifier.service';
+import { BankAccountsService } from './bank-accounts.service';
 import { buildLines, type BilledPeriod } from './line-builder';
 import { fromBuilt, normalizeLines, type StoredLine } from './billing-lines';
 import { openAdjustmentLines } from './adjustments';
@@ -44,6 +45,7 @@ export class PayoutsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly notifier: BillingNotifier,
+    private readonly bankAccounts: BankAccountsService,
   ) {}
 
   async findAll(query: PayoutQueryDto) {
@@ -125,8 +127,10 @@ export class PayoutsService {
     const ids = [p.createdByUserId, p.approvedByUserId, p.paidByUserId].filter((v): v is string => Boolean(v));
     if (ids.length) for (const u of await this.db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, ids))) names.set(u.id, u);
     const totals = computeTotals({ lines: lines.map((l) => ({ ...l.line, taxable: false })) });
+    const accounts = await this.bankAccounts.labels([p.bankAccountId]);
     return {
       ...p,
+      bankAccount: p.bankAccountId ? (accounts.get(p.bankAccountId) ?? null) : null,
       caregiver: cg ?? null,
       lines: lines.map((l, i) => ({ ...l.line, bookingReference: l.bookingReference, gross: totals.lines[i].gross, discount: totals.lines[i].discount })),
       unpricedLines: lines.filter((l) => l.line.kind === 'SHIFT' && Number(l.line.unitPrice) === 0).length,
@@ -379,13 +383,14 @@ export class PayoutsService {
   async pay(id: string, dto: PayPayoutDto, actor: AuthenticatedUser) {
     if (!isValidDate(dto.paidOn)) throw new BadRequestException('Enter the date it was paid');
     if (dto.paidOn > colomboToday()) throw new BadRequestException('A payment cannot be dated in the future');
+    const how = await this.bankAccounts.resolvePayment(dto);
     await this.db.transaction(async (tx) => {
       const p = await this.statementOrThrow(id, tx as unknown as Tx, true);
       if (p.status !== 'APPROVED') throw new BadRequestException('Approve the statement before marking it paid');
       const now = new Date();
       await tx
         .update(payoutStatements)
-        .set({ status: 'PAID', paidOn: dto.paidOn, paymentMethod: dto.method, paymentReference: dto.reference ?? null, paidAt: now, paidByUserId: actor.userId, updatedAt: now })
+        .set({ status: 'PAID', paidOn: dto.paidOn, paymentType: how.paymentType, paymentMethod: how.method, bankAccountId: how.bankAccountId, paymentReference: dto.reference ?? null, paidAt: now, paidByUserId: actor.userId, updatedAt: now })
         .where(eq(payoutStatements.id, id));
     });
     if (dto.notify !== false) void this.notifier.payoutPaid(id);
@@ -447,6 +452,7 @@ export class PayoutsService {
         })),
         total: r.total,
         paidOn: r.paidOn,
+        paymentType: r.paymentType,
         paymentMethod: r.paymentMethod,
         paymentReference: r.paymentReference,
       };

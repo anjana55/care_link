@@ -18,11 +18,10 @@ function candidate(overrides: Partial<RankingCandidate> = {}): RankingCandidate 
     matchedConditionCount: 0,
     yearsOfRelevantExperience: 0,
     hasVerifiedQualification: false,
+    verified: false,
     dayDuty: true,
     nightDuty: false,
     liveIn24h: false,
-    expectedDailyRate: null,
-    expectedMonthlyRate: null,
     ...overrides,
   };
 }
@@ -74,21 +73,11 @@ describe('RankingService', () => {
     }
   });
 
-  it('treats budget as ranking influence only, never a disqualifier', () => {
-    const overBudget = service.score(
-      candidate({ expectedDailyRate: 5000 }),
-      request({ budget: { dailyRate: 3000 } }),
-      CONTEXT,
-    );
-    const withinBudget = service.score(
-      candidate({ expectedDailyRate: 2500 }),
-      request({ budget: { dailyRate: 3000 } }),
-      CONTEXT,
-    );
-    // Over budget scores lower, but a result still comes back - the caller
-    // never gets an empty set purely because of price.
-    expect(overBudget.score).toBeLessThan(withinBudget.score);
-    expect(overBudget).toBeDefined();
+  it('ranks a caregiver verified by the platform above an otherwise equal unverified one', () => {
+    const verified = service.score(candidate({ verified: true }), request(), CONTEXT);
+    const registered = service.score(candidate({ verified: false }), request(), CONTEXT);
+    expect(verified.score).toBeGreaterThan(registered.score);
+    expect(verified.reasons).toContain('verified by our team');
   });
 
   it('matches a stated medical condition against a relevant skill/care-type', () => {

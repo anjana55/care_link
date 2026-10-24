@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, gt, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 import type {
+  CareType,
   CaregiverHomeLocation,
   GeoPoint,
   MapCityPoint,
@@ -21,6 +22,9 @@ import {
   roundKm,
   DEFAULT_SEARCH_RADIUS_KM,
   MAX_DEVICE_DISTANCE_FROM_CITY_KM,
+  PUBLIC_CAREGIVER_STATUSES,
+  VERIFIED_CAREGIVER_STATUSES,
+  careTypeValues,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
@@ -36,6 +40,7 @@ import {
   qualifications,
   experiences,
   bookingShifts,
+  CARE_TYPE_COLUMNS,
 } from '../database/schema';
 import { SearchRequestDto } from './dto/search-request.dto';
 import { RankingService, type RankedCandidate, type RankingCandidate } from './ranking/ranking.service';
@@ -48,6 +53,11 @@ import { GeoService, localName } from '../geo/geo.service';
 const MAX_CANDIDATE_POOL = 500;
 
 const NONE = sql`1 = 0`;
+
+/** Listed in public search: Registered onwards, never Draft, Inactive, Suspended or Rejected. */
+const isPubliclyListed = () => and(isNull(caregivers.deletedAt), inArray(caregivers.status, [...PUBLIC_CAREGIVER_STATUSES]));
+const PUBLIC_STATUS_SET = new Set<string>(PUBLIC_CAREGIVER_STATUSES);
+const VERIFIED_STATUS_SET = new Set<string>(VERIFIED_CAREGIVER_STATUSES);
 
 /** Picks the requested language's city name from a three-column row. */
 function pick(row: { nameEn: string; nameSi: string; nameTa: string }, locale: Locale): string {
@@ -78,6 +88,7 @@ type PoolRow = {
   dateOfBirth: Date;
   districtId: number | null;
   cityId: number | null;
+  status: string;
 };
 
 /** Where a search measures distances from, after choosing between the candidates for it. */
@@ -128,8 +139,7 @@ export interface EnrichedCandidate {
   liveIn24h: boolean;
   preferredShift: string;
   availableFrom: string | null;
-  expectedDailyRate: number | null;
-  expectedMonthlyRate: number | null;
+  careTypes: CareType[];
 }
 
 function approxAgeBand(dateOfBirth: Date): number {
@@ -261,7 +271,16 @@ export class PublicSearchService {
    * their (bounded) slice from to re-rank. Never touches a model itself.
    */
   async rankedPool(request: SearchRequestDto): Promise<RankedPool> {
-    const conditions = [isNull(caregivers.deletedAt), eq(caregivers.status, 'ACTIVE')];
+    const conditions = [isPubliclyListed()];
+
+    // Care type is a hard filter: leave out caregivers who have switched it
+    // off. Someone with no availability record yet has not narrowed anything
+    // down, so they stay in - the same as the column defaults (all on).
+    if (request.careType) {
+      const column = availability[CARE_TYPE_COLUMNS[request.careType]];
+      const declined = await this.db.select({ caregiverId: availability.caregiverId }).from(availability).where(eq(column, false));
+      if (declined.length) conditions.push(notInArray(caregivers.id, declined.map((d) => d.caregiverId)));
+    }
 
     if (request.mandatorySkillIds?.length) {
       const matches = await this.caregiverIdsWithAllSkills(request.mandatorySkillIds);
@@ -320,6 +339,7 @@ export class PublicSearchService {
         dateOfBirth: caregivers.dateOfBirth,
         districtId: caregivers.districtId,
         cityId: caregivers.cityId,
+        status: caregivers.status,
       })
       .from(caregivers)
       .where(whereClause)
@@ -345,11 +365,10 @@ export class PublicSearchService {
         matchedConditionCount: e.matchedConditionCount,
         yearsOfRelevantExperience: e.yearsOfRelevantExperience,
         hasVerifiedQualification: e.hasVerifiedQualification,
+        verified: VERIFIED_STATUS_SET.has(row.status),
         dayDuty: e.dayDuty,
         nightDuty: e.nightDuty,
         liveIn24h: e.liveIn24h,
-        expectedDailyRate: e.expectedDailyRate,
-        expectedMonthlyRate: e.expectedMonthlyRate,
       };
     });
 
@@ -436,7 +455,7 @@ export class PublicSearchService {
     // Same 404 whether the publicId doesn't exist or exists but isn't
     // publicly visible (wrong status, deleted) - never confirm which, to
     // avoid leaking which IDs correspond to a real (if non-public) record.
-    if (!row || row.deletedAt || row.status !== 'ACTIVE') {
+    if (!row || row.deletedAt || !PUBLIC_STATUS_SET.has(row.status)) {
       throw new NotFoundException('Caregiver not found');
     }
 
@@ -456,8 +475,8 @@ export class PublicSearchService {
    * signed-in client's saved list and requests, which hold internal ids but
    * may only ever show the anonymous public view.
    *
-   * Applies exactly the visibility rule search and findByPublicId use (ACTIVE,
-   * not deleted): a caregiver who has since been suspended or removed is simply
+   * Applies exactly the visibility rule search and findByPublicId use (listed
+   * status, not deleted): a caregiver who has since been suspended or removed is simply
    * absent from the map, and the caller shows them as "no longer available".
    */
   async profilesFor(caregiverIds: string[], locale?: string): Promise<Map<string, PublicCaregiverProfile>> {
@@ -473,9 +492,10 @@ export class PublicSearchService {
         dateOfBirth: caregivers.dateOfBirth,
         districtId: caregivers.districtId,
         cityId: caregivers.cityId,
+        status: caregivers.status,
       })
       .from(caregivers)
-      .where(and(inArray(caregivers.id, ids), isNull(caregivers.deletedAt), eq(caregivers.status, 'ACTIVE')));
+      .where(and(inArray(caregivers.id, ids), isPubliclyListed()));
     if (!rows.length) return result;
 
     const enriched = await this.enrichCandidates(
@@ -667,8 +687,7 @@ export class PublicSearchService {
         liveIn24h: myAvailability?.liveIn24h ?? false,
         preferredShift: myAvailability?.preferredShift ?? 'FLEXIBLE',
         availableFrom: myAvailability?.availableFrom ? String(myAvailability.availableFrom) : null,
-        expectedDailyRate: myAvailability?.expectedDailyRate ? Number(myAvailability.expectedDailyRate) : null,
-        expectedMonthlyRate: myAvailability?.expectedMonthlyRate ? Number(myAvailability.expectedMonthlyRate) : null,
+        careTypes: careTypeValues.filter((type) => (myAvailability ? myAvailability[CARE_TYPE_COLUMNS[type]] : true)),
       });
     }
 
@@ -682,6 +701,7 @@ export class PublicSearchService {
       dateOfBirth: Date;
       districtId: number | null;
       cityId: number | null;
+      status: string;
     },
     enriched: EnrichedCandidate,
     score: number,
@@ -707,6 +727,8 @@ export class PublicSearchService {
         availableFrom: enriched.availableFrom,
       },
       hasVerifiedQualification: enriched.hasVerifiedQualification,
+      verified: VERIFIED_STATUS_SET.has(row.status),
+      careTypes: enriched.careTypes,
       qualificationSummary: enriched.qualificationSummary,
       relevantExperienceSummary: enriched.relevantExperienceSummary,
       homeLocation: enriched.homeLocation,

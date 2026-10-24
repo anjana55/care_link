@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsDateString, IsEnum, IsInt, IsNumberString, IsOptional, IsString } from 'class-validator';
+import { ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsNumberString, IsOptional, IsString } from 'class-validator';
+import { careTypeValues, type CareType } from '@care-platform/shared';
 import { shiftPreferenceEnum } from '../../database/schema/availability.schema';
 
 export class UpsertAvailabilityDto {
@@ -17,6 +18,14 @@ export class UpsertAvailabilityDto {
   @IsOptional()
   @IsBoolean()
   liveIn24h?: boolean;
+
+  @ApiPropertyOptional({ enum: careTypeValues, isArray: true, description: 'The kinds of care this caregiver takes on. At least one.' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Choose at least one type of care' })
+  @ArrayUnique()
+  @IsIn(careTypeValues, { each: true, message: 'Choose a valid type of care' })
+  careTypes?: CareType[];
 
   @ApiPropertyOptional()
   @IsOptional()

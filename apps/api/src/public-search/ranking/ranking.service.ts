@@ -36,11 +36,11 @@ export interface RankingCandidate {
   matchedConditionCount: number;
   yearsOfRelevantExperience: number;
   hasVerifiedQualification: boolean;
+  /** Status Verified or Active - the platform has checked this caregiver. */
+  verified: boolean;
   dayDuty: boolean;
   nightDuty: boolean;
   liveIn24h: boolean;
-  expectedDailyRate: number | null;
-  expectedMonthlyRate: number | null;
 }
 
 export interface RankedCandidate {
@@ -52,6 +52,9 @@ export interface RankedCandidate {
 // Configurable weights - kept as constants for now (admin-configurable
 // weighting is a reasonable phase-2 addition; not required for phase 1).
 const WEIGHTS = {
+  // Search lists caregivers from Registered onwards; those the platform has
+  // verified come first, all else being equal.
+  verifiedCaregiver: 30,
   verifiedQualification: 25,
   optionalSkillMatch: 5,
   optionalSkillMatchCap: 20,
@@ -66,7 +69,6 @@ const WEIGHTS = {
   proximity: 15,
   shiftExactMatch: 10,
   genderPreferenceMatch: 5,
-  budgetWithinRange: 10,
 } as const;
 
 @Injectable()
@@ -79,6 +81,11 @@ export class RankingService {
   score(candidate: RankingCandidate, request: SearchRequestDto, context: RankingContext): RankedCandidate {
     let score = 0;
     const reasons: string[] = [];
+
+    if (candidate.verified) {
+      score += WEIGHTS.verifiedCaregiver;
+      reasons.push('verified by our team');
+    }
 
     if (candidate.hasVerifiedQualification) {
       score += WEIGHTS.verifiedQualification;
@@ -153,25 +160,6 @@ export class RankingService {
     ) {
       score += WEIGHTS.genderPreferenceMatch;
       reasons.push('matches the preferred caregiver gender');
-    }
-
-    const dailyBudget = request.budget?.dailyRate;
-    const monthlyBudget = request.budget?.monthlyRate;
-    if (dailyBudget !== undefined && candidate.expectedDailyRate !== null) {
-      if (candidate.expectedDailyRate <= dailyBudget) {
-        score += WEIGHTS.budgetWithinRange;
-      } else {
-        // Sliding penalty above budget - never excludes, only de-prioritizes.
-        const overBy = (candidate.expectedDailyRate - dailyBudget) / dailyBudget;
-        score -= Math.min(overBy * WEIGHTS.budgetWithinRange, WEIGHTS.budgetWithinRange);
-      }
-    } else if (monthlyBudget !== undefined && candidate.expectedMonthlyRate !== null) {
-      if (candidate.expectedMonthlyRate <= monthlyBudget) {
-        score += WEIGHTS.budgetWithinRange;
-      } else {
-        const overBy = (candidate.expectedMonthlyRate - monthlyBudget) / monthlyBudget;
-        score -= Math.min(overBy * WEIGHTS.budgetWithinRange, WEIGHTS.budgetWithinRange);
-      }
     }
 
     return { caregiverId: candidate.caregiverId, score: Math.round(score * 100) / 100, reasons };

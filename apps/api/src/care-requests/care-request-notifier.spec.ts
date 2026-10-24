@@ -48,6 +48,14 @@ describe('care request notifications', () => {
         }
       }
     });
+    it('has a new-request notice for caregivers in every language with the reference filled in', () => {
+      const n = caregiverNotice('NEW', 'CR-ABC234');
+      expect(n.blocks.map((b) => b.lang)).toEqual(['en', 'si', 'ta']);
+      for (const b of n.blocks) {
+        expect(`${b.heading} ${b.body}`).not.toMatch(/\{(?!brand\})\w+\}/);
+        expect(b.body).toContain('CR-ABC234');
+      }
+    });
     it('writes caregiver notices in all three languages, with a single-line WhatsApp version', () => {
       const n = caregiverNotice('INTRODUCED', 'CR-ABC234');
       expect(n.blocks.map((b) => b.lang)).toEqual(['en', 'si', 'ta']);

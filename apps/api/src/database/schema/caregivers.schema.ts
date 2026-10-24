@@ -9,6 +9,7 @@ import {
   mysqlEnum,
   index,
   uniqueIndex,
+  boolean,
 } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
 
@@ -41,7 +42,9 @@ export const CAREGIVER_STATUS_TRANSITIONS: Record<CaregiverStatus, CaregiverStat
   ACTIVE: ['INACTIVE', 'SUSPENDED'],
   INACTIVE: ['ACTIVE'],
   SUSPENDED: ['ACTIVE', 'REJECTED'],
-  REJECTED: [],
+  // An admin may send a rejected registration back to draft so it can be
+  // corrected and submitted again. Nothing else leaves REJECTED.
+  REJECTED: ['DRAFT'],
 };
 
 export const caregivers = mysqlTable(
@@ -96,6 +99,10 @@ export const caregivers = mysqlTable(
     // consent. Null for staff-entered records (consent isn't meaningful when
     // staff, not the caregiver, filled the form in).
     consentAcceptedAt: datetime('consent_accepted_at'),
+    // When on, the caregiver is told straight away when a client asks for
+    // them. When off (the default), staff decide when to tell them, from the
+    // request ("Notify caregiver").
+    autoNotifyRequests: boolean('auto_notify_requests').notNull().default(false),
     createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     deletedAt: datetime('deleted_at'),

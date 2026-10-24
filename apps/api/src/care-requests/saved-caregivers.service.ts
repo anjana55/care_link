@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, count, desc, eq, isNull } from 'drizzle-orm';
-import type { SavedCaregiverItem } from '@care-platform/shared';
+import { and, count, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { PUBLIC_CAREGIVER_STATUSES, type SavedCaregiverItem } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { caregivers, patients, savedCaregivers } from '../database/schema';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -54,7 +54,7 @@ export class SavedCaregiversService {
     const [caregiver] = await this.db
       .select({ id: caregivers.id })
       .from(caregivers)
-      .where(and(eq(caregivers.publicId, publicId), isNull(caregivers.deletedAt), eq(caregivers.status, 'ACTIVE')))
+      .where(and(eq(caregivers.publicId, publicId), isNull(caregivers.deletedAt), inArray(caregivers.status, [...PUBLIC_CAREGIVER_STATUSES])))
       .limit(1);
     if (!caregiver) throw new NotFoundException('Caregiver not found');
 

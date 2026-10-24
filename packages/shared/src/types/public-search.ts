@@ -7,6 +7,7 @@ import {
   type SearchOrigin,
   type ServiceAreaCity,
 } from './geo';
+import { careTypeValues, type CareType } from './care-types';
 
 /**
  * Domain types shared between apps/api (source of truth, validated again with
@@ -48,7 +49,7 @@ const optionalOf = <T extends z.ZodTypeAny>(schema: T) => z.preprocess(blankToUn
 /**
  * What a guardian fills in on the Normal Search form (or what the AI step extracts).
  *
- * District and desired start date are the only mandatory inputs - everything
+ * Care type, district and desired start date are the only mandatory inputs - everything
  * else is a refinement that narrows or re-ranks an already-usable result set.
  * Both are checked in `superRefine` rather than with `.min(1)` on the fields so
  * that a blank select, a whitespace-only value, and an omitted key all produce
@@ -92,19 +93,19 @@ export const searchRequestSchema = z
     mandatorySkillIds: optionalOf(z.array(z.string().uuid()).max(15)),
     optionalSkillIds: optionalOf(z.array(z.string().uuid()).max(15)),
     languageIds: optionalOf(z.array(z.string().uuid()).max(10)),
+    // What kind of care is needed (home shifts, live-in, hospital...). Mandatory;
+    // a hard filter against what each caregiver takes on.
+    careType: optionalOf(z.enum(careTypeValues)),
     shift: optionalOf(z.enum(shiftRequirementValues)),
     desiredStartDate: optionalOf(z.string().date()),
     minimumExperienceYears: optionalOf(z.number().int().min(0).max(50)),
-    budget: optionalOf(
-      z.object({
-        dailyRate: optionalOf(z.number().positive().max(100000)),
-        monthlyRate: optionalOf(z.number().positive().max(1000000)),
-      }),
-    ),
     page: optionalOf(z.number().int().min(1).max(1000)),
     pageSize: optionalOf(z.number().int().min(1).max(50)),
   })
   .superRefine((data, ctx) => {
+    if (!data.careType) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['careType'], message: 'required' });
+    }
     if (!data.location?.districtId) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['location', 'districtId'], message: 'required' });
     }
@@ -128,7 +129,7 @@ export const aiSearchRequestSchema = z.object({
 export type AiSearchRequest = z.infer<typeof aiSearchRequestSchema>;
 
 /** Inputs a search cannot run without, which the AI assistant asks for when the description did not give them. */
-export const aiMissingFieldValues = ['location'] as const;
+export const aiMissingFieldValues = ['careType', 'location'] as const;
 export type AiMissingField = (typeof aiMissingFieldValues)[number];
 
 /** Inputs the AI filled in with a sensible default instead of asking (shown to the visitor, editable). */
@@ -189,6 +190,10 @@ export interface PublicCaregiverSummary {
   skills: PublicSkillMatch[];
   availability: PublicAvailability;
   hasVerifiedQualification: boolean;
+  /** The caregiver has passed the platform's own checks (status Verified or Active). */
+  verified: boolean;
+  /** The kinds of care this caregiver takes on. */
+  careTypes: CareType[];
   qualificationSummary: string[];
   relevantExperienceSummary: string[];
   /** Centre of the caregiver's city (or district when no city is on record) - never an address. */
