@@ -32,6 +32,7 @@ const submit = () => screen.getByRole('button', { name: /search caregivers/i });
 /** The selects carry ids as values, so picking Colombo means choosing 1. */
 const chooseDistrict = () => fireEvent.change(district(), { target: { value: '1' } });
 const chooseStartDate = () => fireEvent.change(startDate(), { target: { value: '2026-10-01' } });
+const chooseCareType = () => fireEvent.click(screen.getByRole('radio', { name: 'Live-in caregiver' }));
 
 describe('NormalSearchForm', () => {
   it('blocks submit and explains why when nothing is filled in', async () => {
@@ -41,11 +42,12 @@ describe('NormalSearchForm', () => {
     fireEvent.click(submit());
 
     await waitFor(() => expect(screen.getByText(/please select a district/i)).toBeInTheDocument());
+    expect(screen.getByText(/please choose the type of care/i)).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
     expect(district()).toHaveAttribute('aria-invalid', 'true');
   });
 
-  it('submits when only the two required fields are filled in', async () => {
+  it('will not search without a type of care', async () => {
     const onSubmit = jest.fn();
     render(renderWithProviders(<NormalSearchForm onSubmit={onSubmit} />));
 
@@ -53,8 +55,34 @@ describe('NormalSearchForm', () => {
     chooseStartDate();
     fireEvent.click(submit());
 
+    await waitFor(() => expect(screen.getByText(/please choose the type of care/i)).toBeInTheDocument());
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('offers exactly the five types of care', () => {
+    render(renderWithProviders(<NormalSearchForm onSubmit={jest.fn()} />));
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual([
+      'Care at home (shift basis)',
+      'Live-in caregiver',
+      'Care at a hospital',
+      'Nursing home for the elderly',
+      'Retirement home for the elderly',
+    ]);
+    expect(screen.queryByText(/budget/i)).not.toBeInTheDocument();
+  });
+
+  it('submits when only the three required fields are filled in', async () => {
+    const onSubmit = jest.fn();
+    render(renderWithProviders(<NormalSearchForm onSubmit={onSubmit} />));
+
+    chooseDistrict();
+    chooseCareType();
+    chooseStartDate();
+    fireEvent.click(submit());
+
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      careType: 'LIVE_IN',
       location: { districtId: 1 },
       desiredStartDate: '2026-10-01',
     });
@@ -67,8 +95,9 @@ describe('NormalSearchForm', () => {
     const onSubmit = jest.fn();
     render(renderWithProviders(<NormalSearchForm onSubmit={onSubmit} />));
 
-    // Age, min experience and both budget fields are left completely blank.
+    // Age and min experience are left completely blank.
     chooseDistrict();
+    chooseCareType();
     chooseStartDate();
     fireEvent.click(submit());
 
@@ -76,7 +105,6 @@ describe('NormalSearchForm', () => {
     const submitted = onSubmit.mock.calls[0][0] as SearchRequest;
     expect(submitted.patient?.age).toBeUndefined();
     expect(submitted.minimumExperienceYears).toBeUndefined();
-    expect(submitted.budget?.dailyRate).toBeUndefined();
     expect(submitted.location?.cityId).toBeUndefined();
   });
 
@@ -126,6 +154,7 @@ describe('NormalSearchForm', () => {
 
     chooseDistrict();
     fireEvent.change(screen.getByLabelText(/city/i), { target: { value: '118' } });
+    chooseCareType();
     chooseStartDate();
     fireEvent.click(submit());
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
@@ -150,7 +179,8 @@ describe('NormalSearchForm', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Use my location' }));
       await waitFor(() => expect(screen.getByText('Using your location near Colombo 15')).toBeInTheDocument());
       expect(district()).toHaveValue('1');
-      chooseStartDate();
+      chooseCareType();
+    chooseStartDate();
       fireEvent.click(submit());
 
       await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
@@ -168,7 +198,8 @@ describe('NormalSearchForm', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Use my location' }));
       await waitFor(() => expect(district()).toHaveValue('1'));
       fireEvent.change(district(), { target: { value: '2' } });
-      chooseStartDate();
+      chooseCareType();
+    chooseStartDate();
       fireEvent.click(submit());
 
       await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));

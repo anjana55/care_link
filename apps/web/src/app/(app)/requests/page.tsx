@@ -173,6 +173,7 @@ export default function RequestsPage() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="font-medium text-ink">{r.clientName}</div>
+                  {r.careType && <div className="text-xs text-ink/60">{t(`careTypes.${r.careType}`)}</div>}
                   {r.registrantType === 'GUARDIAN' && r.recipientName && (
                     <div className="text-xs text-ink/50">{t('requests.forRecipient', { name: r.recipientName })}</div>
                   )}
@@ -190,6 +191,10 @@ export default function RequestsPage() {
                         {r.caregiverRegistrationNumber}
                         {r.caregiverDeleted && <span className="ml-2 text-danger">{t('requests.caregiverRemoved')}</span>}
                       </div>
+                      {/* Open, and the caregiver has not been told yet - staff notify by hand. */}
+                      {!r.caregiverNotifiedAt && (r.status === 'NEW' || r.status === 'IN_PROGRESS') && !r.caregiverDeleted && (
+                        <span className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{t('requests.notNotified')}</span>
+                      )}
                     </>
                   ) : (
                     <span className="rounded bg-accent-light px-2 py-0.5 text-xs font-medium text-accent">{t('requests.notMatched')}</span>

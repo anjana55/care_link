@@ -30,6 +30,8 @@ function caregiver(overrides: Partial<PublicCaregiverSummary> = {}): PublicCareg
     skills: [],
     availability: { dayDuty: true, nightDuty: false, liveIn24h: false, preferredShift: 'DAY', availableFrom: null },
     hasVerifiedQualification: false,
+    verified: false,
+    careTypes: ['HOME_SHIFT', 'LIVE_IN'],
     qualificationSummary: [],
     relevantExperienceSummary: [],
     homeLocation: { latitude: 6.773, longitude: 79.8816, precision: 'city' },

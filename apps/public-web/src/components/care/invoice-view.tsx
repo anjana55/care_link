@@ -123,7 +123,7 @@ export function InvoiceView({ invoice }: { invoice: ClientInvoice }) {
             {invoice.payments.map((p, i) => (
               <li key={i} className="flex justify-between gap-3 tabular-nums">
                 <span>
-                  {fmtDate(p.paidOn, locale)} · {t(`invoices.method.${p.method}`)}
+                  {fmtDate(p.paidOn, locale)} · {t(`invoices.paymentType.${p.paymentType}`)}{p.method && p.method !== 'CASH' ? ` (${t(`invoices.method.${p.method}`)})` : ''}
                   {p.reference && ` · ${p.reference}`}
                 </span>
                 <span className="whitespace-nowrap">{formatLkr(p.amount)}</span>

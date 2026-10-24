@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { CareRequestDetail } from '@/lib/api/types';
 
 /**
- * "Suggest caregivers" for an open request: active caregivers who fit the
+ * "Suggest caregivers" for an open request: listed caregivers (Registered onwards) who fit the
  * client's location, shift and preferences (the same hard filters as the
  * public search), ranked - by the AI when Settings > AI has matching on, which
  * also reads the client's care-needs text and message. Fetched on demand,

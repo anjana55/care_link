@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, datetime, mysqlEnum, text, index, uniqueIndex, primaryKey } from 'drizzle-orm/mysql-core';
+import { mysqlTable, varchar, datetime, date, int, mysqlEnum, text, index, uniqueIndex, primaryKey } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -29,6 +29,10 @@ export type CareRequestStatus = (typeof careRequestStatusEnum)[number];
  */
 export const careRequestSourceEnum = ['WEB', 'PHONE'] as const;
 export type CareRequestSource = (typeof careRequestSourceEnum)[number];
+
+/** The kinds of care a request can be for - mirrors careTypeValues in @care-platform/shared. */
+export const careTypeEnum = ['HOME_SHIFT', 'LIVE_IN', 'HOSPITAL', 'NURSING_HOME', 'RETIREMENT_HOME'] as const;
+export type CareTypeDb = (typeof careTypeEnum)[number];
 
 /** Statuses in which a request still counts as open for the one-open-request-per-pair rule. */
 export const OPEN_CARE_REQUEST_STATUSES: readonly CareRequestStatus[] = ['NEW', 'IN_PROGRESS'];
@@ -80,6 +84,18 @@ export const careRequests = mysqlTable(
     status: mysqlEnum('status', careRequestStatusEnum).notNull().default('NEW'),
     // What the client wrote when sending it. Shown to staff only.
     message: text('message'),
+    // What the client is looking for. Taken from their search when they press
+    // Contact, or asked for directly when they send a request without a
+    // caregiver ("find someone for me"), where care type and district are
+    // required so staff have something to match on.
+    careType: mysqlEnum('care_type', careTypeEnum),
+    districtId: int('district_id'),
+    cityId: int('city_id'),
+    desiredStartDate: date('desired_start_date', { mode: 'string' }),
+    // When the attached caregiver was last told about this request - straight
+    // away for caregivers set to auto-notify, otherwise when staff press
+    // "Notify caregiver". Null = the caregiver has not been told yet.
+    caregiverNotifiedAt: datetime('caregiver_notified_at'),
     // The language the client was using when they sent it; their update
     // notifications go out in it.
     language: mysqlEnum('language', careRequestLanguageEnum).notNull().default('en'),
@@ -115,7 +131,8 @@ export const careRequests = mysqlTable(
  */
 // CAREGIVER_CHANGED: staff attached or swapped the caregiver; `note` records
 // who, as "registration number - name", at the time.
-export const careRequestEventTypeEnum = ['CREATED', 'STATUS_CHANGED', 'NOTE', 'ASSIGNED', 'CANCELLED', 'CAREGIVER_CHANGED'] as const;
+// CAREGIVER_NOTIFIED: the caregiver was told about the request (automatically, or by staff).
+export const careRequestEventTypeEnum = ['CREATED', 'STATUS_CHANGED', 'NOTE', 'ASSIGNED', 'CANCELLED', 'CAREGIVER_CHANGED', 'CAREGIVER_NOTIFIED'] as const;
 export type CareRequestEventType = (typeof careRequestEventTypeEnum)[number];
 
 export const careRequestEvents = mysqlTable(

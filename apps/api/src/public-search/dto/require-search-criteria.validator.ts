@@ -8,7 +8,7 @@ import {
 import type { SearchRequestDto } from './search-request.dto';
 
 /**
- * District and desired start date are the only mandatory inputs on the public
+ * Care type, district and desired start date are the only mandatory inputs on the public
  * search form; everything else is a refinement. This is a single class-level
  * constraint rather than per-field `@IsNotEmpty` for two reasons:
  *
@@ -25,11 +25,12 @@ import type { SearchRequestDto } from './search-request.dto';
 export class RequireSearchCriteriaConstraint implements ValidatorConstraintInterface {
   validate(_value: unknown, args: ValidationArguments): boolean {
     const dto = args.object as SearchRequestDto;
-    return Boolean(dto.location?.districtId) && Boolean(dto.desiredStartDate?.trim());
+    return Boolean(dto.careType) && Boolean(dto.location?.districtId) && Boolean(dto.desiredStartDate?.trim());
   }
 
   defaultMessage(args: ValidationArguments): string {
     const dto = args.object as SearchRequestDto;
+    if (!dto.careType) return 'careType is required';
     if (!dto.location?.districtId) return 'location.districtId is required';
     return 'desiredStartDate is required';
   }

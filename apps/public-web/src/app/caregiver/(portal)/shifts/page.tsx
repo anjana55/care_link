@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Label, Select, FieldError } from '@/components/ui/input';
 import { useAvailability, useSaveAvailability } from '@/lib/hooks/use-caregiver-portal';
 import { SHIFT_PREFERENCES, type Availability, type ShiftPreference } from '@/lib/api/portal-types';
+import { careTypeValues, type CareType } from '@care-platform/shared';
 
 interface Form {
   dayDuty: boolean;
@@ -19,6 +20,7 @@ interface Form {
   expectedMonthlyRate: string;
   expectedLeaveDays: string;
   preferredLeavePattern: string;
+  careTypes: CareType[];
 }
 
 const EMPTY: Form = {
@@ -31,6 +33,8 @@ const EMPTY: Form = {
   expectedMonthlyRate: '',
   expectedLeaveDays: '',
   preferredLeavePattern: '',
+  // Matches the database default: everything on until they narrow it down.
+  careTypes: [...careTypeValues],
 };
 
 const fromRecord = (a: Availability | null | undefined): Form =>
@@ -45,6 +49,7 @@ const fromRecord = (a: Availability | null | undefined): Form =>
         expectedMonthlyRate: a.expectedMonthlyRate ?? '',
         expectedLeaveDays: a.expectedLeaveDays === null || a.expectedLeaveDays === undefined ? '' : String(a.expectedLeaveDays),
         preferredLeavePattern: a.preferredLeavePattern ?? '',
+        careTypes: a.careTypes ?? [...careTypeValues],
       }
     : EMPTY;
 
@@ -82,6 +87,7 @@ export default function CaregiverShiftsPage() {
     if (form.expectedDailyRate && !MONEY.test(form.expectedDailyRate)) next.expectedDailyRate = t('portal.shifts.invalidAmount');
     if (form.expectedMonthlyRate && !MONEY.test(form.expectedMonthlyRate)) next.expectedMonthlyRate = t('portal.shifts.invalidAmount');
     if (form.expectedLeaveDays && !/^\d{1,2}$/.test(form.expectedLeaveDays)) next.expectedLeaveDays = t('portal.shifts.invalidDays');
+    if (!form.careTypes.length) next.careTypes = t('portal.shifts.careTypesRequired');
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -95,6 +101,7 @@ export default function CaregiverShiftsPage() {
       nightDuty: form.nightDuty,
       liveIn24h: form.liveIn24h,
       preferredShift: form.preferredShift,
+      careTypes: form.careTypes,
     };
     if (form.availableFrom) body.availableFrom = form.availableFrom;
     if (form.expectedDailyRate) body.expectedDailyRate = form.expectedDailyRate;
@@ -122,6 +129,27 @@ export default function CaregiverShiftsPage() {
         <h2 className="text-base font-semibold text-ink">{t('portal.shifts.availabilityTitle')}</h2>
         <p className="mt-1 text-sm text-ink/60">{t('portal.shifts.subtitle')}</p>
       </div>
+
+      <fieldset className="rounded-lg border border-border bg-white p-5">
+        <legend className="px-1 text-sm font-semibold text-ink">{t('portal.shifts.careTypesTitle')}</legend>
+        <p className="mb-3 text-xs text-ink/50">{t('portal.shifts.careTypesHint')}</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {careTypeValues.map((type) => (
+            <label key={type} className="flex items-center gap-3 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={form.careTypes.includes(type)}
+                onChange={(e) =>
+                  set('careTypes', e.target.checked ? careTypeValues.filter((v) => v === type || form.careTypes.includes(v)) : form.careTypes.filter((v) => v !== type))
+                }
+                className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
+              />
+              {t(`careTypes.${type}`)}
+            </label>
+          ))}
+        </div>
+        <FieldError message={errors.careTypes} />
+      </fieldset>
 
       <fieldset className="rounded-lg border border-border bg-white p-5">
         <legend className="px-1 text-sm font-semibold text-ink">{t('portal.shifts.canWork')}</legend>

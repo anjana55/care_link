@@ -48,18 +48,17 @@
     "shiftFlexible": "Flexible",
     "startDate": "Desired start date",
     "minimumExperience": "Minimum experience (years)",
-    "budgetSection": "Budget (influences ranking, not a strict filter)",
-    "dailyBudget": "Daily budget (LKR)",
-    "monthlyBudget": "Monthly budget (LKR)",
     "submit": "Search caregivers",
     "reset": "Clear filters",
     "startDateHint": "Required. Availability matching is not live yet, so this does not change results today.",
     "errors": {
       "districtRequired": "Please select a district.",
       "startDateRequired": "Please choose a desired start date.",
-      "invalidValue": "Please check this value."
+      "invalidValue": "Please check this value.",
+      "careTypeRequired": "Please choose the type of care you need."
     },
-    "locationsUnavailable": "Districts and cities could not be loaded. Please refresh the page or try again shortly."
+    "locationsUnavailable": "Districts and cities could not be loaded. Please refresh the page or try again shortly.",
+    "careType": "Type of care needed"
   },
   "aiSearch": {
     "label": "Describe the care you need",
@@ -87,7 +86,9 @@
     "startOver": "Start over",
     "refineTitle": "Refine your search",
     "refineHint": "Change any filter and update the results.",
-    "updateResults": "Update results"
+    "updateResults": "Update results",
+    "askCareType": "What kind of care do you need? Choose one below, or tell me in your own words.",
+    "careTypeReplyPlaceholder": "For example: someone to live with my mother"
   },
   "results": {
     "title": "Caregivers matching your search",
@@ -101,7 +102,9 @@
     "next": "Next",
     "approxAge": "{age} years",
     "aiRankedNote": "Every caregiver here meets your requirements; AI has ordered them by how well they fit your description.",
-    "aiReason": "Why AI suggests this caregiver"
+    "aiReason": "Why AI suggests this caregiver",
+    "verified": "Verified",
+    "verifiedHint": "Our team has checked this caregiver's identity and documents"
   },
   "empty": {
     "title": "No caregivers matched those filters",
@@ -133,7 +136,8 @@
     "notFound": "This caregiver profile isn't available.",
     "availabilityDay": "Day duty",
     "availabilityNight": "Night duty",
-    "availabilityLiveIn": "24-hour live-in"
+    "availabilityLiveIn": "24-hour live-in",
+    "careTypes": "Types of care"
   },
   "registrationGate": {
     "title": "Tell us how to reach you",
@@ -146,7 +150,8 @@
     "signInWhatsapp": "Sign in with WhatsApp",
     "cancel": "Not now",
     "sessionEndedTitle": "Please sign in again",
-    "sessionEndedBody": "Your session has ended, so your request was not sent. Sign in and we'll bring you back here to send it."
+    "sessionEndedBody": "Your session has ended, so your request was not sent. Sign in and we'll bring you back here to send it.",
+    "bodyFind": "Our team will look for a caregiver for you and call you to talk it through. Verify your number or email once and we'll take you straight to your request."
   },
   "sections": {
     "howItWorksTitle": "How it works",
@@ -158,8 +163,8 @@
     "howItWorksStep3Body": "Create a free account to contact or hire a caregiver.",
     "verifiedTitle": "Why verified qualifications matter",
     "verifiedBody": "Caregivers with a verified qualification have had their credentials checked against the issuing institution. We show this clearly so you can weigh it in your decision.",
-    "safetyTitle": "Safety & privacy",
-    "safetyBody": "We never show a caregiver's contact details, address, or identification documents publicly. Sensitive health information is kept separate and is never part of public search.",
+    "safetyTitle": "Your safety & privacy",
+    "safetyBody": "Search without an account or sharing any personal details. When you ask for a caregiver, our team calls you and arranges the introduction. Your phone number, address and your family's health information are never shown on the site, and are only shared with a caregiver once you agree.",
     "multilingualTitle": "Available in your language",
     "multilingualBody": "This site works in English, Sinhala, and Tamil.",
     "ctaTitle": "Ready to find the right caregiver?",
@@ -764,7 +769,10 @@
       "bookedTitle": "Your booked shifts",
       "bookedSubtitle": "Shifts our team has confirmed for you, in Sri Lanka time. To change one, call us.",
       "noBooked": "No booked shifts yet. Our team will call you when a family books you.",
-      "cover": "(cover)"
+      "cover": "(cover)",
+      "careTypesTitle": "Types of care you take on",
+      "careTypesHint": "Families search by the type of care they need. Untick anything you don't do and you won't be shown for it.",
+      "careTypesRequired": "Choose at least one type of care."
     },
     "documents": {
       "title": "Your documents",
@@ -932,7 +940,25 @@
       "close": "Close",
       "error": "We couldn't send your request. Please try again."
     },
-    "savedOnDevice": "Saved on this device. Sign in or create an account to keep your shortlist."
+    "savedOnDevice": "Saved on this device. Sign in or create an account to keep your shortlist.",
+    "findForMe": {
+      "title": "Can't find the right caregiver?",
+      "body": "Tell us what you need and our team will find someone for you and call you.",
+      "cta": "Ask us to find a caregiver",
+      "notFound": "Not the right match?"
+    },
+    "findDialog": {
+      "title": "Find a caregiver for me",
+      "intro": "Tell us what you need. Our team will look for a suitable caregiver and call you to talk it through - there is nothing to pay to ask.",
+      "messageLabel": "Anything else we should know? (optional)",
+      "messagePlaceholder": "For example: who needs care, their condition, the best times to call you",
+      "send": "Send request",
+      "successTitle": "Request sent",
+      "successBody": "Thank you. Our team will start looking and contact you soon. Your reference is {reference}.",
+      "choose": "Choose…",
+      "careTypeRequired": "Please choose the type of care you need.",
+      "districtRequired": "Please choose the district where care is needed."
+    }
   },
   "account": {
     "navLabel": "Account sections",
@@ -972,7 +998,9 @@
       },
       "notOnline": "This caregiver's profile isn't shown online. Our team will tell you about them.",
       "noCaregiverLabel": "Caregiver",
-      "matching": "Our team is finding a caregiver for you"
+      "matching": "Our team is finding a caregiver for you",
+      "newRequest": "Find a caregiver for me",
+      "startsOn": "Starting {date}"
     },
     "saved": {
       "title": "Saved caregivers",
@@ -1098,6 +1126,11 @@
       "balance": "Balance due",
       "paidInFull": "Paid in full - thank you",
       "payments": "Payments received"
+    },
+    "paymentType": {
+      "CASH": "Cash",
+      "BANK": "Bank",
+      "ONLINE": "Online"
     }
   },
   "issues": {
@@ -1172,5 +1205,12 @@
     "legendOriginDevice": "You",
     "legendCaregivers": "Caregivers living there",
     "legendServiceArea": "Also works in"
+  },
+  "careTypes": {
+    "HOME_SHIFT": "Care at home (shift basis)",
+    "LIVE_IN": "Live-in caregiver",
+    "HOSPITAL": "Care at a hospital",
+    "NURSING_HOME": "Nursing home for the elderly",
+    "RETIREMENT_HOME": "Retirement home for the elderly"
   }
 }

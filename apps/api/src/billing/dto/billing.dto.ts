@@ -40,6 +40,8 @@ const trimToUndefined = ({ value }: { value: unknown }) => (typeof value === 'st
 
 const MANUAL_METHODS = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'CARD', 'OTHER'] as const;
 type ManualMethod = (typeof MANUAL_METHODS)[number];
+const PAYMENT_TYPES = ['CASH', 'BANK', 'ONLINE'] as const;
+type PaymentTypeValue = (typeof PAYMENT_TYPES)[number];
 
 // --- lines (invoices and payouts) ----------------------------------------------
 
@@ -222,9 +224,21 @@ export class RecordPaymentDto {
   @Matches(AMOUNT, { message: 'Enter the amount as a number' })
   amount: string;
 
-  @ApiProperty({ enum: MANUAL_METHODS })
-  @IsIn(MANUAL_METHODS, { message: 'Choose how it was paid' })
-  method: ManualMethod;
+  @ApiProperty({ enum: PAYMENT_TYPES, description: 'Cash, bank or online' })
+  @IsIn(PAYMENT_TYPES, { message: 'Choose how it was paid' })
+  paymentType: PaymentTypeValue;
+
+  @ApiPropertyOptional({ enum: MANUAL_METHODS, description: 'Optional detail under the type, e.g. CHEQUE for a bank payment' })
+  @IsOptional()
+  @Transform(trimToUndefined)
+  @IsIn(MANUAL_METHODS, { message: 'Choose a valid payment detail' })
+  method?: ManualMethod;
+
+  @ApiPropertyOptional({ description: 'Bank payments only: which of the business bank accounts (Settings > Billing)' })
+  @IsOptional()
+  @Transform(trimToUndefined)
+  @IsUUID('all', { message: 'Choose a bank account' })
+  bankAccountId?: string;
 
   @ApiProperty({ example: '2026-10-31' })
   @Matches(DATE, { message: 'Enter the date it was paid' })
@@ -318,9 +332,21 @@ export class PayPayoutDto {
   @Matches(DATE, { message: 'Enter the date it was paid' })
   paidOn: string;
 
-  @ApiProperty({ enum: MANUAL_METHODS })
-  @IsIn(MANUAL_METHODS, { message: 'Choose how it was paid' })
-  method: ManualMethod;
+  @ApiProperty({ enum: PAYMENT_TYPES, description: 'Cash, bank or online' })
+  @IsIn(PAYMENT_TYPES, { message: 'Choose how it was paid' })
+  paymentType: PaymentTypeValue;
+
+  @ApiPropertyOptional({ enum: MANUAL_METHODS, description: 'Optional detail under the type, e.g. CHEQUE for a bank payment' })
+  @IsOptional()
+  @Transform(trimToUndefined)
+  @IsIn(MANUAL_METHODS, { message: 'Choose a valid payment detail' })
+  method?: ManualMethod;
+
+  @ApiPropertyOptional({ description: 'Bank payments only: which of the business bank accounts (Settings > Billing)' })
+  @IsOptional()
+  @Transform(trimToUndefined)
+  @IsUUID('all', { message: 'Choose a bank account' })
+  bankAccountId?: string;
 
   @ApiPropertyOptional()
   @IsOptional() @Transform(trimToUndefined) @IsString() @MaxLength(120)

@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { Equals, IsEmail, IsIn, IsOptional, IsString, IsUUID, Matches, MaxLength, ValidateIf, ValidateNested } from 'class-validator';
-import { CARE_REQUEST_MESSAGE_MAX } from '@care-platform/shared';
+import { CARE_REQUEST_MESSAGE_MAX, careTypeValues, type CareType } from '@care-platform/shared';
 import { PatientProfileDto } from '../../auth/dto/patient-profile.dto';
 import { TextField } from '../../common/validation/text-field.validator';
 import { careRequestLanguageEnum, type CareRequestLanguage } from '../../database/schema';
@@ -57,6 +57,12 @@ export class CreateStaffCareRequestDto {
   @IsOptional()
   @IsUUID('all', { message: 'Choose a valid caregiver' })
   caregiverId?: string;
+
+  @ApiPropertyOptional({ enum: careTypeValues, description: 'The type of care the caller needs, if they said' })
+  @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+  @IsIn(careTypeValues, { message: 'Choose a valid type of care' })
+  careType?: CareType;
 
   @ApiPropertyOptional({ maxLength: CARE_REQUEST_MESSAGE_MAX, description: 'What the caller asked for, in their words' })
   @IsOptional()

@@ -21,7 +21,7 @@ describe('SearchRequestDto validation', () => {
 
   const validate = (body: unknown) => pipe.transform(body, { type: 'body', metatype: SearchRequestDto });
 
-  const minimal = { location: { districtId: 1 }, desiredStartDate: '2026-10-01' };
+  const minimal = { careType: 'HOME_SHIFT', location: { districtId: 1 }, desiredStartDate: '2026-10-01' };
 
   async function errorsFor(body: unknown): Promise<string[]> {
     try {
@@ -34,39 +34,48 @@ describe('SearchRequestDto validation', () => {
   }
 
   describe('required criteria', () => {
-    it('rejects an entirely empty body naming the district', async () => {
-      expect(await errorsFor({})).toEqual(['location.districtId is required']);
+    it('rejects an entirely empty body naming the care type', async () => {
+      expect(await errorsFor({})).toEqual(['careType is required']);
+    });
+
+    it('rejects a missing care type, naming it', async () => {
+      expect(await errorsFor({ location: { districtId: 1 }, desiredStartDate: '2026-10-01' })).toEqual(['careType is required']);
+    });
+
+    it('rejects an unknown care type on its value', async () => {
+      const errors = await errorsFor({ ...minimal, careType: 'DAYCARE' });
+      expect(errors.some((e) => e.startsWith('careType must be one of'))).toBe(true);
     });
 
     it('rejects a body that omits location entirely', async () => {
-      expect(await errorsFor({ desiredStartDate: '2026-10-01' })).toEqual(['location.districtId is required']);
+      expect(await errorsFor({ careType: 'HOME_SHIFT', desiredStartDate: '2026-10-01' })).toEqual(['location.districtId is required']);
     });
 
     it('rejects an empty location object', async () => {
-      expect(await errorsFor({ location: {}, desiredStartDate: '2026-10-01' })).toEqual(['location.districtId is required']);
+      expect(await errorsFor({ careType: 'HOME_SHIFT', location: {}, desiredStartDate: '2026-10-01' })).toEqual(['location.districtId is required']);
     });
 
     it('rejects a district id of zero, naming the district', async () => {
       // The select offers ids starting at 1, so 0 can only be a hand-rolled
       // request; the class-level constraint catches it before the id lookup does,
       // alongside the field-level Min that fires too.
-      const errors = await errorsFor({ location: { districtId: 0 }, desiredStartDate: '2026-10-01' });
+      const errors = await errorsFor({ careType: 'HOME_SHIFT', location: { districtId: 0 }, desiredStartDate: '2026-10-01' });
       expect(errors).toContain('location.districtId is required');
       expect(errors).toContain('location.districtId must not be less than 1');
     });
 
     it('rejects a missing start date, naming the start date and not the district', async () => {
-      expect(await errorsFor({ location: { districtId: 1 } })).toEqual(['desiredStartDate is required']);
+      expect(await errorsFor({ careType: 'HOME_SHIFT', location: { districtId: 1 } })).toEqual(['desiredStartDate is required']);
     });
 
     it('reports only the first missing field, so a blank form is not a wall of errors', async () => {
-      // District is named first; fixing it then surfaces the start date.
+      // Care type is named first, then district, then the start date.
       expect(await errorsFor({})).toHaveLength(1);
-      expect(await errorsFor({ location: { districtId: 1 } })).toHaveLength(1);
+      expect(await errorsFor({ careType: 'HOME_SHIFT', location: { districtId: 1 } })).toHaveLength(1);
     });
 
     it('still rejects a supplied-but-malformed start date on its format', async () => {
-      expect(await errorsFor({ location: { districtId: 1 }, desiredStartDate: 'not-a-date' })).toEqual([
+      expect(await errorsFor({ careType: 'HOME_SHIFT', location: { districtId: 1 }, desiredStartDate: 'not-a-date' })).toEqual([
         'desiredStartDate must be a valid ISO 8601 date string',
       ]);
     });
@@ -97,7 +106,6 @@ describe('SearchRequestDto validation', () => {
         languageIds: [],
         shift: '',
         minimumExperienceYears: Number.NaN,
-        budget: { dailyRate: Number.NaN, monthlyRate: Number.NaN },
       };
       await expect(validate(browserBlankBody)).resolves.toBeDefined();
     });
@@ -108,7 +116,7 @@ describe('SearchRequestDto validation', () => {
 
     it('coerces the id fields, which reach the API as strings on some clients', async () => {
       await expect(
-        validate({ location: { districtId: '1', cityId: '340' }, desiredStartDate: '2026-10-01' }),
+        validate({ careType: 'HOME_SHIFT', location: { districtId: '1', cityId: '340' }, desiredStartDate: '2026-10-01' }),
       ).resolves.toMatchObject({ location: { districtId: 1, cityId: 340 } });
     });
 

@@ -92,8 +92,7 @@ describe('AI requirement extraction', () => {
         caregiverGenderPreference: 'FEMALE',
         desiredStartDate: '2026-10-26',
         minimumExperienceYears: 3,
-        dailyBudget: '5,000',
-        monthlyBudget: -1,
+        careType: 'LIVE_IN',
       },
       catalog,
       today,
@@ -111,12 +110,12 @@ describe('AI requirement extraction', () => {
       caregiverGenderPreference: 'FEMALE',
       desiredStartDate: '2026-10-26',
       minimumExperienceYears: 3,
-      budget: { dailyRate: 5000 },
+      careType: 'LIVE_IN',
     });
   });
 
   it('drops unknown districts, invalid enums and past dates rather than guessing', () => {
-    const { request } = normalizeExtraction({ districtId: 999, shift: 'MORNING', caregiverGenderPreference: 'OTHER', desiredStartDate: '2020-01-01', patient: { age: 300 } }, catalog, today);
+    const { request } = normalizeExtraction({ districtId: 999, careType: 'DAYCARE', shift: 'MORNING', caregiverGenderPreference: 'OTHER', desiredStartDate: '2020-01-01', patient: { age: 300 } }, catalog, today);
     expect(request).toEqual({ page: 1, pageSize: 20 });
     expect(normalizeExtraction(null, catalog, today).request).toEqual({ page: 1, pageSize: 20 });
   });
@@ -130,11 +129,11 @@ describe('AI requirement extraction', () => {
 
   it('for the public finder: asks for a missing district, and assumes "as soon as possible" for a missing start date', () => {
     const blank = completeForPublicSearch({ page: 1, pageSize: 20 }, today);
-    expect(blank.missing).toEqual(['location']);
+    expect(blank.missing).toEqual(['careType', 'location']);
     expect(blank.assumed).toEqual(['desiredStartDate']);
     expect(blank.request.desiredStartDate).toBe(today);
 
-    const full = completeForPublicSearch({ location: { districtId: 5 }, desiredStartDate: '2026-11-01' }, today);
+    const full = completeForPublicSearch({ careType: 'HOSPITAL', location: { districtId: 5 }, desiredStartDate: '2026-11-01' }, today);
     expect(full.missing).toEqual([]);
     expect(full.assumed).toEqual([]);
     expect(full.request.desiredStartDate).toBe('2026-11-01');

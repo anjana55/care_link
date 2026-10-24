@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { searchRequestSchema, type SearchRequest } from '@care-platform/shared';
+import { careTypeValues, searchRequestSchema, type SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { LocateFixed, Loader2 } from 'lucide-react';
 import { useMetaSkills, useMetaLanguages, useLocationTree, useCities } from '@/lib/hooks/use-public-search';
@@ -19,11 +19,12 @@ interface NormalSearchFormProps {
 }
 
 /**
- * Only these two fields are mandatory. Zod reports them with a `required`
+ * Only these three fields are mandatory. Zod reports them with a `required`
  * message, but zod's own messages are English-only, so they are mapped to
  * translated copy here rather than shown raw.
  */
 const REQUIRED_FIELD_MESSAGE_KEYS: Record<string, string> = {
+  careType: 'normalSearch.errors.careTypeRequired',
   'location.districtId': 'normalSearch.errors.districtRequired',
   desiredStartDate: 'normalSearch.errors.startDateRequired',
 };
@@ -187,6 +188,8 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
 
   const districtError = errorMessages['location.districtId'];
   const startDateError = errorMessages.desiredStartDate;
+  const careTypeError = errorMessages.careType;
+  const careType = watch('careType');
 
   const mandatorySkillIds = watch('mandatorySkillIds') ?? [];
   const optionalSkillIds = watch('optionalSkillIds') ?? [];
@@ -218,6 +221,38 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
       className="space-y-6"
       aria-label={t('normalSearch.submit')}
     >
+      {/* Type of care - first, because it decides who can be shown at all. */}
+      <fieldset className="space-y-2" aria-describedby={careTypeError ? 'care-type-error' : undefined}>
+        <legend className="text-sm font-semibold text-ink/80">
+          {t('normalSearch.careType')} <span aria-hidden="true" className="text-danger">*</span>
+        </legend>
+        <div role="radiogroup" aria-required="true" aria-invalid={careTypeError ? true : undefined} className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {careTypeValues.map((type) => {
+            const active = careType === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setValue('careType', type, { shouldValidate: true })}
+                className={cn(
+                  'rounded-DEFAULT border px-3 py-2 text-left text-sm transition-colors',
+                  active ? 'border-brand bg-brand text-white' : careTypeError ? 'border-danger bg-white text-ink' : 'border-border bg-white text-ink hover:border-brand',
+                )}
+              >
+                {t(`careTypes.${type}`)}
+              </button>
+            );
+          })}
+        </div>
+        {careTypeError && (
+          <p id="care-type-error" role="alert" className="text-xs text-danger">
+            {careTypeError}
+          </p>
+        )}
+      </fieldset>
+
       {/* Patient */}
       <fieldset className="space-y-3">
         <legend className="text-sm font-semibold text-ink/80">{t('normalSearch.patientSection')}</legend>
@@ -470,35 +505,6 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
               min={0}
               max={50}
               {...register('minimumExperienceYears', { valueAsNumber: true })}
-              />
-          </div>
-        </div>
-      </fieldset>
-
-      {/* Budget */}
-      <fieldset className="space-y-3">
-        <legend className="text-sm font-semibold text-ink/80">{t('normalSearch.budgetSection')}</legend>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="daily-budget" >
-              {t('normalSearch.dailyBudget')}
-            </Label>
-            <Input
-              id="daily-budget"
-              type="number"
-              min={0}
-              {...register('budget.dailyRate', { valueAsNumber: true })}
-              />
-          </div>
-          <div>
-            <Label htmlFor="monthly-budget" >
-              {t('normalSearch.monthlyBudget')}
-            </Label>
-            <Input
-              id="monthly-budget"
-              type="number"
-              min={0}
-              {...register('budget.monthlyRate', { valueAsNumber: true })}
               />
           </div>
         </div>

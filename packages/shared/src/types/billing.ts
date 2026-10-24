@@ -23,6 +23,13 @@ export type InvoiceBasis = 'COMPLETED' | 'SCHEDULED' | 'MANUAL';
 export type BillingLineKind = 'SHIFT' | 'ITEM' | 'ADJUSTMENT';
 export type BillingUnit = 'HOUR' | 'DAY' | 'MONTH' | 'ITEM';
 export type DiscountType = 'PERCENT' | 'AMOUNT';
+/**
+ * How money moved, for client payments (incoming) and caregiver payouts
+ * (outgoing). Every payment has a type; BANK payments may name which of the
+ * business's bank accounts (Settings > Billing) it went through.
+ */
+export type PaymentType = 'CASH' | 'BANK' | 'ONLINE';
+/** Optional finer detail under a payment type (e.g. a cheque, as a BANK payment). */
 export type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CHEQUE' | 'CARD' | 'PAYHERE' | 'OTHER';
 export type PayoutStatus = 'DRAFT' | 'APPROVED' | 'PAID' | 'VOID';
 
@@ -31,6 +38,37 @@ export const PAYOUT_STATUSES: PayoutStatus[] = ['DRAFT', 'APPROVED', 'PAID', 'VO
 export const PAYMENT_METHODS: PaymentMethod[] = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'CARD', 'PAYHERE', 'OTHER'];
 /** Methods staff can record by hand; PAYHERE payments only ever arrive from PayHere itself. */
 export const MANUAL_PAYMENT_METHODS: PaymentMethod[] = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'CARD', 'OTHER'];
+export const PAYMENT_TYPES: PaymentType[] = ['CASH', 'BANK', 'ONLINE'];
+/**
+ * The details that may be recorded under each type. Cash has none. PAYHERE is
+ * listed under ONLINE for display, but staff cannot pick it by hand.
+ */
+export const PAYMENT_METHODS_BY_TYPE: Record<PaymentType, PaymentMethod[]> = {
+  CASH: [],
+  BANK: ['BANK_TRANSFER', 'CHEQUE', 'OTHER'],
+  ONLINE: ['CARD', 'PAYHERE', 'OTHER'],
+};
+export function isMethodAllowedForType(type: PaymentType, method: PaymentMethod | null | undefined): boolean {
+  return !method || PAYMENT_METHODS_BY_TYPE[type].includes(method);
+}
+
+/** One of the business's own bank accounts, defined in Settings > Billing. */
+export interface BankAccount {
+  id: string;
+  bankName: string;
+  branch: string | null;
+  accountName: string;
+  accountNumber: string;
+  /** Inactive accounts stay on past payments but cannot be picked for new ones. */
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** "Commercial Bank - 1234567890 (CareLink Pvt Ltd)" - how an account is shown in a picker or on a payment. */
+export function bankAccountLabel(a: Pick<BankAccount, 'bankName' | 'accountNumber' | 'accountName'>): string {
+  return `${a.bankName} - ${a.accountNumber} (${a.accountName})`;
+}
 export const BILLING_UNITS: BillingUnit[] = ['HOUR', 'DAY', 'MONTH', 'ITEM'];
 
 /** The most lines one invoice or payout may carry - a year of daily shifts plus room for extras. */
@@ -204,7 +242,7 @@ export interface ClientInvoice {
   overdue: boolean;
   notes: string | null;
   footer: string | null;
-  payments: { paidOn: string; amount: string; method: PaymentMethod; reference: string | null }[];
+  payments: { paidOn: string; amount: string; paymentType: PaymentType; method: PaymentMethod | null; reference: string | null }[];
   /** True when the client can pay the balance online right now. */
   canPayOnline: boolean;
 }
@@ -225,6 +263,7 @@ export interface CaregiverPayout {
   lines: PortalBillingLine[];
   total: string;
   paidOn: string | null;
+  paymentType: PaymentType | null;
   paymentMethod: PaymentMethod | null;
   paymentReference: string | null;
 }

@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { CalendarPlus, ChevronLeft, ExternalLink, Phone } from 'lucide-react';
+import { BellRing, CalendarPlus, ChevronLeft, ExternalLink, Phone } from 'lucide-react';
+import { PUBLIC_CAREGIVER_STATUSES } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
@@ -12,6 +13,7 @@ import {
   useAssignableStaff,
   useAssignCareRequest,
   useCareRequest,
+  useNotifyCareRequestCaregiver,
   useSetCareRequestCaregiver,
   useUpdateCareRequestStatus,
 } from '@/lib/hooks/use-care-requests';
@@ -109,6 +111,22 @@ export default function RequestDetailPage() {
           <CardTitle>{request.source === 'PHONE' ? t('requests.detail.phoneMessage') : t('requests.detail.message')}</CardTitle>
         </CardHeader>
         <CardContent>
+          {(request.careType || request.requestDistrict || request.desiredStartDate) && (
+            <dl className="mb-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-xs text-ink/50">{t('requests.detail.careType')}</dt>
+                <dd className="font-medium text-ink">{request.careType ? t(`careTypes.${request.careType}`) : '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-ink/50">{t('requests.detail.careWhere')}</dt>
+                <dd className="text-ink">{[request.requestCity, request.requestDistrict].filter(Boolean).join(', ') || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-ink/50">{t('requests.detail.careFrom')}</dt>
+                <dd className="text-ink">{request.desiredStartDate ?? '—'}</dd>
+              </div>
+            </dl>
+          )}
           {request.message ? (
             <p className="whitespace-pre-wrap text-sm text-ink">{request.message}</p>
           ) : (
@@ -325,7 +343,7 @@ function CaregiverPanel({ request }: { request: CareRequestDetail }) {
           <StatusBadge status={g.status} label={t(`caregivers.status.${g.status}`)} />
         </div>
         {g.deleted && <p className="mb-3 rounded bg-danger-light px-3 py-2 text-xs text-danger">{t('requests.detail.caregiverRemovedNote')}</p>}
-        {!g.deleted && g.status !== 'ACTIVE' && (
+        {!g.deleted && !(PUBLIC_CAREGIVER_STATUSES as readonly string[]).includes(g.status) && (
           <p className="mb-3 rounded bg-accent-light px-3 py-2 text-xs text-accent">{t('requests.detail.caregiverNotActive')}</p>
         )}
         <Row label={t('requests.detail.registration')}>
@@ -347,6 +365,7 @@ function CaregiverPanel({ request }: { request: CareRequestDetail }) {
           )}
         </Row>
         <Row label={t('requests.detail.location')}>{[g.city, g.district].filter(Boolean).join(', ') || '—'}</Row>
+        <NotifyCaregiverRow request={request} />
         {request.canChangeCaregiver && (
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={() => setPicking(true)}>
@@ -364,6 +383,53 @@ function CaregiverPanel({ request }: { request: CareRequestDetail }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Whether the caregiver has been told about this request. Caregivers set to
+ * auto-notify hear straight away; for the rest staff press "Notify caregiver"
+ * when they are ready (and can send it again).
+ */
+function NotifyCaregiverRow({ request }: { request: CareRequestDetail }) {
+  const { t } = useTranslation();
+  const notify = useNotifyCareRequestCaregiver(request.id);
+  const g = request.caregiver;
+  if (!g) return null;
+  const error = notify.isError ? (notify.error instanceof ApiError ? notify.error.message : t('requests.detail.saveFailed')) : null;
+  return (
+    <div className="mt-3 rounded border border-border bg-paper px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-sm text-ink">
+          <BellRing size={14} className="text-brand" aria-hidden />
+          {request.caregiverNotifiedAt
+            ? t('requests.detail.notifiedAt', { when: new Date(request.caregiverNotifiedAt).toLocaleString() })
+            : g.autoNotifyRequests
+              ? t('requests.detail.notNotifiedAuto')
+              : t('requests.detail.notNotified')}
+        </p>
+        {request.canNotifyCaregiver && (
+          <Button size="sm" variant={request.caregiverNotifiedAt ? 'secondary' : 'primary'} disabled={notify.isPending} onClick={() => notify.mutate(undefined)}>
+            {notify.isPending
+              ? t('requests.detail.notifying')
+              : request.caregiverNotifiedAt
+                ? t('requests.detail.notifyAgain')
+                : t('requests.detail.notifyCaregiver')}
+          </Button>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-ink/50">{g.autoNotifyRequests ? t('requests.detail.autoNotifyOn') : t('requests.detail.autoNotifyOff')}</p>
+      {notify.isSuccess && (
+        <p role="status" className="mt-1 text-xs text-brand-dark">
+          {notify.data.notifiedBy === 'WHATSAPP' ? t('requests.detail.notifiedByWhatsapp') : t('requests.detail.notifiedByEmail')}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mt-1 text-xs text-danger">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -488,6 +554,8 @@ function History({ request }: { request: CareRequestDetail }) {
         return e.note ? t('requests.detail.event.CAREGIVER_CHANGED', { name: e.note }) : t('requests.detail.event.CAREGIVER_REMOVED');
       case 'NOTE':
         return t('requests.detail.event.NOTE');
+      case 'CAREGIVER_NOTIFIED':
+        return e.actor ? t('requests.detail.event.CAREGIVER_NOTIFIED') : t('requests.detail.event.CAREGIVER_NOTIFIED_AUTO');
     }
   };
 

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { BadgeCheck, MapPin } from 'lucide-react';
 import type { PublicCaregiverProfile } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
+import { VerifiedBadge } from '@/components/results/verified-badge';
 
 /**
  * The one-line anonymous view of a caregiver used in the client's account
@@ -33,7 +34,10 @@ export function CaregiverSummary({
 
   return (
     <div className="min-w-0">
-      <p className="text-xs font-medium uppercase tracking-wide text-ink/40">{label}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-ink/40">{label}</p>
+        {caregiver.verified && <VerifiedBadge />}
+      </div>
       <Link href={`/caregivers/${publicId}`} className="mt-0.5 block text-base font-semibold text-ink hover:text-brand-dark hover:underline">
         {caregiver.gender === 'FEMALE' ? '♀' : caregiver.gender === 'MALE' ? '♂' : ''} {t('results.approxAge', { age: caregiver.approxAge })} ·{' '}
         {t('results.yearsExperience', { years: caregiver.yearsExperience })}

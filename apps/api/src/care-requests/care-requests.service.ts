@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { randomInt, randomUUID as uuid } from 'crypto';
 import { and, asc, count, desc, eq, inArray, isNull, like, or, sql, type SQL } from 'drizzle-orm';
-import type { ClientCareRequest, CaregiverRelation } from '@care-platform/shared';
+import { PUBLIC_CAREGIVER_STATUSES, isValidDate, resolveLocale, type ClientCareRequest, type CaregiverRelation } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
   careRequests,
@@ -37,6 +37,7 @@ import { normalizePhone } from '../common/utils/phone.util';
 import { assertWhatsappNumberAvailable } from '../auth/phone-accounts.util';
 import { buildPatientIntake } from '../clients/patient-profile.util';
 import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
+import { GeoService, localName } from '../geo/geo.service';
 
 /** How many open requests one client may have at once - enough for a real search, too few to spam staff. */
 export const MAX_OPEN_REQUESTS_PER_CLIENT = 10;
@@ -71,7 +72,24 @@ export class CareRequestsService {
     private readonly publicSearch: PublicSearchService,
     private readonly notifier: CareRequestNotifier,
     private readonly whatsappSettings: WhatsappSettingsService,
+    private readonly geo: GeoService,
   ) {}
+
+  /**
+   * The place a request is for, checked against the reference data: the city
+   * must lie in the district. Returns nulls for "not given".
+   */
+  private async requestPlace(districtId?: number, cityId?: number): Promise<{ districtId: number | null; cityId: number | null }> {
+    if (!districtId) {
+      if (cityId) throw new BadRequestException('Choose the district first');
+      return { districtId: null, cityId: null };
+    }
+    if (!(await this.geo.district(districtId))) throw new BadRequestException('Choose the district where care is needed');
+    if (!cityId) return { districtId, cityId: null };
+    const city = await this.geo.city(cityId);
+    if (!city || city.districtId !== districtId) throw new BadRequestException('That town is not in the chosen district');
+    return { districtId, cityId };
+  }
 
   // --- client side ----------------------------------------------------------
 
@@ -94,12 +112,12 @@ export class CareRequestsService {
     return patient;
   }
 
-  /** A caregiver a member of the public may see - same rule as search: ACTIVE and not deleted. */
+  /** A caregiver a member of the public may see - same rule as search: a listed status and not deleted. */
   private async visibleCaregiverByPublicId(publicId: string) {
     const [row] = await this.db
       .select({ id: caregivers.id, publicId: caregivers.publicId })
       .from(caregivers)
-      .where(and(eq(caregivers.publicId, publicId), isNull(caregivers.deletedAt), eq(caregivers.status, 'ACTIVE')))
+      .where(and(eq(caregivers.publicId, publicId), isNull(caregivers.deletedAt), inArray(caregivers.status, [...PUBLIC_CAREGIVER_STATUSES])))
       .limit(1);
     // One message for "no such id" and "exists but not public", like findByPublicId.
     if (!row) throw new NotFoundException('Caregiver not found');
@@ -111,7 +129,10 @@ export class CareRequestsService {
     if (patient.status === 'SUSPENDED' || patient.status === 'INACTIVE') {
       throw new ForbiddenException("Your account can't send requests right now. Please contact us for help.");
     }
-    const caregiver = await this.visibleCaregiverByPublicId(dto.caregiverPublicId);
+    // No caregiver = "find someone for me"; the DTO has already insisted on a care type and district.
+    const caregiver = dto.caregiverPublicId ? await this.visibleCaregiverByPublicId(dto.caregiverPublicId) : null;
+    const place = await this.requestPlace(dto.districtId, dto.cityId);
+    if (dto.desiredStartDate && !isValidDate(dto.desiredStartDate)) throw new BadRequestException('Enter a valid start date');
 
     const [{ open }] = await this.db
       .select({ open: count() })
@@ -131,9 +152,13 @@ export class CareRequestsService {
             id,
             reference: generateReference(),
             patientId: patient.id,
-            caregiverId: caregiver.id,
+            caregiverId: caregiver?.id ?? null,
             status: 'NEW',
             message: dto.message ?? null,
+            careType: dto.careType ?? null,
+            districtId: place.districtId,
+            cityId: place.cityId,
+            desiredStartDate: dto.desiredStartDate ?? null,
             language,
           });
           await tx.insert(careRequestEvents).values({
@@ -178,6 +203,10 @@ export class CareRequestsService {
         closedAt: careRequests.closedAt,
         caregiverId: careRequests.caregiverId,
         caregiverPublicId: caregivers.publicId,
+        careType: careRequests.careType,
+        districtId: careRequests.districtId,
+        cityId: careRequests.cityId,
+        desiredStartDate: careRequests.desiredStartDate,
       })
       .from(careRequests)
       // Left join: a request staff took over the phone may have no caregiver yet.
@@ -190,6 +219,8 @@ export class CareRequestsService {
       rows.map((r) => r.caregiverId).filter((v): v is string => Boolean(v)),
       locale,
     );
+    const lang = resolveLocale(locale);
+    const places = await this.geo.all();
     return rows.map((r) => ({
       id: r.id,
       reference: r.reference,
@@ -199,6 +230,10 @@ export class CareRequestsService {
       closedAt: r.closedAt ? new Date(r.closedAt).toISOString() : null,
       caregiverPublicId: r.caregiverPublicId ?? null,
       caregiver: r.caregiverId ? (profiles.get(r.caregiverId) ?? null) : null,
+      careType: r.careType ?? null,
+      district: r.districtId && places.districts.get(r.districtId) ? localName(places.districts.get(r.districtId)!, lang) : null,
+      city: r.cityId && places.cities.get(r.cityId) ? localName(places.cities.get(r.cityId)!, lang) : null,
+      desiredStartDate: r.desiredStartDate ?? null,
     }));
   }
 
@@ -246,7 +281,7 @@ export class CareRequestsService {
     const cgs = await this.db
       .select({ id: caregivers.id, publicId: caregivers.publicId })
       .from(caregivers)
-      .where(and(inArray(caregivers.publicId, ids), isNull(caregivers.deletedAt), eq(caregivers.status, 'ACTIVE')));
+      .where(and(inArray(caregivers.publicId, ids), isNull(caregivers.deletedAt), inArray(caregivers.status, [...PUBLIC_CAREGIVER_STATUSES])));
     if (!cgs.length) return [];
     const cgIds = cgs.map((c) => c.id);
 
@@ -332,6 +367,9 @@ export class CareRequestsService {
         caregiverRegistrationNumber: caregivers.registrationNumber,
         caregiverStatus: caregivers.status,
         caregiverDeletedAt: caregivers.deletedAt,
+        caregiverAutoNotify: caregivers.autoNotifyRequests,
+        caregiverNotifiedAt: careRequests.caregiverNotifiedAt,
+        careType: careRequests.careType,
       })
       .from(careRequests)
       .innerJoin(patients, eq(careRequests.patientId, patients.id))
@@ -421,7 +459,7 @@ export class CareRequestsService {
     const account = (uid: string | null) => accounts.find((a) => a.id === uid);
     const [names, places] = await Promise.all([
       this.userNames([request.assignedToUserId, request.createdByUserId, ...events.map((e) => e.actorUserId)]),
-      this.placeNames([patient.cityId, caregiver?.cityId ?? null], [patient.districtId, caregiver?.districtId ?? null]),
+      this.placeNames([patient.cityId, caregiver?.cityId ?? null, request.cityId], [patient.districtId, caregiver?.districtId ?? null, request.districtId]),
     ]);
     // The ids are the source of truth; the English caches on the row are only
     // filled by some write paths (self-registration stores ids alone).
@@ -436,6 +474,12 @@ export class CareRequestsService {
       // INTRODUCED needs a caregiver; the UI hides it until one is attached.
       allowedNextStatuses: CARE_REQUEST_STATUS_TRANSITIONS[request.status].filter((st) => st !== 'INTRODUCED' || Boolean(caregiver)),
       canChangeCaregiver: OPEN_CARE_REQUEST_STATUSES.includes(request.status),
+      // Staff may (re)send the "new request" notice while the request is open.
+      canNotifyCaregiver: Boolean(caregiver) && !caregiver?.deletedAt && OPEN_CARE_REQUEST_STATUSES.includes(request.status),
+      // Where the request says care is needed (from the client's search, or
+      // their "find someone for me" form) - may differ from their profile.
+      requestDistrict: request.districtId ? (places.districts.get(request.districtId) ?? null) : null,
+      requestCity: request.cityId ? (places.cities.get(request.cityId) ?? null) : null,
       client: {
         id: patient.id,
         fullName: patient.fullName,
@@ -472,6 +516,7 @@ export class CareRequestsService {
         email: account(caregiver.userId)?.email ?? null,
         district: district(caregiver.districtId, caregiver.district),
         city: city(caregiver.cityId, caregiver.city),
+        autoNotifyRequests: caregiver.autoNotifyRequests,
       },
       events: events.map((e) => ({
         id: e.id,
@@ -624,6 +669,7 @@ export class CareRequestsService {
             source: 'PHONE',
             createdByUserId: actor.userId,
             message: dto.message ?? null,
+            careType: dto.careType ?? null,
             language: dto.language,
           });
           await tx.insert(careRequestEvents).values({ id: uuid(), requestId: id, type: 'CREATED', toStatus: 'NEW', actorUserId: actor.userId });
@@ -748,7 +794,8 @@ export class CareRequestsService {
       await this.db.transaction(async (tx) => {
         await tx
           .update(careRequests)
-          .set({ caregiverId: next, updatedAt: new Date() })
+          // A different caregiver has not been told about this request yet.
+          .set({ caregiverId: next, caregiverNotifiedAt: null, updatedAt: new Date() })
           .where(and(eq(careRequests.id, id), eq(careRequests.status, current.status)));
         await tx.insert(careRequestEvents).values({
           id: uuid(),
@@ -766,9 +813,36 @@ export class CareRequestsService {
     }
 
     // A caregiver joining a request staff are already working on hears about it
-    // now; one attached to a NEW request hears when it is picked up.
+    // now. One attached to a NEW request hears straight away only if they are
+    // set to auto-notify; otherwise when staff notify them or pick it up.
     if (next && current.status === 'IN_PROGRESS') void this.notifier.statusChanged(id, 'IN_PROGRESS', { caregiverOnly: true });
+    else if (next) void this.notifier.caregiverAttached(id);
     return this.findOne(id);
+  }
+
+  /**
+   * "Notify caregiver": staff tell the attached caregiver about the request
+   * now. Waits for the send, so the button can say whether it went.
+   */
+  async notifyCaregiver(id: string, actor: AuthenticatedUser) {
+    const [current] = await this.db
+      .select({ status: careRequests.status, caregiverId: careRequests.caregiverId, deletedAt: caregivers.deletedAt })
+      .from(careRequests)
+      .leftJoin(caregivers, eq(careRequests.caregiverId, caregivers.id))
+      .where(eq(careRequests.id, id))
+      .limit(1);
+    if (!current) throw new NotFoundException('Request not found');
+    if (!current.caregiverId || current.deletedAt) throw new BadRequestException('Choose a caregiver first');
+    if (!OPEN_CARE_REQUEST_STATUSES.includes(current.status)) {
+      throw new BadRequestException('The caregiver can only be notified while the request is open');
+    }
+    const channel = await this.notifier.notifyCaregiverNow(id, actor.userId);
+    if (!channel) {
+      throw new BadRequestException(
+        "The caregiver could not be notified - they have no email address and WhatsApp updates are off or failed. Please call them instead.",
+      );
+    }
+    return { ...(await this.findOne(id)), notifiedBy: channel };
   }
 
   /** Active admin and staff accounts a request can be assigned to. */

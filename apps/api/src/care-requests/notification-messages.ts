@@ -123,9 +123,25 @@ export const CLIENT_FOOTER: Record<Lang, string> = {
  * Caregiver-facing notices. The platform does not record a caregiver's
  * language, so these go out in all three, English first.
  */
-type CaregiverNotice = 'IN_PROGRESS' | 'INTRODUCED';
+// NEW: a client has just asked for this caregiver. Sent straight away to
+// caregivers set to auto-notify, otherwise when staff press "Notify caregiver".
+export type CaregiverNotice = 'NEW' | 'IN_PROGRESS' | 'INTRODUCED';
 
 const CAREGIVER: Record<CaregiverNotice, Record<Lang, { heading: string; body: string }>> = {
+  NEW: {
+    en: {
+      heading: 'You have a new care request',
+      body: 'A family has asked {brand} for you as their caregiver. Our team will contact you to discuss it - please keep your phone close. Reference {ref}.',
+    },
+    si: {
+      heading: 'ඔබට නව රැකවරණ ඉල්ලීමක් ලැබී ඇත',
+      body: 'පවුලක් ඔවුන්ගේ රැකවරණකරු ලෙස ඔබව {brand} වෙතින් ඉල්ලා ඇත. ඒ ගැන සාකච්ඡා කිරීමට අපගේ කණ්ඩායම ඔබව සම්බන්ධ කර ගනු ඇත - කරුණාකර ඔබගේ දුරකථනය ළඟ තබා ගන්න. යොමු අංකය {ref}.',
+    },
+    ta: {
+      heading: 'உங்களுக்கு ஒரு புதிய பராமரிப்புக் கோரிக்கை வந்துள்ளது',
+      body: 'ஒரு குடும்பம் தங்கள் பராமரிப்பாளராக உங்களை {brand} இடம் கேட்டுள்ளது. இதுபற்றிப் பேச எங்கள் குழு உங்களைத் தொடர்புகொள்ளும் - உங்கள் தொலைபேசியை அருகில் வைத்திருங்கள். குறிப்பு எண் {ref}.',
+    },
+  },
   IN_PROGRESS: {
     en: {
       heading: 'A family is interested in working with you',

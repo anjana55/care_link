@@ -1,4 +1,5 @@
 import type { PublicCaregiverProfile } from './public-search';
+import type { CareType } from './care-types';
 
 /**
  * The client-facing contract for "Contact this caregiver" and "Save this
@@ -38,11 +39,26 @@ export interface ClientCareRequest {
    * who is not listed).
    */
   caregiver: PublicCaregiverProfile | null;
+  /** What kind of care was asked for, when known. */
+  careType: CareType | null;
+  /** Where the care is needed, in the client's language, when given. */
+  district: string | null;
+  city: string | null;
+  desiredStartDate: string | null;
 }
 
+/**
+ * POST /me/care-requests. Without a caregiver it is an "ask the team to find
+ * someone" request; then the care type and the district are required so staff
+ * have something to match on.
+ */
 export interface CreateCareRequestBody {
-  caregiverPublicId: string;
+  caregiverPublicId?: string;
   message?: string;
+  careType?: CareType;
+  districtId?: number;
+  cityId?: number;
+  desiredStartDate?: string;
 }
 
 /** GET /me/saved-caregivers */

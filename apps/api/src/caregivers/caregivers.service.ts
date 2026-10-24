@@ -37,6 +37,7 @@ const NONE = sql`1 = 0`;
  * written whatever a client sent.
  */
 const UPDATABLE_COLUMNS: ReadonlySet<string> = new Set([
+  'autoNotifyRequests',
   'fullName',
   'permanentAddress',
   'nic',
@@ -107,6 +108,7 @@ export class CaregiversService {
       city: location?.city ?? null,
       postalCode: location?.postalCode ?? null,
       status: 'DRAFT',
+      autoNotifyRequests: dto.autoNotifyRequests ?? false,
     });
 
     return this.findOne(id);
@@ -386,6 +388,10 @@ export class CaregiversService {
     // this endpoint at all for that one case.
     if (requesterRole === 'CAREGIVER' && !(current.status === 'DRAFT' && nextStatus === 'REGISTERED')) {
       throw new BadRequestException('Caregivers may only submit their own registration (DRAFT to REGISTERED)');
+    }
+    // Reopening a rejected registration is an admin decision, not a verifier's.
+    if (current.status === 'REJECTED' && requesterRole !== 'ADMIN') {
+      throw new ForbiddenException('Only an admin can move a rejected caregiver back to draft');
     }
     await this.db.update(caregivers).set({ status: nextStatus }).where(eq(caregivers.id, id));
     return this.findOne(id);

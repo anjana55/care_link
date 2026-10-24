@@ -15,12 +15,32 @@ export const billingLineKindEnum = ['SHIFT', 'ITEM', 'ADJUSTMENT'] as const;
 export const billingUnitEnum = ['HOUR', 'DAY', 'MONTH', 'ITEM'] as const;
 export const discountTypeEnum = ['PERCENT', 'AMOUNT'] as const;
 export const paymentMethodEnum = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'CARD', 'PAYHERE', 'OTHER'] as const;
+/** Every payment's type; `method` above is an optional finer detail under it. */
+export const paymentTypeEnum = ['CASH', 'BANK', 'ONLINE'] as const;
 export const payoutStatusEnum = ['DRAFT', 'APPROVED', 'PAID', 'VOID'] as const;
 export const payhereModeEnum = ['SANDBOX', 'LIVE'] as const;
 
 export type InvoiceStatusDb = (typeof invoiceStatusEnum)[number];
 export type PayoutStatusDb = (typeof payoutStatusEnum)[number];
 export type PaymentMethodDb = (typeof paymentMethodEnum)[number];
+export type PaymentTypeDb = (typeof paymentTypeEnum)[number];
+
+/**
+ * The business's own bank accounts, managed in Settings > Billing. A BANK
+ * payment - a client paying in, or a caregiver being paid out - can name the
+ * account it went through. Accounts are deactivated rather than deleted once
+ * a payment points at them, so past payments keep showing the right account.
+ */
+export const bankAccounts = mysqlTable('bank_accounts', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  bankName: varchar('bank_name', { length: 120 }).notNull(),
+  branch: varchar('branch', { length: 120 }),
+  accountName: varchar('account_name', { length: 200 }).notNull(),
+  accountNumber: varchar('account_number', { length: 40 }).notNull(),
+  active: boolean('active').notNull().default(true),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
 
 /**
  * Admin-managed billing settings - a single row, id 'default', like the email
@@ -192,7 +212,11 @@ export const invoicePayments = mysqlTable(
     id: varchar('id', { length: 36 }).primaryKey(),
     invoiceId: varchar('invoice_id', { length: 36 }).notNull(),
     amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
-    method: mysqlEnum('method', paymentMethodEnum).notNull(),
+    paymentType: mysqlEnum('payment_type', paymentTypeEnum).notNull(),
+    // Optional detail under the type (a cheque, a card...). PayHere payments always carry PAYHERE.
+    method: mysqlEnum('method', paymentMethodEnum),
+    // Which of the business's accounts a BANK payment went into.
+    bankAccountId: varchar('bank_account_id', { length: 36 }),
     paidOn: date('paid_on', { mode: 'string' }).notNull(),
     reference: varchar('reference', { length: 120 }),
     note: varchar('note', { length: 500 }),
@@ -287,7 +311,10 @@ export const payoutStatements = mysqlTable(
     total: decimal('total', { precision: 12, scale: 2 }).notNull().default('0.00'),
     notes: text('notes'),
     paidOn: date('paid_on', { mode: 'string' }),
+    paymentType: mysqlEnum('payment_type', paymentTypeEnum),
     paymentMethod: mysqlEnum('payment_method', paymentMethodEnum),
+    // Which of the business's accounts a BANK payout was paid from.
+    bankAccountId: varchar('bank_account_id', { length: 36 }),
     paymentReference: varchar('payment_reference', { length: 120 }),
     createdByUserId: varchar('created_by_user_id', { length: 36 }),
     approvedAt: datetime('approved_at'),

@@ -18,6 +18,8 @@ function caregiver(overrides: Partial<PublicCaregiverSummary> = {}): PublicCareg
     skills: [{ id: 's1', name: "Parkinson's Care" }],
     availability: { dayDuty: false, nightDuty: true, liveIn24h: false, preferredShift: 'NIGHT', availableFrom: null },
     hasVerifiedQualification: true,
+    verified: false,
+    careTypes: ['HOME_SHIFT', 'LIVE_IN'],
     qualificationSummary: ['NVQ — University of Colombo'],
     relevantExperienceSummary: ["Parkinson's Care"],
     homeLocation: { latitude: 6.9319, longitude: 79.8478, precision: 'city' },

@@ -1,3 +1,4 @@
+import type { CareType } from '@care-platform/shared';
 /** Shapes returned by the API for a signed-in caregiver's own record. */
 
 export type CaregiverStatus =
@@ -71,6 +72,8 @@ export interface Availability {
   expectedMonthlyRate: string | null;
   expectedLeaveDays: number | null;
   preferredLeavePattern: string | null;
+  /** The kinds of care they take on; families searching for another kind will not see them. */
+  careTypes?: CareType[];
 }
 
 export const QUALIFICATION_TYPES = ['NVQ', 'NURSING_DIPLOMA', 'NURSING_DEGREE', 'CAREGIVER_CERTIFICATE', 'FIRST_AID', 'OTHER'] as const;

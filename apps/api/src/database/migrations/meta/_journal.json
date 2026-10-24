@@ -120,6 +120,13 @@
       "when": 1792672835953,
       "tag": "0016_analytics_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1792837166625,
+      "tag": "0017_care_type_payments_notify",
+      "breakpoints": true
     }
   ]
 }

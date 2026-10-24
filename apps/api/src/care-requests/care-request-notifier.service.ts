@@ -1,8 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID as uuid } from 'crypto';
 import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { careRequests, caregivers, patients, users, type CareRequestLanguage, type CareRequestStatus } from '../database/schema';
+import { careRequestEvents, careRequests, caregivers, patients, users, type CareRequestLanguage, type CareRequestStatus } from '../database/schema';
 import { EmailService } from '../email/email.service';
 import { EmailSettingsService } from '../email/email-settings.service';
 import { WhatsappSettingsService, type ResolvedWhatsappSettings } from '../whatsapp/whatsapp-settings.service';
@@ -13,6 +14,7 @@ import {
   CLIENT_FOOTER,
   caregiverNotice,
   caregiverNoticeFor,
+  type CaregiverNotice,
   clientNotice,
   clientNoticeFor,
 } from './notification-messages';
@@ -33,7 +35,9 @@ interface NoticeContext {
     email: string | null;
     phone: string | null; // E.164, best effort
     registrationNumber: string;
+    autoNotify: boolean;
   } | null;
+  careType: string | null;
   source: 'WEB' | 'PHONE';
 }
 
@@ -61,8 +65,9 @@ export function chooseClientChannel(opts: {
  *   real worklist - this is the nudge to look at it);
  * - the client, by email or WhatsApp, when it is received and whenever staff
  *   move it on;
- * - the caregiver, by email or WhatsApp, when staff pick it up and when they
- *   make the introduction.
+ * - the caregiver, by email or WhatsApp: as soon as the request arrives when
+ *   they are set to auto-notify (otherwise when staff press "Notify
+ *   caregiver"), and again when staff pick it up and make the introduction.
  *
  * Never throws and is never awaited by a request handler: a mail server being
  * down must not turn "send request" or "mark introduced" into an error, because
@@ -84,14 +89,60 @@ export class CareRequestNotifier {
     private readonly whatsapp: WhatsappProviderService,
   ) {}
 
-  /** A client just sent a request: alert staff, confirm to the client. */
+  /**
+   * A client just sent a request: alert staff, confirm to the client, and -
+   * only if they are set to auto-notify - tell the caregiver they were asked for.
+   */
   async requestCreated(requestId: string): Promise<void> {
     await this.safely('new request', async () => {
       const ctx = await this.load(requestId);
       if (!ctx) return;
       // A phone request was logged by staff themselves - no need to alert them.
-      await Promise.all([ctx.source === 'WEB' ? this.alertStaff(ctx) : Promise.resolve(), this.notifyClient(ctx, 'RECEIVED')]);
+      await Promise.all([
+        ctx.source === 'WEB' ? this.alertStaff(ctx) : Promise.resolve(),
+        this.notifyClient(ctx, 'RECEIVED'),
+        ctx.caregiver?.autoNotify ? this.sendNewRequestAlert(ctx, null) : Promise.resolve(),
+      ]);
     });
+  }
+
+  /** Staff attached a caregiver to an open request: auto-notify caregivers hear about it straight away. */
+  async caregiverAttached(requestId: string): Promise<void> {
+    await this.safely('caregiver attached', async () => {
+      const ctx = await this.load(requestId);
+      if (ctx?.caregiver?.autoNotify) await this.sendNewRequestAlert(ctx, null);
+    });
+  }
+
+  /**
+   * Staff pressed "Notify caregiver". Unlike every other notice this one is
+   * awaited and reports back, so staff know whether it actually went.
+   */
+  async notifyCaregiverNow(requestId: string, actorUserId: string): Promise<'EMAIL' | 'WHATSAPP' | null> {
+    const ctx = await this.load(requestId);
+    if (!ctx?.caregiver) return null;
+    try {
+      return await this.sendNewRequestAlert(ctx, actorUserId);
+    } catch (err) {
+      this.logger.error(`Care request ${ctx.reference}: notifying the caregiver failed: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
+  /** Sends the "you have a new request" notice and records that the caregiver has been told. */
+  private async sendNewRequestAlert(ctx: NoticeContext, actorUserId: string | null): Promise<'EMAIL' | 'WHATSAPP' | null> {
+    const channel = await this.notifyCaregiver(ctx, 'NEW');
+    if (!channel) return null;
+    const now = new Date();
+    await this.db.update(careRequests).set({ caregiverNotifiedAt: now }).where(eq(careRequests.id, ctx.id));
+    await this.db.insert(careRequestEvents).values({
+      id: uuid(),
+      requestId: ctx.id,
+      type: 'CAREGIVER_NOTIFIED',
+      note: `${ctx.caregiver!.registrationNumber} told by ${channel === 'EMAIL' ? 'email' : 'WhatsApp'}${actorUserId ? '' : ' (automatically)'}`,
+      actorUserId,
+    });
+    return channel;
   }
 
   /** Staff moved a request into `status`. */
@@ -103,9 +154,14 @@ export class CareRequestNotifier {
       const forCaregiver = caregiverNoticeFor(status);
       await Promise.all([
         forClient ? this.notifyClient(ctx, forClient) : Promise.resolve(),
-        forCaregiver && ctx.caregiver ? this.notifyCaregiver(ctx, forCaregiver) : Promise.resolve(),
+        forCaregiver && ctx.caregiver ? this.notifyCaregiver(ctx, forCaregiver).then((sent) => this.markCaregiverTold(ctx, sent)) : Promise.resolve(),
       ]);
     });
+  }
+
+  /** Any notice that reached the caregiver means they know about the request. */
+  private async markCaregiverTold(ctx: NoticeContext, sent: 'EMAIL' | 'WHATSAPP' | null) {
+    if (sent) await this.db.update(careRequests).set({ caregiverNotifiedAt: new Date() }).where(eq(careRequests.id, ctx.id));
   }
 
   private async safely(label: string, work: () => Promise<void>) {
@@ -123,6 +179,7 @@ export class CareRequestNotifier {
         reference: careRequests.reference,
         language: careRequests.language,
         source: careRequests.source,
+        careType: careRequests.careType,
         patientUserId: patients.userId,
         patientPhone: patients.phone,
         preferredContactMethod: patients.preferredContactMethod,
@@ -130,6 +187,7 @@ export class CareRequestNotifier {
         caregiverUserId: caregivers.userId,
         caregiverPhone: caregivers.primaryPhone,
         registrationNumber: caregivers.registrationNumber,
+        autoNotify: caregivers.autoNotifyRequests,
       })
       .from(careRequests)
       .innerJoin(patients, eq(careRequests.patientId, patients.id))
@@ -164,8 +222,10 @@ export class CareRequestNotifier {
             email: caregiverAccount?.email ?? null,
             phone: caregiverAccount?.phone ?? normalizePhone(row.caregiverPhone, cc),
             registrationNumber: row.registrationNumber,
+            autoNotify: Boolean(row.autoNotify),
           }
         : null,
+      careType: row.careType,
       source: row.source,
     };
   }
@@ -205,6 +265,15 @@ export class CareRequestNotifier {
       return;
     }
     const start = ctx.client.careStart ? ` Care needed: ${ctx.client.careStart.replace(/_/g, ' ').toLowerCase()}.` : '';
+    const kind = ctx.careType ? ` Type of care: ${ctx.careType.replace(/_/g, ' ').toLowerCase()}.` : '';
+    const ask = ctx.caregiver
+      ? `A client has asked to be put in touch with caregiver ${ctx.caregiver.registrationNumber}.`
+      : 'A client has asked us to find a caregiver for them - no caregiver is chosen yet.';
+    const caregiverLine = ctx.caregiver
+      ? ctx.caregiver.autoNotify
+        ? 'The caregiver is set to auto-notify and has been told.'
+        : 'The caregiver has not been told yet - use "Notify caregiver" on the request when you are ready.'
+      : 'Match a caregiver on the request.';
     await this.email.sendNotificationEmail(
       to,
       {
@@ -214,7 +283,8 @@ export class CareRequestNotifier {
             lang: 'en',
             heading: `New care request ${ctx.reference}`,
             paragraphs: [
-              `A client has asked to be put in touch with caregiver ${ctx.caregiver?.registrationNumber ?? '(not chosen yet)'}.${start}`,
+              `${ask}${kind}${start}`,
+              caregiverLine,
               'Open the request in the staff portal to see the client and caregiver details and pick it up.',
             ],
           },
@@ -255,9 +325,10 @@ export class CareRequestNotifier {
     this.logger.warn(`Care request ${ctx.reference}: the client has no email and WhatsApp updates are off, so "${notice}" was not sent.`);
   }
 
-  private async notifyCaregiver(ctx: NoticeContext, notice: Parameters<typeof caregiverNotice>[0]) {
+  /** Returns the channel the notice went out on, or null when it could not be sent. */
+  private async notifyCaregiver(ctx: NoticeContext, notice: CaregiverNotice): Promise<'EMAIL' | 'WHATSAPP' | null> {
     const caregiver = ctx.caregiver;
-    if (!caregiver) return;
+    if (!caregiver) return null;
     const msg = caregiverNotice(notice, ctx.reference);
     if (caregiver.email) {
       await this.email.sendNotificationEmail(
@@ -269,21 +340,23 @@ export class CareRequestNotifier {
         },
         `caregiver update ${ctx.reference}`,
       );
-      return;
+      return 'EMAIL';
     }
     const wa = await this.whatsappSettings.getResolved();
     if (caregiver.phone && this.whatsapp.canSendUpdates(wa)) {
-      await this.sendWhatsapp(wa, caregiver.phone, 'en', msg.whatsappText, `caregiver update ${ctx.reference}`);
-      return;
+      return (await this.sendWhatsapp(wa, caregiver.phone, 'en', msg.whatsappText, `caregiver update ${ctx.reference}`)) ? 'WHATSAPP' : null;
     }
     this.logger.warn(`Care request ${ctx.reference}: the caregiver has no email and WhatsApp updates are off, so "${notice}" was not sent.`);
+    return null;
   }
 
-  private async sendWhatsapp(s: ResolvedWhatsappSettings, phone: string, lang: CareRequestLanguage, text: string, label: string) {
+  private async sendWhatsapp(s: ResolvedWhatsappSettings, phone: string, lang: CareRequestLanguage, text: string, label: string): Promise<boolean> {
     try {
       await this.whatsapp.sendUpdate(s, phone, lang, text);
+      return true;
     } catch (err) {
       this.logger.error(`WhatsApp ${label} failed: ${(err as Error).message}`);
+      return false;
     }
   }
 }

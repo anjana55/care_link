@@ -13,8 +13,8 @@ describe('CAREGIVER_STATUS_TRANSITIONS', () => {
     expect(CAREGIVER_STATUS_TRANSITIONS.ACTIVE).toEqual(expect.arrayContaining(['INACTIVE', 'SUSPENDED']));
   });
 
-  it('treats REJECTED as a terminal state', () => {
-    expect(CAREGIVER_STATUS_TRANSITIONS.REJECTED).toEqual([]);
+  it('lets a REJECTED registration go back only to DRAFT', () => {
+    expect(CAREGIVER_STATUS_TRANSITIONS.REJECTED).toEqual(['DRAFT']);
   });
 
   it('defines a transition list for every status', () => {
