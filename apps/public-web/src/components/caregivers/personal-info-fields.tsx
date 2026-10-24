@@ -295,20 +295,19 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
         <Input id="emergencyContactRelationship" {...register('emergencyContactRelationship' as any)} />
         <FieldError message={errors.emergencyContactRelationship?.message as string | undefined} />
       </div>
-      {/* Load-bearing. The emergency group has three fields, so it leaves a
-          half-empty row; without this filler the police pair would flow into
-          that gap and land one column apart. Only ever add an empty cell to
-          pad the *end* of a group - one in the middle shifts every field
-          after it, splitting the following pair across two rows. */}
-      <div />
-
-      <div>
-        <Label htmlFor="policeDivision" required={requiredFields.has('policeDivision')}>{t('personalInfo.fields.policeDivision')}</Label>
-        <Input id="policeDivision" {...register('policeDivision' as any)} />
-      </div>
-      <div>
-        <Label htmlFor="policeStation" required={requiredFields.has('policeStation')}>{t('personalInfo.fields.policeStation')}</Label>
-        <Input id="policeStation" {...register('policeStation' as any)} />
+      {/* The police pair gets its own full-width row with a nested two-column
+          grid. Several fields above are conditional, so the column the
+          emergency group ends in varies by caller; a positional filler cell
+          could not cover every case and split this pair across two rows. */}
+      <div className="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="policeDivision" required={requiredFields.has('policeDivision')}>{t('personalInfo.fields.policeDivision')}</Label>
+          <Input id="policeDivision" {...register('policeDivision' as any)} />
+        </div>
+        <div>
+          <Label htmlFor="policeStation" required={requiredFields.has('policeStation')}>{t('personalInfo.fields.policeStation')}</Label>
+          <Input id="policeStation" {...register('policeStation' as any)} />
+        </div>
       </div>
     </div>
   );
