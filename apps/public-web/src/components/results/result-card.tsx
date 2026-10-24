@@ -3,6 +3,7 @@ import { BadgeCheck, CheckCircle2, MapPin, MapPinned, Languages as LanguagesIcon
 import type { CaregiverRelation, PublicCaregiverSummary } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { DeviceSaveButton, SaveButton } from '@/components/care/caregiver-actions';
+import { VerifiedBadge } from './verified-badge';
 
 /**
  * `relation` is passed only for a signed-in client, and switches on the Save
@@ -37,7 +38,10 @@ export function ResultCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-ink/40">{t('profile.anonymousId', { id: caregiver.publicId.slice(0, 8) })}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-ink/40">{t('profile.anonymousId', { id: caregiver.publicId.slice(0, 8) })}</p>
+            {caregiver.verified && <VerifiedBadge />}
+          </div>
           <h3 className="mt-0.5 text-base font-semibold text-ink">
             {caregiver.gender === 'FEMALE' ? '♀' : caregiver.gender === 'MALE' ? '♂' : ''}{' '}
             {t('results.approxAge', { age: caregiver.approxAge })} ·{' '}

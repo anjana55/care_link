@@ -10,6 +10,7 @@ import { CaregiverActions } from '@/components/care/caregiver-actions';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { AdSlot } from '@/components/ads/adsense';
+import { VerifiedBadge } from '@/components/results/verified-badge';
 
 export default function CaregiverProfilePage() {
   const { t, locale } = useTranslation();
@@ -30,9 +31,12 @@ export default function CaregiverProfilePage() {
 
         {caregiver && (
           <article className="rounded-lg border border-border bg-white p-6 sm:p-8">
-            <p className="text-xs font-medium uppercase tracking-wide text-ink/40">
-              {t('profile.anonymousId', { id: caregiver.publicId.slice(0, 8) })}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-ink/40">
+                {t('profile.anonymousId', { id: caregiver.publicId.slice(0, 8) })}
+              </p>
+              {caregiver.verified && <VerifiedBadge size="md" />}
+            </div>
             <h1 className="mt-1 text-2xl font-bold text-ink">
               {caregiver.gender === 'FEMALE' ? '♀' : caregiver.gender === 'MALE' ? '♂' : ''}{' '}
               {t('results.approxAge', { age: caregiver.approxAge })}
@@ -44,6 +48,19 @@ export default function CaregiverProfilePage() {
                 <BadgeCheck className="h-4 w-4" aria-hidden />
                 {t('results.verifiedQualification')}
               </p>
+            )}
+
+            {caregiver.careTypes?.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">{t('profile.careTypes')}</p>
+                <ul className="mt-1.5 flex flex-wrap gap-2">
+                  {caregiver.careTypes.map((type) => (
+                    <li key={type} className="rounded-full bg-paper px-2.5 py-1 text-xs text-ink/70">
+                      {t(`careTypes.${type}`)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             <dl className="mt-6 grid gap-5 sm:grid-cols-2">

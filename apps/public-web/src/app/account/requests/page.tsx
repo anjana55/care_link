@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Plus } from 'lucide-react';
 import { CLIENT_CANCELLABLE_STATUSES, type CareRequestStatus, type ClientCareRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
@@ -9,6 +11,7 @@ import { useCancelRequest, useMyRequests } from '@/lib/hooks/use-client-care';
 import { LoadingState, ErrorState } from '@/components/common/states';
 import { CaregiverSummary } from '@/components/care/caregiver-summary';
 import { Button } from '@/components/ui/button';
+import { ContactDialog } from '@/components/care/contact-dialog';
 
 const TONE: Record<CareRequestStatus, string> = {
   NEW: 'bg-amber-100 text-amber-800',
@@ -18,14 +21,43 @@ const TONE: Record<CareRequestStatus, string> = {
   CANCELLED: 'bg-paper text-ink/60',
 };
 
+// useSearchParams needs a Suspense boundary for the static build.
 export default function MyRequestsPage() {
+  return (
+    <Suspense>
+      <MyRequests />
+    </Suspense>
+  );
+}
+
+function MyRequests() {
   const { t } = useTranslation();
   const { data, isLoading, isError, refetch } = useMyRequests();
+  const [newOpen, setNewOpen] = useState(false);
+  const params = useSearchParams();
+  const router = useRouter();
+
+  // ?new=1: they set out to "ask us to find a caregiver" before signing in -
+  // open the form straight away, then drop the flag so a reload does not reopen it.
+  useEffect(() => {
+    if (params.get('new') !== '1') return;
+    setNewOpen(true);
+    router.replace('/account/requests');
+  }, [params, router]);
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-ink">{t('account.requests.title')}</h1>
-      <p className="mt-1 text-sm text-ink/60">{t('account.requests.subtitle')}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-ink">{t('account.requests.title')}</h1>
+          <p className="mt-1 text-sm text-ink/60">{t('account.requests.subtitle')}</p>
+        </div>
+        <Button onClick={() => setNewOpen(true)}>
+          <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+          {t('account.requests.newRequest')}
+        </Button>
+      </div>
+      <ContactDialog open={newOpen} onClose={() => setNewOpen(false)} />
 
       <div className="mt-6">
         {isLoading && <LoadingState label={t('common.loading')} />}
@@ -81,6 +113,14 @@ function RequestRow({ request }: { request: ClientCareRequest }) {
           {t(`account.requests.status.${request.status}`)}
         </span>
       </div>
+
+      {(request.careType || request.district || request.desiredStartDate) && (
+        <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink/70">
+          {request.careType && <span className="font-medium text-ink">{t(`careTypes.${request.careType}`)}</span>}
+          {request.district && <span>{[request.city, request.district].filter(Boolean).join(', ')}</span>}
+          {request.desiredStartDate && <span>{t('account.requests.startsOn', { date: request.desiredStartDate })}</span>}
+        </p>
+      )}
 
       <p className="mt-3 text-sm text-ink/70">{t(`account.requests.statusHelp.${request.status}`)}</p>
 

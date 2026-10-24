@@ -30,7 +30,7 @@ beforeEach(() => aiExtract.mockReset());
 describe('AiSearchPanel', () => {
   it('searches straight away when the description is enough, and shows what was understood', async () => {
     aiExtract.mockResolvedValue({
-      requirements: { location: { districtId: 5 }, shift: 'NIGHT', optionalSkillIds: [SKILL], desiredStartDate: '2026-11-01', page: 1, pageSize: 20 },
+      requirements: { careType: 'HOME_SHIFT', location: { districtId: 5 }, shift: 'NIGHT', optionalSkillIds: [SKILL], desiredStartDate: '2026-11-01', page: 1, pageSize: 20 },
       summary: { patient: [], location: ['Kandy'], care: ['Night care'], preferences: ['Nice to have: Dementia Care'] },
       missing: [],
       assumed: [],
@@ -49,7 +49,7 @@ describe('AiSearchPanel', () => {
 
   it('asks where the care is needed when it cannot tell, then searches with the answer', async () => {
     aiExtract.mockResolvedValueOnce({
-      requirements: { shift: 'NIGHT', desiredStartDate: '2026-10-20', page: 1, pageSize: 20 },
+      requirements: { careType: 'HOME_SHIFT', shift: 'NIGHT', desiredStartDate: '2026-10-20', page: 1, pageSize: 20 },
       summary: { ...EMPTY, care: ['Night care', 'Starting as soon as possible'] },
       missing: ['location'],
       assumed: ['desiredStartDate'],
@@ -60,7 +60,7 @@ describe('AiSearchPanel', () => {
     expect(onSearch).not.toHaveBeenCalled();
 
     aiExtract.mockResolvedValueOnce({
-      requirements: { location: { districtId: 5 }, shift: 'NIGHT', desiredStartDate: '2026-10-20', page: 1, pageSize: 20 },
+      requirements: { careType: 'HOME_SHIFT', location: { districtId: 5 }, shift: 'NIGHT', desiredStartDate: '2026-10-20', page: 1, pageSize: 20 },
       summary: { ...EMPTY, location: ['Kandy'], care: ['Night care', 'Starting as soon as possible'] },
       missing: [],
       assumed: ['desiredStartDate'],
@@ -77,7 +77,7 @@ describe('AiSearchPanel', () => {
 
   it('lets the visitor pick a district instead, and searches without asking the model again', async () => {
     aiExtract.mockResolvedValue({
-      requirements: { desiredStartDate: '2026-10-20', page: 1, pageSize: 20 },
+      requirements: { careType: 'LIVE_IN', desiredStartDate: '2026-10-20', page: 1, pageSize: 20 },
       summary: { ...EMPTY, care: ['Starting as soon as possible'] },
       missing: ['location'],
       assumed: ['desiredStartDate'],
@@ -85,8 +85,6 @@ describe('AiSearchPanel', () => {
     const onSearch = setup();
 
     await waitFor(() => expect(screen.getByLabelText(/or choose a district/i)).toBeInTheDocument());
-    // Nothing about the care was understood, so the question asks more openly.
-    expect(screen.getByText(/anything you can about the person/i)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/or choose a district/i), { target: { value: '6' } });
     expect(onSearch).toHaveBeenCalledTimes(1);
@@ -95,6 +93,53 @@ describe('AiSearchPanel', () => {
     expect(onSearch.mock.calls[0][1]).toBe(`${QUERY}\nMatale`);
     // Results are area-only, so the assistant invites more detail.
     expect(screen.getByText(/want better matches/i)).toBeInTheDocument();
+  });
+
+  it('asks for the type of care when it was not said, and searches once it is picked', async () => {
+    aiExtract.mockResolvedValue({
+      requirements: { location: { districtId: 5 }, shift: 'NIGHT', desiredStartDate: '2026-10-20', page: 1, pageSize: 20 },
+      summary: { ...EMPTY, location: ['Kandy'], care: ['Night care'] },
+      missing: ['careType'],
+      assumed: [],
+    });
+    const onSearch = setup();
+
+    await waitFor(() => expect(screen.getByText(/what kind of care do you need/i)).toBeInTheDocument());
+    expect(onSearch).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Care at a hospital' }));
+    // A button answer needs no second model call.
+    expect(aiExtract).toHaveBeenCalledTimes(1);
+    expect(onSearch).toHaveBeenCalledTimes(1);
+    expect(onSearch.mock.calls[0][0]).toMatchObject({ careType: 'HOSPITAL', location: { districtId: 5 } });
+  });
+
+  it('asks for the care type first and the place second, keeping a picked care type through later replies', async () => {
+    aiExtract.mockResolvedValueOnce({
+      requirements: { desiredStartDate: '2026-10-20', page: 1, pageSize: 20 },
+      summary: EMPTY,
+      missing: ['careType', 'location'],
+      assumed: ['desiredStartDate'],
+    });
+    const onSearch = setup();
+
+    await waitFor(() => expect(screen.getByText(/what kind of care do you need/i)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Live-in caregiver' }));
+    await waitFor(() => expect(screen.getByText(/where is the care needed|anything you can about the person/i)).toBeInTheDocument());
+    expect(onSearch).not.toHaveBeenCalled();
+
+    // The model reads "Kandy" but not the care type - the picked one stays.
+    aiExtract.mockResolvedValueOnce({
+      requirements: { location: { districtId: 5 }, desiredStartDate: '2026-10-20', page: 1, pageSize: 20 },
+      summary: { ...EMPTY, location: ['Kandy'] },
+      missing: ['careType'],
+      assumed: ['desiredStartDate'],
+    });
+    fireEvent.change(screen.getByLabelText(/your answer/i), { target: { value: 'Kandy' } });
+    fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+    await waitFor(() => expect(onSearch).toHaveBeenCalledTimes(1));
+    expect(onSearch.mock.calls[0][0]).toMatchObject({ careType: 'LIVE_IN', location: { districtId: 5 } });
   });
 
   it('offers Normal Search when AI is unavailable', async () => {
@@ -107,7 +152,7 @@ describe('AiSearchPanel', () => {
   });
 
   it('starting over clears the conversation', async () => {
-    aiExtract.mockResolvedValue({ requirements: { location: { districtId: 5 }, desiredStartDate: '2026-10-20' }, summary: EMPTY, missing: [] });
+    aiExtract.mockResolvedValue({ requirements: { careType: 'HOSPITAL', location: { districtId: 5 }, desiredStartDate: '2026-10-20' }, summary: EMPTY, missing: [] });
     const onReset = jest.fn();
     setup({ onReset });
     await waitFor(() => expect(screen.getByRole('button', { name: /start over/i })).toBeInTheDocument());

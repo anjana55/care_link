@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Loader2, SendHorizontal, Sparkles } from 'lucide-react';
-import type { AiMissingField, ExtractedRequirements, SearchRequest } from '@care-platform/shared';
+import { careTypeValues, type AiMissingField, type CareType, type ExtractedRequirements, type SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { publicSearchApi } from '@/lib/api/public-search';
 import { ApiError } from '@/lib/api/client';
@@ -28,6 +28,7 @@ interface AiSearchPanelProps {
 
 type Entry =
   | { role: 'user'; text: string }
+  | { role: 'assistant'; kind: 'ask-care-type'; summary?: ExtractedRequirements['summary'] }
   | { role: 'assistant'; kind: 'ask-location'; retry: boolean; understoodNothing: boolean; summary?: ExtractedRequirements['summary'] }
   | { role: 'assistant'; kind: 'results'; summary?: ExtractedRequirements['summary']; suggestMore: boolean };
 
@@ -54,8 +55,14 @@ export function combineTurns(turns: string[]): string {
 
 /** Required inputs still unknown. The API says so; older APIs did not, so fall back to looking. */
 function missingOf(extracted: ExtractedRequirements): AiMissingField[] {
-  if (extracted.missing) return extracted.missing;
-  return extracted.requirements.location?.districtId ? [] : ['location'];
+  const missing: AiMissingField[] = extracted.missing
+    ? [...extracted.missing]
+    : extracted.requirements.location?.districtId
+      ? []
+      : ['location'];
+  // Older APIs did not ask for the care type; it is required either way.
+  if (!extracted.requirements.careType && !missing.includes('careType')) missing.unshift('careType');
+  return extracted.requirements.careType ? missing.filter((m) => m !== 'careType') : missing;
 }
 
 /** Nothing about the care itself - the results are by area only, and a sentence more would rank them far better. */
@@ -85,8 +92,10 @@ const EMPTY_SUMMARY: ExtractedRequirements['summary'] = { patient: [], location:
  *  2. If that is enough to search (it only needs an area), the results show
  *     straight away, with what was understood as chips and the full filter
  *     form below the results for anyone who wants to adjust.
- *  3. If not, the assistant asks for just the missing piece - in words, with a
- *     district list as a one-tap alternative - and searches as soon as it has it.
+ *  3. If not, the assistant asks for just the missing pieces - first the type
+ *     of care (five one-tap choices; it is never guessed), then the area (in
+ *     words, or a district list as a one-tap alternative) - and searches as
+ *     soon as it has both.
  *
  * Afterwards the same box takes more details ("she speaks Tamil") and re-runs
  * the search, so improving the matches is a sentence, not a form.
@@ -120,33 +129,67 @@ export function AiSearchPanel({
     [tree, locale],
   );
 
+  // A care type the visitor picked with a button. Their words may never name
+  // it, so it is laid over every later extraction that did not find one.
+  const [pickedCareType, setPickedCareType] = useState<CareType | null>(initialRequest?.careType ?? null);
+
+  function withPickedCareType(result: ExtractedRequirements, picked: CareType | null): ExtractedRequirements {
+    if (!picked || result.requirements.careType) return result;
+    return {
+      ...result,
+      requirements: { ...result.requirements, careType: picked },
+      summary: { ...result.summary, care: [t(`careTypes.${picked}`), ...result.summary.care] },
+      missing: result.missing?.filter((m) => m !== 'careType'),
+    };
+  }
+
+  // The latest conversation, for callbacks that run after a render (a mutation
+  // settling) - updater functions must stay free of side effects like a search.
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+
+  /** Asks for the next missing piece, or searches when nothing is missing. */
+  function proceed(result: ExtractedRequirements, query: string, prev: Entry[]) {
+    const next = nextEntries(result, query, prev);
+    entriesRef.current = next;
+    setEntries(next);
+  }
+
+  function nextEntries(result: ExtractedRequirements, query: string, prev: Entry[]): Entry[] {
+    const missing = missingOf(result);
+    if (missing.includes('careType')) {
+      return [...prev, { role: 'assistant', kind: 'ask-care-type', summary: result.summary }];
+    }
+    if (missing.includes('location')) {
+      // Put the cursor where the answer goes - one less tap on a phone.
+      setTimeout(() => replyRef.current?.focus(), 0);
+      return [
+        ...prev,
+        {
+          role: 'assistant',
+          kind: 'ask-location',
+          retry: prev.some((e) => e.role === 'assistant' && e.kind === 'ask-location'),
+          understoodNothing: understoodNothingIn(result),
+          summary: result.summary,
+        },
+      ];
+    }
+    onSearch({ ...result.requirements, page: 1, pageSize: 20 }, query);
+    return [...prev, { role: 'assistant', kind: 'results', summary: result.summary, suggestMore: lacksCareDetail(result.requirements) }];
+  }
+
   const extract = useMutation({
     mutationFn: (text: string) => publicSearchApi.aiExtract(text, locale),
-    onSuccess: (result, text) => {
+    onSuccess: (raw, text) => {
+      const result = withPickedCareType(raw, pickedCareType);
       setCurrent(result);
-      if (missingOf(result).includes('location')) {
-        const understoodNothing = understoodNothingIn(result);
-        setEntries((prev) => [
-          ...prev,
-          {
-            role: 'assistant',
-            kind: 'ask-location',
-            retry: prev.some((e) => e.role === 'assistant' && e.kind === 'ask-location'),
-            understoodNothing,
-            summary: result.summary,
-          },
-        ]);
-        // Put the cursor where the answer goes - one less tap on a phone.
-        setTimeout(() => replyRef.current?.focus(), 0);
-        return;
-      }
-      setEntries((prev) => [...prev, { role: 'assistant', kind: 'results', summary: result.summary, suggestMore: lacksCareDetail(result.requirements) }]);
-      onSearch({ ...result.requirements, page: 1, pageSize: 20 }, text);
+      proceed(result, text, entriesRef.current);
     },
   });
 
   const lastAssistant = [...entries].reverse().find((e) => e.role === 'assistant');
   const askingLocation = lastAssistant?.kind === 'ask-location';
+  const askingCareType = lastAssistant?.kind === 'ask-care-type';
   const started = entries.length > 0;
 
   function say(raw: string) {
@@ -154,30 +197,42 @@ export function AiSearchPanel({
     if (text.length < 2 || extract.isPending) return;
     const nextTurns = [...turns, text];
     setTurns(nextTurns);
-    setEntries((prev) => [...prev, { role: 'user', text }]);
+    const withUser: Entry[] = [...entriesRef.current, { role: 'user', text }];
+    entriesRef.current = withUser;
+    setEntries(withUser);
     setDraft('');
     extract.mutate(combineTurns(nextTurns));
   }
 
-  /** The one-tap answer to "where?": no model call needed, search straight away. */
+  /** The one-tap answer to "where?": no model call needed. */
   function pickDistrict(value: string) {
     const district = districts.find((d) => String(d.id) === value);
     if (!district || !current) return;
     const nextTurns = [...turns, district.name];
     const summary = { ...current.summary, location: [district.name] };
     const requirements: SearchRequest = { ...current.requirements, location: { districtId: district.id }, page: 1, pageSize: 20 };
+    const next: ExtractedRequirements = { ...current, requirements, summary, missing: (current.missing ?? []).filter((m) => m !== 'location') };
     setTurns(nextTurns);
-    setCurrent({ ...current, requirements, summary, missing: [] });
-    setEntries((prev) => [
-      ...prev,
-      { role: 'user', text: district.name },
-      { role: 'assistant', kind: 'results', summary, suggestMore: lacksCareDetail(requirements) },
-    ]);
-    onSearch(requirements, combineTurns(nextTurns));
+    setCurrent(next);
+    proceed(next, combineTurns(nextTurns), [...entriesRef.current, { role: 'user', text: district.name }]);
+  }
+
+  /** The one-tap answer to "what kind of care?": no model call needed. */
+  function pickCareType(type: CareType) {
+    if (!current) return;
+    const label = t(`careTypes.${type}`);
+    const nextTurns = [...turns, label];
+    const next = withPickedCareType({ ...current, requirements: { ...current.requirements, careType: undefined } }, type);
+    setPickedCareType(type);
+    setTurns(nextTurns);
+    setCurrent(next);
+    proceed(next, combineTurns(nextTurns), [...entriesRef.current, { role: 'user', text: label }]);
   }
 
   function startOver() {
+    setPickedCareType(null);
     setTurns([]);
+    entriesRef.current = [];
     setEntries([]);
     setCurrent(null);
     setDraft('');
@@ -249,7 +304,26 @@ export function AiSearchPanel({
               </span>
               <div className="max-w-[85%] space-y-3 rounded-2xl rounded-tl-sm border border-border bg-brand-light/40 px-4 py-3 text-sm text-ink">
                 {isLast && entry.summary && <UnderstoodChips summary={entry.summary} />}
-                {entry.kind === 'ask-location' ? (
+                {entry.kind === 'ask-care-type' ? (
+                  <div className="space-y-2">
+                    <p>{t('aiSearch.askCareType')}</p>
+                    {isLast && (
+                      <div role="group" aria-label={t('normalSearch.careType')} className="flex flex-wrap gap-2">
+                        {careTypeValues.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => pickCareType(type)}
+                            disabled={extract.isPending}
+                            className="rounded-full border border-brand/40 bg-white px-3 py-1.5 text-sm text-ink hover:border-brand hover:bg-brand hover:text-white disabled:opacity-50"
+                          >
+                            {t(`careTypes.${type}`)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : entry.kind === 'ask-location' ? (
                   <p>
                     {entry.retry
                       ? t('aiSearch.askLocationRetry')
@@ -302,14 +376,14 @@ export function AiSearchPanel({
         className="flex gap-2"
       >
         <label htmlFor="ai-reply" className="sr-only">
-          {askingLocation ? t('aiSearch.replyLabel') : t('aiSearch.moreDetailsLabel')}
+          {askingLocation || askingCareType ? t('aiSearch.replyLabel') : t('aiSearch.moreDetailsLabel')}
         </label>
         <Input
           id="ai-reply"
           ref={replyRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={askingLocation ? t('aiSearch.replyPlaceholder') : t('aiSearch.moreDetailsPlaceholder')}
+          placeholder={askingCareType ? t('aiSearch.careTypeReplyPlaceholder') : askingLocation ? t('aiSearch.replyPlaceholder') : t('aiSearch.moreDetailsPlaceholder')}
           maxLength={REPLY_MAX}
           autoComplete="off"
         />

@@ -319,6 +319,7 @@ describe('shifts', () => {
     await waitFor(() => expect(put).toHaveBeenCalledTimes(1));
     expect(put).toHaveBeenCalledWith('/caregivers/cg-1/availability', {
       dayDuty: true, nightDuty: false, liveIn24h: false, preferredShift: 'DAY', expectedDailyRate: '7000',
+      careTypes: ['HOME_SHIFT', 'LIVE_IN', 'HOSPITAL', 'NURSING_HOME', 'RETIREMENT_HOME'],
     });
     expect(await screen.findByText('Saved')).toBeDefined();
   });

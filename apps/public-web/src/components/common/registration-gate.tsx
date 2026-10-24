@@ -13,7 +13,7 @@ interface RegistrationGateProps {
   open: boolean;
   onClose: () => void;
   /** Which action triggered the gate. Saving no longer needs an account (see SaveButton). */
-  reason?: 'contact' | 'hire';
+  reason?: 'contact' | 'hire' | 'find';
   /** The caregiver being contacted: remembered so the request dialog opens for them on return. */
   caregiverPublicId?: string;
   /** Where to bring the visitor back to once they are signed in (usually this page). */
@@ -30,7 +30,7 @@ interface RegistrationGateProps {
  * WhatsApp, which verifies their number in one code and needs no password.
  * Whichever way they go, they come back here with the request dialog open.
  */
-export function RegistrationGate({ open, onClose, caregiverPublicId, returnTo, sessionEnded = false }: RegistrationGateProps) {
+export function RegistrationGate({ open, onClose, reason, caregiverPublicId, returnTo, sessionEnded = false }: RegistrationGateProps) {
   const { t } = useTranslation();
   const { data: whatsapp } = useWhatsappConfig();
   const [search, setSearch] = useState<SearchContext | null>(null);
@@ -114,7 +114,7 @@ export function RegistrationGate({ open, onClose, caregiverPublicId, returnTo, s
             <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
-        <p className="mt-2 text-sm text-ink/70">{t('registrationGate.body')}</p>
+        <p className="mt-2 text-sm text-ink/70">{t(reason === 'find' ? 'registrationGate.bodyFind' : 'registrationGate.body')}</p>
 
         {lines.length > 0 && (
           <div className="mt-4">

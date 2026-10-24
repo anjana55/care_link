@@ -20,11 +20,13 @@ const put = jest.fn();
 const del = jest.fn();
 const replace = jest.fn();
 let pathname = '/caregivers/11111111-1111-4111-8111-111111111111';
+let searchParams = new URLSearchParams();
 let auth: { user: unknown; loading: boolean } = { user: null, loading: false };
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace, push: jest.fn() }),
   usePathname: () => pathname,
+  useSearchParams: () => searchParams,
 }));
 jest.mock('next/link', () => ({
   __esModule: true,
@@ -33,6 +35,12 @@ jest.mock('next/link', () => ({
       {children}
     </a>
   ),
+}));
+jest.mock('@/lib/hooks/use-public-search', () => ({
+  useLocationTree: () => ({ data: [{ id: 1, name: 'Western', districts: [{ id: 1, name: 'Colombo' }, { id: 2, name: 'Gampaha' }] }] }),
+  useCities: (districtId: number | null) => ({
+    data: districtId === 1 ? [{ id: 2, name: 'Dehiwala', subName: null, postcode: '10350', latitude: 6.85, longitude: 79.86 }] : [],
+  }),
 }));
 jest.mock('@/lib/api/auth-context', () => ({ useAuth: () => ({ ...auth, logout: jest.fn() }) }));
 jest.mock('@/lib/api/client', () => ({
@@ -263,6 +271,46 @@ describe('client account', () => {
     fireEvent.click(cancels[0]);
     fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel it' }));
     await waitFor(() => expect(post).toHaveBeenCalledWith('/me/care-requests/r1/cancel', {}));
+  });
+
+  it('lets a client ask our team to find a caregiver, with the type of care and district required', async () => {
+    auth = { user: CLIENT, loading: false };
+    pathname = '/account/requests';
+    get.mockResolvedValue([]);
+    post.mockResolvedValue({ id: 'r9', reference: 'CR-FND234', status: 'NEW', caregiverPublicId: null, caregiver: null });
+    renderUi(<MyRequestsPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Find a caregiver for me' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
+    expect(await screen.findByText(/please choose the type of care/i)).toBeInTheDocument();
+    expect(screen.getByText(/please choose the district/i)).toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText(/type of care needed/i), { target: { value: 'NURSING_HOME' } });
+    fireEvent.change(screen.getByLabelText(/^district/i), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText(/^city/i), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
+
+    await screen.findByText(/your reference is CR-FND234/i);
+    expect(post).toHaveBeenCalledWith('/me/care-requests', { careType: 'NURSING_HOME', districtId: 1, cityId: 2 });
+  });
+
+  it('opens the find-a-caregiver form by itself after signing up from the search page, prefilled from the search', async () => {
+    auth = { user: CLIENT, loading: false };
+    pathname = '/account/requests';
+    searchParams = new URLSearchParams('new=1');
+    window.localStorage.setItem(
+      'care-platform-last-search',
+      JSON.stringify({ request: { careType: 'LIVE_IN', location: { districtId: 2 }, desiredStartDate: '2026-11-01' }, at: Date.now() }),
+    );
+    get.mockResolvedValue([]);
+    renderUi(<MyRequestsPage />);
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByLabelText(/type of care needed/i)).toHaveValue('LIVE_IN');
+    expect(screen.getByLabelText(/^district/i)).toHaveValue('2');
+    expect(replace).toHaveBeenCalledWith('/account/requests');
+    searchParams = new URLSearchParams();
   });
 
   it('lists saved caregivers and removes one', async () => {

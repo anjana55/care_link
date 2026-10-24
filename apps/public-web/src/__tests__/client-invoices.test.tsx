@@ -175,6 +175,7 @@ describe('caregiver payments', () => {
       ],
       total: '2200.00',
       paidOn: '2026-10-03',
+      paymentType: 'BANK',
       paymentMethod: 'BANK_TRANSFER',
       paymentReference: 'TRF-88',
     };

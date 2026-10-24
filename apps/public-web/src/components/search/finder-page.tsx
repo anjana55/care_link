@@ -9,6 +9,7 @@ import { NormalSearchForm } from '@/components/search/normal-search-form';
 import { AiSearchPanel } from '@/components/search/ai-search-panel';
 import { ResultsList } from '@/components/results/results-list';
 import { NearbyPanel } from '@/components/results/nearby-panel';
+import { FindForMeCard } from '@/components/care/find-for-me';
 import {
   HowItWorksSection,
   TrustSection,
@@ -227,6 +228,8 @@ export function FinderPage() {
             {!isLoading && !isError && data && data.items.length > 0 && (
               <ResultsList response={data} onPageChange={goToPage} shownOnMap={shownOnMap} onShowOnMap={showOnMap} />
             )}
+            {/* Nobody suitable on screen? Our team can look for them. */}
+            {!isLoading && !isError && data && <FindForMeCard prominent={data.total < 3} />}
           </div>
 
           {!isLoading && !isError && data && data.items.length > 0 && <AdSlot placement="search" className="mt-8 px-0" />}

@@ -19,6 +19,7 @@ jest.mock('@/components/results/results-list', () => ({
   ResultsList: ({ response }: { response: { total: number } }) => <p>{response.total} caregivers found</p>,
 }));
 jest.mock('@/lib/hooks/use-client-care', () => ({ useIsClient: () => null }));
+jest.mock('@/components/care/find-for-me', () => ({ FindForMeCard: () => null }));
 jest.mock('@/lib/api/public-search', () => ({
   publicSearchApi: { aiExtract: (...a: unknown[]) => aiExtract(...a) },
 }));
@@ -65,7 +66,7 @@ describe('FinderPage', () => {
 
   it('shows caregivers after one message, with the advanced filters below them', async () => {
     aiExtract.mockResolvedValue({
-      requirements: { location: { districtId: 5 }, shift: 'NIGHT', desiredStartDate: '2026-10-20', page: 1, pageSize: 20 },
+      requirements: { careType: 'HOME_SHIFT', location: { districtId: 5 }, shift: 'NIGHT', desiredStartDate: '2026-10-20', page: 1, pageSize: 20 },
       summary: { patient: [], location: ['Kandy'], care: ['Night care'], preferences: [] },
       missing: [],
       assumed: ['desiredStartDate'],
