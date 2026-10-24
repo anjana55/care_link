@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertTriangle, ChevronLeft, ExternalLink, Eye, Pencil, Printer, RefreshCw, Send, Trash2 } from 'lucide-react';
-import { MANUAL_PAYMENT_METHODS, colomboToday, formatLkr } from '@care-platform/shared';
+import { colomboToday, formatLkr } from '@care-platform/shared';
+import { DEFAULT_PAYMENT_HOW, PaymentHowFields, paymentHowBody, usePaymentHowLabel, type PaymentHow } from '@/components/billing/payment-how-fields';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
@@ -32,7 +33,7 @@ import { InvoiceStatusBadge, OverdueBadge } from '@/components/billing/billing-b
 import { InvoiceDocument } from '@/components/billing/invoice-document';
 import { LineEditor, TotalsBlock, liveTotals, rowProblem, rowsFrom, toInput, type EditableRow } from '@/components/billing/line-editor';
 import { cn } from '@/lib/utils';
-import type { DiscountType, InvoiceDetail, PaymentMethod } from '@/lib/api/types';
+import type { DiscountType, InvoiceDetail } from '@/lib/api/types';
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError && err.message ? err.message : fallback);
 
@@ -507,7 +508,8 @@ function PaymentsCard({ invoice }: { invoice: InvoiceDetail }) {
   const remove = useDeletePayment(invoice.id);
   const [kind, setKind] = useState<'PAYMENT' | 'REFUND' | null>(null);
   const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<PaymentMethod>('BANK_TRANSFER');
+  const [how, setHow] = useState<PaymentHow>(DEFAULT_PAYMENT_HOW);
+  const howLabel = usePaymentHowLabel();
   const [paidOn, setPaidOn] = useState(colomboToday());
   const [reference, setReference] = useState('');
   const open = invoice.status === 'ISSUED' || invoice.status === 'PAID';
@@ -535,7 +537,7 @@ function PaymentsCard({ invoice }: { invoice: InvoiceDetail }) {
               <div className="min-w-0">
                 <p className={cn('font-medium tabular-nums', Number(p.amount) < 0 ? 'text-accent' : 'text-ink')}>{formatLkr(p.amount)}</p>
                 <p className="text-xs text-ink/60">
-                  {fmtDate(p.paidOn, locale)} · {t(`billing.method.${p.method}`)}
+                  {fmtDate(p.paidOn, locale)} · {howLabel(p)}
                   {p.reference && ` · ${p.reference}`}
                 </p>
                 {p.recordedBy && <p className="text-xs text-ink/40">{t('requests.detail.by', { name: p.recordedBy.fullName })}</p>}
@@ -581,16 +583,7 @@ function PaymentsCard({ invoice }: { invoice: InvoiceDetail }) {
                 <Label htmlFor="payOn" required>{t('billing.payments.date')}</Label>
                 <Input id="payOn" type="date" max={colomboToday()} value={paidOn} onChange={(e) => setPaidOn(e.target.value)} />
               </div>
-              <div>
-                <Label htmlFor="payMethod" required>{t('billing.payments.method')}</Label>
-                <Select id="payMethod" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
-                  {MANUAL_PAYMENT_METHODS.map((m) => (
-                    <option key={m} value={m}>
-                      {t(`billing.method.${m}`)}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+              <PaymentHowFields idPrefix="pay" value={how} onChange={setHow} />
               <div>
                 <Label htmlFor="payRef">{t('billing.payments.reference')}</Label>
                 <Input id="payRef" maxLength={120} value={reference} onChange={(e) => setReference(e.target.value)} />
@@ -602,7 +595,7 @@ function PaymentsCard({ invoice }: { invoice: InvoiceDetail }) {
                 disabled={!valid || record.isPending}
                 onClick={() =>
                   record.mutate(
-                    { kind, amount: amount.trim(), method, paidOn, ...(reference.trim() ? { reference: reference.trim() } : {}) },
+                    { kind, amount: amount.trim(), ...paymentHowBody(how), paidOn, ...(reference.trim() ? { reference: reference.trim() } : {}) },
                     { onSuccess: () => setKind(null) },
                   )
                 }

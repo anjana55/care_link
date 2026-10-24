@@ -21,7 +21,8 @@ const TRANSITIONS: Record<CaregiverStatus, CaregiverStatus[]> = {
   ACTIVE: ['INACTIVE', 'SUSPENDED'],
   INACTIVE: ['ACTIVE'],
   SUSPENDED: ['ACTIVE', 'REJECTED'],
-  REJECTED: [],
+  // Admin only: the page hides it from anyone else, and the API refuses it.
+  REJECTED: ['DRAFT'],
 };
 
 // This mirrors the authoritative state machine enforced server-side in

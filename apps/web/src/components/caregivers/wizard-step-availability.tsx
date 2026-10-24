@@ -7,8 +7,12 @@ import type { Availability } from '@/lib/api/types';
 import { Input, Label, Select, FieldError, RequiredLegend } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/lib/i18n/provider';
+import { careTypeValues, type CareType } from '@care-platform/shared';
 
 const DEFAULT_FORM = {
+  // All on, like the database default: a caregiver shows for every type of
+  // care until someone narrows it down.
+  careTypes: [...careTypeValues] as CareType[],
   dayDuty: false,
   nightDuty: false,
   liveIn24h: false,
@@ -35,6 +39,7 @@ export function AvailabilityStep({ caregiverId, onNext, onBack }: { caregiverId:
   useEffect(() => {
     if (data) {
       setForm({
+        careTypes: data.careTypes ?? [...careTypeValues],
         dayDuty: data.dayDuty,
         nightDuty: data.nightDuty,
         liveIn24h: data.liveIn24h,
@@ -54,6 +59,7 @@ export function AvailabilityStep({ caregiverId, onNext, onBack }: { caregiverId:
       // @IsOptional() skips only null/undefined, so an empty string would fail
       // @IsNumberString() / @IsDateString() and the whole save would 400.
       api.put(`/caregivers/${caregiverId}/availability`, {
+        careTypes: form.careTypes,
         dayDuty: form.dayDuty,
         nightDuty: form.nightDuty,
         liveIn24h: form.liveIn24h,
@@ -81,12 +87,16 @@ export function AvailabilityStep({ caregiverId, onNext, onBack }: { caregiverId:
   // and is effectively invisible to the public finder. One tick is the
   // minimum that makes the record mean anything.
   //
-  // Staff registration also needs a start date and a rate: the finder ranks
-  // on budget against expectedDailyRate/expectedMonthlyRate, and either one is
-  // enough. These are enforced here only - the caregiver portal shares the
-  // endpoint and deliberately lets caregivers leave pay blank.
+  // Staff registration also needs a start date and a rate (daily or monthly -
+  // either is enough), which staff need when pricing bookings. These are
+  // enforced here only - the caregiver portal shares the endpoint and
+  // deliberately lets caregivers leave pay blank.
+  //
+  // At least one care type: public search filters on it, so a caregiver with
+  // none ticked could never be found.
   const [submitted, setSubmitted] = useState(false);
   const errors = {
+    careTypes: form.careTypes.length === 0 ? t('caregivers.careTypes.required') : undefined,
     dutyType: !form.dayDuty && !form.nightDuty && !form.liveIn24h ? t('caregivers.me.availability.dutyTypeRequired') : undefined,
     availableFrom: !form.availableFrom ? t('caregivers.me.availability.availableFromRequired') : undefined,
     rate: !form.expectedDailyRate && !form.expectedMonthlyRate ? t('caregivers.me.availability.rateRequired') : undefined,
@@ -103,6 +113,35 @@ export function AvailabilityStep({ caregiverId, onNext, onBack }: { caregiverId:
   return (
     <div className="space-y-6">
       <RequiredLegend label={t('common.requiredField')} />
+
+      <fieldset>
+        <legend className="mb-1.5 block text-sm font-medium text-ink">
+          {t('caregivers.careTypes.label')}
+          <span aria-hidden="true" className="ml-0.5 text-danger">
+            *
+          </span>
+        </legend>
+        <p className="mb-2 text-xs text-ink/50">{t('caregivers.careTypes.hint')}</p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {careTypeValues.map((type) => (
+            <label key={type} className="flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={form.careTypes.includes(type)}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    careTypes: e.target.checked ? careTypeValues.filter((v) => v === type || form.careTypes.includes(v)) : form.careTypes.filter((v) => v !== type),
+                  })
+                }
+                className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
+              />
+              {t(`careTypes.${type}`)}
+            </label>
+          ))}
+        </div>
+        <FieldError message={shown('careTypes')} />
+      </fieldset>
 
       {/* Marked on the group rather than on any single box: it is "at least
           one of these" that is required, and ticking a `*` onto all three

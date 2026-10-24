@@ -18,6 +18,7 @@ import { ClientPicker } from '@/components/requests/client-picker';
 import { CaregiverPicker, type PickedCaregiver } from '@/components/requests/caregiver-picker';
 import { cn } from '@/lib/utils';
 import type { Client, PhoneClientInput } from '@/lib/api/types';
+import { careTypeValues, type CareType } from '@care-platform/shared';
 
 const RELATIONSHIPS = ['PARENT', 'SPOUSE', 'CHILD', 'SIBLING', 'OTHER_RELATIVE', 'FRIEND', 'OTHER'] as const;
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
@@ -145,6 +146,7 @@ function NewPhoneRequestPage() {
   const [caller, setCaller] = useState<CallerDraft>(EMPTY_CALLER);
   const [caregiver, setCaregiver] = useState<PickedCaregiver | null>(null);
   const [message, setMessage] = useState('');
+  const [careType, setCareType] = useState<CareType | ''>('');
   const [language, setLanguage] = useState<(typeof LANGUAGES)[number]>('en');
 
   useEffect(() => {
@@ -178,6 +180,7 @@ function NewPhoneRequestPage() {
         ...(mode === 'existing' ? { patientId: client!.id } : { newClient: toPayload(caller) }),
         ...(caregiver ? { caregiverId: caregiver.id } : {}),
         ...(message.trim() ? { message: message.trim() } : {}),
+        ...(careType ? { careType } : {}),
         language,
       },
       { onSuccess: (detail) => router.push(`/requests/${detail.id}`) },
@@ -467,6 +470,17 @@ function NewPhoneRequestPage() {
             <CardTitle>{t('requests.new.requestTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Label htmlFor="careType">{t('requests.detail.careType')}</Label>
+              <Select id="careType" value={careType} onChange={(e) => setCareType(e.target.value as CareType | '')}>
+                <option value="">{t('requests.new.careTypeNotSaid')}</option>
+                {careTypeValues.map((type) => (
+                  <option key={type} value={type}>
+                    {t(`careTypes.${type}`)}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <div className="sm:col-span-2">
               <Label htmlFor="message">{t('requests.detail.phoneMessage')}</Label>
               <Textarea

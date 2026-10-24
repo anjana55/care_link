@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
+import type { BankAccount, PaymentType } from '@care-platform/shared';
 import type {
   BillingLineInput,
   BillingSettings,
@@ -104,7 +105,7 @@ export const useAddInvoiceNote = (id: string) => useInvoiceWrite(id, (note: stri
 export const useRecordPayment = (id: string) =>
   useInvoiceWrite(
     id,
-    (v: { kind?: 'PAYMENT' | 'REFUND'; amount: string; method: PaymentMethod; paidOn: string; reference?: string; note?: string; notify?: boolean }) =>
+    (v: { kind?: 'PAYMENT' | 'REFUND'; amount: string; paymentType: PaymentType; method?: PaymentMethod; bankAccountId?: string; paidOn: string; reference?: string; note?: string; notify?: boolean }) =>
       api.post<InvoiceDetail>(`/invoices/${id}/payments`, v),
   );
 export const useDeletePayment = (id: string) => useInvoiceWrite(id, (paymentId: string) => api.delete<InvoiceDetail>(`/invoices/${id}/payments/${paymentId}`));
@@ -184,7 +185,7 @@ export const useAddPayoutShiftLines = (id: string) => usePayoutWrite(id, () => a
 export const useApprovePayout = (id: string) => usePayoutWrite(id, () => api.post<PayoutDetail>(`/payouts/${id}/approve`, {}));
 export const useReopenPayout = (id: string) => usePayoutWrite(id, () => api.post<PayoutDetail>(`/payouts/${id}/reopen`, {}));
 export const usePayPayout = (id: string) =>
-  usePayoutWrite(id, (v: { paidOn: string; method: PaymentMethod; reference?: string; notify?: boolean }) => api.post<PayoutDetail>(`/payouts/${id}/pay`, v));
+  usePayoutWrite(id, (v: { paidOn: string; paymentType: PaymentType; method?: PaymentMethod; bankAccountId?: string; reference?: string; notify?: boolean }) => api.post<PayoutDetail>(`/payouts/${id}/pay`, v));
 export const useVoidPayout = (id: string) => usePayoutWrite(id, (reason: string) => api.post<PayoutDetail>(`/payouts/${id}/void`, { reason }));
 
 export function useDeletePayout(id: string) {
@@ -209,5 +210,31 @@ export function useUpdateBillingSettings() {
   return useMutation({
     mutationFn: (v: Record<string, unknown>) => api.patch<BillingSettings>('/settings/billing', v),
     onSuccess: (data) => queryClient.setQueryData(['billing-settings'], data),
+  });
+}
+
+// --- bank accounts (Settings > Billing) -----------------------------------------
+
+/** The business's bank accounts. Staff read them to record bank payments; admins edit them. */
+export function useBankAccounts() {
+  return useQuery({ queryKey: ['bank-accounts'], queryFn: () => api.get<BankAccount[]>('/billing/bank-accounts') });
+}
+
+export type BankAccountInput = Pick<BankAccount, 'bankName' | 'accountName' | 'accountNumber'> & { branch?: string; active?: boolean };
+
+export function useSaveBankAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...v }: Partial<BankAccountInput> & { id?: string }) =>
+      id ? api.patch<BankAccount>(`/billing/bank-accounts/${id}`, v) : api.post<BankAccount>('/billing/bank-accounts', v),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bank-accounts'] }),
+  });
+}
+
+export function useDeleteBankAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<void>(`/billing/bank-accounts/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bank-accounts'] }),
   });
 }

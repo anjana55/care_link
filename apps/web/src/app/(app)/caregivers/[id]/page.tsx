@@ -44,6 +44,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { StatusMoveSelect, type StatusMoveConfirmation } from '@/components/ui/status-move-select';
 import { allowedNextStatuses } from '@/lib/caregiver-status';
+import { AutoNotifyToggle } from '@/components/caregivers/auto-notify-toggle';
 import type { CaregiverStatus } from '@/lib/api/types';
 import { Select, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
@@ -240,7 +241,8 @@ export default function CaregiverProfilePage() {
 
   if (isLoading || !caregiver) return <p className="text-sm text-ink/50">{t('common.loading')}</p>;
 
-  const nextStatuses = allowedNextStatuses(caregiver.status);
+  // Reopening a rejected registration (back to Draft) is an admin decision.
+  const nextStatuses = caregiver.status === 'REJECTED' && user?.role !== 'ADMIN' ? [] : allowedNextStatuses(caregiver.status);
 
   const onSave = form.handleSubmit((data) => {
     updateCaregiver.mutate(data, { onSuccess: () => setIsEditing(false) });
@@ -249,13 +251,15 @@ export default function CaregiverProfilePage() {
   const isAdminOrStaff = user?.role === 'ADMIN' || user?.role === 'STAFF';
   const canChangeStatus = user?.role === 'ADMIN' || user?.role === 'VERIFIER';
 
-  // Same confirmation pattern as a client's status move. Leaving ACTIVE takes
-  // the caregiver out of public search (only ACTIVE is listed); REJECTED is
-  // terminal in the transition map.
+  // Same confirmation pattern as a client's status move. Public search lists
+  // Registered onwards (Verified and Active with a badge); a rejected caregiver
+  // can only be sent back to Draft, by an admin.
   const statusConfirmation = (s: CaregiverStatus): StatusMoveConfirmation => {
     const status = t(`caregivers.status.${s}`);
     const message =
-      s === 'REJECTED'
+      caregiver.status === 'REJECTED' && s === 'DRAFT'
+        ? t('lifecycle.caregiver.reopenRejected')
+        : s === 'REJECTED'
         ? t('lifecycle.caregiver.toRejected')
         : caregiver.status === 'ACTIVE'
           ? t('lifecycle.caregiver.leaveActive', { status })
@@ -1110,6 +1114,7 @@ export default function CaregiverProfilePage() {
         {isAdminOrStaff && (
           <TabsContent value="requests">
             <div className="space-y-4">
+              <AutoNotifyToggle caregiverId={caregiver.id} enabled={Boolean(caregiver.autoNotifyRequests)} canEdit={isAdminOrStaff} />
               <RelatedRequests caregiverId={caregiver.id} />
               <RelatedBookings caregiverId={caregiver.id} />
             </div>

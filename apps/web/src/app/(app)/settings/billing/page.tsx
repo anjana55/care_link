@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import type { BillingSettings } from '@/lib/api/types';
+import { BankAccountsCard } from '@/components/billing/bank-accounts-card';
 
 type Draft = {
   businessName: string;
@@ -276,6 +277,9 @@ export default function BillingSettingsPage() {
           </p>
         )}
       </div>
+
+      {/* Saved on their own, not with the form above. */}
+      <BankAccountsCard />
     </div>
   );
 }

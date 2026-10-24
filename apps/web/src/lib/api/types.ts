@@ -1,9 +1,10 @@
+import type { CareType } from '@care-platform/shared';
 import type {
   BillingAdjustmentView as SharedBillingAdjustmentView,
   BookingAmendmentView as SharedBookingAmendmentView,
   IssueReportView as SharedIssueReportView,
 } from '@care-platform/shared';
-import type { BillingLineKind, BillingParty, BillingUnit, DiscountType, InvoiceBasis, InvoiceStatus, PaymentMethod, PayoutStatus } from '@care-platform/shared';
+import type { BillingLineKind, BillingParty, BillingUnit, DiscountType, InvoiceBasis, InvoiceStatus, PaymentMethod, PaymentType, PayoutStatus } from '@care-platform/shared';
 export type CaregiverStatus =
   | 'DRAFT'
   | 'REGISTERED'
@@ -91,6 +92,8 @@ export interface CaregiverDetail {
   policeDivision: string | null;
   policeStation: string | null;
   status: CaregiverStatus;
+  /** Tell the caregiver straight away when a client asks for them. */
+  autoNotifyRequests: boolean;
   /** Ids are the source of truth and what the edit form round-trips; the names
    *  and postcode beside them are derived server-side display caches. */
   districtId: number | null;
@@ -210,6 +213,7 @@ export interface Availability {
   expectedMonthlyRate: string | null;
   expectedLeaveDays: number | null;
   preferredLeavePattern: string | null;
+  careTypes?: CareType[];
 }
 
 export type StaffRole = 'ADMIN' | 'STAFF' | 'VERIFIER';
@@ -469,6 +473,10 @@ export interface CareRequestListItem {
   caregiverRegistrationNumber: string | null;
   caregiverStatus: CaregiverStatus | null;
   caregiverDeleted: boolean;
+  caregiverAutoNotify: boolean | null;
+  /** When the caregiver was last told about it; null = not yet. */
+  caregiverNotifiedAt: string | null;
+  careType: CareType | null;
 }
 
 export interface CareRequestListResponse {
@@ -481,7 +489,7 @@ export interface CareRequestListResponse {
 
 export interface CareRequestEvent {
   id: string;
-  type: 'CREATED' | 'STATUS_CHANGED' | 'NOTE' | 'ASSIGNED' | 'CANCELLED' | 'CAREGIVER_CHANGED';
+  type: 'CREATED' | 'STATUS_CHANGED' | 'NOTE' | 'ASSIGNED' | 'CANCELLED' | 'CAREGIVER_CHANGED' | 'CAREGIVER_NOTIFIED';
   fromStatus: CareRequestStatus | null;
   toStatus: CareRequestStatus | null;
   closeReason: CareRequestCloseReason | null;
@@ -507,6 +515,14 @@ export interface CareRequestDetail {
   allowedNextStatuses: CareRequestStatus[];
   /** Whether the caregiver can still be attached or swapped (NEW / IN_PROGRESS). */
   canChangeCaregiver: boolean;
+  /** Whether "Notify caregiver" can be used: a caregiver is attached and the request is open. */
+  canNotifyCaregiver: boolean;
+  caregiverNotifiedAt: string | null;
+  /** What the request itself asks for (from the client's search or "find someone for me"). */
+  careType: CareType | null;
+  requestDistrict: string | null;
+  requestCity: string | null;
+  desiredStartDate: string | null;
   client: {
     id: string;
     fullName: string;
@@ -544,6 +560,7 @@ export interface CareRequestDetail {
     email: string | null;
     district: string | null;
     city: string | null;
+    autoNotifyRequests: boolean;
   } | null;
   events: CareRequestEvent[];
 }
@@ -584,6 +601,7 @@ export interface CreatePhoneRequestInput {
   newClient?: PhoneClientInput;
   caregiverId?: string;
   message?: string;
+  careType?: CareType;
   language: 'en' | 'si' | 'ta';
 }
 
@@ -790,6 +808,7 @@ export type {
   InvoiceBasis,
   InvoiceStatus,
   PaymentMethod,
+  PaymentType,
   PayoutStatus,
 } from '@care-platform/shared';
 
@@ -877,7 +896,12 @@ export interface InvoiceSummary {
 export interface InvoicePayment {
   id: string;
   amount: string;
-  method: PaymentMethod;
+  paymentType: PaymentType;
+  /** Optional detail under the type (cheque, card...). PAYHERE for online payments PayHere recorded. */
+  method: PaymentMethod | null;
+  bankAccountId: string | null;
+  /** The bank account's label, for BANK payments that named one. */
+  bankAccount: string | null;
   paidOn: string;
   reference: string | null;
   note: string | null;
@@ -980,7 +1004,10 @@ export interface PayoutDetail {
   total: string;
   notes: string | null;
   paidOn: string | null;
+  paymentType: PaymentType | null;
   paymentMethod: PaymentMethod | null;
+  bankAccountId: string | null;
+  bankAccount: string | null;
   paymentReference: string | null;
   voidReason: string | null;
   approvedAt: string | null;

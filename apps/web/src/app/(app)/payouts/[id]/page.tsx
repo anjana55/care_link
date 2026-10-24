@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertTriangle, ChevronLeft, ExternalLink, Printer, RefreshCw, Trash2 } from 'lucide-react';
-import { MANUAL_PAYMENT_METHODS, colomboToday, formatLkr } from '@care-platform/shared';
+import { colomboToday, formatLkr } from '@care-platform/shared';
+import { DEFAULT_PAYMENT_HOW, PaymentHowFields, paymentHowBody, usePaymentHowLabel, type PaymentHow } from '@/components/billing/payment-how-fields';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
@@ -22,17 +23,18 @@ import {
 import { fmtDate } from '@/lib/colombo-time';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input, Label, Select, Textarea } from '@/components/ui/input';
+import { Input, Label, Textarea } from '@/components/ui/input';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PayoutStatusBadge } from '@/components/billing/billing-badges';
 import { LineEditor, TotalsBlock, liveTotals, rowProblem, rowsFrom, toInput, type EditableRow } from '@/components/billing/line-editor';
-import type { PaymentMethod, PayoutDetail } from '@/lib/api/types';
+import type { PayoutDetail } from '@/lib/api/types';
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError && err.message ? err.message : fallback);
 
 /** One caregiver's payout statement: shape it while a draft, approve it, record the transfer. */
 export default function PayoutPage() {
   const { t, locale } = useTranslation();
+  const howLabel = usePaymentHowLabel();
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -89,7 +91,7 @@ export default function PayoutPage() {
       {payout.status === 'VOID' && payout.voidReason && <p className="mb-4 rounded bg-ink/5 px-3 py-2 text-sm text-ink/70">{t('billing.invoice.voidedBecause', { reason: payout.voidReason })}</p>}
       {payout.status === 'PAID' && (
         <p className="mb-4 rounded bg-brand-light px-3 py-2 text-sm text-brand-dark">
-          {t('billing.payout.paidLine', { date: fmtDate(payout.paidOn!, locale), method: t(`billing.method.${payout.paymentMethod}`) })}
+          {t('billing.payout.paidLine', { date: fmtDate(payout.paidOn!, locale), method: howLabel({ paymentType: payout.paymentType, method: payout.paymentMethod, bankAccount: payout.bankAccount }) })}
           {payout.paymentReference && ` · ${payout.paymentReference}`}
         </p>
       )}
@@ -117,7 +119,7 @@ function PayoutEditor({ payout }: { payout: PayoutDetail }) {
   const [tried, setTried] = useState(false);
   const [mode, setMode] = useState<'pay' | 'void' | 'delete' | null>(null);
   const [paidOn, setPaidOn] = useState(colomboToday());
-  const [method, setMethod] = useState<PaymentMethod>('BANK_TRANSFER');
+  const [how, setHow] = useState<PaymentHow>(DEFAULT_PAYMENT_HOW);
   const [reference, setReference] = useState('');
   const [notify, setNotify] = useState(true);
   const [reason, setReason] = useState('');
@@ -238,7 +240,7 @@ function PayoutEditor({ payout }: { payout: PayoutDetail }) {
           pending={pay.isPending}
           error={pay.isError ? errorText(pay.error, t('requests.detail.saveFailed')) : null}
           onCancel={() => setMode(null)}
-          onConfirm={() => pay.mutate({ paidOn, method, ...(reference.trim() ? { reference: reference.trim() } : {}), notify }, { onSuccess: () => setMode(null) })}
+          onConfirm={() => pay.mutate({ paidOn, ...paymentHowBody(how), ...(reference.trim() ? { reference: reference.trim() } : {}), notify }, { onSuccess: () => setMode(null) })}
         >
           <div className="mb-4 space-y-2 text-sm">
             <div className="grid grid-cols-2 gap-2">
@@ -246,16 +248,7 @@ function PayoutEditor({ payout }: { payout: PayoutDetail }) {
                 <Label htmlFor="poDate">{t('billing.payments.date')}</Label>
                 <Input id="poDate" type="date" max={colomboToday()} value={paidOn} onChange={(e) => setPaidOn(e.target.value)} />
               </div>
-              <div>
-                <Label htmlFor="poMethod">{t('billing.payments.method')}</Label>
-                <Select id="poMethod" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
-                  {MANUAL_PAYMENT_METHODS.map((m) => (
-                    <option key={m} value={m}>
-                      {t(`billing.method.${m}`)}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+              <PaymentHowFields idPrefix="po" value={how} onChange={setHow} />
             </div>
             <div>
               <Label htmlFor="poRef">{t('billing.payments.reference')}</Label>

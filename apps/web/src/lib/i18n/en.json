@@ -425,7 +425,17 @@
     },
     "subtitle": "Caregivers registered by staff or through the public site.",
     "countNoun": "caregivers",
-    "confirmDeleteNamed": "Delete {name}? Their sign-in is removed at once, and their email, phone number and NIC become free to register again. Their record stays in the audit history."
+    "confirmDeleteNamed": "Delete {name}? Their sign-in is removed at once, and their email, phone number and NIC become free to register again. Their record stays in the audit history.",
+    "careTypes": {
+      "label": "Types of care",
+      "hint": "Public search only shows this caregiver to families looking for a ticked type.",
+      "required": "Choose at least one type of care."
+    },
+    "autoNotify": {
+      "label": "Auto notify incoming requests",
+      "on": "On: the caregiver is told by email or WhatsApp as soon as a client asks for them.",
+      "off": "Off: staff decide when to tell the caregiver, with \"Notify caregiver\" on the request."
+    }
   },
   "clients": {
     "title": "Clients",
@@ -1185,7 +1195,7 @@
       "caregiver": "Caregiver",
       "openCaregiver": "Open caregiver record",
       "caregiverRemovedNote": "This caregiver's record has been removed.",
-      "caregiverNotActive": "This caregiver is no longer active and is hidden from the public site.",
+      "caregiverNotActive": "This caregiver is not listed on the public site.",
       "registration": "Registration no.",
       "actions": "Move this request",
       "move": {
@@ -1217,7 +1227,9 @@
         "NOTE": "Note",
         "CAREGIVER_CHANGED": "Caregiver set to {name}",
         "CAREGIVER_REMOVED": "Caregiver removed",
-        "CREATED_PHONE": "Request taken over the phone"
+        "CREATED_PHONE": "Request taken over the phone",
+        "CAREGIVER_NOTIFIED": "Caregiver notified",
+        "CAREGIVER_NOTIFIED_AUTO": "Caregiver notified automatically"
       },
       "by": "by {name}",
       "takenByPhone": "Taken by phone by {name}",
@@ -1226,7 +1238,20 @@
       "pickCaregiverHint": "Search for a caregiver to attach. Any caregiver whose record has not been removed can be chosen.",
       "caregiverLocked": "The caregiver can only be changed while the request is open.",
       "changeCaregiver": "Change caregiver",
-      "removeCaregiver": "Remove caregiver"
+      "removeCaregiver": "Remove caregiver",
+      "careType": "Type of care",
+      "careWhere": "Where",
+      "careFrom": "From",
+      "notifiedAt": "Caregiver notified {when}",
+      "notNotified": "The caregiver has not been told about this request yet.",
+      "notNotifiedAuto": "Auto notify is on, but the caregiver could not be told yet (no email, or WhatsApp is off).",
+      "notifyCaregiver": "Notify caregiver",
+      "notifyAgain": "Notify again",
+      "notifying": "Sending…",
+      "autoNotifyOn": "This caregiver is set to auto notify.",
+      "autoNotifyOff": "Auto notify is off for this caregiver - they hear about requests when staff notify them.",
+      "notifiedByEmail": "Sent by email.",
+      "notifiedByWhatsapp": "Sent by WhatsApp."
     },
     "newPhoneRequest": "New phone request",
     "newRequestForClient": "New request",
@@ -1279,8 +1304,10 @@
       "languageHint": "The caller's confirmation and updates go out in this language.",
       "submit": "Create request",
       "needClient": "Choose the client first.",
-      "needFields": "{count} required details still missing."
-    }
+      "needFields": "{count} required details still missing.",
+      "careTypeNotSaid": "Not said yet"
+    },
+    "notNotified": "Not notified"
   },
   "bookings": {
     "title": "Bookings",
@@ -1656,9 +1683,10 @@
       }
     },
     "caregiver": {
-      "toRejected": "Rejected is final: the status cannot be changed again afterwards.",
+      "toRejected": "The caregiver will be removed from public search. Only an admin can move a rejected caregiver back to Draft.",
       "leaveActive": "The caregiver will move to {status} and will no longer appear in public search.",
-      "toActive": "The caregiver will appear in public search and can be matched with clients."
+      "toActive": "The caregiver will be active and can be matched with clients.",
+      "reopenRejected": "The registration goes back to Draft so it can be corrected and submitted again. It is not shown in public search until it is registered."
     }
   },
   "billing": {
@@ -1895,7 +1923,14 @@
       "date": "Date paid",
       "method": "Method",
       "reference": "Reference",
-      "delete": "Remove this entry"
+      "delete": "Remove this entry",
+      "type": "Payment type",
+      "detail": "Detail",
+      "noDetail": "—",
+      "bankAccount": "Bank account",
+      "noAccount": "Not specified",
+      "noAccounts": "No bank accounts are set up yet.",
+      "addAccount": "Add one in Settings > Billing"
     },
     "online": {
       "title": "Online payments",
@@ -1977,6 +2012,11 @@
       "deleteMessage": "Its shifts can be put on another statement.",
       "voidTitle": "Void this statement?",
       "voidHint": "It stays on record as void and its shifts can go on another statement."
+    },
+    "paymentType": {
+      "CASH": "Cash",
+      "BANK": "Bank",
+      "ONLINE": "Online"
     }
   },
   "billingAdmin": {
@@ -2020,7 +2060,23 @@
     "notifyUrl": "PayHere notifies:",
     "copy": "Copy",
     "copied": "Copied",
-    "saved": "Saved."
+    "saved": "Saved.",
+    "bankAccounts": {
+      "title": "Bank accounts",
+      "hint": "The business accounts that payments are made into and out of. When a payment in or out is by bank, staff pick one of these.",
+      "add": "Add account",
+      "empty": "No bank accounts yet.",
+      "inactive": "Turned off",
+      "edit": "Edit {name}",
+      "delete": "Delete {name}",
+      "bankName": "Bank",
+      "branch": "Branch",
+      "accountName": "Account name",
+      "accountNumber": "Account number",
+      "activeLabel": "Can be picked for new payments",
+      "deleteTitle": "Delete this bank account?",
+      "deleteMessage": "{name} will be removed. If payments have been recorded against it, turn it off instead."
+    }
   },
   "adsAdmin": {
     "title": "Google AdSense",
@@ -2226,5 +2282,12 @@
       "today": "What shifts start today?",
       "mine": "Summarise the requests assigned to me"
     }
+  },
+  "careTypes": {
+    "HOME_SHIFT": "Care at home (shift basis)",
+    "LIVE_IN": "Live-in caregiver",
+    "HOSPITAL": "Care at a hospital",
+    "NURSING_HOME": "Nursing home for the elderly",
+    "RETIREMENT_HOME": "Retirement home for the elderly"
   }
 }

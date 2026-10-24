@@ -72,7 +72,7 @@ export function useAssignableStaff() {
 }
 
 /** Every write returns the fresh detail; seed it and refresh lists and counts. */
-function useRequestWrite<V>(id: string, fn: (values: V) => Promise<CareRequestDetail>) {
+function useRequestWrite<V, R extends CareRequestDetail = CareRequestDetail>(id: string, fn: (values: V) => Promise<R>) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: fn,
@@ -111,6 +111,11 @@ export function useCreatePhoneRequest() {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
   });
+}
+
+/** "Notify caregiver": tells the attached caregiver about the request now. */
+export function useNotifyCareRequestCaregiver(id: string) {
+  return useRequestWrite(id, () => api.post<CareRequestDetail & { notifiedBy: 'EMAIL' | 'WHATSAPP' }>(`/care-requests/${id}/notify-caregiver`, {}));
 }
 
 export function useSetCareRequestCaregiver(id: string) {
