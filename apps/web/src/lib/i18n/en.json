@@ -434,7 +434,8 @@
     "autoNotify": {
       "label": "Auto notify incoming requests",
       "on": "On: the caregiver is told by email or WhatsApp as soon as a client asks for them.",
-      "off": "Off: staff decide when to tell the caregiver, with \"Notify caregiver\" on the request."
+      "off": "Off: staff decide when to tell the caregiver, with \"Notify caregiver\" on the request.",
+      "phoneCall": "Not available: this caregiver prefers phone calls, so staff ring them about new requests. Change their preferred contact method to email or WhatsApp to turn this on."
     }
   },
   "clients": {
@@ -776,6 +777,9 @@
         "WHATSAPP": "WhatsApp",
         "EMAIL": "Email"
       }
+    },
+    "hints": {
+      "phoneCall": "Staff will phone this caregiver about new requests, so auto notify is turned off when you save. Other updates are still sent by email or WhatsApp."
     }
   },
   "healthInfo": {
@@ -1257,7 +1261,8 @@
       "autoNotifyOn": "This caregiver is set to auto notify.",
       "autoNotifyOff": "Auto notify is off for this caregiver - they hear about requests when staff notify them.",
       "notifiedByEmail": "Sent by email.",
-      "notifiedByWhatsapp": "Sent by WhatsApp."
+      "notifiedByWhatsapp": "Sent by WhatsApp.",
+      "caregiverPrefersCall": "This caregiver prefers a phone call - ring them on {phone}. Auto notify is not available for them."
     },
     "newPhoneRequest": "New phone request",
     "newRequestForClient": "New request",

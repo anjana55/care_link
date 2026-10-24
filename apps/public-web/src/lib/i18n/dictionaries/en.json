@@ -664,6 +664,9 @@
         "WHATSAPP": "WhatsApp",
         "EMAIL": "Email"
       }
+    },
+    "hints": {
+      "phoneCall": "Our staff will phone you about new care requests. Other updates are still sent by email or WhatsApp."
     }
   },
   "common": {

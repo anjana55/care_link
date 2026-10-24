@@ -418,7 +418,13 @@ function NotifyCaregiverRow({ request }: { request: CareRequestDetail }) {
           </Button>
         )}
       </div>
-      <p className="mt-1 text-xs text-ink/50">{g.autoNotifyRequests ? t('requests.detail.autoNotifyOn') : t('requests.detail.autoNotifyOff')}</p>
+      <p className="mt-1 text-xs text-ink/50">
+        {g.preferredContactMethod === 'PHONE_CALL'
+          ? t('requests.detail.caregiverPrefersCall', { phone: g.primaryPhone ?? '—' })
+          : g.autoNotifyRequests
+            ? t('requests.detail.autoNotifyOn')
+            : t('requests.detail.autoNotifyOff')}
+      </p>
       {notify.isSuccess && (
         <p role="status" className="mt-1 text-xs text-brand-dark">
           {notify.data.notifiedBy === 'WHATSAPP' ? t('requests.detail.notifiedByWhatsapp') : t('requests.detail.notifiedByEmail')}

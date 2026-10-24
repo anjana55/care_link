@@ -10,10 +10,25 @@ import { Card, CardContent } from '@/components/ui/card';
  * "Auto notify incoming requests". On: the caregiver is told straight away
  * when a client asks for them. Off (the default): staff decide when, with
  * "Notify caregiver" on the request.
+ *
+ * Not available while the caregiver prefers phone calls: staff ring them
+ * instead, so the switch is shown off and locked with the reason underneath.
+ * The API enforces the same rule.
  */
-export function AutoNotifyToggle({ caregiverId, enabled, canEdit }: { caregiverId: string; enabled: boolean; canEdit: boolean }) {
+export function AutoNotifyToggle({
+  caregiverId,
+  enabled,
+  canEdit,
+  preferredContactMethod,
+}: {
+  caregiverId: string;
+  enabled: boolean;
+  canEdit: boolean;
+  preferredContactMethod?: string | null;
+}) {
   const { t } = useTranslation();
   const update = useUpdateCaregiver(caregiverId);
+  const phoneOnly = preferredContactMethod === 'PHONE_CALL';
   const error = update.error ? (update.error instanceof ApiError ? update.error.message : t('common.actionFailed')) : null;
 
   return (
@@ -26,14 +41,16 @@ export function AutoNotifyToggle({ caregiverId, enabled, canEdit }: { caregiverI
             <input
               type="checkbox"
               role="switch"
-              aria-checked={enabled}
-              checked={enabled}
-              disabled={!canEdit || update.isPending}
+              aria-checked={enabled && !phoneOnly}
+              checked={enabled && !phoneOnly}
+              disabled={!canEdit || update.isPending || phoneOnly}
               onChange={(e) => update.mutate({ autoNotifyRequests: e.target.checked })}
               className="h-5 w-5 rounded border-border text-brand focus:ring-brand"
             />
           </label>
-          <p className="mt-1 text-xs text-ink/60">{enabled ? t('caregivers.autoNotify.on') : t('caregivers.autoNotify.off')}</p>
+          <p className="mt-1 text-xs text-ink/60">
+            {phoneOnly ? t('caregivers.autoNotify.phoneCall') : enabled ? t('caregivers.autoNotify.on') : t('caregivers.autoNotify.off')}
+          </p>
           {error && (
             <p role="alert" className="mt-1 text-xs text-danger">
               {error}

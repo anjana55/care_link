@@ -226,7 +226,10 @@ export class CareRequestNotifier {
             email: caregiverAccount?.email ?? null,
             phone: caregiverAccount?.phone ?? normalizePhone(row.caregiverPhone, cc),
             registrationNumber: row.registrationNumber,
-            autoNotify: Boolean(row.autoNotify),
+            // Belt and braces: the caregivers service never lets the two
+            // coexist, but a phone-call caregiver must not be messaged
+            // automatically even if a row somehow has both.
+            autoNotify: Boolean(row.autoNotify) && row.caregiverPreferred !== 'PHONE_CALL',
             preferredContactMethod: row.caregiverPreferred ?? null,
           }
         : null,
