@@ -16,17 +16,40 @@
 #                               image, the certificate, and the env file
 #                               holding your secrets.
 #
-# Safe to re-run: both modes are idempotent and report what they find.
+# A third mode keeps the deployment and wipes only what is in it:
+#
+#   ./uninstall.sh --factory-reset
+#                               The site stays installed and running, but
+#                               every client, caregiver, user, booking,
+#                               invoice, payout, request, document and log
+#                               is deleted, and the initial admin account is
+#                               recreated from .env.production. Settings
+#                               (branding, billing, email, WhatsApp, sign-in
+#                               providers, AI, ads, analytics) and the skills
+#                               and languages lists are KEPT unless
+#                               --include-settings is given too. A backup of
+#                               the database and documents is taken first.
+#
+# Safe to re-run: every mode is idempotent and reports what it finds.
 #
 # Usage:
 #   ./uninstall.sh [--purge] [-y|--yes] [--dry-run]
+#   ./uninstall.sh --factory-reset [--include-settings] [--no-backup] [-y] [--dry-run]
 #
 # Options:
 #   -p, --purge        Delete data volumes, images, the certificate, and
 #                      .env.production as well. Cannot be undone.
+#   -r, --factory-reset
+#                      Delete all application data but keep the deployment
+#                      (containers, images, certificate, .env.production).
+#   -s, --include-settings
+#                      With --factory-reset: also reset every admin setting,
+#                      the uploaded logo, and the skills/languages lists to
+#                      their defaults.
+#       --no-backup    With --factory-reset: skip the safety backup.
 #   -y, --yes          Don't prompt for confirmation. Only meaningful
-#                      together with --purge; the default mode never
-#                      prompts at all.
+#                      together with --purge or --factory-reset; the default
+#                      mode never prompts at all.
 #   -n, --dry-run      Print what would be removed, change nothing.
 #   -h, --help         Show this help.
 
@@ -42,10 +65,16 @@ GENERATED_CONF="deploy/nginx.local.conf"
 PURGE=0
 ASSUME_YES=0
 DRY_RUN=0
+FACTORY_RESET=0
+INCLUDE_SETTINGS=0
+DO_BACKUP=1
+BACKUP_DIR="backups"
+STORAGE_ROOT="/storage/caregiver-documents"
 
 usage() {
   cat <<EOF
 Usage: $0 [--purge] [-y|--yes] [--dry-run]
+       $0 --factory-reset [--include-settings] [--no-backup] [-y|--yes] [--dry-run]
 
 Removes the CareLink deployment created by setup.sh.
 
@@ -57,13 +86,29 @@ Removes the CareLink deployment created by setup.sh.
                  every caregiver document ever uploaded), all Docker images,
                  the TLS certificate, $ENV_FILE, and the generated
                  $GENERATED_CONF. THIS CANNOT BE UNDONE.
-  -y, --yes       Skip the confirmation prompt (implies --purge is what you
-                 already decided).
+  --factory-reset, -r
+                 Keep the deployment running but delete all of its data:
+                 clients, caregivers, users, bookings, invoices, payouts,
+                 care requests, caregiver documents, audit logs, AI chats.
+                 Locations are kept, and the initial admin account is
+                 recreated from INITIAL_ADMIN_* in $ENV_FILE so you can sign
+                 back in. A database + documents backup is written to
+                 $BACKUP_DIR/ first.
+  --include-settings, -s
+                 With --factory-reset: also reset branding (name, colours,
+                 logo, languages), billing, email, WhatsApp, sign-in
+                 providers, AI, ads and analytics settings, and the skills
+                 and languages lists, to their defaults.
+  --no-backup    With --factory-reset: don't take the safety backup.
+
+  -y, --yes       Skip the confirmation prompt (for --purge or
+                 --factory-reset, when you have already decided).
   -n, --dry-run   Show what would be removed without removing anything.
   -h, --help      Show this help.
 
-The automatic certificate-renewal cron entry is removed in both modes: it
-would otherwise keep firing against a deployment that no longer exists.
+The automatic certificate-renewal cron entry is removed by both uninstall
+modes (not by --factory-reset): it would otherwise keep firing against a
+deployment that no longer exists.
 EOF
 }
 
@@ -74,13 +119,24 @@ die()  { printf '\033[1;31merror:\033[0m %s\n' "$1" >&2; exit 1; }
 
 for arg in "$@"; do
   case "$arg" in
-    -p|--purge)   PURGE=1 ;;
-    -y|--yes)     ASSUME_YES=1 ;;
-    -n|--dry-run) DRY_RUN=1 ;;
-    -h|--help)    usage; exit 0 ;;
+    -p|--purge)            PURGE=1 ;;
+    -r|--factory-reset)    FACTORY_RESET=1 ;;
+    -s|--include-settings) INCLUDE_SETTINGS=1 ;;
+    --no-backup)           DO_BACKUP=0 ;;
+    -y|--yes)              ASSUME_YES=1 ;;
+    -n|--dry-run)          DRY_RUN=1 ;;
+    -h|--help)             usage; exit 0 ;;
     *) die "Unknown option: $arg (see --help)" ;;
   esac
 done
+
+if [ "$PURGE" -eq 1 ] && [ "$FACTORY_RESET" -eq 1 ]; then
+  die "--purge and --factory-reset are different operations - pick one."
+fi
+if [ "$FACTORY_RESET" -eq 0 ]; then
+  [ "$INCLUDE_SETTINGS" -eq 1 ] && die "--include-settings only applies to --factory-reset."
+  [ "$DO_BACKUP" -eq 0 ] && die "--no-backup only applies to --factory-reset."
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Preflight
@@ -106,6 +162,316 @@ PROJECT="$(basename "$SCRIPT_DIR")"
 DOMAIN=""
 if [ -f "$ENV_FILE" ]; then
   DOMAIN="$(grep '^DOMAIN=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)"
+fi
+
+# ===========================================================================
+# FACTORY RESET (--factory-reset)
+#
+# Unlike the two uninstall modes, this leaves the deployment exactly where it
+# is - containers, images, certificate, .env.production, cron - and empties
+# the application inside it. Everything below runs and then exits; the
+# uninstall sections after it never execute in this mode.
+#
+# Tables are classified at run time from the live database rather than from
+# a hardcoded list, so a table added by a future migration is covered
+# without anyone remembering to edit this script:
+#
+#   reference  kept always, never reported: drizzle's migration journal
+#              (__*) and the location hierarchy (provinces, districts,
+#              cities). Wiping these would break the schema or every
+#              address dropdown, and none of it is customer data.
+#   settings   every *_settings singleton, plus skills and languages (the
+#              admin-editable catalogues). Kept by default; emptied with
+#              --include-settings, after which the API recreates each
+#              settings row with its defaults on first use and the seed
+#              restores the default skills and languages.
+#   data       everything else: users, clients, patients, caregivers and
+#              all their profile tables, bookings, invoices, payouts, care
+#              requests, saved caregivers, documents, tokens, OTPs, audit
+#              logs, AI conversations.
+#
+# A NEW REFERENCE TABLE (seeded, not customer data) must be added to the
+# reference case in classify_table, or a factory reset will empty it.
+# ===========================================================================
+classify_table() {
+  case "$1" in
+    __*|provinces|districts|cities) echo reference ;;
+    *_settings|skills|languages)    echo settings ;;
+    *)                              echo data ;;
+  esac
+}
+
+# SQL in on stdin, tab-separated rows out. MYSQL_PWD rather than -p keeps
+# the root password off the process list and silences mysql's warning
+# about it, without also swallowing real errors on stderr.
+# shellcheck disable=SC2016  # expanded inside the container, on purpose
+mysql_q() {
+  compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot -N -B "$MYSQL_DATABASE"'
+}
+
+# Set by factory_reset; read by its EXIT handler, so global on purpose.
+RESET_FINISHED=0
+db_backup=""
+docs_backup=""
+
+reset_on_exit() {
+  [ "$RESET_FINISHED" -eq 1 ] && return
+  warn "The factory reset did not finish. Restarting the site..."
+  compose start api web public-web >/dev/null 2>&1 || true
+  cl_reload_nginx
+  if [ -n "$db_backup" ]; then
+    warn "To put the data back exactly as it was, see DEPLOYMENT.md Part 16b.4 with:"
+    warn "  $db_backup"
+    warn "  $docs_backup"
+  fi
+}
+
+factory_reset() {
+  # Shared helpers (cl_lock, cl_wait_healthy, cl_reload_nginx, cl_env_get).
+  # log/warn/die, COMPOSE_FILE and ENV_FILE are already defined, as lib.sh
+  # expects.
+  # shellcheck source=deploy/lib.sh
+  . deploy/lib.sh
+
+  [ -f "$ENV_FILE" ] || die "$ENV_FILE not found - there is no deployment here to reset."
+
+  # setup.sh / update.sh rebuild and migrate under the same lock; resetting
+  # the database in the middle of a migration would be a mess.
+  cl_lock
+
+  local running
+  running="$(compose ps --status running --services 2>/dev/null || true)"
+  for svc in mysql api; do
+    printf '%s\n' "$running" | grep -qx "$svc" \
+      || die "The '$svc' container isn't running. A factory reset works on a live deployment - start it with ./setup.sh first."
+  done
+
+  # -------------------------------------------------------------------------
+  # Who will be able to sign in afterwards. Checked BEFORE anything is
+  # deleted: a reset that empties the users table and then can't create an
+  # admin would lock everyone out of the site.
+  # -------------------------------------------------------------------------
+  local admin_email admin_password admin_name
+  admin_email="$(cl_env_get INITIAL_ADMIN_EMAIL)"
+  admin_password="$(cl_env_get INITIAL_ADMIN_PASSWORD)"
+  admin_name="$(cl_env_get INITIAL_ADMIN_NAME)"
+  if [ -z "$admin_email" ] || [ -z "$admin_password" ]; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      warn "INITIAL_ADMIN_EMAIL / INITIAL_ADMIN_PASSWORD aren't in $ENV_FILE - a real run will ask for them."
+    elif [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; then
+      die "INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD must be set in $ENV_FILE so an admin can be recreated after the reset (or run without -y to be asked)."
+    else
+      log "No initial admin credentials in $ENV_FILE"
+      info "All users are deleted by the reset, so a new admin account is needed."
+      [ -n "$admin_email" ] || { printf '    Admin email: '; read -r admin_email; }
+      while [ "${#admin_password}" -lt 8 ]; do
+        printf '    Admin password (min 8 characters): '; read -rs admin_password; echo
+      done
+      [ -n "$admin_email" ] || die "An admin email is required."
+    fi
+  fi
+  [ -n "$admin_password" ] && [ "${#admin_password}" -lt 8 ] && die "INITIAL_ADMIN_PASSWORD in $ENV_FILE is shorter than 8 characters - fix it first."
+
+  # -------------------------------------------------------------------------
+  # Inventory: every table, its class and its row count.
+  # -------------------------------------------------------------------------
+  local tables t cls
+  tables="$(echo "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' ORDER BY table_name;" | mysql_q)" \
+    || die "Couldn't read the table list from MySQL."
+  [ -n "$tables" ] || die "The database has no tables - has setup.sh run its migrations?"
+
+  local wipe=() keep=() count_sql=""
+  for t in $tables; do
+    # Names go into SQL below; refuse anything that isn't a plain identifier.
+    [[ "$t" =~ ^[A-Za-z0-9_]+$ ]] || die "Unexpected table name '$t' - refusing to continue."
+    cls="$(classify_table "$t")"
+    if [ "$cls" = data ] || { [ "$cls" = settings ] && [ "$INCLUDE_SETTINGS" -eq 1 ]; }; then
+      wipe+=("$t")
+    elif [ "$cls" = settings ]; then
+      keep+=("$t")
+    fi
+    [ "$cls" = reference ] && continue
+    count_sql+="${count_sql:+ UNION ALL }SELECT '$t', COUNT(*) FROM \`$t\`"
+  done
+
+  local counts
+  counts="$(echo "${count_sql};" | mysql_q)" || die "Couldn't count rows."
+  rows_of() { printf '%s\n' "$counts" | awk -F'\t' -v t="$1" '$1 == t { print $2 }'; }
+
+  local file_scope="caregiver documents"
+  [ "$INCLUDE_SETTINGS" -eq 1 ] && file_scope="caregiver documents and the uploaded logo"
+  local find_keep=""
+  [ "$INCLUDE_SETTINGS" -eq 1 ] || find_keep="! -name branding"
+  local file_filter="" file_count
+  [ "$INCLUDE_SETTINGS" -eq 1 ] || file_filter="! -path '$STORAGE_ROOT/branding/*'"
+  file_count="$(compose exec -T api sh -c "find '$STORAGE_ROOT' -type f $file_filter 2>/dev/null | wc -l" | tr -d ' \r')" || file_count="?"
+
+  log "Factory reset (project: ${PROJECT}${DOMAIN:+, $DOMAIN})"
+  printf '\n  \033[1;31mWILL BE DELETED:\033[0m\n'
+  local total=0 n
+  for t in "${wipe[@]}"; do
+    n="$(rows_of "$t")"; n="${n:-0}"; total=$((total + n))
+    printf '    %-34s %8s rows\n' "$t" "$n"
+  done
+  printf '    %-34s %8s rows in total\n' "" "$total"
+  printf '    files: %s (%s)\n' "$file_count" "$file_scope"
+
+  printf '\n  \033[1;32mKEPT:\033[0m\n'
+  info "  the deployment itself - containers, images, TLS certificate, $ENV_FILE"
+  info "  locations (provinces, districts, cities)"
+  if [ "${#keep[@]}" -gt 0 ]; then
+    info "  settings: ${keep[*]}"
+    info "  the uploaded logo"
+    info "  (the invoice number sequence restarts at 1, since no invoices remain)"
+  fi
+  echo
+  info "Afterwards the admin account ${admin_email:-<asked for>} is recreated, and everyone"
+  info "else (including that admin's current sessions) is signed out."
+  if [ "$DO_BACKUP" -eq 1 ]; then
+    info "A backup of the database and documents is written to $BACKUP_DIR/ first."
+  else
+    printf '\n    \033[1;33mNo backup will be taken (--no-backup). There is no undo.\033[0m\n'
+  fi
+
+  if [ "$DRY_RUN" -eq 1 ]; then
+    log "Dry run - nothing was changed."
+    exit 0
+  fi
+
+  if [ "$ASSUME_YES" -ne 1 ]; then
+    local confirm="${DOMAIN:-$PROJECT}"
+    printf '\n    Type %s to confirm the factory reset: ' "$confirm"
+    read -r reply
+    [ "$reply" = "$confirm" ] || die "Did not match - nothing was changed."
+  fi
+
+  # -------------------------------------------------------------------------
+  # 1. Backup, while the site is still fully up. Named factory-reset-* so
+  #    update.sh's rotation of db-*.sql.gz never deletes it.
+  # -------------------------------------------------------------------------
+  local stamp
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  if [ "$DO_BACKUP" -eq 1 ]; then
+    log "Backing up"
+    mkdir -p "$BACKUP_DIR"; chmod 700 "$BACKUP_DIR"
+    db_backup="$BACKUP_DIR/factory-reset-${stamp}-db.sql.gz"
+    docs_backup="$BACKUP_DIR/factory-reset-${stamp}-documents.tar.gz"
+    # shellcheck disable=SC2016
+    if compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -uroot --single-transaction --routines --triggers --no-tablespaces "$MYSQL_DATABASE"' | gzip > "$db_backup" \
+       && [ "$(gzip -cd "$db_backup" | head -c 1000 | wc -c)" -gt 0 ]; then
+      chmod 600 "$db_backup"; info "$db_backup ($(du -h "$db_backup" | cut -f1))"
+    else
+      rm -f "$db_backup"
+      die "The database backup failed, so nothing was changed. Fix that, or re-run with --no-backup if you have your own backup."
+    fi
+    if compose exec -T api tar czf - -C "$STORAGE_ROOT" . > "$docs_backup" && tar tzf "$docs_backup" >/dev/null 2>&1; then
+      chmod 600 "$docs_backup"; info "$docs_backup ($(du -h "$docs_backup" | cut -f1))"
+    else
+      rm -f "$docs_backup"
+      die "The documents backup failed, so nothing was changed (the database backup is in $db_backup)."
+    fi
+  fi
+
+  # If anything below fails, the site must not be left half-stopped: bring
+  # the apps back up and say where the backup is.
+  trap reset_on_exit EXIT
+
+  # -------------------------------------------------------------------------
+  # 2. Stop the apps so nothing writes while tables are emptied (a booking
+  #    created half way through would survive with its client gone). MySQL
+  #    and nginx stay up; visitors get a 502 for the minute this takes.
+  # -------------------------------------------------------------------------
+  log "Stopping the apps"
+  compose stop api web public-web >/dev/null
+
+  # -------------------------------------------------------------------------
+  # 3. Empty the tables. One session, so FOREIGN_KEY_CHECKS=0 covers every
+  #    TRUNCATE and the order doesn't matter. TRUNCATE also resets
+  #    AUTO_INCREMENT counters, which DELETE would not.
+  # -------------------------------------------------------------------------
+  log "Emptying ${#wipe[@]} tables"
+  local sql="SET FOREIGN_KEY_CHECKS = 0;"
+  for t in "${wipe[@]}"; do sql+=" TRUNCATE TABLE \`$t\`;"; done
+  sql+=" SET FOREIGN_KEY_CHECKS = 1;"
+
+  # Kept settings still name, in updated_by, users that no longer exist, and
+  # billing still counts on from the last invoice. Neither column is a
+  # foreign key, so fix them by hand - found by name, so this keeps working
+  # as settings tables come and go.
+  if [ "${#keep[@]}" -gt 0 ]; then
+    local kept_list cols tbl col
+    kept_list="$(printf "'%s'," "${keep[@]}")"; kept_list="${kept_list%,}"
+    cols="$(echo "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name IN (${kept_list}) AND column_name IN ('updated_by', 'next_invoice_number');" | mysql_q)"
+    while IFS=$'\t' read -r tbl col; do
+      [ -n "$tbl" ] || continue
+      case "$col" in
+        updated_by)          sql+=" UPDATE \`$tbl\` SET updated_by = NULL;" ;;
+        next_invoice_number) sql+=" UPDATE \`$tbl\` SET next_invoice_number = 1;" ;;
+      esac
+    done <<< "$cols"
+  fi
+  printf '%s\n' "$sql" | mysql_q >/dev/null
+  info "done"
+
+  # -------------------------------------------------------------------------
+  # 4. Uploaded files. The api container is stopped, so a throwaway one
+  #    mounts the same volume. Caregiver documents live under
+  #    <caregiverId>/..., the logo under branding/.
+  # -------------------------------------------------------------------------
+  log "Deleting ${file_scope}"
+  compose run --rm --no-deps -T --entrypoint sh api -c \
+    "find '$STORAGE_ROOT' -mindepth 1 -maxdepth 1 $find_keep -exec rm -rf {} +" >/dev/null
+  info "done"
+
+  # -------------------------------------------------------------------------
+  # 5. Bring the API back, then reseed: reference data (and, after
+  #    --include-settings, the default skills and languages) plus the
+  #    initial admin - seed-production creates one because none exists now.
+  # -------------------------------------------------------------------------
+  log "Starting the API and recreating the admin account"
+  compose start api >/dev/null
+  cl_wait_healthy api 180 || die "The API didn't come back up - check: docker compose -f $COMPOSE_FILE --env-file $ENV_FILE logs api"
+  compose exec -T -w /app/apps/api \
+    -e INITIAL_ADMIN_EMAIL="$admin_email" \
+    -e INITIAL_ADMIN_PASSWORD="$admin_password" \
+    -e INITIAL_ADMIN_NAME="${admin_name:-Platform Administrator}" \
+    api node dist/src/database/seed-production.js
+
+  # The web apps cache branding for server rendering; a restart picks up
+  # the reset (or kept) settings cleanly. nginx is reloaded because restarted
+  # containers can come back on new addresses.
+  log "Starting the web apps"
+  compose start web public-web >/dev/null
+  cl_reload_nginx
+
+  RESET_FINISHED=1
+  trap - EXIT
+
+  log "Factory reset complete."
+  cat <<EOF
+  Deleted: ${total} rows across ${#wipe[@]} tables, and ${file_scope}.
+  Sign in as: ${admin_email}  (password: INITIAL_ADMIN_PASSWORD in $ENV_FILE,
+              or the one you just entered)
+EOF
+  if [ "$INCLUDE_SETTINGS" -eq 1 ]; then
+    echo "  Settings are back to their defaults - set branding, billing, email and"
+    echo "  sign-in providers again under Settings before going live."
+  else
+    echo "  Settings were kept; invoice numbering restarts at 1."
+  fi
+  if [ -n "$db_backup" ]; then
+    echo
+    echo "  Backup of everything that was deleted:"
+    echo "    $db_backup"
+    echo "    $docs_backup"
+    echo "  See DEPLOYMENT.md Part 16b.4 to restore it. Delete these once you are"
+    echo "  sure you won't need them - they contain personal data."
+  fi
+  exit 0
+}
+
+if [ "$FACTORY_RESET" -eq 1 ]; then
+  factory_reset
 fi
 
 # ---------------------------------------------------------------------------
@@ -374,8 +740,8 @@ else
   Nothing from this project remains on the host. The repo itself is still
   here - delete the directory if you are finished with it.
 EOF
-  if ls backups/db-*.sql.gz >/dev/null 2>&1; then
-    echo "  Kept: the database backups update.sh took, in $(pwd)/backups/ - delete them"
-    echo "  yourself once you are sure you won't need them."
+  if ls backups/*.gz >/dev/null 2>&1; then
+    echo "  Kept: the backups update.sh and --factory-reset took, in $(pwd)/backups/ -"
+    echo "  delete them yourself once you are sure you won't need them."
   fi
 fi
