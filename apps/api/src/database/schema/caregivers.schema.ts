@@ -126,7 +126,7 @@ export const caregivers = mysqlTable(
     statusIdx: index('caregivers_status_idx').on(table.status),
     nameIdx: index('caregivers_name_idx').on(table.fullName),
     publicIdIdx: index('caregivers_public_id_idx').on(table.publicId),
-    // Public search's most common shape: ACTIVE caregivers filtered by location.
+    // Public search's most common shape: listed caregivers (Registered..Active) filtered by location.
     publicSearchIdx: index('caregivers_public_search_idx').on(table.status, table.districtId, table.cityId),
     liveNicIdx: uniqueIndex('caregivers_live_nic_unique').on(table.liveNic),
     livePassportIdx: uniqueIndex('caregivers_live_passport_number_unique').on(table.livePassportNumber),

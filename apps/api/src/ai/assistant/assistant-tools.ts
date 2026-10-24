@@ -73,7 +73,7 @@ export const READ_TOOLS: ToolSpec[] = [
   },
   {
     name: 'suggest_caregivers_for_request',
-    description: 'Ranked caregivers who fit a care request, based on the client\'s location, shift, preferences and care needs. Only active caregivers free on the day are included.',
+    description: 'Ranked caregivers who fit a care request, based on the client\'s location, shift, preferences and care needs. Includes caregivers listed in public search (Registered onwards; Verified and Active ones rank higher) who take on the requested type of care and are free on the day.',
     parameters: { type: 'object', properties: { request: ref('request'), limit: { type: 'integer', minimum: 1, maximum: 10 } }, required: ['request'] },
   },
   {
