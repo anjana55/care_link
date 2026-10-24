@@ -30,6 +30,8 @@ jest.mock('@/lib/hooks/use-public-search', () => ({
   useLocationTree: () => ({ data: [{ id: 1, name: 'Central', districts: [{ id: 5, name: 'Kandy' }] }] }),
   useCities: () => ({ data: [] }),
   useClientSearchOrigin: () => ({ data: undefined }),
+  isRunnableSearch: (r: { careType?: string; location?: { districtId?: number }; desiredStartDate?: string }) =>
+    Boolean(r.careType && r.location?.districtId && r.desiredStartDate),
   useCaregiverSearch: (...args: unknown[]) => {
     searchCalls.push(args);
     return args[0]
@@ -55,6 +57,20 @@ describe('FinderPage', () => {
     renderPage();
     expect(screen.getByRole('tab', { name: 'AI Search' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText(/describe the care you need/i)).toBeInTheDocument();
+  });
+
+  it('does not re-run a remembered search saved before the type of care was required, and asks for it instead', async () => {
+    window.localStorage.setItem(
+      'care-platform-last-search',
+      JSON.stringify({ at: Date.now(), request: { location: { districtId: 5 }, desiredStartDate: '2026-11-01', page: 1 }, aiQuery: 'night nurse in Kandy' }),
+    );
+    renderPage();
+
+    expect(await screen.findByText(/please choose the type of care/i)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Normal Search' })).toHaveAttribute('aria-selected', 'true');
+    // Nothing was sent to the API - every search call had no request.
+    expect(searchCalls.every(([request]) => request === null)).toBe(true);
+    expect(screen.queryByText(/caregivers found/)).not.toBeInTheDocument();
   });
 
   it('opens on Normal Search when AI is off', () => {

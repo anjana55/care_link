@@ -16,6 +16,8 @@ interface NormalSearchFormProps {
   initialValues?: SearchRequest;
   /** AI Search reuses this form to show what it understood; it labels the button its own way. */
   submitLabel?: string;
+  /** Show what is still missing straight away (a restored search that cannot run as it is). */
+  validateOnMount?: boolean;
 }
 
 /**
@@ -83,7 +85,7 @@ function ChipToggle({
   );
 }
 
-export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: NormalSearchFormProps) {
+export function NormalSearchForm({ onSubmit, initialValues, submitLabel, validateOnMount }: NormalSearchFormProps) {
   const { t, locale } = useTranslation();
   const { data: skills = [] } = useMetaSkills();
   const { data: languages = [] } = useMetaLanguages();
@@ -95,6 +97,7 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
     watch,
     setValue,
     reset,
+    trigger,
     formState: { errors },
   } = useForm<SearchRequest>({
     resolver: zodResolver(searchRequestSchema),
@@ -170,6 +173,10 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
   useEffect(() => {
     if (initialCityId && sortedCities.some((c) => c.id === initialCityId)) setValue('location.cityId', initialCityId);
   }, [sortedCities, initialCityId, setValue]);
+
+  useEffect(() => {
+    if (validateOnMount) void trigger('careType');
+  }, [validateOnMount, trigger]);
 
   /**
    * Validation failures used to be dropped on the floor - `errors` was pulled

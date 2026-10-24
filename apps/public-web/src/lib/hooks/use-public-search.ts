@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Locale, SearchRequest } from '@care-platform/shared';
+import { searchRequestSchema } from '@care-platform/shared';
 import { publicSearchApi } from '../api/public-search';
 
 export function useSearchConfig() {
@@ -51,12 +52,24 @@ export function useCities(districtId: number | null, locale: Locale) {
  * results come from the AI search endpoint, which applies exactly the same
  * hard filters and only re-orders the matches; without it, Normal Search.
  */
+/**
+ * Runs a search - but only one the API will accept. A request missing a
+ * required field (for example a search remembered on this device from before
+ * the type of care became required) is never sent: it would only come back as
+ * a 400 and "Something went wrong", and "Try again" would resend it unchanged.
+ */
 export function useCaregiverSearch(request: SearchRequest | null, aiQuery?: string) {
+  const runnable = request !== null && isRunnableSearch(request);
   return useQuery({
     queryKey: ['public-search', request, aiQuery ?? null],
     queryFn: () => (aiQuery ? publicSearchApi.aiSearch({ request: request!, query: aiQuery }) : publicSearchApi.search(request!)),
-    enabled: request !== null,
+    enabled: runnable,
   });
+}
+
+/** Whether a request has everything the search API requires (care type, district, start date). */
+export function isRunnableSearch(request: SearchRequest): boolean {
+  return searchRequestSchema.safeParse(request).success;
 }
 
 export function useCaregiverProfile(publicId: string | null, locale: Locale) {

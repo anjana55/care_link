@@ -19,7 +19,7 @@ import {
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { AdSlot } from '@/components/ads/adsense';
-import { useCaregiverSearch, useClientSearchOrigin, useMetaSkills, useSearchConfig } from '@/lib/hooks/use-public-search';
+import { isRunnableSearch, useCaregiverSearch, useClientSearchOrigin, useMetaSkills, useSearchConfig } from '@/lib/hooks/use-public-search';
 import { useDeviceLocation } from '@/lib/hooks/use-device-location';
 import { useIsClient } from '@/lib/hooks/use-client-care';
 import { loadSearch, rememberSearch } from '@/lib/care-intent';
@@ -54,6 +54,9 @@ export function FinderPage() {
   const [aiQuery, setAiQuery] = useState<string | undefined>(undefined);
   // Bumped when a remembered search is restored, so the form remounts with it.
   const [formKey, setFormKey] = useState(0);
+  // A remembered search that can no longer run as it is (saved before the type
+  // of care was required): shown in the form for the visitor to complete, not searched.
+  const [incomplete, setIncomplete] = useState<SearchRequest | null>(null);
   // Bumped on every new AI search, so the advanced filters below the results re-fill from it.
   const [refineKey, setRefineKey] = useState(0);
   // Set when the visitor changed AI Search's filters by hand, so its chips may no longer tell the whole story.
@@ -68,7 +71,16 @@ export function FinderPage() {
   useEffect(() => {
     const remembered = loadSearch();
     if (!remembered) return;
-    setRequest({ ...remembered.request, page: remembered.request.page ?? 1 });
+    const restored = { ...remembered.request, page: remembered.request.page ?? 1 };
+    if (!isRunnableSearch(restored)) {
+      // Searching would only fail. Open it in Normal Search with what we have,
+      // so the missing piece (usually the type of care) is one tap away.
+      setIncomplete(restored);
+      setChosenMode('normal');
+      setFormKey((k) => k + 1);
+      return;
+    }
+    setRequest(restored);
     setAiQuery(remembered.aiQuery);
     // A remembered Normal Search reopens as one; an AI search reopens in the
     // AI panel while AI Search is offered (the default below).
@@ -90,12 +102,14 @@ export function FinderPage() {
     setAiQuery(aiQuery || undefined);
     setRefined(Boolean(options.refined));
     if (!options.refined) setRefineKey((k) => k + 1);
+    setIncomplete(null);
     setShownOnMap(null);
     device.clearError();
     setRequest(next);
   }
 
   function clearSearch() {
+    setIncomplete(null);
     setRequest(null);
     setAiQuery(undefined);
     setRefined(false);
@@ -203,7 +217,12 @@ export function FinderPage() {
                     initialRequest={aiQuery && request ? request : undefined}
                   />
                 ) : (
-                  <NormalSearchForm key={formKey} onSubmit={(next) => search(next)} initialValues={formKey > 0 && request ? request : undefined} />
+                  <NormalSearchForm
+                    key={formKey}
+                    onSubmit={(next) => search(next)}
+                    initialValues={formKey > 0 ? (request ?? incomplete ?? undefined) : undefined}
+                    validateOnMount={Boolean(incomplete) && !request}
+                  />
                 )}
               </div>
             </>
