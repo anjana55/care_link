@@ -69,6 +69,7 @@ export function PersonalDetailsForm({ caregiver }: { caregiver: OwnCaregiver }) 
       emergencyContactRelationship: caregiver.emergencyContactRelationship,
       policeDivision: text(caregiver.policeDivision),
       policeStation: text(caregiver.policeStation),
+      preferredContactMethod: caregiver.preferredContactMethod ?? '',
       districtId: caregiver.districtId ?? UNSET_ID,
       cityId: caregiver.cityId ?? UNSET_ID,
     },

@@ -188,10 +188,12 @@ export class CorrectionsNotifier {
   }
 
   private async caregiver(caregiverId: string): Promise<Recipient> {
-    const [c] = await this.db.select({ userId: caregivers.userId, phone: caregivers.primaryPhone }).from(caregivers).where(eq(caregivers.id, caregiverId)).limit(1);
+    const [c] = await this.db
+      .select({ userId: caregivers.userId, phone: caregivers.primaryPhone, preferred: caregivers.preferredContactMethod })
+      .from(caregivers).where(eq(caregivers.id, caregiverId)).limit(1);
     const [account] = c?.userId ? await this.db.select({ email: users.email, phone: users.phone }).from(users).where(eq(users.id, c.userId)).limit(1) : [];
     const cc = await this.whatsappSettings.getDefaultCountryCode();
-    return { email: account?.email ?? null, phone: account?.phone ?? normalizePhone(c?.phone ?? null, cc) };
+    return { email: account?.email ?? null, phone: account?.phone ?? normalizePhone(c?.phone ?? null, cc), preferred: c?.preferred ?? null };
   }
 
   private async deliverToClient(who: Recipient, lang: CareRequestLanguage, text: { subject: string; heading: string; paragraphs: string[] }, path: string, label: string) {
@@ -215,13 +217,18 @@ export class CorrectionsNotifier {
   }
 
   private async deliverToCaregiver(who: Recipient, msg: { subject: string; blocks: { lang: CareRequestLanguage; heading: string; paragraphs: string[] }[]; whatsappText: string }, path: string, label: string) {
-    if (who.email) {
-      await this.email.sendNotificationEmail(who.email, { subject: msg.subject, blocks: msg.blocks, cta: { label: '{brand}', url: this.publicUrl(path) } }, label);
+    const wa = await this.whatsappSettings.getResolved();
+    const channel = chooseClientChannel({
+      hasEmail: Boolean(who.email),
+      canWhatsapp: Boolean(who.phone) && this.whatsapp.canSendUpdates(wa),
+      preferred: who.preferred as Parameters<typeof chooseClientChannel>[0]['preferred'],
+    });
+    if (channel === 'EMAIL') {
+      await this.email.sendNotificationEmail(who.email!, { subject: msg.subject, blocks: msg.blocks, cta: { label: '{brand}', url: this.publicUrl(path) } }, label);
       return;
     }
-    const wa = await this.whatsappSettings.getResolved();
-    if (who.phone && this.whatsapp.canSendUpdates(wa)) {
-      await this.whatsapp.sendUpdate(wa, who.phone, 'en', msg.whatsappText).catch((e) => this.logger.error(`WhatsApp ${label} failed: ${(e as Error).message}`));
+    if (channel === 'WHATSAPP') {
+      await this.whatsapp.sendUpdate(wa, who.phone!, 'en', msg.whatsappText).catch((e) => this.logger.error(`WhatsApp ${label} failed: ${(e as Error).message}`));
       return;
     }
     this.logger.warn(`${label}: the caregiver has no email and WhatsApp updates are off, so the notice was not sent.`);

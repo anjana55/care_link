@@ -10,7 +10,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { genderEnum } from '../../database/schema/caregivers.schema';
+import { contactMethodEnum, genderEnum } from '../../database/schema/caregivers.schema';
 import { TextField } from '../../common/validation/text-field.validator';
 
 /**
@@ -89,6 +89,16 @@ export class UpdatePatientDto {
   @IsOptional()
   @IsEnum(genderEnum, { message: 'Gender must be MALE, FEMALE or OTHER' })
   gender?: (typeof genderEnum)[number];
+
+  /**
+   * How staff should reach the client first. EMAIL is only accepted when the
+   * client's account has (or this same edit gives it) an email address - the
+   * same rule self-registration applies - checked in the service.
+   */
+  @ApiPropertyOptional({ enum: contactMethodEnum })
+  @IsOptional()
+  @IsEnum(contactMethodEnum, { message: 'Choose how we should contact you' })
+  preferredContactMethod?: (typeof contactMethodEnum)[number];
 
   @ApiPropertyOptional({ description: 'District id from the locations reference data' })
   @IsOptional()

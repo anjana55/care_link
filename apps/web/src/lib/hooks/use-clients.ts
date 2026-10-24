@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { Client, ClientListResponse, ClientStatus, ClientGender } from '../api/types';
+import type { Client, ClientListResponse, ClientStatus, ClientGender, ContactMethod } from '../api/types';
 
 /** The body of PATCH /patients/:id. Every field is optional - the service
  * writes only what is named, and a blank phone is a no-op rather than a clear,
@@ -15,6 +15,7 @@ export interface ClientUpdateValues {
   nic?: string;
   dateOfBirth?: string;
   gender?: ClientGender;
+  preferredContactMethod?: ContactMethod;
   districtId?: number;
   cityId?: number;
   notes?: string;

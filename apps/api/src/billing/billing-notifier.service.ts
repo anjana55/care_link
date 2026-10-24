@@ -105,6 +105,7 @@ export class BillingNotifier {
           paidOn: payoutStatements.paidOn,
           userId: caregivers.userId,
           phone: caregivers.primaryPhone,
+          preferred: caregivers.preferredContactMethod,
         })
         .from(payoutStatements)
         .innerJoin(caregivers, eq(payoutStatements.caregiverId, caregivers.id))
@@ -116,9 +117,10 @@ export class BillingNotifier {
       const cc = await this.whatsappSettings.getDefaultCountryCode();
       const msg = payoutPaidNotice({ ref: p.reference, amount: formatLkr(p.total), from: p.periodStart, to: p.periodEnd, date: p.paidOn ?? '' });
       const phone = account?.phone ?? normalizePhone(p.phone, cc);
-      if (account?.email) {
+      const channel = chooseClientChannel({ hasEmail: Boolean(account?.email), canWhatsapp: Boolean(phone) && this.whatsapp.canSendUpdates(wa), preferred: p.preferred });
+      if (channel === 'EMAIL') {
         await this.email.sendNotificationEmail(
-          account.email,
+          account!.email!,
           {
             subject: msg.subject,
             blocks: msg.blocks.map((b) => ({ lang: b.lang, heading: b.heading, paragraphs: [b.body] })),
@@ -128,8 +130,8 @@ export class BillingNotifier {
         );
         return true;
       }
-      if (phone && this.whatsapp.canSendUpdates(wa)) {
-        await this.whatsapp.sendUpdate(wa, phone, 'en', msg.whatsappText);
+      if (channel === 'WHATSAPP') {
+        await this.whatsapp.sendUpdate(wa, phone!, 'en', msg.whatsappText);
         return true;
       }
       this.logger.warn(`Payout ${p.reference}: the caregiver has no email and WhatsApp updates are off, so the notice was not sent.`);

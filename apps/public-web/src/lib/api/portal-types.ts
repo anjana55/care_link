@@ -27,6 +27,7 @@ export interface OwnCaregiver {
   emergencyContactRelationship: string;
   policeDivision: string | null;
   policeStation: string | null;
+  preferredContactMethod: 'PHONE_CALL' | 'WHATSAPP' | 'EMAIL' | null;
   districtId: number | null;
   cityId: number | null;
   skills: { skillId: string; name: string }[];

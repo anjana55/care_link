@@ -111,6 +111,7 @@ export function selfRegisteredCaregiverValues(params: {
     emergencyContactRelationship: fields.emergencyContactRelationship,
     policeDivision: fields.policeDivision ?? null,
     policeStation: fields.policeStation ?? null,
+    preferredContactMethod: fields.preferredContactMethod ?? null,
     districtId: location?.districtId ?? null,
     cityId: location?.cityId ?? null,
     district: location?.district ?? null,

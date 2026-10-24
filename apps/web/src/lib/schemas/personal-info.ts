@@ -17,6 +17,7 @@ export const UNSET_ID = '' as unknown as number;
 
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
 const CIVIL_STATUSES = ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED', 'OTHER'] as const;
+export const CONTACT_METHODS = ['PHONE_CALL', 'WHATSAPP', 'EMAIL'] as const;
 
 export function makePersonalInfoSchema(t: (key: string) => string) {
   const required = (field: string) => t(`personalInfo.validation.${field}.required`);
@@ -41,6 +42,10 @@ export function makePersonalInfoSchema(t: (key: string) => string) {
     emergencyContactRelationship: z.string().trim().min(1, required('emergencyContactRelationship')).min(2, invalid('emergencyContactRelationship')),
     policeDivision: z.string().trim().optional(),
     policeStation: z.string().trim().optional(),
+    // Optional, so existing caregivers are not forced to answer before they can
+    // save anything else. The blank option submits '' - mapped to undefined so
+    // the API (an enum check) sees "not set" rather than an invalid value.
+    preferredContactMethod: z.preprocess((v) => (v === '' || v === null ? undefined : v), z.enum(CONTACT_METHODS).optional()),
     // Location is a pair of ids from the reference data, and the API derives
     // the display names and the postcode from them. There is nothing left for
     // a person to type here, which is why `postalCode` is gone from the form

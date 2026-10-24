@@ -182,6 +182,7 @@ export default function CaregiverProfilePage() {
       emergencyContactRelationship: '',
       policeDivision: '',
       policeStation: '',
+      preferredContactMethod: undefined,
       districtId: UNSET_ID,
       cityId: UNSET_ID,
     },
@@ -215,6 +216,7 @@ export default function CaregiverProfilePage() {
         emergencyContactRelationship: caregiver.emergencyContactRelationship ?? '',
         policeDivision: caregiver.policeDivision ?? '',
         policeStation: caregiver.policeStation ?? '',
+        preferredContactMethod: caregiver.preferredContactMethod ?? undefined,
         // Ids, not the derived names: the dropdowns are keyed by id, so
         // resetting with `caregiver.district` would leave both selects blank
         // on a record that does have a location.
@@ -373,6 +375,10 @@ export default function CaregiverProfilePage() {
                 <Field label="Height / weight" value={`${caregiver.heightIn ?? '—'} in / ${caregiver.weightKg ?? '—'} kg`} />
                 <Field label="Primary phone" value={caregiver.primaryPhone} />
                 <Field label="Secondary phone" value={caregiver.secondaryPhone} />
+                <Field
+                  label="Preferred contact"
+                  value={caregiver.preferredContactMethod ? t(`personalInfo.options.contactMethod.${caregiver.preferredContactMethod}`) : null}
+                />
                 <Field label="Address" value={caregiver.permanentAddress} />
                 <Field label="Emergency contact" value={`${caregiver.emergencyContactName} (${caregiver.emergencyContactRelationship})`} />
                 <Field label="Emergency number" value={caregiver.emergencyContactNumber} />
