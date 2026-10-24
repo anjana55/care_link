@@ -1212,7 +1212,8 @@ What staff and caregivers get afterwards:
 ## Part 16b - Taking the whole thing down
 
 `uninstall.sh` removes a deployment. It has two modes, and the difference
-is whether any data is destroyed.
+is whether any data is destroyed. A third, `--factory-reset` (16b.4),
+keeps the deployment and wipes only the data in it.
 
 ### 16b.1 Stop the site, keep everything
 
@@ -1252,7 +1253,7 @@ To see what either mode would do without doing it:
 
 ### 16b.3 What it leaves alone
 
-Both modes remove the certificate-renewal cron entry, since it would
+Both uninstall modes remove the certificate-renewal cron entry, since it would
 otherwise keep firing twice a day against a deployment that no longer
 exists. Unrelated cron jobs in the same crontab are preserved, as are
 commented-out lines.
@@ -1266,6 +1267,73 @@ nothing you need.
 
 The script never removes the repo directory itself. Delete it by hand
 when you're finished with it.
+
+### 16b.4 Factory reset - keep the site, wipe its data
+
+```bash
+./uninstall.sh --factory-reset                      # data only, settings kept
+./uninstall.sh --factory-reset --include-settings   # data and settings
+./uninstall.sh --factory-reset --dry-run            # show what would go, row by row
+```
+
+Use this to hand a deployment to a new agency, or to clear out test data
+before going live. The site stays installed: containers, images, the TLS
+certificate, `.env.production` and the renewal cron entry are untouched.
+
+**Deleted:** every user (staff, admins, clients, caregivers), patients,
+caregiver profiles and everything attached to them (skills, languages,
+qualifications, experience, references, availability, preferred
+locations, health information, verification), bookings with their shifts,
+amendments and issue reports, invoices, payments, PayHere checkouts,
+payout statements, care requests, saved caregivers, sign-in tokens and
+codes, audit logs, AI assistant conversations, and every uploaded
+caregiver document.
+
+**Kept by default:** all settings (branding, billing, email, WhatsApp,
+sign-in providers, AI, ads, analytics), the uploaded logo, and the skills
+and languages lists. Invoice numbering restarts at 1 because no invoices
+remain.
+
+**`--include-settings`** also resets all of the above to defaults: the
+logo is deleted and skills/languages go back to the stock lists. Email and
+WhatsApp are pre-filled again from `SMTP_*` / `WHATSAPP_*` in
+`.env.production`, as on a first install.
+
+**Always kept:** the location hierarchy (provinces, districts, cities) and
+the migration history.
+
+Tables are classified when the script runs, so tables added by future
+migrations are wiped as data automatically. A new *reference* table
+(seeded lookup data, not customer data) must be added to `classify_table`
+in `uninstall.sh`, or a factory reset will empty it.
+
+After the wipe the admin account from `INITIAL_ADMIN_EMAIL` /
+`INITIAL_ADMIN_PASSWORD` in `.env.production` is recreated - with that
+password, even if the admin had changed it since. If those lines are
+missing, the script asks (or refuses under `-y`) before deleting anything.
+Everyone is signed out.
+
+The apps (`api`, `web`, `public-web`) are stopped for the minute the wipe
+takes, so visitors briefly see a 502. If any step fails, the script
+restarts them and names the backup.
+
+**Backup and restore.** Before deleting anything the script writes
+`backups/factory-reset-<timestamp>-db.sql.gz` and
+`...-documents.tar.gz`. These are outside `update.sh`'s rotation, so they
+stay until you delete them. They hold personal data, so delete them once
+you're sure. `--no-backup` skips this step. To undo a reset:
+
+```bash
+C="docker compose -f docker-compose.prod.yml --env-file .env.production"
+gunzip -c backups/factory-reset-<timestamp>-db.sql.gz \
+  | $C exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot "$MYSQL_DATABASE"'
+$C exec -T api tar xzf - -C /storage/caregiver-documents \
+  < backups/factory-reset-<timestamp>-documents.tar.gz
+$C restart api web public-web
+```
+
+The confirmation asks you to type the domain back, as `--purge` does.
+`-y` skips it, for scripted use.
 
 ---
 
