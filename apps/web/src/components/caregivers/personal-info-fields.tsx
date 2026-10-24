@@ -4,7 +4,7 @@ import type { Control, FieldErrors, UseFormRegister, UseFormSetValue } from 'rea
 import { Input, Label, FieldError, Select, Textarea } from '@/components/ui/input';
 import type { LocationProvince } from '@/lib/api/types';
 import { useCities } from '@/lib/hooks/use-caregivers';
-import type { PersonalInfoValues } from '@/lib/schemas/personal-info';
+import { CONTACT_METHODS, type PersonalInfoValues } from '@/lib/schemas/personal-info';
 import { useTranslation } from '@/lib/i18n/provider';
 
 export function PersonalInfoFields<T extends PersonalInfoValues>({
@@ -233,6 +233,21 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
       <div>
         <Label htmlFor="secondaryPhone" required={requiredFields.has('secondaryPhone')}>{t('personalInfo.fields.secondaryPhone')}</Label>
         <Input id="secondaryPhone" {...register('secondaryPhone' as any)} />
+      </div>
+
+      {/* Its own full-width row, half-width inside, so adding it cannot shift
+          the column of any field after it (see the police row below). */}
+      <div className="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="preferredContactMethod" required={requiredFields.has('preferredContactMethod')}>{t('personalInfo.fields.preferredContactMethod')}</Label>
+          <Select id="preferredContactMethod" {...register('preferredContactMethod' as any)}>
+            <option value="">{t('personalInfo.options.select')}</option>
+            {CONTACT_METHODS.map((m) => (
+              <option key={m} value={m}>{t(`personalInfo.options.contactMethod.${m}`)}</option>
+            ))}
+          </Select>
+          <FieldError message={(errors as any).preferredContactMethod?.message as string | undefined} />
+        </div>
       </div>
 
       <div>

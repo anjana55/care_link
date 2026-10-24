@@ -1,0 +1,1 @@
+ALTER TABLE `caregivers` ADD `preferred_contact_method` enum('PHONE_CALL','WHATSAPP','EMAIL');

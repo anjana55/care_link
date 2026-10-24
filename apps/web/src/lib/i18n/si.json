@@ -711,6 +711,7 @@
       "emergencyContactRelationship": "හදිසි සම්බන්ධතාවය සමඟ ඇති සබඳතාව",
       "policeDivision": "පොලිස් කොට්ඨාසය",
       "policeStation": "පොලිස් ස්ථානය",
+      "preferredContactMethod": "කැමති සම්බන්ධතා ක්‍රමය",
       "district": "දිස්ත්‍රික්කය",
       "city": "නගරය",
       "postalCode": "තැපැල් කේතය"
@@ -769,6 +770,11 @@
         "DIVORCED": "දික්කසාද වූ",
         "WIDOWED": "වැන්දඹු",
         "OTHER": "වෙනත්"
+      },
+      "contactMethod": {
+        "PHONE_CALL": "දුරකථන ඇමතුමක්",
+        "WHATSAPP": "WhatsApp",
+        "EMAIL": "විද්‍යුත් තැපෑල"
       }
     }
   },

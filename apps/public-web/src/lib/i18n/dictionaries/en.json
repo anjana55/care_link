@@ -599,6 +599,7 @@
       "emergencyContactRelationship": "Emergency contact relationship",
       "policeDivision": "Police division",
       "policeStation": "Police station",
+      "preferredContactMethod": "Preferred contact method",
       "district": "District",
       "city": "City",
       "postalCode": "Postal code"
@@ -657,6 +658,11 @@
         "DIVORCED": "Divorced",
         "WIDOWED": "Widowed",
         "OTHER": "Other"
+      },
+      "contactMethod": {
+        "PHONE_CALL": "Phone call",
+        "WHATSAPP": "WhatsApp",
+        "EMAIL": "Email"
       }
     }
   },

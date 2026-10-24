@@ -14,6 +14,12 @@ import {
 import { sql } from 'drizzle-orm';
 
 export const genderEnum = ['MALE', 'FEMALE', 'OTHER'] as const;
+/**
+ * How a person wants to be reached first. Shared by caregivers and clients
+ * (patients.schema re-exports it) so the two can never drift. EMAIL is only
+ * valid for an account that has an email address.
+ */
+export const contactMethodEnum = ['PHONE_CALL', 'WHATSAPP', 'EMAIL'] as const;
 export const civilStatusEnum = ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED', 'OTHER'] as const;
 export const caregiverStatusEnum = [
   'DRAFT',
@@ -84,6 +90,11 @@ export const caregivers = mysqlTable(
     emergencyContactRelationship: varchar('emergency_contact_relationship', { length: 100 }).notNull(),
     policeDivision: varchar('police_division', { length: 100 }),
     policeStation: varchar('police_station', { length: 100 }),
+    // How the caregiver wants staff to reach them first, and the channel their
+    // written notices prefer (WhatsApp when chosen and available). Nullable:
+    // records from before this column existed, and staff-entered ones where
+    // nobody asked, fall back to email-then-WhatsApp as before.
+    preferredContactMethod: mysqlEnum('preferred_contact_method', contactMethodEnum),
     // Source of truth is the id pair below; these three are display caches
     // written by the service from the referenced rows, so a caregiver can
     // never claim to live in a city that is not in that district. Nothing

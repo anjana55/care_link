@@ -84,7 +84,7 @@ export class BookingNotifier {
       ).map((r) => r.caregiverId);
       const caregiverIds = [...new Set(only ? only.caregiverIds : [b.caregiverId, ...coverIds])];
       const cgs = await this.db
-        .select({ id: caregivers.id, userId: caregivers.userId, phone: caregivers.primaryPhone })
+        .select({ id: caregivers.id, userId: caregivers.userId, phone: caregivers.primaryPhone, preferred: caregivers.preferredContactMethod })
         .from(caregivers)
         .where(inArray(caregivers.id, caregiverIds));
       const userIds = [b.patientUserId, ...cgs.map((c) => c.userId)].filter((v): v is string => Boolean(v));
@@ -121,9 +121,10 @@ export class BookingNotifier {
       for (const c of cgs) {
         const mail = account(c.userId)?.email ?? null;
         const phone = account(c.userId)?.phone ?? normalizePhone(c.phone, cc);
-        if (mail) {
+        const channel = chooseClientChannel({ hasEmail: Boolean(mail), canWhatsapp: canWa(phone), preferred: c.preferred });
+        if (channel === 'EMAIL') {
           await this.email.sendNotificationEmail(
-            mail,
+            mail!,
             {
               subject: msg.subject,
               blocks: msg.blocks.map((x) => ({ lang: x.lang, heading: x.heading, paragraphs: [x.body] })),
@@ -131,7 +132,7 @@ export class BookingNotifier {
             },
             `caregiver booking ${notice.toLowerCase()} ${b.reference}`,
           );
-        } else if (canWa(phone)) {
+        } else if (channel === 'WHATSAPP') {
           await this.whatsapp.sendUpdate(wa, phone!, 'en', msg.whatsappText).catch((e) => this.logger.error(`WhatsApp booking notice failed: ${(e as Error).message}`));
         } else {
           this.logger.warn(`Booking ${b.reference}: a caregiver has no email and WhatsApp updates are off, so "${notice}" was not sent.`);

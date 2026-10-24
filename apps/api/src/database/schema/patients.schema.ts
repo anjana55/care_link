@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 // Both are leaf schema modules - caregivers.schema imports only ./locations.schema
 // and drizzle-orm - so this is not a cycle. Sharing one constant means a future
 // option cannot land on one table and not the other.
-import { genderEnum } from './caregivers.schema';
+import { genderEnum, contactMethodEnum } from './caregivers.schema';
 
 /**
  * The lifecycle of a client record, mirroring the caregiver status ladder
@@ -44,8 +44,13 @@ export type RecipientRelationship = (typeof recipientRelationshipEnum)[number];
 export const recipientGenderEnum = ['MALE', 'FEMALE', 'OTHER'] as const;
 export type RecipientGender = (typeof recipientGenderEnum)[number];
 
-/** How staff should reach the client first. EMAIL is only valid for accounts that have an email address. */
-export const contactMethodEnum = ['PHONE_CALL', 'WHATSAPP', 'EMAIL'] as const;
+/**
+ * How staff should reach the client first. EMAIL is only valid for accounts
+ * that have an email address. Defined in caregivers.schema (the leaf module)
+ * because caregivers carry the same preference; re-exported here so existing
+ * imports keep working.
+ */
+export { contactMethodEnum };
 export type ContactMethod = (typeof contactMethodEnum)[number];
 
 export const contactTimeEnum = ['ANYTIME', 'MORNING', 'AFTERNOON', 'EVENING'] as const;

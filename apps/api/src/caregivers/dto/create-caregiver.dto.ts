@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsBoolean, IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
-import { civilStatusEnum, genderEnum } from '../../database/schema/caregivers.schema';
+import { civilStatusEnum, contactMethodEnum, genderEnum } from '../../database/schema/caregivers.schema';
 import { TextField } from '../../common/validation/text-field.validator';
 
 /**
@@ -124,6 +124,14 @@ export class CreateCaregiverDto {
   @IsOptional()
   @IsString({ message: 'Police station must be text' })
   policeStation?: string;
+
+  @ApiPropertyOptional({
+    enum: contactMethodEnum,
+    description: 'How staff should reach the caregiver first. Written notices go by WhatsApp when this is WHATSAPP and WhatsApp updates are on; otherwise email first, as before',
+  })
+  @IsOptional()
+  @IsEnum(contactMethodEnum, { message: 'Choose how we should contact you' })
+  preferredContactMethod?: (typeof contactMethodEnum)[number];
 
   // Location is submitted as a pair of ids from the locations reference data,
   // not as typed text. `district`, `city` and `postalCode` are written by the

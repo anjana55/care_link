@@ -5,6 +5,7 @@ import { Input, Label, FieldError, Select, Textarea } from '@/components/ui/inpu
 import type { LocationProvince } from '@/lib/api/types';
 import { useCities } from '@/lib/hooks/use-caregivers';
 import { useTranslation } from '@/lib/i18n/provider';
+import { CONTACT_METHODS } from './client-filters';
 
 /**
  * The staff-editable half of a client's profile.
@@ -47,6 +48,9 @@ export function ClientProfileFields({
   // arrives via reset().
   const selectedDistrictId = useWatch({ control, name: 'districtId' }) ?? '';
   const selectedCityId = useWatch({ control, name: 'cityId' }) ?? '';
+  // Watched rather than read from the saved record, so typing an email into
+  // this same edit makes Email available as a contact preference straight away.
+  const hasEmail = Boolean(String(useWatch({ control, name: 'email' }) ?? '').trim());
 
   // localeCompare(locale) makes the Sinhala and Tamil lists read in their own
   // order; a plain .sort() orders by code point, which puts them in an order no
@@ -143,6 +147,21 @@ export function ClientProfileFields({
           <Label htmlFor="nic">{t('personalInfo.fields.nic')}</Label>
           <Input id="nic" {...register('nic')} />
           <FieldError message={errors.nic?.message as string | undefined} />
+        </div>
+
+        {/* Email is only offered when the client has one - the same rule the
+            registration form applies; the API enforces it as well. */}
+        <div>
+          <Label htmlFor="preferredContactMethod">{t('clients.field.preferredContact')}</Label>
+          <Select id="preferredContactMethod" {...register('preferredContactMethod')}>
+            <option value="">{t('personalInfo.options.select')}</option>
+            {CONTACT_METHODS.filter((m) => m !== 'EMAIL' || hasEmail).map((m) => (
+              <option key={m} value={m}>
+                {t(`clients.options.contactMethod.${m}`)}
+              </option>
+            ))}
+          </Select>
+          <FieldError message={errors.preferredContactMethod?.message as string | undefined} />
         </div>
 
         <div>

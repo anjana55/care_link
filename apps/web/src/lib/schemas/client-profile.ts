@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ClientGender } from '../api/types';
+import type { ClientGender, ContactMethod } from '../api/types';
 
 export type ClientProfileValues = z.infer<ReturnType<typeof makeClientProfileSchema>>;
 
@@ -16,6 +16,7 @@ export type ClientProfileValues = z.infer<ReturnType<typeof makeClientProfileSch
 export const UNSET_ID = '' as unknown as number;
 
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const satisfies readonly ClientGender[];
+const CONTACT_METHODS = ['PHONE_CALL', 'WHATSAPP', 'EMAIL'] as const satisfies readonly ContactMethod[];
 
 /**
  * An optional location id as the form holds it: a `<select>` submits a string,
@@ -65,6 +66,8 @@ export function makeClientProfileSchema(t: (key: string) => string) {
     dateOfBirth: z.string(),
     // A select can only ever submit '' or a valid member.
     gender: z.union([z.literal(''), z.enum(GENDERS)]),
+    // Same shape as gender: '' is "leave as it is" and is omitted on submit.
+    preferredContactMethod: z.union([z.literal(''), z.enum(CONTACT_METHODS)]),
     // A blank select is '' and must validate as "unset", not as 0.
     // z.coerce.number turns '' into 0 and .positive() rejects it - and
     // .optional() does NOT rescue that, because it only short-circuits on a

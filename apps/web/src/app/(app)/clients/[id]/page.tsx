@@ -80,6 +80,7 @@ export default function ClientDetailPage() {
         nic: client.nic ?? '',
         dateOfBirth: client.dateOfBirth ? client.dateOfBirth.slice(0, 10) : '',
         gender: client.gender ?? '',
+        preferredContactMethod: client.preferredContactMethod ?? '',
         districtId: client.districtId ?? UNSET_ID,
         cityId: client.cityId ?? UNSET_ID,
         notes: client.notes ?? '',
@@ -104,6 +105,7 @@ export default function ClientDetailPage() {
     }
     if (data.dateOfBirth) payload.dateOfBirth = data.dateOfBirth;
     if (data.gender) payload.gender = data.gender;
+    if (data.preferredContactMethod) payload.preferredContactMethod = data.preferredContactMethod;
     if (data.districtId && data.cityId) {
       payload.districtId = Number(data.districtId);
       payload.cityId = Number(data.cityId);

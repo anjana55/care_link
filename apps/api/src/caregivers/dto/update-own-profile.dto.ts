@@ -30,6 +30,7 @@ export class UpdateOwnProfileDto extends PartialType(
     'emergencyContactRelationship',
     'policeDivision',
     'policeStation',
+    'preferredContactMethod',
     'districtId',
     'cityId',
   ] as const),

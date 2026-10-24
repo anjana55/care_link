@@ -36,16 +36,19 @@ interface NoticeContext {
     phone: string | null; // E.164, best effort
     registrationNumber: string;
     autoNotify: boolean;
+    preferredContactMethod: 'PHONE_CALL' | 'WHATSAPP' | 'EMAIL' | null;
   } | null;
   careType: string | null;
   source: 'WEB' | 'PHONE';
 }
 
 /**
- * How a client hears about their request: their own preference first
- * (WhatsApp, if they chose it and updates can go out that way), otherwise
- * whichever channel they have, email before WhatsApp. PHONE_CALL as a
- * preference means staff call them - updates still need a written channel.
+ * How a client - or a caregiver - hears about something: their own preference
+ * first (WhatsApp, if they chose it and updates can go out that way),
+ * otherwise whichever channel they have, email before WhatsApp. PHONE_CALL as
+ * a preference means staff call them - updates still need a written channel.
+ * A null preference (caregivers from before they could choose) is plain
+ * email-then-WhatsApp.
  */
 export function chooseClientChannel(opts: {
   hasEmail: boolean;
@@ -188,6 +191,7 @@ export class CareRequestNotifier {
         caregiverPhone: caregivers.primaryPhone,
         registrationNumber: caregivers.registrationNumber,
         autoNotify: caregivers.autoNotifyRequests,
+        caregiverPreferred: caregivers.preferredContactMethod,
       })
       .from(careRequests)
       .innerJoin(patients, eq(careRequests.patientId, patients.id))
@@ -223,6 +227,7 @@ export class CareRequestNotifier {
             phone: caregiverAccount?.phone ?? normalizePhone(row.caregiverPhone, cc),
             registrationNumber: row.registrationNumber,
             autoNotify: Boolean(row.autoNotify),
+            preferredContactMethod: row.caregiverPreferred ?? null,
           }
         : null,
       careType: row.careType,
@@ -330,9 +335,15 @@ export class CareRequestNotifier {
     const caregiver = ctx.caregiver;
     if (!caregiver) return null;
     const msg = caregiverNotice(notice, ctx.reference);
-    if (caregiver.email) {
+    const wa = await this.whatsappSettings.getResolved();
+    const channel = chooseClientChannel({
+      hasEmail: Boolean(caregiver.email),
+      canWhatsapp: Boolean(caregiver.phone) && this.whatsapp.canSendUpdates(wa),
+      preferred: caregiver.preferredContactMethod,
+    });
+    if (channel === 'EMAIL') {
       await this.email.sendNotificationEmail(
-        caregiver.email,
+        caregiver.email!,
         {
           subject: msg.subject,
           blocks: msg.blocks.map((b) => ({ lang: b.lang, heading: b.heading, paragraphs: [b.body] })),
@@ -342,9 +353,8 @@ export class CareRequestNotifier {
       );
       return 'EMAIL';
     }
-    const wa = await this.whatsappSettings.getResolved();
-    if (caregiver.phone && this.whatsapp.canSendUpdates(wa)) {
-      return (await this.sendWhatsapp(wa, caregiver.phone, 'en', msg.whatsappText, `caregiver update ${ctx.reference}`)) ? 'WHATSAPP' : null;
+    if (channel === 'WHATSAPP') {
+      return (await this.sendWhatsapp(wa, caregiver.phone!, 'en', msg.whatsappText, `caregiver update ${ctx.reference}`)) ? 'WHATSAPP' : null;
     }
     this.logger.warn(`Care request ${ctx.reference}: the caregiver has no email and WhatsApp updates are off, so "${notice}" was not sent.`);
     return null;

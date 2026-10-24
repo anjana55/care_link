@@ -599,6 +599,7 @@
       "emergencyContactRelationship": "அவசரக்கால தொடர்பு நபருடனான உறவு",
       "policeDivision": "காவல் பிரிவு",
       "policeStation": "காவல் நிலையம்",
+      "preferredContactMethod": "விருப்பமான தொடர்பு முறை",
       "district": "மாவட்டம்",
       "city": "நகரம்",
       "postalCode": "அஞ்சல் குறியீடு"
@@ -657,6 +658,11 @@
         "DIVORCED": "விவாகரத்து பெற்றவர்",
         "WIDOWED": "விதவை/விதவர்",
         "OTHER": "மற்றவை"
+      },
+      "contactMethod": {
+        "PHONE_CALL": "தொலைபேசி அழைப்பு",
+        "WHATSAPP": "WhatsApp",
+        "EMAIL": "மின்னஞ்சல்"
       }
     }
   },

@@ -49,6 +49,7 @@ const UPDATABLE_COLUMNS: ReadonlySet<string> = new Set([
   'gender',
   'nic',
   'notes',
+  'preferredContactMethod',
 ]);
 
 /**
@@ -367,6 +368,13 @@ export class PatientsService {
           // verification mail would then be sent to.
           accountData.email = typedEmail;
         }
+      }
+
+      // Same rule as self-registration (buildPatientIntake): an email
+      // preference needs an address to send to. Judged against the email this
+      // edit leaves the account with, so setting both at once is fine.
+      if (dto.preferredContactMethod === 'EMAIL' && !(accountData.email ?? target.email)) {
+        throw new BadRequestException('Email cannot be the preferred contact method for an account without an email address');
       }
 
       if (Object.keys(updateData).length) {

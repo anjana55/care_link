@@ -54,6 +54,7 @@ const UPDATABLE_COLUMNS: ReadonlySet<string> = new Set([
   'emergencyContactRelationship',
   'policeDivision',
   'policeStation',
+  'preferredContactMethod',
 ]);
 
 /**
@@ -102,6 +103,7 @@ export class CaregiversService {
       emergencyContactRelationship: dto.emergencyContactRelationship,
       policeDivision: dto.policeDivision ?? null,
       policeStation: dto.policeStation ?? null,
+      preferredContactMethod: dto.preferredContactMethod ?? null,
       districtId: location?.districtId ?? null,
       cityId: location?.cityId ?? null,
       district: location?.district ?? null,

@@ -91,6 +91,8 @@ export interface CaregiverDetail {
   emergencyContactRelationship: string;
   policeDivision: string | null;
   policeStation: string | null;
+  /** How the caregiver wants to be reached first; null until they (or staff) choose. */
+  preferredContactMethod: ContactMethod | null;
   status: CaregiverStatus;
   /** Tell the caregiver straight away when a client asks for them. */
   autoNotifyRequests: boolean;
