@@ -63,6 +63,16 @@ const UPDATABLE_COLUMNS: ReadonlySet<string> = new Set([
  * documents against them, a self-service edit would silently invalidate that
  * check, so they are locked and a change goes through staff.
  */
+/**
+ * Auto-notify sends new requests to the caregiver in writing, straight away.
+ * A caregiver who prefers phone calls is rung by staff instead, so the two do
+ * not go together. Refused when someone asks for both; when the preference
+ * changes to PHONE_CALL, auto-notify is switched off as part of the same save
+ * rather than failing it.
+ */
+export const AUTO_NOTIFY_NEEDS_WRITTEN_CHANNEL =
+  'Auto notify is not available for caregivers who prefer phone calls. Change their preferred contact method to email or WhatsApp first';
+
 const IDENTITY_FIELDS = ['fullName', 'dateOfBirth', 'gender', 'nic', 'passportNumber'] as const;
 const IDENTITY_EDITABLE_STATUSES: ReadonlySet<string> = new Set(['DRAFT', 'REGISTERED', 'DOCUMENTS_PENDING']);
 
@@ -110,7 +120,8 @@ export class CaregiversService {
       city: location?.city ?? null,
       postalCode: location?.postalCode ?? null,
       status: 'DRAFT',
-      autoNotifyRequests: dto.autoNotifyRequests ?? false,
+      // A phone-call caregiver is rung by staff, never auto-notified.
+      autoNotifyRequests: dto.preferredContactMethod === 'PHONE_CALL' ? false : (dto.autoNotifyRequests ?? false),
     });
 
     return this.findOne(id);
@@ -343,6 +354,14 @@ export class CaregiversService {
       updateData[key] = value === '' ? null : value;
     }
     if (dto.dateOfBirth) updateData.dateOfBirth = dto.dateOfBirth as unknown as Date;
+
+    // Judged against the preference this save leaves the record with.
+    const nextPreference = 'preferredContactMethod' in updateData ? updateData.preferredContactMethod : existing.preferredContactMethod;
+    if (nextPreference === 'PHONE_CALL') {
+      if (dto.autoNotifyRequests === true) throw new BadRequestException(AUTO_NOTIFY_NEEDS_WRITTEN_CHANNEL);
+      if (existing.autoNotifyRequests) updateData.autoNotifyRequests = false;
+    }
+
     if (location) {
       updateData.districtId = location.districtId;
       updateData.cityId = location.cityId;

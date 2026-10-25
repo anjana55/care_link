@@ -70,6 +70,7 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
   // with the same "required" message a blank one always produced.
   const selectedDistrictId = useWatch({ control, name: 'districtId' as any }) ?? '';
   const selectedCityId = useWatch({ control, name: 'cityId' as any }) ?? '';
+  const preferredContactMethod = useWatch({ control, name: 'preferredContactMethod' as any });
 
   // localeCompare(locale) is what makes the Sinhala and Tamil lists read in
   // their own order; a plain .sort() orders by code point, which puts them in
@@ -292,6 +293,9 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
             ))}
           </Select>
           <FieldError message={(errors as any).preferredContactMethod?.message as string | undefined} />
+          {preferredContactMethod === 'PHONE_CALL' && (
+            <p className="mt-1 text-xs text-ink/60">{t('personalInfo.hints.phoneCall')}</p>
+          )}
         </div>
       </div>
 

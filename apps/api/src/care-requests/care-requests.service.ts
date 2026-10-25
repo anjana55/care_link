@@ -517,6 +517,7 @@ export class CareRequestsService {
         district: district(caregiver.districtId, caregiver.district),
         city: city(caregiver.cityId, caregiver.city),
         autoNotifyRequests: caregiver.autoNotifyRequests,
+        preferredContactMethod: caregiver.preferredContactMethod,
       },
       events: events.map((e) => ({
         id: e.id,

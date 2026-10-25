@@ -563,6 +563,7 @@ export interface CareRequestDetail {
     district: string | null;
     city: string | null;
     autoNotifyRequests: boolean;
+    preferredContactMethod: ContactMethod | null;
   } | null;
   events: CareRequestEvent[];
 }

@@ -1120,7 +1120,12 @@ export default function CaregiverProfilePage() {
         {isAdminOrStaff && (
           <TabsContent value="requests">
             <div className="space-y-4">
-              <AutoNotifyToggle caregiverId={caregiver.id} enabled={Boolean(caregiver.autoNotifyRequests)} canEdit={isAdminOrStaff} />
+              <AutoNotifyToggle
+                caregiverId={caregiver.id}
+                enabled={Boolean(caregiver.autoNotifyRequests)}
+                canEdit={isAdminOrStaff}
+                preferredContactMethod={caregiver.preferredContactMethod}
+              />
               <RelatedRequests caregiverId={caregiver.id} />
               <RelatedBookings caregiverId={caregiver.id} />
             </div>
