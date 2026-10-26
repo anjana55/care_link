@@ -21,3 +21,4 @@ export * from './branding.schema';
 export * from './ads.schema';
 export * from './analytics.schema';
 export * from './ai.schema';
+export * from './international.schema';

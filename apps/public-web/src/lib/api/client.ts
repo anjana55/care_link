@@ -15,6 +15,9 @@
  * elsewhere; those must also add the site's origin to CORS_ORIGIN on the API.
  */
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
+
+/** An absolute URL for a public API path - for an <img src> such as a shared profile photo. */
+export const apiUrl = (path: string) => `${API_URL}${path}`;
 const TOKEN_KEY = 'care-platform-patient-tokens';
 
 export interface Tokens {

@@ -3,9 +3,10 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2 } from 'lucide-react';
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
 import { useAiStatus } from '@/lib/hooks/use-ai';
+import { useInternationalSummary } from '@/lib/hooks/use-international';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,8 @@ const SETTINGS_ITEM = { href: '/settings', key: 'nav.settings', icon: Settings }
 const CLIENT_ITEM = { href: '/clients', key: 'nav.clients', icon: HeartHandshake };
 // Requests sit with Clients for the same reason: ADMIN + STAFF only.
 const REQUESTS_ITEM = { href: '/requests', key: 'nav.requests', icon: Inbox };
+// Overseas employer enquiries, shared-profile review and training: ADMIN + STAFF, like Requests.
+const OVERSEAS_ITEM = { href: '/international', key: 'nav.international', icon: Globe2 };
 const BOOKINGS_ITEM = { href: '/bookings', key: 'nav.bookings', icon: CalendarDays };
 // Billing follows the work it bills: ADMIN + STAFF, like Bookings.
 const INVOICES_ITEM = { href: '/invoices', key: 'nav.invoices', icon: ReceiptText };
@@ -45,10 +48,12 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   // New, unhandled requests - the number staff should act on.
   const { data: summary } = useCareRequestSummary(canSeeClients);
   const { data: ai } = useAiStatus(canSeeClients);
+  const { data: overseas } = useInternationalSummary(canSeeClients);
+  const overseasWaiting = overseas ? overseas.new + overseas.pendingProfiles : 0;
   // Requests lead for the roles that work them: it is the day's worklist.
   // Clients sit straight after Caregivers, the list they mirror.
   const base = canSeeClients
-    ? [ITEMS[0], REQUESTS_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM]
+    ? [ITEMS[0], REQUESTS_ITEM, OVERSEAS_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM]
     : ITEMS;
   const items = [...base, ...(user?.role === 'ADMIN' ? ADMIN_ITEMS : []), SETTINGS_ITEM];
 
@@ -76,6 +81,14 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 aria-label={t('requests.newCount', { count: summary.new })}
               >
                 {summary.new}
+              </span>
+            )}
+            {item.href === '/international' && overseasWaiting > 0 && (
+              <span
+                className="min-w-[1.25rem] rounded-full bg-accent px-1.5 text-center text-xs font-semibold tabular-nums text-white"
+                aria-label={t('international.waitingCount', { count: overseasWaiting })}
+              >
+                {overseasWaiting}
               </span>
             )}
           </Link>

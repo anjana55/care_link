@@ -18,7 +18,8 @@
     "bookings": "Bookings",
     "invoices": "Invoices",
     "payouts": "Payouts",
-    "assistant": "Assistant"
+    "assistant": "Assistant",
+    "international": "Overseas"
   },
   "login": {
     "title": "Sign in",
@@ -2300,5 +2301,159 @@
     "HOSPITAL": "Care at a hospital",
     "NURSING_HOME": "Nursing home for the elderly",
     "RETIREMENT_HOME": "Retirement home for the elderly"
+  },
+  "international": {
+    "title": "Overseas",
+    "subtitle": "Enquiries from employers abroad, caregivers' shared profiles waiting for review, and training programmes.",
+    "waitingCount": "{count} waiting",
+    "tabs": {
+      "enquiries": "Employer enquiries",
+      "profiles": "Shared profiles",
+      "training": "Training"
+    },
+    "status": {
+      "NEW": "New",
+      "IN_PROGRESS": "In progress",
+      "INTRODUCED": "Introduced",
+      "PLACED": "Placed",
+      "CLOSED": "Closed"
+    },
+    "employerTypes": {
+      "RECRUITMENT_AGENCY": "Recruitment agency",
+      "CARE_HOME": "Care or nursing home",
+      "HOSPITAL": "Hospital or clinic",
+      "HOME_CARE_PROVIDER": "Home care provider",
+      "PRIVATE_FAMILY": "Private family",
+      "OTHER": "Other"
+    },
+    "visa": {
+      "YES": "Yes",
+      "NO": "No",
+      "UNSURE": "Not sure yet"
+    },
+    "enquiries": {
+      "search": "Search by reference, organisation, contact or email",
+      "status": "Status",
+      "reference": "Reference",
+      "employer": "Employer",
+      "country": "Country",
+      "roles": "Caregivers needed",
+      "received": "Received",
+      "empty": "No enquiries here.",
+      "aboutCaregiver": "Asked about {name} ({number})",
+      "filters": {
+        "open": "Open",
+        "NEW": "New",
+        "IN_PROGRESS": "In progress",
+        "INTRODUCED": "Introduced",
+        "PLACED": "Placed",
+        "CLOSED": "Closed",
+        "all": "All"
+      }
+    },
+    "detail": {
+      "back": "All overseas enquiries",
+      "notFound": "This enquiry could not be found.",
+      "received": "Received {date}",
+      "employer": "Employer",
+      "type": "Type",
+      "contact": "Contact",
+      "email": "Email",
+      "phone": "Phone",
+      "website": "Website",
+      "language": "Site language",
+      "needs": "What they need",
+      "settings": "Care settings",
+      "languages": "Languages",
+      "start": "Start",
+      "visa": "Visa sponsorship",
+      "askedAbout": "Sent from the shared profile of",
+      "sharedProfile": "View shared profile",
+      "handling": "Handling",
+      "fee": "Placement fee",
+      "currency": "Currency",
+      "feeHint": "Record the fee agreed with the employer. Caregivers are never charged a placement fee.",
+      "note": "Internal note",
+      "notePlaceholder": "Calls, shortlisted caregivers, next steps. Never shown to the employer or a caregiver.",
+      "saved": "Saved"
+    },
+    "profiles": {
+      "hint": "Check exactly what will be public: the photo should be the caregiver and suitable for employers, and the headline and introduction must not include contact details. Rejecting asks the caregiver to change it - say what.",
+      "filter": "Show",
+      "filters": {
+        "PENDING_REVIEW": "Waiting for review",
+        "APPROVED": "Approved",
+        "REJECTED": "Changes requested",
+        "all": "All"
+      },
+      "empty": "Nothing waiting for review.",
+      "noPhoto": "No photo",
+      "paused": "Sharing paused",
+      "status": {
+        "DRAFT": "Draft",
+        "PENDING_REVIEW": "Waiting for review",
+        "APPROVED": "Approved",
+        "REJECTED": "Changes requested"
+      },
+      "consentOn": "Consent given {date}",
+      "noConsent": "No consent on record",
+      "updated": "Updated {date}",
+      "contactWarning": "This text may include a phone number, email or social media handle. Contact must go through staff.",
+      "lastNote": "Last note: {note}",
+      "notePlaceholder": "Note to the caregiver (required when asking for changes)",
+      "noteRequired": "Tell the caregiver what to change.",
+      "approve": "Approve and publish",
+      "reject": "Ask for changes",
+      "takeDown": "Take down",
+      "viewLive": "View live"
+    },
+    "training": {
+      "hint": "Programmes caregivers can sign up for. Mark someone Completed only when they have finished - it appears on their shared profile.",
+      "add": "Add programme",
+      "addTitle": "New programme",
+      "editTitle": "Edit programme",
+      "edit": "Edit",
+      "empty": "No programmes yet.",
+      "inactive": "Not taking sign-ups",
+      "free": "Free",
+      "starts": "Starts {date}",
+      "signUps": "{count} signed up",
+      "category": "Category",
+      "format": "Format",
+      "duration": "Duration",
+      "fee": "Fee (LKR, blank = free)",
+      "nextStart": "Next start date",
+      "sortOrder": "Order",
+      "titleEn": "Title (English)",
+      "titleSi": "Title (Sinhala)",
+      "titleTa": "Title (Tamil)",
+      "descriptionEn": "Description (English)",
+      "descriptionSi": "Description (Sinhala)",
+      "descriptionTa": "Description (Tamil)",
+      "translationHint": "English is required. Sinhala and Tamil show the English text until they are filled in.",
+      "englishRequired": "The English title and description are required.",
+      "active": "Taking sign-ups",
+      "categories": {
+        "ENGLISH": "English",
+        "CAREGIVING": "Caregiving",
+        "OTHER": "Other"
+      },
+      "formats": {
+        "IN_PERSON": "In person",
+        "ONLINE": "Online",
+        "BLENDED": "Online and in person"
+      },
+      "noSignUps": "Nobody has signed up yet.",
+      "caregiver": "Caregiver",
+      "signedUp": "Signed up",
+      "statusLabel": "Status",
+      "completedOn": "Completed {date}",
+      "enrolment": {
+        "INTERESTED": "Interested",
+        "ENROLLED": "Enrolled",
+        "COMPLETED": "Completed",
+        "WITHDRAWN": "Withdrawn"
+      }
+    }
   }
 }

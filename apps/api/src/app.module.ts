@@ -43,6 +43,7 @@ import { BrandingModule } from './branding/branding.module';
 import { AdsModule } from './ads/ads.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AiCoreModule, AiModule } from './ai/ai.module';
+import { InternationalModule } from './international/international.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { AiCoreModule, AiModule } from './ai/ai.module';
     WhatsappModule,
     AccountAccessModule,
     CareRequestsModule,
+    InternationalModule,
     BookingsModule,
     BillingModule,
     CorrectionsModule,
