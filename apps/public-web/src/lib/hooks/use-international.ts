@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { EmployerAccountEnquiryRequest, EmployerAccountUpdate, InterviewRequest, Locale, OverseasReadiness, SharedProfileSettings, SharedProfileUpdate } from '@care-platform/shared';
+import type { EmployerAccountEnquiryRequest, EmployerAccountUpdate, InterviewRequest, Locale, OverseasReadiness, SharedProfileSettings, SharedProfileUpdate, VacancyInput } from '@care-platform/shared';
 import { employerApi, internationalApi, workAbroadApi } from '../api/international';
 import { useAuth } from '../api/auth-context';
 import { useCaregiverId } from './use-caregiver-portal';
@@ -39,6 +39,25 @@ export function useTalentProfile(slug: string | null, locale: Locale) {
 
 export function useTrainingProgrammes(locale: Locale) {
   return useQuery({ queryKey: ['international', 'training', locale], queryFn: () => internationalApi.training(locale), staleTime: 5 * 60 * 1000 });
+}
+
+export interface VacancyFilters {
+  country?: string;
+  careSetting?: string;
+  search?: string;
+}
+
+export function useVacancyBoard(page: number, filters: VacancyFilters = {}) {
+  const clean = Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== undefined && v !== ''));
+  return useQuery({
+    queryKey: ['international', 'vacancies', page, clean],
+    queryFn: () => internationalApi.vacancies({ page, pageSize: 20, ...clean }),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useVacancy(reference: string | null) {
+  return useQuery({ queryKey: ['international', 'vacancy', reference], queryFn: () => internationalApi.vacancy(reference!), enabled: Boolean(reference), retry: false });
 }
 
 export function useSendEnquiry() {
@@ -135,6 +154,37 @@ export function useEmployerInterest() {
   return useQuery({ queryKey: ['portal', id, 'overseas-interest'], queryFn: () => workAbroadApi.interest(id!), enabled: Boolean(id) });
 }
 
+/** The caregiver's applications. Only fetched for a signed-in caregiver. */
+export function useMyApplications() {
+  const id = useCaregiverId();
+  return useQuery({ queryKey: ['portal', id, 'applications'], queryFn: () => workAbroadApi.applications(id!), enabled: Boolean(id) });
+}
+
+export function useApplicationActions() {
+  const id = useCaregiverId();
+  const queryClient = useQueryClient();
+  const key = ['portal', id, 'applications'];
+  const apply = useMutation({
+    mutationFn: ({ reference, message }: { reference: string; message?: string }) => workAbroadApi.apply(id!, reference, message),
+    onSuccess: (data) => queryClient.setQueryData(key, data),
+  });
+  const withdraw = useMutation({
+    mutationFn: (applicationId: string) => workAbroadApi.withdrawApplication(id!, applicationId),
+    onSuccess: (data) => queryClient.setQueryData(key, data),
+  });
+  return { apply, withdraw };
+}
+
+export function useMyPlacements() {
+  const id = useCaregiverId();
+  return useQuery({ queryKey: ['portal', id, 'placements'], queryFn: () => workAbroadApi.placements(id!), enabled: Boolean(id) });
+}
+
+export function useMyDatedDocuments() {
+  const id = useCaregiverId();
+  return useQuery({ queryKey: ['portal', id, 'dated-documents'], queryFn: () => workAbroadApi.datedDocuments(id!), enabled: Boolean(id) });
+}
+
 // --- the employer's own account ---------------------------------------------------
 
 /** True for a signed-in overseas employer. */
@@ -197,4 +247,52 @@ export function useShortlist(locale: Locale) {
     onSuccess: (data) => queryClient.setQueryData(key, data),
   });
   return { ...query, toggle };
+}
+
+export function useEmployerVacancies() {
+  const employer = useIsEmployer();
+  return useQuery({ queryKey: ['employer', employer?.employerId, 'vacancies'], queryFn: employerApi.vacancies, enabled: Boolean(employer) });
+}
+
+export function useSaveVacancy() {
+  const employer = useIsEmployer();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: string; body: VacancyInput }) => (id ? employerApi.updateVacancy(id, body) : employerApi.createVacancy(body)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer', employer?.employerId, 'vacancies'] }),
+  });
+}
+
+export function useCloseVacancy() {
+  const employer = useIsEmployer();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => employerApi.closeVacancy(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer', employer?.employerId, 'vacancies'] }),
+  });
+}
+
+export function useEmployerPlacements(locale: Locale) {
+  const employer = useIsEmployer();
+  return useQuery({ queryKey: ['employer', employer?.employerId, 'placements', locale], queryFn: () => employerApi.placements(locale), enabled: Boolean(employer) });
+}
+
+export function useEmployerInvoices() {
+  const employer = useIsEmployer();
+  return useQuery({ queryKey: ['employer', employer?.employerId, 'invoices'], queryFn: employerApi.invoices, enabled: Boolean(employer) });
+}
+
+/** Coming back from PayHere, poll until its notification has reached us. */
+export function useEmployerInvoice(id: string, waitingForPayment: boolean) {
+  const employer = useIsEmployer();
+  return useQuery({
+    queryKey: ['employer', employer?.employerId, 'invoice', id],
+    queryFn: () => employerApi.invoice(id),
+    enabled: Boolean(employer && id),
+    refetchInterval: (q) => (waitingForPayment && q.state.data?.status === 'ISSUED' ? 3000 : false),
+  });
+}
+
+export function usePayInvoice(id: string) {
+  return useMutation({ mutationFn: () => employerApi.payInvoice(id) });
 }

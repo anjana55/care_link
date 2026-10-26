@@ -12,6 +12,8 @@ import { rememberReturnTo } from '@/lib/return-to';
 
 const SECTIONS = [
   { href: '/employer', key: 'employer.nav.overview' },
+  { href: '/employer/vacancies', key: 'employer.nav.vacancies' },
+  { href: '/employer/placements', key: 'employer.nav.placements' },
   { href: '/employer/shortlist', key: 'employer.nav.shortlist' },
   { href: '/international#talent', key: 'employer.nav.browse' },
   { href: '/employer/enquiries/new', key: 'employer.nav.newEnquiry' },
@@ -46,8 +48,8 @@ export default function EmployerAreaLayout({ children }: { children: React.React
   }
 
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="border-b border-border bg-white">
+    <div className="min-h-screen bg-paper print:bg-white">
+      <header className="border-b border-border bg-white print:hidden">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <Link href="/" className="min-w-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
             <BrandMark />
@@ -69,7 +71,7 @@ export default function EmployerAreaLayout({ children }: { children: React.React
         </div>
         <nav aria-label={t('employer.nav.label')} className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4">
           {SECTIONS.map((section) => {
-            const active = pathname === section.href;
+            const active = section.href === '/employer' ? pathname === section.href : Boolean(pathname?.startsWith(section.href)) || (section.href === '/employer/placements' && Boolean(pathname?.startsWith('/employer/invoices')));
             return (
               <Link
                 key={section.href}
@@ -85,7 +87,7 @@ export default function EmployerAreaLayout({ children }: { children: React.React
           })}
         </nav>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 py-6 print:max-w-none print:p-0">{children}</main>
     </div>
   );
 }

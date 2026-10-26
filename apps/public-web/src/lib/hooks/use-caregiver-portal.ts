@@ -73,13 +73,14 @@ export function useUploadDocument() {
   const id = useCaregiverId();
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: ({ file, documentType }: { file: File; documentType: DocumentType }) => {
+    mutationFn: ({ file, documentType, expiresOn }: { file: File; documentType: DocumentType; expiresOn?: string }) => {
       const form = new FormData();
       form.append('documentType', documentType);
+      if (expiresOn) form.append('expiresOn', expiresOn);
       form.append('file', file);
       return api.post<CaregiverDocument>(`${base(id!)}/documents`, form);
     },
-    onSuccess: () => invalidate('documents', 'caregiver'),
+    onSuccess: () => invalidate('documents', 'caregiver', 'dated-documents'),
   });
 }
 

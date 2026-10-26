@@ -43,6 +43,8 @@ export interface CaregiverDocument {
   sizeBytes: number;
   verificationStatus: VerificationStatus;
   verifiedAt: string | null;
+  /** YYYY-MM-DD, when the document stops being valid. */
+  expiresOn: string | null;
   createdAt: string;
 }
 
