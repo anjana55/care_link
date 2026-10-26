@@ -10,9 +10,11 @@ interface ResultsListProps {
   /** Public id of the caregiver drawn on the map, and how to change it. */
   shownOnMap?: string | null;
   onShowOnMap?: (publicId: string | null) => void;
+  /** One card per row, for a narrow side panel rather than the page width. */
+  compact?: boolean;
 }
 
-export function ResultsList({ response, onPageChange, shownOnMap = null, onShowOnMap }: ResultsListProps) {
+export function ResultsList({ response, onPageChange, shownOnMap = null, onShowOnMap, compact = false }: ResultsListProps) {
   const { t } = useTranslation();
   // One call for the whole page of results, and only for a signed-in client:
   // whether each caregiver is saved or already has an open request.
@@ -31,7 +33,7 @@ export function ResultsList({ response, onPageChange, shownOnMap = null, onShowO
         <p className="-mt-2 mb-4 text-xs text-ink/60">{t('results.aiRankedNote')}</p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={compact ? 'grid gap-3' : 'grid gap-4 sm:grid-cols-2'}>
         {response.items.map((item) => (
           <ResultCard
             key={item.publicId}

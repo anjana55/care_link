@@ -4,7 +4,6 @@ import { DEFAULT_BRANDING, type PublicBranding } from '@care-platform/shared';
 import { BrandingProvider } from '@/lib/branding/provider';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
 import { BrandMark } from '@/components/layout/brand-mark';
-import { LandingHero } from '@/components/landing/landing-sections';
 import { useTranslation } from '@/lib/i18n';
 
 /**
@@ -77,12 +76,6 @@ describe('white-label branding on the public site', () => {
 
     renderWith({ ...GOLDEN, logoVersion: 'abc123' }, <BrandMark />);
     expect(screen.getByRole('img', { name: 'Golden Years Care' })).toHaveAttribute('src', '/api/branding/logo?v=abc123');
-  });
-
-  it('counts only the offered languages on the landing page', () => {
-    renderWith({ ...GOLDEN, defaultLocale: 'en' }, <LandingHero />);
-    expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('Languages: EN · සිං')).toBeInTheDocument();
   });
 
   it('paints the page in the configured colours', async () => {

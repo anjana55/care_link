@@ -54,6 +54,9 @@ const MAX_CANDIDATE_POOL = 500;
 
 const NONE = sql`1 = 0`;
 
+/** How long the landing map's caregiver counts are reused before being re-read. */
+const COVERAGE_TTL_MS = 5 * 60 * 1000;
+
 /** Listed in public search: Registered onwards, never Draft, Inactive, Suspended or Rejected. */
 const isPubliclyListed = () => and(isNull(caregivers.deletedAt), inArray(caregivers.status, [...PUBLIC_CAREGIVER_STATUSES]));
 const PUBLIC_STATUS_SET = new Set<string>(PUBLIC_CAREGIVER_STATUSES);
@@ -152,6 +155,8 @@ function approxAgeBand(dateOfBirth: Date): number {
 
 @Injectable()
 export class PublicSearchService {
+  private readonly coverageCache = new Map<Locale, { at: number; points: MapCityPoint[] }>();
+
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly ranking: RankingService,
@@ -374,6 +379,53 @@ export class PublicSearchService {
 
     const ranked = this.ranking.rankAll(rankingInputs, request, { radiusKm: origin?.radiusKm ?? null });
     return { ranked, rows: new Map(rows.map((r) => [r.id, r])), enriched, origin, mapPoints: this.mapPointsOf(enriched) };
+  }
+
+  /**
+   * Where listed caregivers live, as city-level counts - what the landing map
+   * shows before anyone has searched. Same grouping and the same Registered-
+   * and-beyond rule as search results, and counts only: no caregiver ids or
+   * profile fields leave here. Cached briefly, since the landing page is the
+   * busiest page on the site and the answer changes slowly.
+   */
+  async coverage(localeParam?: string): Promise<MapCityPoint[]> {
+    const locale = resolveLocale(localeParam);
+    const cached = this.coverageCache.get(locale);
+    if (cached && Date.now() - cached.at < COVERAGE_TTL_MS) return cached.points;
+
+    const rows = await this.db
+      .select({ cityId: caregivers.cityId, districtId: caregivers.districtId, count: sql<number>`count(*)` })
+      .from(caregivers)
+      .where(isPubliclyListed())
+      .groupBy(caregivers.cityId, caregivers.districtId);
+    const places = await this.geo.all();
+
+    const points = new Map<string, MapCityPoint>();
+    for (const row of rows) {
+      const city = row.cityId ? places.cities.get(row.cityId) : undefined;
+      const district = !city && row.districtId ? places.districts.get(row.districtId) : undefined;
+      const place = city ?? district;
+      if (!place) continue;
+      const key = city ? `c${city.id}` : `d${district!.id}`;
+      const existing = points.get(key);
+      const count = Number(row.count) || 0;
+      if (existing) {
+        existing.count += count;
+        continue;
+      }
+      points.set(key, {
+        key,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        precision: city ? 'city' : 'district',
+        name: localName(place, locale),
+        distanceKm: null,
+        count,
+      });
+    }
+    const result = [...points.values()].sort((a, b) => b.count - a.count);
+    this.coverageCache.set(locale, { at: Date.now(), points: result });
+    return result;
   }
 
   /** The pool grouped by where each caregiver lives, nearest first. Counts only - no caregiver ids leave here. */

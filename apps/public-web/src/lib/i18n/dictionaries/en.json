@@ -17,6 +17,9 @@
     "title": "Find the right caregiver",
     "subtitle": "Tell us what kind of care you need and discover caregivers who match."
   },
+  "finder": {
+    "caregiverPrompt": "Are you a caregiver?"
+  },
   "searchMode": {
     "normal": "Normal Search",
     "ai": "AI Search",
@@ -406,19 +409,7 @@
     "retry": "Try again"
   },
   "landing": {
-    "pill": "Verified caregivers · Sri Lanka",
-    "heroTitle": "Find trusted caregivers. Manage care with confidence.",
-    "heroBody": "One platform for families, caregivers and care teams — search verified professionals by skill, language and location, and run the whole operation from a single staff portal.",
-    "ctaSearch": "Search caregivers",
     "ctaRegister": "Join as a caregiver",
-    "statLocations": "1,800+",
-    "statLocationsLabel": "Locations covered",
-    "statLanguages": "{count}",
-    "statLanguagesLabel": "Languages: {list}",
-    "statVerified": "100%",
-    "statVerifiedLabel": "Staff-verified profiles",
-    "panelTitle": "Care that starts with trust",
-    "panelBody": "Every profile is reviewed by our care team before it appears in search.",
     "apps": {
       "eyebrow": "The platform",
       "title": "Everything in one place",
@@ -1213,7 +1204,11 @@
     "legendOrigin": "Search location",
     "legendOriginDevice": "You",
     "legendCaregivers": "Caregivers living there",
-    "legendServiceArea": "Also works in"
+    "legendServiceArea": "Also works in",
+    "coverageOne": "1 caregiver lives in {place}",
+    "coverageOther": "{count} caregivers live in {place}",
+    "coverageTotalOne": "1 caregiver on the map",
+    "coverageTotalOther": "{count} caregivers across {places} places"
   },
   "careTypes": {
     "HOME_SHIFT": "Care at home (shift basis)",

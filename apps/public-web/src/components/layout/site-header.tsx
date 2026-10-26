@@ -10,10 +10,10 @@ import { cn } from '@/lib/utils';
 
 interface SiteHeaderProps {
   /**
-   * Content width. The finder is a wide search surface, the auth pages are
-   * narrow centred cards - the shell matches whichever is being rendered.
+   * Content width. The finder is a full-width map, the auth pages are narrow
+   * centred cards - the shell matches whichever is being rendered.
    */
-  maxWidth?: 'sm' | '3xl' | '5xl';
+  maxWidth?: 'sm' | '3xl' | '5xl' | 'full';
   /**
    * The landing page at "/" links nowhere useful, so it hides its own back link.
    */
@@ -32,6 +32,8 @@ const WIDTH: Record<NonNullable<SiteHeaderProps['maxWidth']>, string> = {
   sm: 'max-w-sm',
   '3xl': 'max-w-3xl',
   '5xl': 'max-w-5xl',
+  // The map-first finder runs edge to edge, so its header does too.
+  full: 'max-w-none lg:px-6',
 };
 
 /**

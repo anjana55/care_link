@@ -7,7 +7,6 @@ import {
   FolderKanban,
   ShieldCheck,
   Settings,
-  HeartPulse,
   Languages,
   BadgeCheck,
   ArrowRight,
@@ -21,6 +20,9 @@ import { useTranslation } from '@/lib/i18n';
  * at exactly "/", which meant it was a separate codebase from the apps it links
  * into: its own theme, English-only, and unable to reuse the header, footer or
  * language switcher. It is a route now, so the whole site shares one shell.
+ *
+ * The hero is the caregiver finder itself (map first, search floating over
+ * it - see components/search/finder-page.tsx); these are the sections under it.
  */
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
@@ -36,82 +38,6 @@ function SectionHeading({ eyebrow, title, body }: { eyebrow: string; title: stri
       <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink sm:text-3xl">{title}</h2>
       {body && <p className="mx-auto mt-3 max-w-xl text-ink/60">{body}</p>}
     </div>
-  );
-}
-
-const LANGUAGE_TAGS = { en: 'EN', si: 'සිං', ta: 'தமி' } as const;
-
-export function LandingHero() {
-  const { t, availableLocales } = useTranslation();
-  // The languages this deployment offers (Settings > Branding), not a fixed three.
-  const languageVars = { count: availableLocales.length, list: availableLocales.map((l) => LANGUAGE_TAGS[l]).join(' · ') };
-
-  return (
-    <section className="mx-auto grid max-w-5xl items-center gap-10 px-4 py-12 sm:py-20 lg:grid-cols-[1.05fr_.95fr]">
-      <div>
-        <span className="inline-block rounded-full bg-brand-light px-3 py-1 text-xs font-semibold text-brand-dark">
-          {t('landing.pill')}
-        </span>
-
-        <h1 className="mt-5 text-3xl font-bold leading-tight tracking-tight text-ink sm:text-4xl lg:text-5xl">
-          {t('landing.heroTitle')}
-        </h1>
-
-        <p className="mt-4 max-w-lg text-ink/60">{t('landing.heroBody')}</p>
-
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            href="/find"
-            className="inline-flex items-center gap-2 rounded bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-dark"
-          >
-            {t('landing.ctaSearch')}
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
-          {/*
-            "Join as a caregiver" goes straight to the one registration form
-            at /caregiver/signup - no chooser in between. Not /register (the
-            patient/guardian form) and not /staff/register, which put
-            caregivers behind the office-staff area.
-          */}
-          <Link
-            href="/caregiver/signup"
-            className="inline-flex items-center rounded border border-border bg-white px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-brand hover:text-brand"
-          >
-            {t('landing.ctaRegister')}
-          </Link>
-        </div>
-
-        <dl className="mt-10 flex flex-wrap gap-8">
-          {(
-            [
-              ['landing.statLocations', 'landing.statLocationsLabel'],
-              ['landing.statLanguages', 'landing.statLanguagesLabel'],
-              ['landing.statVerified', 'landing.statVerifiedLabel'],
-            ] as const
-          ).map(([value, label]) => (
-            <div key={label}>
-              <dd className="text-2xl font-bold text-brand-dark">{t(value, languageVars)}</dd>
-              <dt className="mt-0.5 text-sm text-ink/60">{t(label, languageVars)}</dt>
-            </div>
-          ))}
-        </dl>
-      </div>
-
-      {/*
-        This panel replaces the dashed "Hero image 1200 x 900 px" placeholder the
-        static page shipped. It carries the same information without looking
-        broken to a visitor, and can be swapped for a real photograph later
-        without changing the surrounding layout.
-      */}
-      <div className="relative overflow-hidden rounded-lg bg-brand-dark">
-        <div className="absolute inset-0 bg-gradient-to-br from-brand via-brand-dark to-accent opacity-90" />
-        <div className="relative flex aspect-[4/3] flex-col items-center justify-center gap-3 p-8 text-center text-white">
-          <HeartPulse className="h-14 w-14" strokeWidth={1.5} aria-hidden />
-          <p className="text-xl font-semibold">{t('landing.panelTitle')}</p>
-          <p className="max-w-xs text-sm text-white/80">{t('landing.panelBody')}</p>
-        </div>
-      </div>
-    </section>
   );
 }
 

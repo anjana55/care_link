@@ -36,7 +36,7 @@ describe('PublicSearchController', () => {
   // No 'locations' entry: the province/district/city routes moved to
   // LocationsController when the reference data became real tables, and are
   // covered by locations.controller.spec.ts instead.
-  it.each(['search', 'findOne', 'skills', 'languages', 'searchConfig'])(
+  it.each(['search', 'findOne', 'skills', 'languages', 'searchConfig', 'coverage'])(
     '%s is marked @Public()',
     (handlerName) => {
       const isPublic = reflector.get<boolean>(IS_PUBLIC_KEY, (controller as any)[handlerName]);

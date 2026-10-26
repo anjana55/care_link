@@ -11,6 +11,18 @@ export function useSearchConfig() {
   });
 }
 
+/**
+ * City-level caregiver counts for the finder's map before anything is
+ * searched. Keyed by locale for the place names (see useLocationTree).
+ */
+export function useCaregiverCoverage(locale: Locale) {
+  return useQuery({
+    queryKey: ['public-coverage', locale],
+    queryFn: () => publicSearchApi.getCoverage(locale),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useMetaSkills() {
   return useQuery({ queryKey: ['meta-skills'], queryFn: publicSearchApi.getSkills, staleTime: 5 * 60 * 1000 });
 }

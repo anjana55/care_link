@@ -16,6 +16,8 @@ interface NormalSearchFormProps {
   initialValues?: SearchRequest;
   /** AI Search reuses this form to show what it understood; it labels the button its own way. */
   submitLabel?: string;
+  /** Sized for a narrow side panel: no extra columns at wide screen widths. */
+  compact?: boolean;
 }
 
 /**
@@ -83,7 +85,7 @@ function ChipToggle({
   );
 }
 
-export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: NormalSearchFormProps) {
+export function NormalSearchForm({ onSubmit, initialValues, submitLabel, compact = false }: NormalSearchFormProps) {
   const { t, locale } = useTranslation();
   const { data: skills = [] } = useMetaSkills();
   const { data: languages = [] } = useMetaLanguages();
@@ -226,7 +228,7 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
         <legend className="text-sm font-semibold text-ink/80">
           {t('normalSearch.careType')} <span aria-hidden="true" className="text-danger">*</span>
         </legend>
-        <div role="radiogroup" aria-required="true" aria-invalid={careTypeError ? true : undefined} className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div role="radiogroup" aria-required="true" aria-invalid={careTypeError ? true : undefined} className={compact ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'}>
           {careTypeValues.map((type) => {
             const active = careType === type;
             return (
@@ -256,7 +258,7 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel }: Norma
       {/* Patient */}
       <fieldset className="space-y-3">
         <legend className="text-sm font-semibold text-ink/80">{t('normalSearch.patientSection')}</legend>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className={compact ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-2 gap-3 sm:grid-cols-3'}>
           <div>
             <Label htmlFor="patient-age" >
               {t('normalSearch.age')}

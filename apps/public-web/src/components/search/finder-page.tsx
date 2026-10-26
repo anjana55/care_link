@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { SearchRequest } from '@care-platform/shared';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
+import { DEFAULT_SEARCH_RADIUS_KM, type MapCityPoint, type SearchOrigin, type SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { LoadingState, EmptyResultsState, ErrorState } from '@/components/common/states';
 import { SearchModeToggle, type SearchMode } from '@/components/search/search-mode-toggle';
 import { NormalSearchForm } from '@/components/search/normal-search-form';
 import { AiSearchPanel } from '@/components/search/ai-search-panel';
 import { ResultsList } from '@/components/results/results-list';
-import { NearbyPanel } from '@/components/results/nearby-panel';
+import { LocationError, NearbyControls, NearbySummary, useNearbyMapLabels } from '@/components/results/nearby-panel';
+import { CaregiverMap } from '@/components/map/caregiver-map';
 import { FindForMeCard } from '@/components/care/find-for-me';
 import {
   HowItWorksSection,
@@ -19,19 +22,18 @@ import {
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { AdSlot } from '@/components/ads/adsense';
-import { useCaregiverSearch, useClientSearchOrigin, useMetaSkills, useSearchConfig } from '@/lib/hooks/use-public-search';
-import { useDeviceLocation } from '@/lib/hooks/use-device-location';
+import {
+  useCaregiverCoverage,
+  useCaregiverSearch,
+  useClientSearchOrigin,
+  useMetaSkills,
+  useSearchConfig,
+} from '@/lib/hooks/use-public-search';
+import { useDeviceLocation, type DeviceLocation } from '@/lib/hooks/use-device-location';
+import { useMediaQuery } from '@/lib/hooks/use-media-query';
 import { useIsClient } from '@/lib/hooks/use-client-care';
 import { loadSearch, rememberSearch } from '@/lib/care-intent';
 
-/**
- * The caregiver finder, served at /find.
- *
- * This was previously written out twice - once in app/find/page.tsx and again,
- * almost identically, in app/page.tsx - and the two copies had already drifted
- * (the brand link was a plain span in one and a link in the other). It is a
- * component now so there is a single definition of the search experience.
- */
 /**
  * Adds the signed-in client's profile city as the fallback origin - used only
  * when the search names no city and the visitor is not using their location.
@@ -43,8 +45,55 @@ export function withProfileOrigin(request: SearchRequest, profileCityId: number 
   return { ...request, origin: { cityId: profileCityId } };
 }
 
-export function FinderPage() {
+/**
+ * Where the visitor said they are, before they searched, carried into the
+ * search they then run. Only fills in what the search left open: a search
+ * that names its own place (the AI understood "Kandy", or the form has a
+ * district) keeps it, and the visitor's position is then only the point
+ * distances are measured from.
+ */
+export function withDeviceOrigin(request: SearchRequest, here: DeviceLocation | null, radiusKm?: number): SearchRequest {
+  if (!here) return request;
+  const hasDevice = typeof request.origin?.latitude === 'number' && typeof request.origin?.longitude === 'number';
+  if (hasDevice) return request;
+  const named = Boolean(request.location?.districtId || request.location?.cityId);
+  return {
+    ...request,
+    ...(named ? {} : { location: { districtId: here.city.districtId, cityId: here.city.cityId } }),
+    ...(radiusKm && !request.radiusKm ? { radiusKm } : {}),
+    origin: { latitude: here.latitude, longitude: here.longitude },
+  };
+}
+
+/** Desktop: the map fills the screen and the search floats over its left edge. */
+const DESKTOP = '(min-width: 1024px)';
+/** Keeps whatever is framed out from under the floating panel (its width plus its gutters). */
+const PANEL_CLEARANCE = { top: 48, right: 48, bottom: 48, left: 440 + 24 + 32 };
+
+interface FinderPageProps {
+  /**
+   * The landing page shows the brand instead of a back link and puts its own
+   * sections under the map; /find keeps the finder's supporting sections.
+   */
+  variant?: 'find' | 'landing';
+  /** Rendered under the map in place of the finder's own supporting sections. */
+  children?: ReactNode;
+}
+
+/**
+ * The caregiver finder - map first.
+ *
+ * Modelled on ride-hailing apps: the map is the page, and the search floats
+ * over it in a panel (a bottom sheet on phones). Before anything is searched
+ * the map already shows where caregivers are, so the first thing a visitor
+ * sees is that there are people near them. Searching (AI or Normal) re-draws
+ * the map around the search location and lists the matches in the panel.
+ *
+ * Served at /find and, with the landing page's sections underneath, at /.
+ */
+export function FinderPage({ variant = 'find', children }: FinderPageProps = {}) {
   const { t, locale } = useTranslation();
+  const isDesktop = useMediaQuery(DESKTOP);
   const { data: config, isLoading: configLoading } = useSearchConfig();
   // null until the visitor (or a restored normal search) picks a mode: AI
   // Search is the default whenever it is switched on, Normal Search otherwise.
@@ -58,9 +107,15 @@ export function FinderPage() {
   const [refineKey, setRefineKey] = useState(0);
   // Set when the visitor changed AI Search's filters by hand, so its chips may no longer tell the whole story.
   const [refined, setRefined] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
+  // "Use my location" pressed before searching: drawn on the map now, used by the next search.
+  const [here, setHere] = useState<DeviceLocation | null>(null);
+  const [previewRadius, setPreviewRadius] = useState<number>(DEFAULT_SEARCH_RADIUS_KM);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const refineRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
   const { data: skills = [] } = useMetaSkills();
+  const { data: coverage = [] } = useCaregiverCoverage(locale);
 
   // Coming back from a profile ("Back to results") should show the same
   // results, not an empty form. Restored after mount - localStorage is not
@@ -78,12 +133,14 @@ export function FinderPage() {
 
   const aiEnabled = Boolean(config?.aiSearchEnabled);
   const mode: SearchMode = aiEnabled ? (chosenMode ?? 'ai') : 'normal';
+  const device = useDeviceLocation(locale);
 
   /**
    * Runs a search and keeps what it says about the care needed, so a sign-up
    * started from these results can be pre-filled instead of asking again.
    */
   function search(next: SearchRequest, aiQuery?: string, options: { refined?: boolean } = {}) {
+    next = withDeviceOrigin(next, here, previewRadius);
     const ids = [...(next.mandatorySkillIds ?? []), ...(next.optionalSkillIds ?? [])];
     const skillNames = [...new Set(ids)].map((id) => skills.find((s) => s.id === id)?.name).filter((n): n is string => Boolean(n));
     rememberSearch({ request: next, aiQuery: aiQuery || undefined, skillNames });
@@ -110,37 +167,41 @@ export function FinderPage() {
   // The caregiver whose home and service area are drawn on the map.
   const [shownOnMap, setShownOnMap] = useState<string | null>(null);
   const highlighted = useMemo(() => data?.items.find((i) => i.publicId === shownOnMap) ?? null, [data, shownOnMap]);
-  const mapRef = useRef<HTMLDivElement>(null);
-  const device = useDeviceLocation(locale);
 
   function showOnMap(publicId: string | null) {
     setShownOnMap(publicId);
-    if (publicId) mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // On desktop the map is always in view beside the panel; on a phone it is above the results.
+    if (publicId && !isDesktop) mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  /** Same search, a different reach. */
+  /** Same search, a different reach - or, before searching, a bigger circle around the visitor. */
   function changeRadius(radiusKm: number) {
-    if (!request) return;
+    if (!request) {
+      setPreviewRadius(radiusKm);
+      return;
+    }
     setShownOnMap(null);
     search({ ...request, radiusKm, page: 1 }, aiQuery, { refined: refined });
   }
 
   /**
-   * "Use my location": searches around where the visitor is. The district and
-   * city become the ones they are in (so the form, the AI chips and a
-   * sign-up started from these results all agree), and the exact point is
-   * the origin distances are measured from.
+   * "Use my location". With results on screen it searches again around where
+   * the visitor is: the district and city become the ones they are in (so the
+   * form, the AI chips and a sign-up started from these results all agree),
+   * and the exact point is the origin distances are measured from. Before a
+   * search it centres the map on them and the next search starts from there.
    */
   async function locateMe() {
+    const found = await device.locate();
+    if (!found) return;
+    setHere(found);
     if (!request) return;
-    const here = await device.locate();
-    if (!here) return;
     setShownOnMap(null);
     search(
       {
         ...request,
-        location: { districtId: here.city.districtId, cityId: here.city.cityId },
-        origin: { latitude: here.latitude, longitude: here.longitude },
+        location: { districtId: found.city.districtId, cityId: found.city.cityId },
+        origin: { latitude: found.latitude, longitude: found.longitude },
         page: 1,
       },
       aiQuery,
@@ -154,10 +215,12 @@ export function FinderPage() {
     rememberSearch({ ...(remembered ?? {}), request: next });
     setShownOnMap(null);
     setRequest(next);
+    resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function scrollToSearch() {
-    searchRef.current?.scrollIntoView({ behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    panelRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function scrollToRefine() {
@@ -168,94 +231,163 @@ export function FinderPage() {
   // AI Search puts the caregivers first: the conversation, then the matches,
   // then the full filter form for anyone who wants to fine-tune.
   const showRefine = showAi && request !== null;
+  const hasResults = !isLoading && !isError && Boolean(data);
+
+  // What the map draws. Results win once there are some; until then, where
+  // caregivers are, around the visitor if they have said where that is.
+  const previewOrigin: SearchOrigin | null = useMemo(
+    () => (here ? { latitude: here.latitude, longitude: here.longitude, source: 'device', label: here.city.name, radiusKm: previewRadius } : null),
+    [here, previewRadius],
+  );
+  const mapOrigin = data ? (data.origin ?? null) : previewOrigin;
+  const mapPoints: MapCityPoint[] = useMemo(() => (data ? (data.mapPoints ?? []) : coverage), [data, coverage]);
+  const highlight = useMemo(
+    () => (highlighted ? { home: highlighted.homeLocation, serviceArea: highlighted.serviceArea } : null),
+    [highlighted],
+  );
+  const mapLabels = useNearbyMapLabels(mapOrigin);
+  const coverageTotal = coverage.reduce((sum, p) => sum + p.count, 0);
 
   return (
     <div className="flex min-h-screen flex-col">
-      <SiteHeader />
+      <SiteHeader maxWidth="full" showBackLink={variant !== 'landing'} />
 
       <main className="flex-1">
-        {/* Hero + search - dominates the first screen, per the one-page finder principle */}
-        <section className="mx-auto max-w-5xl px-4 pt-10 pb-6 text-center sm:pt-16">
-          <h1 className="text-3xl font-bold text-ink sm:text-4xl">{t('hero.title')}</h1>
-          <p className="mx-auto mt-3 max-w-xl text-ink/60">{t('hero.subtitle')}</p>
-        </section>
+        <section className="relative lg:h-[calc(100dvh-3.6rem)] lg:min-h-[600px]">
+          {/* The map: the top of the page on a phone, the whole of it on desktop. */}
+          <div ref={mapRef} className="relative h-[45vh] min-h-[300px] scroll-mt-16 lg:absolute lg:inset-0 lg:h-auto">
+            <CaregiverMap
+              className="relative h-full w-full bg-paper"
+              origin={mapOrigin}
+              points={mapPoints}
+              highlight={highlight}
+              labels={mapLabels}
+              locale={locale}
+              padding={isDesktop ? PANEL_CLEARANCE : { top: 64, right: 24, bottom: 40, left: 24 }}
+              gestures={isDesktop ? 'free' : 'cooperative'}
+              legend="overlay"
+            />
+            <NearbyControls
+              className="absolute left-3 top-3 z-[2] lg:left-[calc(440px+3rem)] lg:top-6"
+              origin={mapOrigin}
+              onUseMyLocation={locateMe}
+              locating={device.locating}
+              onRadiusChange={mapOrigin ? changeRadius : undefined}
+            />
+          </div>
 
-        <section ref={searchRef} className="mx-auto max-w-3xl px-4 pb-10">
-          {configLoading ? (
-            // Wait for the config rather than flash the Normal Search form and then swap it for AI Search.
-            <div className="h-64 animate-pulse rounded-lg border border-border bg-white" aria-hidden />
-          ) : (
-            <>
-              <div className="mb-5 flex justify-center">
-                <SearchModeToggle mode={mode} onChange={setChosenMode} aiEnabled={aiEnabled} />
-              </div>
+          {/* The search: a sheet over the bottom of the map on a phone, a floating panel on desktop. */}
+          <div
+            ref={panelRef}
+            className="relative z-10 -mt-6 rounded-t-3xl bg-white px-4 pb-8 pt-3 shadow-[0_-10px_30px_-12px_rgba(0,0,0,0.25)] lg:absolute lg:left-6 lg:top-6 lg:mt-0 lg:max-h-[calc(100%-3rem)] lg:w-[440px] lg:overflow-y-auto lg:overscroll-contain lg:rounded-2xl lg:px-6 lg:pb-6 lg:pt-6 lg:shadow-2xl"
+          >
+            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-border lg:hidden" aria-hidden />
 
-              <div className="rounded-lg border border-border bg-white p-5 sm:p-8">
-                {showAi ? (
-                  <AiSearchPanel
-                    key={formKey}
-                    onSearch={(next, query) => search(next, query)}
-                    onUseNormalSearch={() => setChosenMode('normal')}
-                    onAdjustFilters={scrollToRefine}
-                    onReset={clearSearch}
-                    refined={refined}
-                    initialQuery={aiQuery}
-                    initialRequest={aiQuery && request ? request : undefined}
-                  />
-                ) : (
-                  <NormalSearchForm key={formKey} onSubmit={(next) => search(next)} initialValues={formKey > 0 && request ? request : undefined} />
-                )}
-              </div>
-            </>
-          )}
+            <h1 className="text-2xl font-bold tracking-tight text-ink">{t('hero.title')}</h1>
+            <p className="mt-1 text-sm text-ink/60">{t('hero.subtitle')}</p>
+            {!data && coverageTotal > 0 && (
+              <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-brand-light px-3 py-1 text-xs font-semibold text-brand-dark">
+                <span className="h-2 w-2 rounded-full bg-brand" aria-hidden />
+                {coverageTotal === 1 ? t('map.coverageTotalOne') : t('map.coverageTotalOther', { count: coverageTotal, places: coverage.length })}
+              </p>
+            )}
 
-          <div className="mt-8">
-            {isLoading && <LoadingState label={t('loading.searching')} />}
-            {isError && <ErrorState onRetry={() => refetch()} />}
-            {!isLoading && !isError && data && (
-              <div ref={mapRef} className="scroll-mt-20">
-                <NearbyPanel
-                  response={data}
-                  highlighted={highlighted}
-                  onRadiusChange={changeRadius}
-                  onUseMyLocation={locateMe}
-                  locating={device.locating}
-                  locationError={device.error}
+            <div className="mt-5">
+              {configLoading ? (
+                // Wait for the config rather than flash the Normal Search form and then swap it for AI Search.
+                <div className="h-56 animate-pulse rounded-lg bg-paper" aria-hidden />
+              ) : (
+                <>
+                  <SearchModeToggle mode={mode} onChange={setChosenMode} aiEnabled={aiEnabled} fullWidth />
+                  <div className="mt-4">
+                    {showAi ? (
+                      <AiSearchPanel
+                        key={formKey}
+                        onSearch={(next, query) => search(next, query)}
+                        onUseNormalSearch={() => setChosenMode('normal')}
+                        onAdjustFilters={scrollToRefine}
+                        onReset={clearSearch}
+                        refined={refined}
+                        initialQuery={aiQuery}
+                        initialRequest={aiQuery && request ? request : undefined}
+                      />
+                    ) : (
+                      <NormalSearchForm
+                        key={formKey}
+                        compact
+                        onSubmit={(next) => search(next)}
+                        initialValues={formKey > 0 && request ? request : undefined}
+                      />
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {!data && device.error && <LocationError error={device.error} />}
+
+            <div ref={resultsRef} className="scroll-mt-20">
+              {isLoading && (
+                <div className="mt-6">
+                  <LoadingState label={t('loading.searching')} />
+                </div>
+              )}
+              {isError && (
+                <div className="mt-6">
+                  <ErrorState onRetry={() => refetch()} />
+                </div>
+              )}
+              {hasResults && data && (
+                <div className="mt-6 space-y-4 border-t border-border pt-5">
+                  <NearbySummary response={data} onRadiusChange={changeRadius} locationError={device.error} />
+                  {data.items.length === 0 && <EmptyResultsState onClear={clearSearch} />}
+                  {data.items.length > 0 && (
+                    <ResultsList compact response={data} onPageChange={goToPage} shownOnMap={shownOnMap} onShowOnMap={showOnMap} />
+                  )}
+                  {/* Nobody suitable on screen? Our team can look for them. */}
+                  <FindForMeCard prominent={data.total < 3} />
+                  {data.items.length > 0 && <AdSlot placement="search" className="px-0" />}
+                </div>
+              )}
+            </div>
+
+            {showRefine && request && (
+              <div ref={refineRef} className="mt-8 scroll-mt-6 border-t border-border pt-5">
+                <h2 className="text-lg font-semibold text-ink">{t('aiSearch.refineTitle')}</h2>
+                <p className="mb-5 mt-1 text-sm text-ink/60">{t('aiSearch.refineHint')}</p>
+                <NormalSearchForm
+                  key={refineKey}
+                  compact
+                  initialValues={{ ...request, page: 1 }}
+                  submitLabel={t('aiSearch.updateResults')}
+                  onSubmit={(next) => {
+                    search(next, aiQuery, { refined: true });
+                    resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
                 />
               </div>
             )}
-            {!isLoading && !isError && data && data.items.length === 0 && <EmptyResultsState onClear={clearSearch} />}
-            {!isLoading && !isError && data && data.items.length > 0 && (
-              <ResultsList response={data} onPageChange={goToPage} shownOnMap={shownOnMap} onShowOnMap={showOnMap} />
-            )}
-            {/* Nobody suitable on screen? Our team can look for them. */}
-            {!isLoading && !isError && data && <FindForMeCard prominent={data.total < 3} />}
+
+            {/* Caregivers land here too: the way in for them stays one tap away. */}
+            <p className="mt-8 border-t border-border pt-4 text-sm text-ink/60">
+              {t('finder.caregiverPrompt')}{' '}
+              <Link href="/caregiver/signup" className="inline-flex items-center gap-1 font-semibold text-brand hover:text-brand-dark">
+                {t('landing.ctaRegister')}
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+              </Link>
+            </p>
           </div>
-
-          {!isLoading && !isError && data && data.items.length > 0 && <AdSlot placement="search" className="mt-8 px-0" />}
-
-          {showRefine && request && (
-            <div ref={refineRef} className="mt-10 scroll-mt-6 rounded-lg border border-border bg-white p-5 sm:p-8">
-              <h2 className="text-lg font-semibold text-ink">{t('aiSearch.refineTitle')}</h2>
-              <p className="mb-5 mt-1 text-sm text-ink/60">{t('aiSearch.refineHint')}</p>
-              <NormalSearchForm
-                key={refineKey}
-                initialValues={{ ...request, page: 1 }}
-                submitLabel={t('aiSearch.updateResults')}
-                onSubmit={(next) => {
-                  search(next, aiQuery, { refined: true });
-                  scrollToSearch();
-                }}
-              />
-            </div>
-          )}
         </section>
 
-        {/* Concise supporting sections - deliberately kept short so search stays central */}
-        <HowItWorksSection />
-        <TrustSection />
-        <MultilingualSection />
-        <CallToActionSection onStart={scrollToSearch} />
+        {children ?? (
+          <>
+            {/* Concise supporting sections - deliberately kept short so search stays central */}
+            <HowItWorksSection />
+            <TrustSection />
+            <MultilingualSection />
+            <CallToActionSection onStart={scrollToSearch} />
+          </>
+        )}
       </main>
 
       <SiteFooter />

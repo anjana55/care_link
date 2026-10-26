@@ -6,15 +6,28 @@
  */
 type Handler = () => void;
 
+/** Every map created, newest last - so a test can inspect the one a component made. */
+export const stubMaps: Map[] = [];
+
 export class Map {
   private handlers: Record<string, Handler[]> = {};
   private sources: Record<string, { data: unknown; setData: (d: unknown) => void }> = {};
   readonly container: HTMLElement;
-  /** The last bounds the map was framed to - for assertions. */
+  /** The last bounds the map was framed to, and how - for assertions. */
   lastBounds: unknown = null;
+  lastFitOptions: unknown = null;
+  /** Mirrors MapLibre's handler: on when created with `cooperativeGestures: true`. */
+  readonly cooperativeGestures = {
+    enabled: false,
+    enable: () => void (this.cooperativeGestures.enabled = true),
+    disable: () => void (this.cooperativeGestures.enabled = false),
+    isEnabled: () => this.cooperativeGestures.enabled,
+  };
 
-  constructor(options: { container: HTMLElement }) {
+  constructor(options: { container: HTMLElement; cooperativeGestures?: boolean }) {
     this.container = options.container;
+    this.cooperativeGestures.enabled = Boolean(options.cooperativeGestures);
+    stubMaps.push(this);
     setTimeout(() => this.handlers.load?.forEach((h) => h()), 0);
   }
   on(event: string, handler: Handler) {
@@ -42,8 +55,9 @@ export class Map {
   isStyleLoaded() {
     return true;
   }
-  fitBounds(bounds: unknown) {
+  fitBounds(bounds: unknown, options?: unknown) {
     this.lastBounds = bounds;
+    this.lastFitOptions = options ?? null;
     return this;
   }
   remove() {}
