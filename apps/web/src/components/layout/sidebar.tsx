@@ -49,7 +49,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { data: summary } = useCareRequestSummary(canSeeClients);
   const { data: ai } = useAiStatus(canSeeClients);
   const { data: overseas } = useInternationalSummary(canSeeClients);
-  const overseasWaiting = overseas ? overseas.new + overseas.pendingProfiles : 0;
+  const overseasWaiting = overseas ? overseas.new + overseas.pendingProfiles + overseas.pendingEmployers + overseas.interviewRequests : 0;
   // Requests lead for the roles that work them: it is the day's worklist.
   // Clients sit straight after Caregivers, the list they mirror.
   const base = canSeeClients

@@ -24,7 +24,7 @@ export interface VerificationEmailContent {
  */
 export function verificationEmail(params: {
   verificationUrl: string;
-  audience: 'CAREGIVER' | 'PATIENT_GUARDIAN';
+  audience: 'CAREGIVER' | 'PATIENT_GUARDIAN' | 'EMPLOYER';
   expiresInHours: number;
   brand?: EmailBrand;
 }): VerificationEmailContent {
@@ -35,7 +35,9 @@ export function verificationEmail(params: {
   const intro =
     audience === 'CAREGIVER'
       ? `Thanks for registering as a caregiver on ${NAME}.`
-      : `Thanks for registering on ${NAME} to find a caregiver for your family.`;
+      : audience === 'EMPLOYER'
+        ? `Thanks for registering your organisation on ${NAME} to hire caregivers from Sri Lanka.`
+        : `Thanks for registering on ${NAME} to find a caregiver for your family.`;
 
   const subject = `Verify your ${NAME} email address`;
 

@@ -976,6 +976,44 @@
         "withdraw": "Withdraw my consent and delete my photo",
         "withdrawConfirm": "This takes your profile offline, deletes your photo and removes your consent. Continue?",
         "withdrawnNotice": "Consent withdrawn. Your profile is offline and your photo has been deleted."
+      },
+      "checklist": {
+        "title": "Ready to work abroad?",
+        "progress": "{done} of {total} done",
+        "done": "done",
+        "todo": "not done yet",
+        "note": "These are general steps, not for any one country. Our team checks each one.",
+        "items": {
+          "registrationVerified": "Your registration is verified",
+          "openToOverseas": "You told us where you would like to work",
+          "passportValid": "Passport valid for at least 6 months after you could start",
+          "policeClearance": "Police clearance verified",
+          "english": "English course completed, or fluent English",
+          "caregiving": "Caregiving course or a verified qualification",
+          "sharedProfile": "Your profile is shared with employers"
+        },
+        "hints": {
+          "registrationVerified": "Upload your documents",
+          "openToOverseas": "Add your countries below",
+          "passportValid": "Add your passport details below",
+          "policeClearance": "Upload your police clearance",
+          "english": "Join the English course",
+          "caregiving": "Join the caregiving course",
+          "sharedProfile": "Share your profile below"
+        }
+      },
+      "interest": {
+        "title": "Employers interested in you",
+        "intro": "Our team will call you before anything is arranged. We never give employers your phone number or address.",
+        "who": "{type} in {country}",
+        "status": {
+          "PROPOSED": "Our team suggested you",
+          "INTERVIEW_REQUESTED": "The employer would like to interview you",
+          "INTERVIEW_SCHEDULED": "Interview arranged",
+          "SELECTED": "The employer would like to hire you",
+          "PLACED": "Started work",
+          "NOT_PROCEEDING": "Not proceeding"
+        }
       }
     }
   },
@@ -1349,7 +1387,12 @@
       "anyCountry": "Any country",
       "empty": "No shared profiles match yet. Send us an enquiry and our team will find caregivers for you.",
       "previous": "Previous",
-      "next": "Next"
+      "next": "Next",
+      "filterLanguage": "Speaks",
+      "anyLanguage": "Any language",
+      "filterTraining": "Completed training",
+      "anyTraining": "Any",
+      "verifiedOnly": "Verified only"
     },
     "form": {
       "title": "Tell us what you need",
@@ -1415,7 +1458,13 @@
       "languagesA": "Each profile lists the caregiver's languages and their level. Many have taken our English course. Tell us what you need and we will match on it."
     },
     "caregiverPrompt": "Are you a caregiver hoping to work abroad?",
-    "caregiverLink": "See how we can help"
+    "caregiverLink": "See how we can help",
+    "account": {
+      "prompt": "Hiring regularly?",
+      "create": "Create an employer account",
+      "open": "Go to your employer account →",
+      "signedIn": "You are signed in as an employer - send this from your account so you can follow it there:"
+    }
   },
   "talent": {
     "back": "Back to caregivers",
@@ -1439,7 +1488,15 @@
     },
     "skills": "Skills",
     "qualifications": "Qualifications",
-    "privacyNote": "The caregiver chose to share this profile and our team reviewed it. Contact details are never shown - ask about them and we will introduce you."
+    "privacyNote": "The caregiver chose to share this profile and our team reviewed it. Contact details are never shown - ask about them and we will introduce you.",
+    "card": {
+      "download": "Download PDF",
+      "back": "Back to profile",
+      "print": "Print or save as PDF",
+      "title": "Caregiver profile",
+      "askTitle": "To ask about this caregiver, contact {brand}:",
+      "footer": "Shared by the caregiver with their consent and reviewed by {brand}. Contact details are never shared - {brand} arranges all introductions. Printed {date}."
+    }
   },
   "workAbroad": {
     "pill": "For caregivers",
@@ -1492,6 +1549,121 @@
     "privacy": {
       "title": "What employers see",
       "body": "Only what you choose to share: your first name, a photo, a short introduction, and the skills, languages and training our team has checked. Never your surname, phone number, address, NIC or passport number."
+    }
+  },
+  "employer": {
+    "backToHire": "Hire from Sri Lanka",
+    "login": {
+      "title": "Employer sign in",
+      "subtitle": "For agencies, care homes, hospitals and families abroad.",
+      "noAccount": "No employer account yet?",
+      "register": "Create one"
+    },
+    "register": {
+      "title": "Create an employer account",
+      "subtitle": "Follow your enquiries, keep a shortlist of caregivers, and ask for interviews once we have verified your organisation.",
+      "organisation": "Your organisation",
+      "country": "Country",
+      "registrationNumber": "Registration or licence number",
+      "you": "You",
+      "passwordShort": "Use at least 8 characters.",
+      "consent": "I agree to the terms of use and to my organisation's details being used to verify it and to find caregivers for us.",
+      "consentRequired": "Please tick this to create the account.",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?",
+      "doneTitle": "Check your email",
+      "doneBody": "We have sent a link to {email}. Open it to confirm your address - then our team will verify your organisation.",
+      "howTitle": "How it works",
+      "how1": "Confirm your email address.",
+      "how2": "Our team verifies your organisation - usually within two working days.",
+      "how3": "Browse shared profiles, keep a shortlist and send enquiries.",
+      "how4": "Ask to interview caregivers. We arrange every introduction.",
+      "feeNote": "Free to sign up. You pay a placement fee only when a caregiver you hire starts work."
+    },
+    "nav": {
+      "label": "Your employer account",
+      "overview": "Overview",
+      "shortlist": "Shortlist",
+      "browse": "Browse caregivers",
+      "newEnquiry": "New enquiry",
+      "account": "Account"
+    },
+    "status": {
+      "VERIFIED": "Your organisation is verified",
+      "VERIFIEDHint": "You can ask to interview caregivers and select them for your roles.",
+      "PENDING_REVIEW": "Waiting for verification",
+      "PENDING_REVIEWHint": "Our team is checking your organisation. Meanwhile you can browse profiles, keep a shortlist and send enquiries.",
+      "REJECTED": "We could not verify your organisation",
+      "REJECTEDHint": "Please check your details. We will look again once you update them.",
+      "SUSPENDED": "Your account is suspended",
+      "SUSPENDEDHint": "Please contact our team.",
+      "note": "Our team says:",
+      "updateDetails": "Update your details"
+    },
+    "candidate": {
+      "PROPOSED": "Put forward by our team",
+      "INTERVIEW_REQUESTED": "Interview requested",
+      "INTERVIEW_SCHEDULED": "Interview arranged",
+      "SELECTED": "Selected",
+      "PLACED": "Started work",
+      "NOT_PROCEEDING": "Not proceeding"
+    },
+    "enquiryStatus": {
+      "NEW": "Received",
+      "IN_PROGRESS": "In progress",
+      "INTRODUCED": "Candidates put forward",
+      "PLACED": "Placed",
+      "CLOSED": "Closed"
+    },
+    "overview": {
+      "title": "{name}",
+      "intro": "Your enquiries and the caregivers on them. Our team arranges every interview and introduction.",
+      "empty": "You have no enquiries yet.",
+      "emptyCta": "Tell us what you need",
+      "summary": "{country} · caregivers needed: {count}",
+      "roles": "caregivers needed: {count}",
+      "sent": "Sent {date}",
+      "noCandidates": "Our team is shortlisting caregivers for this enquiry. You can also ask about anyone from their shared profile.",
+      "noLongerAvailable": "This caregiver is no longer available.",
+      "interviewAt": "Interview: {when}",
+      "fromOurTeam": "From our team:",
+      "messageLabel": "A note for our team",
+      "messagePlaceholder": "Optional note for our team, e.g. preferred interview times",
+      "requestInterview": "Ask for an interview",
+      "select": "I'd like to hire",
+      "decline": "Not for us",
+      "declineConfirm": "Remove this caregiver from the enquiry?",
+      "declineYes": "Yes, remove",
+      "declineNo": "Keep",
+      "verifyFirst": "You can do this once our team has verified your organisation."
+    },
+    "shortlist": {
+      "title": "Shortlist",
+      "intro": "Caregivers you saved. Anyone who stops sharing their profile drops out of this list.",
+      "empty": "You have not saved anyone yet.",
+      "save": "Save to shortlist",
+      "saved": "On your shortlist",
+      "remove": "Remove {name} from your shortlist"
+    },
+    "request": {
+      "title": "Ask to interview {name}",
+      "forEnquiry": "For enquiry",
+      "already": "You have already asked about this caregiver on this enquiry.",
+      "hint": "Our team will contact the caregiver and arrange the interview with you.",
+      "sent": "Thank you - we will arrange an interview with {name} and let you know.",
+      "notVerified": "You can ask for interviews once our team has verified your organisation.",
+      "noEnquiry": "Send an enquiry first, so we know which role this is for."
+    },
+    "newEnquiry": {
+      "title": "New enquiry",
+      "intro": "Tell us about the roles. Your organisation and contact details come from your account ({organisation}).",
+      "sameCountry": "{country} (your organisation's country)",
+      "sentBody": "Your reference is {reference}. You can follow it on your overview."
+    },
+    "account": {
+      "title": "Account",
+      "locked": "Your organisation has been verified, so its name, type and country can only be changed by our team.",
+      "email": "Signed in as {email}"
     }
   }
 }

@@ -5,11 +5,12 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomUUID as uuid } from 'crypto';
 import { and, eq, gt } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { refreshTokens, users, caregivers, patients, emailVerificationTokens, type UserRole } from '../database/schema';
+import { refreshTokens, users, caregivers, patients, employers, emailVerificationTokens, type UserRole } from '../database/schema';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { RegisterCaregiverDto } from './dto/register-caregiver.dto';
 import { canUsePortal, WrongPortalException, type LoginPortal } from '../common/auth/login-portal';
 import { RegisterPatientDto } from './dto/register-patient.dto';
+import { RegisterEmployerDto } from './dto/register-employer.dto';
 import {
   generateRegistrationNumber,
   assertUniqueContactFields,
@@ -25,7 +26,7 @@ import { buildPatientIntake } from '../clients/patient-profile.util';
 // Self-registering roles must verify their email before their first login;
 // staff/admin/verifier accounts are created by an already-authenticated admin
 // and are auto-verified at creation (see UsersService.create).
-const SELF_REGISTERED_ROLES: UserRole[] = ['CAREGIVER', 'PATIENT_GUARDIAN'];
+const SELF_REGISTERED_ROLES: UserRole[] = ['CAREGIVER', 'PATIENT_GUARDIAN', 'EMPLOYER'];
 
 const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -224,6 +225,64 @@ export class AuthService {
   }
 
   /**
+   * An overseas employer signing up: the login (role EMPLOYER, unverified
+   * email) and its organisation (status PENDING_REVIEW) together, then the
+   * same verification email as everyone else. Staff verify the organisation
+   * separately before it can ask for interviews.
+   */
+  async registerEmployer(dto: RegisterEmployerDto) {
+    const email = dto.email.toLowerCase();
+    const [existingUser] = await this.db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+    if (existingUser) {
+      throw new ConflictException('An account with this email already exists');
+    }
+
+    const verificationToken = randomBytes(32).toString('hex');
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const result = await this.db.transaction(async (tx) => {
+      const userId = uuid();
+      await tx.insert(users).values({
+        id: userId,
+        email,
+        passwordHash,
+        fullName: dto.contactName,
+        role: 'EMPLOYER',
+        isActive: true,
+        emailVerifiedAt: null,
+      });
+      const employerId = uuid();
+      await tx.insert(employers).values({
+        id: employerId,
+        userId,
+        organisationName: dto.organisationName,
+        organisationType: dto.organisationType,
+        country: dto.country,
+        contactName: dto.contactName,
+        phone: dto.phone ?? null,
+        website: dto.website ?? null,
+        companyRegistrationNumber: dto.companyRegistrationNumber ?? null,
+        consentAcceptedAt: new Date(),
+      });
+      await tx.insert(emailVerificationTokens).values({
+        id: uuid(),
+        userId,
+        tokenHash: this.hashToken(verificationToken),
+        expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
+      });
+      return { employerId };
+    });
+
+    const verificationUrl = `${this.frontendUrl('EMPLOYER')}/verify-email?token=${verificationToken}`;
+    void this.emailService.sendVerificationEmail(email, verificationUrl, 'EMPLOYER');
+
+    return {
+      employerId: result.employerId,
+      message: 'Registration successful. Please check your email to verify your account before logging in.',
+      ...(this.config.get<string>('NODE_ENV') !== 'production' ? { devVerificationUrl: verificationUrl } : {}),
+    };
+  }
+
+  /**
    * An email sign-up whose phone number is already a WhatsApp login belongs to
    * someone who has an account - point them at WhatsApp rather than creating a
    * second identity for the same number.
@@ -302,7 +361,7 @@ export class AuthService {
       tokenHash: this.hashToken(token),
       expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
     });
-    void this.emailService.sendVerificationEmail(user.email, `${this.frontendUrl(user.role)}/verify-email?token=${token}`, user.role as 'CAREGIVER' | 'PATIENT_GUARDIAN');
+    void this.emailService.sendVerificationEmail(user.email, `${this.frontendUrl(user.role)}/verify-email?token=${token}`, user.role as 'CAREGIVER' | 'PATIENT_GUARDIAN' | 'EMPLOYER');
     return true;
   }
 
@@ -349,8 +408,8 @@ export class AuthService {
     // Rotate: revoke the used token, issue a new pair.
     await this.db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.id, stored.id));
 
-    // caregiverId/patientId never change once assigned, so they're carried
-    // over from the token being rotated rather than re-queried.
+    // caregiverId/patientId/employerId never change once assigned, so they're
+    // carried over from the token being rotated rather than re-queried.
     return this.issueTokens({
       sub: payload.sub,
       email: account.email,
@@ -358,6 +417,7 @@ export class AuthService {
       role: account.role,
       caregiverId: payload.caregiverId,
       patientId: payload.patientId,
+      employerId: payload.employerId,
     });
   }
 
@@ -407,6 +467,10 @@ export class AuthService {
     if (user.role === 'PATIENT_GUARDIAN') {
       const [patient] = await this.db.select({ id: patients.id }).from(patients).where(eq(patients.userId, user.id)).limit(1);
       if (patient) payload.patientId = patient.id;
+    }
+    if (user.role === 'EMPLOYER') {
+      const [employer] = await this.db.select({ id: employers.id }).from(employers).where(eq(employers.userId, user.id)).limit(1);
+      if (employer) payload.employerId = employer.id;
     }
     return payload;
   }

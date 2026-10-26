@@ -15,6 +15,7 @@ export interface JwtPayload {
   role: UserRole;
   caregiverId?: string;
   patientId?: string;
+  employerId?: string;
 }
 
 @Injectable()
@@ -50,6 +51,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       role: user.role,
       caregiverId: payload.caregiverId,
       patientId: payload.patientId,
+      employerId: payload.employerId,
     };
   }
 }

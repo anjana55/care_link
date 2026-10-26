@@ -20,7 +20,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
-import type { InternationalSummary } from '@care-platform/shared';
+import type { InternationalSummary, OverseasStaffSummary } from '@care-platform/shared';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CaregiverScope } from '../common/decorators/caregiver-scope.decorator';
@@ -30,10 +30,18 @@ import { EmployerEnquiriesService } from './employer-enquiries.service';
 import { OverseasReadinessService } from './overseas-readiness.service';
 import { SharedProfilesService } from './shared-profiles.service';
 import { TrainingService } from './training.service';
+import { ReadinessService } from './readiness.service';
+import { CandidatesService } from './candidates.service';
+import { EmployersService } from './employers.service';
 import { MAX_PHOTO_UPLOAD_BYTES } from './profile-photo';
 import {
   CreateEmployerEnquiryDto,
   EmployerEnquiryQueryDto,
+  EmployerQueryDto,
+  ProposeCandidateDto,
+  ReviewEmployerDto,
+  TalentPoolQueryDto,
+  UpdateCandidateDto,
   ReviewSharedProfileDto,
   ShareProfileDto,
   SharedProfileQueryDto,
@@ -127,7 +135,23 @@ export class CaregiverInternationalController {
     private readonly readiness: OverseasReadinessService,
     private readonly sharedProfiles: SharedProfilesService,
     private readonly training: TrainingService,
+    private readonly checklist: ReadinessService,
+    private readonly candidates: CandidatesService,
   ) {}
+
+  /** How ready the caregiver is to work abroad, item by item. */
+  @Get('overseas/checklist')
+  @CaregiverScope()
+  getChecklist(@Param('caregiverId', ParseUUIDPipe) caregiverId: string) {
+    return this.checklist.forCaregiver(caregiverId);
+  }
+
+  /** Employers interested in this caregiver - the country and kind of employer only. */
+  @Get('overseas/interest')
+  @CaregiverScope()
+  getInterest(@Param('caregiverId', ParseUUIDPipe) caregiverId: string) {
+    return this.candidates.interestFor(caregiverId);
+  }
 
   @Get('overseas')
   @CaregiverScope()
@@ -241,6 +265,9 @@ export class StaffInternationalController {
     private readonly enquiries: EmployerEnquiriesService,
     private readonly sharedProfiles: SharedProfilesService,
     private readonly training: TrainingService,
+    private readonly employers: EmployersService,
+    private readonly candidates: CandidatesService,
+    private readonly readiness: ReadinessService,
   ) {}
 
   @Get('enquiries')
@@ -249,9 +276,52 @@ export class StaffInternationalController {
   }
 
   @Get('enquiries/summary')
-  async summary() {
-    const [enquiries, pendingProfiles] = await Promise.all([this.enquiries.summary(), this.sharedProfiles.pendingCount()]);
-    return { ...enquiries, pendingProfiles };
+  async summary(): Promise<OverseasStaffSummary> {
+    const [enquiries, pendingProfiles, pendingEmployers, interviewRequests] = await Promise.all([
+      this.enquiries.summary(),
+      this.sharedProfiles.pendingCount(),
+      this.employers.pendingCount(),
+      this.candidates.interviewRequestCount(),
+    ]);
+    return { ...enquiries, pendingProfiles, pendingEmployers, interviewRequests };
+  }
+
+  @Get('enquiries/:id/candidates')
+  candidatesFor(@Param('id', ParseUUIDPipe) id: string) {
+    return this.candidates.listForEnquiry(id);
+  }
+
+  @Post('enquiries/:id/candidates')
+  @Audit({ action: 'PROPOSE_CANDIDATE', entityType: 'EmployerEnquiry' })
+  propose(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ProposeCandidateDto) {
+    return this.candidates.propose(id, dto);
+  }
+
+  @Patch('candidates/:id')
+  @Audit({ action: 'UPDATE_CANDIDATE', entityType: 'EnquiryCandidate' })
+  updateCandidate(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCandidateDto) {
+    return this.candidates.update(id, dto);
+  }
+
+  @Get('interview-requests')
+  interviewRequests() {
+    return this.candidates.interviewRequests();
+  }
+
+  @Get('employers')
+  employerList(@Query() query: EmployerQueryDto) {
+    return this.employers.adminList(query);
+  }
+
+  @Patch('employers/:id/review')
+  @Audit({ action: 'REVIEW_EMPLOYER', entityType: 'Employer' })
+  reviewEmployer(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ReviewEmployerDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.employers.review(id, dto, user.userId);
+  }
+
+  @Get('talent-pool')
+  talentPool(@Query() query: TalentPoolQueryDto) {
+    return this.readiness.talentPool(query);
   }
 
   @Get('enquiries/:id')

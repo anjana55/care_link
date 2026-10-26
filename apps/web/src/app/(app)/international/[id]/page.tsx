@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EnquiryStatusBadge, countryName } from '@/components/international/shared';
+import { CandidatesCard } from '@/components/international/candidates-card';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -117,6 +118,15 @@ export default function EmployerEnquiryPage() {
                 </Row>
               )}
               <Row label={t('international.detail.language')}>{enquiry.language.toUpperCase()}</Row>
+              <Row label={t('international.detail.account')}>
+                {enquiry.employer ? (
+                  <span>
+                    {t('international.detail.hasAccount')} · {t(`international.employers.status.${enquiry.employer.status}`)}
+                  </span>
+                ) : (
+                  <span className="text-ink/50">{t('international.detail.noAccount')}</span>
+                )}
+              </Row>
             </dl>
           </CardContent>
         </Card>
@@ -151,6 +161,8 @@ export default function EmployerEnquiryPage() {
           </CardContent>
         </Card>
       </div>
+
+      <CandidatesCard enquiry={enquiry} />
 
       <Card>
         <CardHeader>

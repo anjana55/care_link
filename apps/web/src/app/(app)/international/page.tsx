@@ -9,15 +9,19 @@ import { useInitialParam } from '@/lib/use-initial-param';
 import { EnquiriesTab } from '@/components/international/enquiries-tab';
 import { SharedProfilesTab } from '@/components/international/shared-profiles-tab';
 import { TrainingTab } from '@/components/international/training-tab';
+import { EmployersTab } from '@/components/international/employers-tab';
+import { TalentPoolTab } from '@/components/international/talent-pool-tab';
+import { InterviewRequestsTab } from '@/components/international/interview-requests-tab';
 import { cn } from '@/lib/utils';
 
-const TABS = ['enquiries', 'profiles', 'training'] as const;
+const TABS = ['enquiries', 'interviews', 'employers', 'pool', 'profiles', 'training'] as const;
 type Tab = (typeof TABS)[number];
 
 /**
  * Overseas: the staff side of the international paths. Employer enquiries
- * (worked like the Requests queue), shared caregiver profiles waiting for
- * review, and the training programmes caregivers sign up for.
+ * (worked like the Requests queue), interview requests from employers,
+ * employer accounts to verify, the talent pool of caregivers open to work
+ * abroad, shared profiles waiting for review, and training programmes.
  * ADMIN and STAFF, like Requests.
  */
 export default function InternationalPage() {
@@ -39,7 +43,13 @@ export default function InternationalPage() {
     return <div className="flex min-h-[40vh] items-center justify-center text-sm text-ink/50">{t('common.loading')}</div>;
   }
 
-  const badge = (key: Tab) => (key === 'enquiries' ? summary?.new : key === 'profiles' ? summary?.pendingProfiles : undefined);
+  const counts: Partial<Record<Tab, number>> = {
+    enquiries: summary?.new,
+    interviews: summary?.interviewRequests,
+    employers: summary?.pendingEmployers,
+    profiles: summary?.pendingProfiles,
+  };
+  const badge = (key: Tab) => counts[key];
 
   return (
     <div>
@@ -68,6 +78,9 @@ export default function InternationalPage() {
       </div>
 
       {tab === 'enquiries' && <EnquiriesTab />}
+      {tab === 'interviews' && <InterviewRequestsTab />}
+      {tab === 'employers' && <EmployersTab />}
+      {tab === 'pool' && <TalentPoolTab />}
       {tab === 'profiles' && <SharedProfilesTab />}
       {tab === 'training' && <TrainingTab />}
     </div>

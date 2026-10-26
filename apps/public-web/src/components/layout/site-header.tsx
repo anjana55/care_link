@@ -6,6 +6,7 @@ import { useTranslation } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
 import { BrandMark } from '@/components/layout/brand-mark';
 import { useAuth } from '@/lib/api/auth-context';
+import { accountHome } from '@/lib/account-home';
 import { cn } from '@/lib/utils';
 
 interface SiteHeaderProps {
@@ -84,7 +85,7 @@ export function SiteHeader({
           {user ? (
             <>
               <Link
-                href={user.role === 'PATIENT_GUARDIAN' ? '/account/requests' : '/caregiver/dashboard'}
+                href={accountHome(user)}
                 className="whitespace-nowrap text-sm font-medium text-brand-dark transition-colors hover:text-brand"
                 title={user.email ?? user.phone ?? undefined}
               >
