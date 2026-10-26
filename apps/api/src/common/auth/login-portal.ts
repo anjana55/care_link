@@ -11,13 +11,15 @@ import type { UserRole } from '../../database/schema';
  * handed a session the screen cannot use, and it stops a login page from being
  * used to learn that a given email and password are valid for another area.
  */
-export const LOGIN_PORTALS = ['staff', 'caregiver', 'customer'] as const;
+export const LOGIN_PORTALS = ['staff', 'caregiver', 'customer', 'employer'] as const;
 export type LoginPortal = (typeof LOGIN_PORTALS)[number];
 
 export const PORTAL_ROLES: Record<LoginPortal, readonly UserRole[]> = {
   staff: ['ADMIN', 'STAFF', 'VERIFIER'],
   caregiver: ['CAREGIVER'],
   customer: ['PATIENT_GUARDIAN'],
+  // Overseas employers sign in on the public site's employer area.
+  employer: ['EMPLOYER'],
 };
 
 export function canUsePortal(role: UserRole, portal: LoginPortal): boolean {

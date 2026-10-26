@@ -158,7 +158,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
    * /auth/resend-verification is the recovery path if the email never
    * arrives, so a delivery failure must not surface as a registration error.
    */
-  async sendVerificationEmail(to: string, verificationUrl: string, audience: 'CAREGIVER' | 'PATIENT_GUARDIAN'): Promise<void> {
+  async sendVerificationEmail(to: string, verificationUrl: string, audience: 'CAREGIVER' | 'PATIENT_GUARDIAN' | 'EMPLOYER'): Promise<void> {
     const message = verificationEmail({ verificationUrl, audience, expiresInHours: VERIFICATION_TOKEN_TTL_HOURS, brand: await this.brand() });
     await this.deliver(to, message, 'verification email', `Verification link for ${to}: ${verificationUrl}`);
   }

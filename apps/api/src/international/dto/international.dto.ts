@@ -12,6 +12,7 @@ import {
   IsInt,
   IsNumber,
   IsOptional,
+  IsUUID,
   IsString,
   Matches,
   Max,
@@ -26,6 +27,10 @@ import {
   SHARED_PROFILE_LIMITS,
   careTypeValues,
   employerEnquiryStatusValues,
+  employerStatusValues,
+  candidateStatusValues,
+  type CandidateStatus,
+  type EmployerStatus,
   employerTypeValues,
   LOCALES,
   trainingCategoryValues,
@@ -123,6 +128,9 @@ export class EmployerEnquiryQueryDto {
 
   @ApiPropertyOptional() @IsOptional() @Transform(blankToUndefined) @IsString() @MaxLength(100)
   search?: string;
+
+  @ApiPropertyOptional({ description: "Only this employer account's enquiries" }) @IsOptional() @IsUUID()
+  employerId?: string;
 
   @ApiPropertyOptional({ default: 1 }) @IsOptional() @Type(() => Number) @IsInt() @Min(1)
   page?: number;
@@ -264,9 +272,139 @@ export class TalentQueryDto {
   @ApiPropertyOptional({ description: 'Only caregivers who list this destination' }) @IsOptional() @IsIn(COUNTRY_CODES)
   country?: CountryCode;
 
+  @ApiPropertyOptional({ description: 'Only caregivers who speak this language (id from /public/meta/languages)' }) @IsOptional() @IsUUID()
+  languageId?: string;
+
+  @ApiPropertyOptional({ enum: trainingCategoryValues, description: 'Only caregivers who completed a course in this category' })
+  @IsOptional() @IsIn(trainingCategoryValues)
+  training?: TrainingCategory;
+
+  @ApiPropertyOptional({ description: 'Only caregivers the platform has verified' })
+  @IsOptional() @Transform(({ value }) => value === true || value === 'true' || value === '1') @IsBoolean()
+  verifiedOnly?: boolean;
+
   @ApiPropertyOptional({ default: 1 }) @IsOptional() @Type(() => Number) @IsInt() @Min(1)
   page?: number;
 
   @ApiPropertyOptional({ default: 12 }) @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(48)
   pageSize?: number;
+}
+
+// --- employer accounts (Phase 2) --------------------------------------------
+
+/** A signed-in employer's enquiry. Organisation and contact come from the account. */
+export class EmployerAccountEnquiryDto {
+  @ApiPropertyOptional({ description: 'Where the caregivers would work, if not the account country' }) @IsOptional() @IsIn(COUNTRY_CODES)
+  country?: CountryCode;
+
+  @ApiProperty({ minimum: 1, maximum: 500 }) @Type(() => Number) @IsInt() @Min(1) @Max(500)
+  rolesCount!: number;
+
+  @ApiProperty({ enum: careTypeValues, isArray: true })
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(careTypeValues.length) @IsIn(careTypeValues, { each: true })
+  careSettings!: CareType[];
+
+  @ApiPropertyOptional() @IsOptional() @Transform(blankToUndefined) @IsString() @MaxLength(255)
+  languages?: string;
+
+  @ApiPropertyOptional() @IsOptional() @Transform(blankToUndefined) @IsString() @MaxLength(100)
+  startTimeframe?: string;
+
+  @ApiProperty({ enum: visaSponsorshipValues }) @IsIn(visaSponsorshipValues)
+  visaSponsorship!: VisaSponsorship;
+
+  @ApiPropertyOptional() @IsOptional() @Transform(blankToUndefined) @IsString() @MaxLength(3000)
+  message?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @Matches(/^[a-z0-9]{6,24}$/)
+  talentSlug?: string;
+}
+
+export class UpdateEmployerAccountDto {
+  @ApiPropertyOptional() @IsOptional() @Transform(trim) @IsString() @MinLength(2) @MaxLength(200)
+  organisationName?: string;
+
+  @ApiPropertyOptional({ enum: employerTypeValues }) @IsOptional() @IsIn(employerTypeValues)
+  organisationType?: EmployerType;
+
+  @ApiPropertyOptional() @IsOptional() @IsIn(COUNTRY_CODES)
+  country?: CountryCode;
+
+  @ApiPropertyOptional() @IsOptional() @Transform(trim) @IsString() @MinLength(2) @MaxLength(150)
+  contactName?: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @Matches(/^\+?[0-9 ()-]{6,30}$/, { message: 'Please enter the number with its country code, e.g. +81 90 1234 5678.' })
+  phone?: string | null;
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(255)
+  website?: string | null;
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(100)
+  companyRegistrationNumber?: string | null;
+}
+
+export class EmployerQueryDto {
+  @ApiPropertyOptional({ enum: [...employerStatusValues, 'all'] }) @IsOptional() @IsIn([...employerStatusValues, 'all'])
+  status?: EmployerStatus | 'all';
+}
+
+export class ReviewEmployerDto {
+  @ApiProperty({ enum: ['VERIFY', 'REJECT', 'SUSPEND'] }) @IsIn(['VERIFY', 'REJECT', 'SUSPEND'])
+  decision!: 'VERIFY' | 'REJECT' | 'SUSPEND';
+
+  @ApiPropertyOptional() @IsOptional() @Transform(blankToUndefined) @IsString() @MaxLength(500)
+  note?: string;
+}
+
+export class ProposeCandidateDto {
+  @ApiProperty() @IsUUID()
+  caregiverId!: string;
+
+  @ApiPropertyOptional() @IsOptional() @Transform(blankToUndefined) @IsString() @MaxLength(1000)
+  messageToEmployer?: string;
+}
+
+export class UpdateCandidateDto {
+  @ApiPropertyOptional({ enum: candidateStatusValues }) @IsOptional() @IsIn(candidateStatusValues)
+  status?: CandidateStatus;
+
+  @ApiPropertyOptional({ nullable: true, description: 'ISO date-time' }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsDateString()
+  interviewAt?: string | null;
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(1000)
+  messageToEmployer?: string | null;
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(1000)
+  staffNote?: string | null;
+}
+
+export class InterviewRequestDto {
+  @ApiProperty() @IsUUID()
+  enquiryId!: string;
+
+  @ApiProperty() @IsString() @Matches(/^[a-z0-9]{6,24}$/)
+  talentSlug!: string;
+
+  @ApiPropertyOptional() @IsOptional() @Transform(blankToUndefined) @IsString() @MaxLength(1000)
+  message?: string;
+}
+
+export class EmployerCandidateActionDto {
+  @ApiProperty({ enum: ['REQUEST_INTERVIEW', 'SELECT', 'DECLINE'] }) @IsIn(['REQUEST_INTERVIEW', 'SELECT', 'DECLINE'])
+  action!: 'REQUEST_INTERVIEW' | 'SELECT' | 'DECLINE';
+
+  @ApiPropertyOptional() @IsOptional() @Transform(blankToUndefined) @IsString() @MaxLength(1000)
+  message?: string;
+}
+
+export class TalentPoolQueryDto {
+  @ApiPropertyOptional() @IsOptional() @IsIn(COUNTRY_CODES)
+  country?: CountryCode;
+
+  @ApiPropertyOptional({ description: 'Minimum readiness items done' }) @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(10)
+  minReady?: number;
+
+  @ApiPropertyOptional() @IsOptional() @Transform(blankToUndefined) @IsString() @MaxLength(100)
+  search?: string;
 }

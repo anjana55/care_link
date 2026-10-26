@@ -141,6 +141,13 @@
       "when": 1793005416363,
       "tag": "0019_international_talent",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1793022012760,
+      "tag": "0020_international_phase_2",
+      "breakpoints": true
     }
   ]
 }

@@ -1,19 +1,12 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomInt, randomUUID as uuid } from 'crypto';
-import { and, count, desc, eq, inArray, isNotNull, like, or, type SQL } from 'drizzle-orm';
-import type {
-  EmployerEnquiry,
-  EmployerEnquiryList,
-  EmployerEnquiryReceipt,
-  EmployerEnquirySummary,
-} from '@care-platform/shared';
+import { and, count, desc, eq, inArray, like, or, type SQL } from 'drizzle-orm';
+import type { EmployerEnquiry, EmployerEnquiryList, EmployerEnquiryReceipt, EmployerEnquirySummary } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { caregivers, employerEnquiries, sharedProfiles, users } from '../database/schema';
-import { EmailService } from '../email/email.service';
-import { EmailSettingsService } from '../email/email-settings.service';
-import { CreateEmployerEnquiryDto, EmployerEnquiryQueryDto, UpdateEmployerEnquiryDto } from './dto/international.dto';
+import { caregivers, employerEnquiries, employers, sharedProfiles, users } from '../database/schema';
+import { CreateEmployerEnquiryDto, EmployerAccountEnquiryDto, EmployerEnquiryQueryDto, UpdateEmployerEnquiryDto } from './dto/international.dto';
 import { SharedProfilesService } from './shared-profiles.service';
+import { InternationalNotifier } from './international-notifier.service';
 
 /** Same alphabet as care request references: nothing that reads two ways over the phone. */
 const REFERENCE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -24,67 +17,96 @@ export function generateEnquiryReference(): string {
   return out;
 }
 
-const OPEN_STATUSES = ['NEW', 'IN_PROGRESS', 'INTRODUCED'] as const;
+export const OPEN_ENQUIRY_STATUSES = ['NEW', 'IN_PROGRESS', 'INTRODUCED'] as const;
 
 const isDuplicate = (err: unknown) => {
   const e = err as { code?: string; cause?: { code?: string } };
   return (e.code ?? e.cause?.code) === 'ER_DUP_ENTRY';
 };
 
+type EnquiryValues = Omit<typeof employerEnquiries.$inferInsert, 'id' | 'reference' | 'consentAcceptedAt'>;
+
 /**
- * Enquiries from overseas employers.
+ * Enquiries from overseas employers - sent from the public form, or by a
+ * signed-in employer account.
  *
  * The platform has no foreign-employment recruitment licence of its own, so
- * employers never get accounts, search access or anyone's contact details:
- * they describe what they need, and staff take it from there - shortlisting,
- * introductions and, when a caregiver starts work, recording the placement
- * fee the employer pays.
+ * staff make every introduction: employers never get anyone's contact
+ * details. When a caregiver starts work, staff record the placement fee the
+ * employer pays.
  */
 @Injectable()
 export class EmployerEnquiriesService {
-  private readonly logger = new Logger(EmployerEnquiriesService.name);
-
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly sharedProfiles: SharedProfilesService,
-    private readonly email: EmailService,
-    private readonly emailSettings: EmailSettingsService,
-    private readonly config: ConfigService,
+    private readonly notifier: InternationalNotifier,
   ) {}
 
+  /** The public form. */
   async create(dto: CreateEmployerEnquiryDto): Promise<EmployerEnquiryReceipt> {
     // A bot filled the field people never see. Look successful, store nothing.
     if (dto.website2) return { reference: generateEnquiryReference() };
-
     // Asked from a shared profile: attach the caregiver, but only while that
     // profile is actually live - a stale link must not reach anyone.
     const caregiverId = dto.talentSlug ? await this.sharedProfiles.liveCaregiverIdForSlug(dto.talentSlug) : null;
+    return this.insert({
+      organisationName: dto.organisationName,
+      organisationType: dto.organisationType,
+      country: dto.country,
+      contactName: dto.contactName,
+      email: dto.email.toLowerCase(),
+      phone: dto.phone ?? null,
+      website: dto.website ?? null,
+      rolesCount: dto.rolesCount,
+      careSettings: [...new Set(dto.careSettings)],
+      languages: dto.languages ?? null,
+      startTimeframe: dto.startTimeframe ?? null,
+      visaSponsorship: dto.visaSponsorship,
+      message: dto.message ?? null,
+      caregiverId,
+      employerId: null,
+      language: dto.language ?? 'en',
+    });
+  }
 
+  /** A signed-in employer's enquiry: the organisation details come from their account. */
+  async createForEmployer(employerId: string, dto: EmployerAccountEnquiryDto): Promise<EmployerEnquiryReceipt> {
+    const [account] = await this.db
+      .select({ e: employers, email: users.email })
+      .from(employers)
+      .innerJoin(users, eq(employers.userId, users.id))
+      .where(eq(employers.id, employerId))
+      .limit(1);
+    if (!account) throw new NotFoundException('Employer not found');
+    const caregiverId = dto.talentSlug ? await this.sharedProfiles.liveCaregiverIdForSlug(dto.talentSlug) : null;
+    return this.insert({
+      organisationName: account.e.organisationName,
+      organisationType: account.e.organisationType,
+      country: dto.country ?? account.e.country,
+      contactName: account.e.contactName,
+      email: (account.email ?? '').toLowerCase(),
+      phone: account.e.phone,
+      website: account.e.website,
+      rolesCount: dto.rolesCount,
+      careSettings: [...new Set(dto.careSettings)],
+      languages: dto.languages ?? null,
+      startTimeframe: dto.startTimeframe ?? null,
+      visaSponsorship: dto.visaSponsorship,
+      message: dto.message ?? null,
+      caregiverId,
+      employerId,
+      language: 'en',
+    });
+  }
+
+  private async insert(values: EnquiryValues): Promise<EmployerEnquiryReceipt> {
     const id = uuid();
     for (let attempt = 0; ; attempt++) {
       const reference = generateEnquiryReference();
       try {
-        await this.db.insert(employerEnquiries).values({
-          id,
-          reference,
-          organisationName: dto.organisationName,
-          organisationType: dto.organisationType,
-          country: dto.country,
-          contactName: dto.contactName,
-          email: dto.email.toLowerCase(),
-          phone: dto.phone ?? null,
-          website: dto.website ?? null,
-          rolesCount: dto.rolesCount,
-          careSettings: [...new Set(dto.careSettings)],
-          languages: dto.languages ?? null,
-          startTimeframe: dto.startTimeframe ?? null,
-          visaSponsorship: dto.visaSponsorship,
-          message: dto.message ?? null,
-          caregiverId,
-          consentAcceptedAt: new Date(),
-          language: dto.language ?? 'en',
-        });
-        void this.notify(id, reference, dto, caregiverId);
+        await this.db.insert(employerEnquiries).values({ id, reference, ...values, consentAcceptedAt: new Date() });
+        void this.notifyCreated(id, reference, values);
         return { reference };
       } catch (err) {
         // A reference collision (1 in ~700 million) - draw again.
@@ -98,8 +120,9 @@ export class EmployerEnquiriesService {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 25;
     const conditions: (SQL | undefined)[] = [];
-    if (query.status === 'open') conditions.push(inArray(employerEnquiries.status, [...OPEN_STATUSES]));
+    if (query.status === 'open') conditions.push(inArray(employerEnquiries.status, [...OPEN_ENQUIRY_STATUSES]));
     else if (query.status) conditions.push(eq(employerEnquiries.status, query.status));
+    if (query.employerId) conditions.push(eq(employerEnquiries.employerId, query.employerId));
     if (query.search) {
       const term = `%${query.search.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
       conditions.push(
@@ -147,7 +170,7 @@ export class EmployerEnquiriesService {
     const rows = await this.db
       .select({ status: employerEnquiries.status, n: count() })
       .from(employerEnquiries)
-      .where(inArray(employerEnquiries.status, [...OPEN_STATUSES]))
+      .where(inArray(employerEnquiries.status, [...OPEN_ENQUIRY_STATUSES]))
       .groupBy(employerEnquiries.status);
     const by = new Map(rows.map((r) => [r.status, Number(r.n)]));
     return { new: by.get('NEW') ?? 0, open: rows.reduce((s, r) => s + Number(r.n), 0) };
@@ -160,83 +183,36 @@ export class EmployerEnquiriesService {
         registrationNumber: caregivers.registrationNumber,
         fullName: caregivers.fullName,
         slug: sharedProfiles.slug,
+        employerName: employers.organisationName,
+        employerStatus: employers.status,
       })
       .from(employerEnquiries)
       .leftJoin(caregivers, eq(employerEnquiries.caregiverId, caregivers.id))
       .leftJoin(sharedProfiles, eq(sharedProfiles.caregiverId, employerEnquiries.caregiverId))
+      .leftJoin(employers, eq(employerEnquiries.employerId, employers.id))
       .$dynamic();
   }
 
-  // --- notifications -------------------------------------------------------
-
   /** Staff hear about a new enquiry; the employer gets a receipt. Never fails the request. */
-  private async notify(id: string, reference: string, dto: CreateEmployerEnquiryDto, caregiverId: string | null) {
-    try {
-      const staff = await this.staffRecipients();
-      const about = caregiverId ? ' They asked about a specific caregiver from a shared profile.' : '';
-      if (staff.length) {
-        await this.email.sendNotificationEmail(
-          staff,
-          {
-            subject: `New overseas employer enquiry ${reference}`,
-            blocks: [
-              {
-                lang: 'en',
-                heading: `New overseas employer enquiry ${reference}`,
-                paragraphs: [
-                  `${dto.organisationName} (${dto.country}) is looking for ${dto.rolesCount} caregiver${dto.rolesCount === 1 ? '' : 's'}.${about}`,
-                  'Open the enquiry in the staff portal to see the details and pick it up.',
-                ],
-              },
-            ],
-            cta: { label: 'Open enquiry', url: this.staffUrl(`/international/${id}`) },
-            footer: 'Sent to the request alert list in Settings > Email, or to every admin and staff account when that list is empty.',
-          },
-          'employer enquiry alert',
-        );
-      } else {
-        this.logger.warn(`Employer enquiry ${reference}: no staff email address to alert - it is waiting in the Overseas enquiries queue.`);
-      }
-      await this.email.sendNotificationEmail(
-        dto.email,
-        {
-          subject: `We have your enquiry - ${reference}`,
-          blocks: [
-            {
-              lang: 'en',
-              heading: `Thank you, ${dto.contactName}`,
-              paragraphs: [
-                `We have received your enquiry for caregivers from Sri Lanka. Your reference is ${reference}.`,
-                'Our team will contact you to understand the roles in more detail and to put forward suitable caregivers. You pay a placement fee only when a caregiver you hire starts work. Caregivers are never charged a placement fee.',
-              ],
-            },
-          ],
-        },
-        'employer enquiry receipt',
-      );
-    } catch (err) {
-      this.logger.warn(`Employer enquiry ${reference}: notification failed - ${(err as Error).message}`);
-    }
-  }
-
-  private staffUrl(path: string) {
-    return `${(this.config.get<string>('CAREGIVER_WEB_URL') ?? 'http://localhost:3000/staff').replace(/\/+$/, '')}${path}`;
-  }
-
-  /** Same recipients as care request alerts: the configured list, else every active admin and staff account. */
-  private async staffRecipients(): Promise<string[]> {
-    const settings = await this.emailSettings.getResolved();
-    if (settings.requestAlertsTo) {
-      return settings.requestAlertsTo
-        .split(',')
-        .map((a) => a.trim())
-        .filter(Boolean);
-    }
-    const rows = await this.db
-      .select({ email: users.email })
-      .from(users)
-      .where(and(inArray(users.role, ['ADMIN', 'STAFF']), eq(users.isActive, true), isNotNull(users.email)));
-    return rows.map((r) => r.email!).filter(Boolean);
+  private async notifyCreated(id: string, reference: string, v: EnquiryValues) {
+    const about = v.caregiverId ? ' They asked about a specific caregiver from a shared profile.' : '';
+    const account = v.employerId ? ' Sent from their employer account.' : '';
+    await this.notifier.toStaff(`employer enquiry ${reference}`, {
+      subject: `New overseas employer enquiry ${reference}`,
+      paragraphs: [
+        `${v.organisationName} (${v.country}) is looking for ${v.rolesCount} caregiver${v.rolesCount === 1 ? '' : 's'}.${about}${account}`,
+        'Open the enquiry in the staff portal to see the details and pick it up.',
+      ],
+      cta: { label: 'Open enquiry', url: this.notifier.staffUrl(`/international/${id}`) },
+    });
+    await this.notifier.toAddress(v.email, `employer enquiry receipt ${reference}`, {
+      subject: `We have your enquiry - ${reference}`,
+      heading: `Thank you, ${v.contactName}`,
+      paragraphs: [
+        `We have received your enquiry for caregivers from Sri Lanka. Your reference is ${reference}.`,
+        'Our team will contact you to understand the roles in more detail and to put forward suitable caregivers. You pay a placement fee only when a caregiver you hire starts work. Caregivers are never charged a placement fee.',
+      ],
+    });
   }
 }
 
@@ -245,9 +221,11 @@ type EnquiryRow = {
   registrationNumber: string | null;
   fullName: string | null;
   slug: string | null;
+  employerName: string | null;
+  employerStatus: (typeof employers.$inferSelect)['status'] | null;
 };
 
-function toEnquiry({ e, registrationNumber, fullName, slug }: EnquiryRow): EmployerEnquiry {
+function toEnquiry({ e, registrationNumber, fullName, slug, employerName, employerStatus }: EnquiryRow): EmployerEnquiry {
   return {
     id: e.id,
     reference: e.reference,
@@ -268,6 +246,7 @@ function toEnquiry({ e, registrationNumber, fullName, slug }: EnquiryRow): Emplo
       e.caregiverId && registrationNumber
         ? { id: e.caregiverId, registrationNumber, fullName: fullName ?? '', talentSlug: slug }
         : null,
+    employer: e.employerId && employerName && employerStatus ? { id: e.employerId, organisationName: employerName, status: employerStatus } : null,
     status: e.status,
     staffNote: e.staffNote,
     placementFeeAmount: e.placementFeeAmount,
@@ -278,5 +257,4 @@ function toEnquiry({ e, registrationNumber, fullName, slug }: EnquiryRow): Emplo
   };
 }
 
-const iso = (d: Date | string) => (d instanceof Date ? d.toISOString() : new Date(d).toISOString());
-
+export const iso = (d: Date | string) => (d instanceof Date ? d.toISOString() : new Date(d).toISOString());

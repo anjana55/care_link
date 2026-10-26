@@ -8,6 +8,7 @@ import { WrongPortalException } from '../common/auth/login-portal';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterCaregiverDto } from './dto/register-caregiver.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
+import { RegisterEmployerDto } from './dto/register-employer.dto';
 import { VerifyEmailDto, ResendVerificationDto } from './dto/verify-email.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../common/decorators/public.decorator';
@@ -76,6 +77,21 @@ export class AuthController {
       action: 'REGISTER_PATIENT',
       entityType: 'Patient',
       entityId: result.patientId,
+      ipAddress: req.ip,
+    });
+    return result;
+  }
+
+  // An overseas employer's account. Same rate limit as the other sign-ups.
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('register-employer')
+  async registerEmployer(@Body() dto: RegisterEmployerDto, @Req() req: Request) {
+    const result = await this.authService.registerEmployer(dto);
+    await this.auditService.record({
+      action: 'REGISTER_EMPLOYER',
+      entityType: 'Employer',
+      entityId: result.employerId,
       ipAddress: req.ip,
     });
     return result;

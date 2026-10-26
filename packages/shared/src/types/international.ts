@@ -95,6 +95,8 @@ export interface EmployerEnquiry {
   visaSponsorship: VisaSponsorship;
   message: string | null;
   caregiver: { id: string; registrationNumber: string; fullName: string; talentSlug: string | null } | null;
+  /** The employer account that sent it (or that staff linked it to). */
+  employer: { id: string; organisationName: string; status: EmployerStatus } | null;
   status: EmployerEnquiryStatus;
   staffNote: string | null;
   placementFeeAmount: number | null;
@@ -114,6 +116,13 @@ export interface EmployerEnquiryList {
 export interface EmployerEnquirySummary {
   new: number;
   open: number;
+}
+
+/** The staff Overseas badge: everything waiting for someone in the office. */
+export interface OverseasStaffSummary extends EmployerEnquirySummary {
+  pendingProfiles: number;
+  pendingEmployers: number;
+  interviewRequests: number;
 }
 
 /** Numbers for the employer landing page. Counts only. */
@@ -292,4 +301,181 @@ export interface PublicTalentList {
   page: number;
   pageSize: number;
   total: number;
+}
+
+// --- employer accounts -------------------------------------------------------
+
+export const employerStatusValues = ['PENDING_REVIEW', 'VERIFIED', 'REJECTED', 'SUSPENDED'] as const;
+export type EmployerStatus = (typeof employerStatusValues)[number];
+
+/** POST /auth/register-employer */
+export interface EmployerRegistrationRequest {
+  email: string;
+  password: string;
+  contactName: string;
+  organisationName: string;
+  organisationType: EmployerType;
+  country: CountryCode;
+  phone?: string;
+  website?: string;
+  companyRegistrationNumber?: string;
+  consent: true;
+}
+
+/** The employer's own account, as they see it. */
+export interface EmployerAccount {
+  id: string;
+  email: string | null;
+  organisationName: string;
+  organisationType: EmployerType;
+  country: string;
+  contactName: string;
+  phone: string | null;
+  website: string | null;
+  companyRegistrationNumber: string | null;
+  status: EmployerStatus;
+  reviewNote: string | null;
+  /** Organisation name, type and country are fixed once staff have verified them. */
+  canEditOrganisation: boolean;
+}
+
+export type EmployerAccountUpdate = Partial<
+  Pick<EmployerAccount, 'organisationName' | 'organisationType' | 'country' | 'contactName' | 'phone' | 'website' | 'companyRegistrationNumber'>
+>;
+
+/** Staff list of employer accounts. */
+export interface EmployerAdminRow {
+  id: string;
+  email: string | null;
+  organisationName: string;
+  organisationType: EmployerType;
+  country: string;
+  contactName: string;
+  phone: string | null;
+  website: string | null;
+  companyRegistrationNumber: string | null;
+  status: EmployerStatus;
+  reviewNote: string | null;
+  emailVerified: boolean;
+  enquiryCount: number;
+  createdAt: string;
+}
+
+// --- candidates ----------------------------------------------------------------
+
+export const candidateStatusValues = ['PROPOSED', 'INTERVIEW_REQUESTED', 'INTERVIEW_SCHEDULED', 'SELECTED', 'PLACED', 'NOT_PROCEEDING'] as const;
+export type CandidateStatus = (typeof candidateStatusValues)[number];
+
+/** A candidate as the employer sees them - only through the caregiver's shared profile. */
+export interface EmployerCandidate {
+  id: string;
+  status: CandidateStatus;
+  interviewAt: string | null;
+  messageToEmployer: string | null;
+  /** Null once the caregiver stops sharing their profile: they are no longer shown. */
+  talent: PublicTalentCard | null;
+}
+
+/** One of the employer's own enquiries, with the caregivers on it. */
+export interface EmployerOwnEnquiry {
+  id: string;
+  reference: string;
+  status: EmployerEnquiryStatus;
+  country: string;
+  rolesCount: number;
+  careSettings: string[];
+  createdAt: string;
+  candidates: EmployerCandidate[];
+}
+
+/** POST /employer/enquiries - a signed-in employer's enquiry; organisation details come from the account. */
+export interface EmployerAccountEnquiryRequest {
+  country?: CountryCode;
+  rolesCount: number;
+  careSettings: CareType[];
+  languages?: string;
+  startTimeframe?: string;
+  visaSponsorship: VisaSponsorship;
+  message?: string;
+  talentSlug?: string;
+}
+
+/** POST /employer/candidates - "I'd like to interview her". */
+export interface InterviewRequest {
+  enquiryId: string;
+  talentSlug: string;
+  message?: string;
+}
+
+/** A candidate as staff see them. */
+export interface StaffCandidate {
+  id: string;
+  caregiverId: string;
+  registrationNumber: string;
+  fullName: string;
+  talentSlug: string | null;
+  /** Whether the shared profile is live right now (what the employer can see). */
+  profileLive: boolean;
+  source: 'STAFF' | 'EMPLOYER';
+  status: CandidateStatus;
+  interviewAt: string | null;
+  messageToEmployer: string | null;
+  employerMessage: string | null;
+  staffNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A row in the staff Interview requests list, across enquiries. */
+export interface StaffCandidateWithEnquiry extends StaffCandidate {
+  enquiry: { id: string; reference: string; organisationName: string; country: string };
+}
+
+/** What a caregiver is told about employer interest - never the employer's name or details. */
+export interface CaregiverEmployerInterest {
+  id: string;
+  country: string;
+  organisationType: EmployerType;
+  status: CandidateStatus;
+  interviewAt: string | null;
+  createdAt: string;
+}
+
+// --- readiness -------------------------------------------------------------------
+
+/**
+ * Ready to work abroad, in general - not tied to any one country yet.
+ * Each item is checked from data staff already verify.
+ */
+export const readinessItemValues = [
+  'registrationVerified',
+  'openToOverseas',
+  'passportValid',
+  'policeClearance',
+  'english',
+  'caregiving',
+  'sharedProfile',
+] as const;
+export type ReadinessItem = (typeof readinessItemValues)[number];
+
+/** A passport must be valid at least this long after the caregiver could start. */
+export const PASSPORT_MIN_VALIDITY_MONTHS = 6;
+
+export interface ReadinessReport {
+  items: { key: ReadinessItem; done: boolean }[];
+  done: number;
+  total: number;
+}
+
+/** A caregiver in the staff talent pool. */
+export interface TalentPoolRow {
+  caregiverId: string;
+  registrationNumber: string;
+  fullName: string;
+  city: string | null;
+  targetCountries: string[];
+  availableFrom: string | null;
+  talentSlug: string | null;
+  profileLive: boolean;
+  readiness: ReadinessReport;
 }

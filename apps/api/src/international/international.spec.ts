@@ -10,6 +10,7 @@ import { preparePublicPhoto } from './profile-photo';
 import { SharedProfilesService, firstNameOf, generateSlug } from './shared-profiles.service';
 import { TrainingService, localiseProgramme } from './training.service';
 import { EmployerEnquiriesService, generateEnquiryReference } from './employer-enquiries.service';
+import { InternationalNotifier } from './international-notifier.service';
 import { CaregiverInternationalController, PublicInternationalController } from './international.controllers';
 
 /**
@@ -227,7 +228,8 @@ describe('EmployerEnquiriesService', () => {
   function enquiries(liveId: string | null = null) {
     const fake = fakeDb([]);
     const shared = { liveCaregiverIdForSlug: jest.fn().mockResolvedValue(liveId) };
-    const service = new EmployerEnquiriesService(fake.db, shared as never, email as never, emailSettings as never, config as never);
+    const notifier = new InternationalNotifier(fake.db, email as never, emailSettings as never, config as never);
+    const service = new EmployerEnquiriesService(fake.db, shared as never, notifier);
     return { service, ...fake, shared };
   }
 
@@ -326,7 +328,7 @@ describe('international controllers', () => {
   });
 
   it('never lets anyone but the caregiver give consent to share', () => {
-    const controller = new CaregiverInternationalController({} as never, { share: jest.fn() } as never, {} as never);
+    const controller = new CaregiverInternationalController({} as never, { share: jest.fn() } as never, {} as never, {} as never, {} as never);
     expect(() => controller.share('cg-1', { consent: true, consentVersion: SHARED_PROFILE_CONSENT_VERSION }, { userId: 'u', email: null, role: 'ADMIN' })).toThrow(
       ForbiddenException,
     );

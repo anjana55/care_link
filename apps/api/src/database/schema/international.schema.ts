@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, text, int, date, datetime, boolean, json, mysqlEnum, index, uniqueIndex, decimal } from 'drizzle-orm/mysql-core';
+import { mysqlTable, varchar, text, int, date, datetime, boolean, json, mysqlEnum, index, uniqueIndex, decimal, primaryKey } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
 import { caregivers } from './caregivers.schema';
 
@@ -29,6 +29,48 @@ export type VisaSponsorship = (typeof visaSponsorshipEnum)[number];
  * shortlisting. INTRODUCED: candidates have been put forward. PLACED: a
  * caregiver has started work (the placement fee is due). CLOSED: no placement.
  */
+/**
+ * PENDING_REVIEW: signed up, waiting for staff to check the organisation.
+ * VERIFIED: may ask for interviews. REJECTED: staff could not verify it (note
+ * says why). SUSPENDED: staff stopped the account.
+ */
+export const employerStatusEnum = ['PENDING_REVIEW', 'VERIFIED', 'REJECTED', 'SUSPENDED'] as const;
+export type EmployerStatus = (typeof employerStatusEnum)[number];
+
+/**
+ * An overseas employer's organisation, owned by one EMPLOYER login. Staff
+ * verify it (that it is a real organisation, recruiting lawfully) before it can
+ * ask for interviews. Employers only ever see caregivers through the profiles
+ * caregivers chose to share, and never their contact details.
+ */
+export const employers = mysqlTable(
+  'employers',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    userId: varchar('user_id', { length: 36 })
+      .notNull()
+      .unique(),
+    organisationName: varchar('organisation_name', { length: 200 }).notNull(),
+    organisationType: mysqlEnum('organisation_type', employerTypeEnum).notNull(),
+    country: varchar('country', { length: 2 }).notNull(),
+    contactName: varchar('contact_name', { length: 150 }).notNull(),
+    phone: varchar('phone', { length: 32 }),
+    website: varchar('website', { length: 255 }),
+    // The organisation's registration or licence number in its own country, if it has one.
+    companyRegistrationNumber: varchar('company_registration_number', { length: 100 }),
+    status: mysqlEnum('status', employerStatusEnum).notNull().default('PENDING_REVIEW'),
+    reviewNote: varchar('review_note', { length: 500 }),
+    reviewedByUserId: varchar('reviewed_by_user_id', { length: 36 }),
+    reviewedAt: datetime('reviewed_at'),
+    consentAcceptedAt: datetime('consent_accepted_at').notNull(),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    statusIdx: index('employers_status_idx').on(table.status, table.createdAt),
+  }),
+);
+
 export const employerEnquiryStatusEnum = ['NEW', 'IN_PROGRESS', 'INTRODUCED', 'PLACED', 'CLOSED'] as const;
 export type EmployerEnquiryStatus = (typeof employerEnquiryStatusEnum)[number];
 
@@ -55,6 +97,9 @@ export const employerEnquiries = mysqlTable(
     startTimeframe: varchar('start_timeframe', { length: 100 }),
     visaSponsorship: mysqlEnum('visa_sponsorship', visaSponsorshipEnum).notNull().default('UNSURE'),
     message: text('message'),
+    // Set when a signed-in employer sent it, or when staff verified the employer
+    // and linked their earlier enquiries (same email address).
+    employerId: varchar('employer_id', { length: 36 }).references(() => employers.id),
     // Set when the enquiry came from a shared caregiver profile ("Ask about Nadeesha").
     caregiverId: varchar('caregiver_id', { length: 36 }).references(() => caregivers.id),
     status: mysqlEnum('status', employerEnquiryStatusEnum).notNull().default('NEW'),
@@ -73,6 +118,72 @@ export const employerEnquiries = mysqlTable(
   (table) => ({
     statusIdx: index('employer_enquiries_status_idx').on(table.status, table.createdAt),
     caregiverIdx: index('employer_enquiries_caregiver_idx').on(table.caregiverId),
+    employerIdx: index('employer_enquiries_employer_idx').on(table.employerId),
+  }),
+);
+
+/**
+ * PROPOSED: staff put the caregiver forward for the enquiry.
+ * INTERVIEW_REQUESTED: the employer asked to interview them.
+ * INTERVIEW_SCHEDULED: staff arranged it (interviewAt).
+ * SELECTED: the employer wants to hire them.
+ * PLACED: the caregiver started work - the enquiry's placement fee is due.
+ * NOT_PROCEEDING: either side stopped (the note says why).
+ */
+export const candidateStatusEnum = ['PROPOSED', 'INTERVIEW_REQUESTED', 'INTERVIEW_SCHEDULED', 'SELECTED', 'PLACED', 'NOT_PROCEEDING'] as const;
+export type CandidateStatus = (typeof candidateStatusEnum)[number];
+
+export const candidateSourceEnum = ['STAFF', 'EMPLOYER'] as const;
+export type CandidateSource = (typeof candidateSourceEnum)[number];
+
+/**
+ * A caregiver put forward for (or asked about on) an employer enquiry. Only
+ * caregivers with a live shared profile can be candidates: that profile is
+ * the only way an employer ever sees them.
+ */
+export const enquiryCandidates = mysqlTable(
+  'enquiry_candidates',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    enquiryId: varchar('enquiry_id', { length: 36 })
+      .notNull()
+      .references(() => employerEnquiries.id),
+    caregiverId: varchar('caregiver_id', { length: 36 })
+      .notNull()
+      .references(() => caregivers.id),
+    source: mysqlEnum('source', candidateSourceEnum).notNull(),
+    status: mysqlEnum('status', candidateStatusEnum).notNull(),
+    interviewAt: datetime('interview_at'),
+    // Shown to the employer: interview arrangements, a call link, what happens next.
+    messageToEmployer: varchar('message_to_employer', { length: 1000 }),
+    // What the employer wrote when asking for an interview or stepping back. Shown to staff.
+    employerMessage: varchar('employer_message', { length: 1000 }),
+    // Internal: never shown to the employer or the caregiver.
+    staffNote: varchar('staff_note', { length: 1000 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    oncePerEnquiry: uniqueIndex('enquiry_candidates_enquiry_caregiver_unique').on(table.enquiryId, table.caregiverId),
+    caregiverIdx: index('enquiry_candidates_caregiver_idx').on(table.caregiverId),
+    statusIdx: index('enquiry_candidates_status_idx').on(table.status),
+  }),
+);
+
+/** Shared profiles an employer saved to come back to. */
+export const employerShortlist = mysqlTable(
+  'employer_shortlist',
+  {
+    employerId: varchar('employer_id', { length: 36 })
+      .notNull()
+      .references(() => employers.id),
+    caregiverId: varchar('caregiver_id', { length: 36 })
+      .notNull()
+      .references(() => caregivers.id),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.employerId, table.caregiverId] }),
   }),
 );
 

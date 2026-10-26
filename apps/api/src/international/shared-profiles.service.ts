@@ -1,11 +1,13 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomInt, randomUUID as uuid } from 'crypto';
-import { and, count, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, exists, inArray, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
 import {
   PUBLIC_CAREGIVER_STATUSES,
+  VERIFIED_CAREGIVER_STATUSES,
   SHARED_PROFILE_CONSENT_VERSION,
   isCountryCode,
   resolveLocale,
+  type Locale,
   type PublicTalentCard,
   type PublicTalentList,
   type PublicTalentProfile,
@@ -13,7 +15,7 @@ import {
   type SharedProfileSettings,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { caregiverOverseasProfiles, caregivers, sharedProfiles } from '../database/schema';
+import { caregiverLanguages, caregiverOverseasProfiles, caregivers, sharedProfiles, trainingEnrolments, trainingProgrammes } from '../database/schema';
 import { STORAGE_SERVICE, type StorageService } from '../storage/storage.interface';
 import { PublicSearchService } from '../public-search/public-search.service';
 import { TrainingService } from './training.service';
@@ -330,6 +332,30 @@ export class SharedProfilesService {
       isLiveProfile(),
       eq(caregiverOverseasProfiles.openToOverseas, true),
       query.country ? sql`JSON_CONTAINS(${caregiverOverseasProfiles.targetCountries}, ${JSON.stringify(query.country)})` : undefined,
+      query.verifiedOnly ? inArray(caregivers.status, [...VERIFIED_CAREGIVER_STATUSES]) : undefined,
+      query.languageId
+        ? exists(
+            this.db
+              .select({ one: sql`1` })
+              .from(caregiverLanguages)
+              .where(and(eq(caregiverLanguages.caregiverId, sharedProfiles.caregiverId), eq(caregiverLanguages.languageId, query.languageId))),
+          )
+        : undefined,
+      query.training
+        ? exists(
+            this.db
+              .select({ one: sql`1` })
+              .from(trainingEnrolments)
+              .innerJoin(trainingProgrammes, eq(trainingEnrolments.programmeId, trainingProgrammes.id))
+              .where(
+                and(
+                  eq(trainingEnrolments.caregiverId, sharedProfiles.caregiverId),
+                  eq(trainingEnrolments.status, 'COMPLETED'),
+                  eq(trainingProgrammes.category, query.training),
+                ),
+              ),
+          )
+        : undefined,
     );
     const base = () =>
       this.db
@@ -350,13 +376,51 @@ export class SharedProfilesService {
         .innerJoin(caregiverOverseasProfiles, eq(caregiverOverseasProfiles.caregiverId, sharedProfiles.caregiverId))
         .where(where),
     ]);
+    const cards = await this.buildCards(rows, locale);
+    const items = rows.map((r) => cards.get(r.p.caregiverId)).filter((c): c is PublicTalentCard => Boolean(c));
+    return { items, page, pageSize, total: Number(total) };
+  }
+
+  /**
+   * Talent cards for the given caregivers, keyed by caregiver id - only for
+   * those whose shared profile is live right now. Anyone missing from the
+   * result is not to be shown to an employer at all.
+   */
+  async liveCards(caregiverIds: string[], localeParam?: string): Promise<Map<string, PublicTalentCard>> {
+    const ids = [...new Set(caregiverIds)];
+    if (!ids.length) return new Map();
+    const rows = await this.db
+      .select({ p: sharedProfiles, overseas: caregiverOverseasProfiles })
+      .from(sharedProfiles)
+      .innerJoin(caregivers, eq(sharedProfiles.caregiverId, caregivers.id))
+      .leftJoin(caregiverOverseasProfiles, eq(caregiverOverseasProfiles.caregiverId, sharedProfiles.caregiverId))
+      .where(and(inArray(sharedProfiles.caregiverId, ids), isLiveProfile()));
+    return this.buildCards(rows, resolveLocale(localeParam));
+  }
+
+  /** Caregiver ids (of those given) whose shared profile is live, with their link. */
+  async liveSlugs(caregiverIds: string[]): Promise<Map<string, string>> {
+    const ids = [...new Set(caregiverIds)];
+    if (!ids.length) return new Map();
+    const rows = await this.db
+      .select({ caregiverId: sharedProfiles.caregiverId, slug: sharedProfiles.slug })
+      .from(sharedProfiles)
+      .innerJoin(caregivers, eq(sharedProfiles.caregiverId, caregivers.id))
+      .where(and(inArray(sharedProfiles.caregiverId, ids), isLiveProfile()));
+    return new Map(rows.map((r) => [r.caregiverId, r.slug]));
+  }
+
+  private async buildCards(
+    rows: { p: Row; overseas: typeof caregiverOverseasProfiles.$inferSelect | null }[],
+    locale: Locale,
+  ): Promise<Map<string, PublicTalentCard>> {
     const ids = rows.map((r) => r.p.caregiverId);
     const [profiles, completed] = await Promise.all([this.publicSearch.profilesFor(ids, locale), this.training.completedTitles(ids, locale)]);
-    const items: PublicTalentCard[] = [];
+    const out = new Map<string, PublicTalentCard>();
     for (const { p, overseas } of rows) {
       const profile = profiles.get(p.caregiverId);
       if (!profile) continue;
-      items.push({
+      out.set(p.caregiverId, {
         slug: p.slug,
         firstName: p.firstName,
         headline: p.headline,
@@ -365,10 +429,10 @@ export class SharedProfilesService {
         verified: profile.verified,
         languages: profile.languages.map((l) => ({ name: l.name, proficiency: l.proficiency ?? null })),
         completedTraining: completed.get(p.caregiverId) ?? [],
-        targetCountries: (overseas.targetCountries ?? []).filter(isCountryCode),
+        targetCountries: (overseas?.openToOverseas ? (overseas.targetCountries ?? []) : []).filter(isCountryCode),
       });
     }
-    return { items, page, pageSize, total: Number(total) };
+    return out;
   }
 
   /** Listed caregivers open to working abroad, and how many of them have a live shared profile. */

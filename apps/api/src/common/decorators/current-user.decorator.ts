@@ -11,6 +11,8 @@ export interface AuthenticatedUser {
   caregiverId?: string;
   /** Present only when role === 'PATIENT_GUARDIAN': the patient record this login owns. */
   patientId?: string;
+  /** Present only when role === 'EMPLOYER': the employer organisation this login owns. */
+  employerId?: string;
 }
 
 export const CurrentUser = createParamDecorator((_data: unknown, ctx: ExecutionContext): AuthenticatedUser => {
