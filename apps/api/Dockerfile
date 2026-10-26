@@ -31,6 +31,12 @@ RUN npm run build -w @care-platform/api
 # without needing a second, separate `npm ci --omit=dev` pass (which would
 # otherwise redo dependency resolution from scratch).
 RUN npm prune --omit=dev
+# npm puts a package in apps/api/node_modules instead of the root when another
+# workspace pins a different version of it (sharp: Next.js wants one version,
+# the API another). Those nested packages are the API's own runtime
+# dependencies, so the runtime image needs that folder too. Created here so the
+# COPY below never fails when nothing happens to be nested.
+RUN mkdir -p apps/api/node_modules
 
 # ---- runtime image ----
 FROM node:20-alpine AS runner
@@ -40,6 +46,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=builder /repo/node_modules ./node_modules
+# Without this, anything npm nested under apps/api is missing at runtime and
+# the API dies at boot with "Cannot find module" (it did, for sharp).
+COPY --from=builder /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /repo/packages/shared ./packages/shared
 COPY --from=builder /repo/apps/api/dist ./apps/api/dist
 COPY --from=builder /repo/apps/api/package.json ./apps/api/package.json
