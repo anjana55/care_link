@@ -408,8 +408,8 @@ export class AuthService {
     // Rotate: revoke the used token, issue a new pair.
     await this.db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.id, stored.id));
 
-    // caregiverId/patientId never change once assigned, so they're carried
-    // over from the token being rotated rather than re-queried.
+    // caregiverId/patientId/employerId never change once assigned, so they're
+    // carried over from the token being rotated rather than re-queried.
     return this.issueTokens({
       sub: payload.sub,
       email: account.email,
@@ -417,6 +417,7 @@ export class AuthService {
       role: account.role,
       caregiverId: payload.caregiverId,
       patientId: payload.patientId,
+      employerId: payload.employerId,
     });
   }
 
