@@ -1,9 +1,12 @@
 import { act, fireEvent, render, screen, waitFor, renderHook } from '@testing-library/react';
 import type { PublicCaregiverSummary, PublicSearchResponse, SearchOrigin } from '@care-platform/shared';
-import { NearbyPanel } from '@/components/results/nearby-panel';
+import { NearbyControls, NearbySummary, useNearbyMapLabels } from '@/components/results/nearby-panel';
+import { CaregiverMap } from '@/components/map/caregiver-map';
 import { ResultCard } from '@/components/results/result-card';
 import { circlePolygon } from '@/components/map/caregiver-map';
-import { withProfileOrigin } from '@/components/search/finder-page';
+import { withDeviceOrigin, withProfileOrigin } from '@/components/search/finder-page';
+import type { DeviceLocation } from '@/lib/hooks/use-device-location';
+import { stubMaps } from '@/lib/test/maplibre-stub';
 import { useDeviceLocation } from '@/lib/hooks/use-device-location';
 import { renderWithProviders } from '@/lib/test/test-utils';
 import { ApiError } from '@/lib/api/client';
@@ -60,17 +63,36 @@ function response(overrides: Partial<PublicSearchResponse> = {}): PublicSearchRe
   };
 }
 
-function panel(props: Partial<Parameters<typeof NearbyPanel>[0]> = {}) {
-  const handlers = { onRadiusChange: jest.fn(), onUseMyLocation: jest.fn() };
-  render(
-    renderWithProviders(
-      <NearbyPanel response={response()} highlighted={null} locating={false} locationError={null} {...handlers} {...props} />,
-    ),
+interface HarnessProps {
+  response: PublicSearchResponse;
+  highlighted: PublicCaregiverSummary | null;
+  locating: boolean;
+  locationError: Parameters<typeof NearbySummary>[0]['locationError'];
+  onRadiusChange: (km: number) => void;
+  onUseMyLocation: () => void;
+}
+
+/** The finder's map area as it is put together on the page: controls on the map, the summary with the results. */
+function Nearby({ response, highlighted, locating, locationError, onRadiusChange, onUseMyLocation }: HarnessProps) {
+  const origin = response.origin ?? null;
+  const labels = useNearbyMapLabels(origin);
+  const highlight = highlighted ? { home: highlighted.homeLocation, serviceArea: highlighted.serviceArea } : null;
+  return (
+    <>
+      <NearbyControls origin={origin} onUseMyLocation={onUseMyLocation} locating={locating} onRadiusChange={onRadiusChange} />
+      <NearbySummary response={response} onRadiusChange={onRadiusChange} locationError={locationError} />
+      <CaregiverMap origin={origin} points={response.mapPoints ?? []} highlight={highlight} labels={labels} />
+    </>
   );
+}
+
+function panel(props: Partial<HarnessProps> = {}) {
+  const handlers = { onRadiusChange: jest.fn(), onUseMyLocation: jest.fn() };
+  render(renderWithProviders(<Nearby response={response()} highlighted={null} locating={false} locationError={null} {...handlers} {...props} />));
   return handlers;
 }
 
-describe('NearbyPanel', () => {
+describe('Finder map and nearby summary', () => {
   it('says how many caregivers are within the radius, and where it is measured from', () => {
     panel();
     expect(screen.getByText('4 caregivers live or work within 25 km of Dehiwala')).toBeInTheDocument();
@@ -121,9 +143,71 @@ describe('NearbyPanel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/Location access is blocked/);
   });
 
-  it('shows nothing when the search had no location', () => {
+  it('shows no summary when the search had no location', () => {
     panel({ response: response({ origin: null }) });
     expect(screen.queryByText('Caregivers near you')).not.toBeInTheDocument();
+    expect(screen.queryByText(/live or work within/)).not.toBeInTheDocument();
+  });
+
+  it('offers "Use my location" with no radius before there is anywhere to measure from', () => {
+    render(renderWithProviders(<NearbyControls origin={null} onUseMyLocation={jest.fn()} locating={false} onRadiusChange={jest.fn()} />));
+    expect(screen.getByRole('button', { name: 'Use my location' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Within')).not.toBeInTheDocument();
+  });
+
+  it('labels the pre-search map by where caregivers live, not by a distance from nobody', async () => {
+    panel({
+      response: response({
+        origin: null,
+        mapPoints: [
+          { key: 'c10', name: 'Negombo', latitude: 7.2, longitude: 79.83, precision: 'city', distanceKm: null, count: 4 },
+          { key: 'c20', name: 'Kandy', latitude: 7.29, longitude: 80.63, precision: 'city', distanceKm: null, count: 1 },
+        ],
+      }),
+    });
+    expect(await screen.findByRole('button', { name: '4 caregivers live in Negombo' })).toHaveTextContent('4');
+    expect(screen.getByRole('button', { name: '1 caregiver lives in Kandy' })).toBeInTheDocument();
+  });
+});
+
+describe('CaregiverMap layout options', () => {
+  const labels = {
+    map: 'Map',
+    origin: 'Origin',
+    point: () => 'point',
+    serviceCity: () => 'city',
+    failed: 'failed',
+    legend: { origin: 'Search location', caregivers: 'Caregivers living there', serviceArea: 'Also works in' },
+  };
+
+  it('keeps a floating panel clear when framing, and frames Sri Lanka when there is nothing to show', async () => {
+    const padding = { top: 48, right: 48, bottom: 48, left: 496 };
+    const before = stubMaps.length;
+    render(<CaregiverMap origin={null} points={[]} labels={labels} padding={padding} />);
+    await waitFor(() => expect(stubMaps.length).toBe(before + 1));
+    await waitFor(() => expect(stubMaps.at(-1)?.lastFitOptions).toEqual(expect.objectContaining({ padding })));
+    expect(stubMaps.at(-1)?.lastBounds).toEqual([
+      [79.55, 5.9],
+      [81.9, 9.85],
+    ]);
+  });
+
+  it('lets a full-page map move freely and a map inside a page ask for two fingers', async () => {
+    const before = stubMaps.length;
+    const { rerender } = render(<CaregiverMap origin={null} points={[]} labels={labels} gestures="free" />);
+    // The map is created after maplibre's dynamic import resolves.
+    await waitFor(() => expect(stubMaps.length).toBe(before + 1));
+    const map = stubMaps.at(-1)!;
+    await waitFor(() => expect(map.lastBounds).not.toBeNull());
+    expect(map.cooperativeGestures.isEnabled()).toBe(false);
+    rerender(<CaregiverMap origin={null} points={[]} labels={labels} gestures="cooperative" />);
+    expect(map.cooperativeGestures.isEnabled()).toBe(true);
+  });
+
+  it('can float its key over the map instead of under it', () => {
+    const { container } = render(<CaregiverMap origin={null} points={[]} labels={labels} legend="overlay" />);
+    const key = screen.getByText('Caregivers living there').closest('ul')!;
+    expect(container.querySelector('[role="region"]')!.parentElement).toContainElement(key);
   });
 });
 
@@ -158,6 +242,36 @@ describe('ResultCard distance', () => {
     expect(onShowOnMap).toHaveBeenCalled();
     rerender(renderWithProviders(<ResultCard caregiver={caregiver()} onShowOnMap={onShowOnMap} shownOnMap />));
     expect(screen.getByRole('button', { name: 'Hide from map' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('withDeviceOrigin', () => {
+  const HERE: DeviceLocation = {
+    latitude: 7.209,
+    longitude: 79.836,
+    city: { cityId: 10, districtId: 2, name: 'Negombo', districtName: 'Gampaha', latitude: 7.208, longitude: 79.835, distanceKm: 0.2 },
+  };
+  const base = { careType: 'HOME_SHIFT', page: 1, pageSize: 20 } as never;
+
+  it('searches around the visitor when the search names no place', () => {
+    expect(withDeviceOrigin(base, HERE, 10)).toMatchObject({
+      location: { districtId: 2, cityId: 10 },
+      origin: { latitude: 7.209, longitude: 79.836 },
+      radiusKm: 10,
+    });
+  });
+
+  it('keeps a place the search named, measuring distances from the visitor', () => {
+    const named = { ...(base as object), location: { districtId: 5 } } as never;
+    const next = withDeviceOrigin(named, HERE, 25);
+    expect(next.location).toEqual({ districtId: 5 });
+    expect(next.origin).toEqual({ latitude: 7.209, longitude: 79.836 });
+  });
+
+  it('changes nothing without a location, or when the search already has one', () => {
+    expect(withDeviceOrigin(base, null)).toBe(base);
+    const located = { ...(base as object), origin: { latitude: 6.9, longitude: 79.85 } } as never;
+    expect(withDeviceOrigin(located, HERE)).toBe(located);
   });
 });
 

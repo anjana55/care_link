@@ -9,9 +9,11 @@ interface SearchModeToggleProps {
   mode: SearchMode;
   onChange: (mode: SearchMode) => void;
   aiEnabled: boolean;
+  /** Stretch the two tabs across the container, as in the finder's side panel. */
+  fullWidth?: boolean;
 }
 
-export function SearchModeToggle({ mode, onChange, aiEnabled }: SearchModeToggleProps) {
+export function SearchModeToggle({ mode, onChange, aiEnabled, fullWidth = false }: SearchModeToggleProps) {
   const { t } = useTranslation();
 
   const tabs: { id: SearchMode; label: string; disabled: boolean }[] = [
@@ -24,7 +26,7 @@ export function SearchModeToggle({ mode, onChange, aiEnabled }: SearchModeToggle
 
   return (
     <div>
-      <div className="inline-flex rounded-lg border border-border bg-white p-1" role="tablist">
+      <div className={cn(fullWidth ? 'grid grid-cols-2' : 'inline-flex', 'rounded-lg border border-border bg-paper p-1')} role="tablist">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -35,7 +37,7 @@ export function SearchModeToggle({ mode, onChange, aiEnabled }: SearchModeToggle
             onClick={() => onChange(tab.id)}
             className={cn(
               'rounded-DEFAULT px-4 py-2 text-sm font-semibold transition-colors',
-              mode === tab.id ? 'bg-brand text-white' : 'text-ink/70 hover:bg-brand-light',
+              mode === tab.id ? 'bg-brand text-white shadow-sm' : 'text-ink/70 hover:bg-brand-light',
               tab.disabled && 'cursor-not-allowed opacity-40 hover:bg-transparent',
             )}
           >

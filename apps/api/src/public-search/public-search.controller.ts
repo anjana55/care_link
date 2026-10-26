@@ -59,6 +59,14 @@ export class PublicSearchController {
     return rows.map((l) => ({ id: l.id, name: l.name }));
   }
 
+  /** City-level caregiver counts for the landing map, before any search. */
+  @Public()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Get('meta/coverage')
+  coverage(@Query('locale') locale?: string) {
+    return this.publicSearchService.coverage(locale);
+  }
+
   // Province/district/city lookups live on LocationsController
   // (`public/meta/locations/tree` and `.../cities`). They moved when the
   // reference data became three real tables: serving a locale is part of the

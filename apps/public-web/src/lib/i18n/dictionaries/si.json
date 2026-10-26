@@ -17,6 +17,9 @@
     "title": "ගැලපෙනම සාත්තු සේවකයා සොයාගන්න",
     "subtitle": "ඔබට අවශ්‍ය කුමන ආකාරයේ සත්කාරයක්දැයි අපට පවසා ගැලපෙන සාත්තු සේවකයින් සොයා ගන්න."
   },
+  "finder": {
+    "caregiverPrompt": "ඔබ සාත්තු සේවකයෙක්ද?"
+  },
   "searchMode": {
     "normal": "සාමාන්‍ය සෙවීම",
     "ai": "AI සෙවීම",
@@ -406,19 +409,7 @@
     "retry": "නැවත උත්සාහ කරන්න"
   },
   "landing": {
-    "pill": "තහවුරු කරන ලද සාත්තු සේවකයින් · ශ්‍රී ලංකාව",
-    "heroTitle": "විශ්වාසදායක සාත්තු සේවකයින් සොයා ගන්න. විශ්වාසයෙන් යුතුව සත්කාර කටයුතු කළමනාකරණය කරන්න.",
-    "heroBody": "caregivers and care teams — search verified professionals by skill",
-    "ctaSearch": "සාත්තු සේවකයින් සොයන්න",
     "ctaRegister": "සාත්තු සේවකයෙකු ලෙස සම්බන්ධ වන්න",
-    "statLocations": "800+",
-    "statLocationsLabel": "ආවරණය වන ස්ථාන",
-    "statLanguages": "{count}",
-    "statLanguagesLabel": "භාෂාවන්: {list}",
-    "statVerified": "100%",
-    "statVerifiedLabel": "කාර්ය මණ්ඩලය විසින් තහවුරු කරන ලද පැතිකඩ",
-    "panelTitle": "විශ්වාසය මත පදනම් වූ සත්කාරය",
-    "panelBody": "සෙවුම් ප්‍රතිඵලවල දිස්වීමට පෙර සෑම පැතිකඩක්ම අපගේ සත්කාර කණ්ඩායම විසින් සමාලෝචනය කරනු ලැබේ.",
     "apps": {
       "eyebrow": "වේදිකාව",
       "title": "සියල්ල එකම ස්ථානයක",
@@ -1213,7 +1204,11 @@
     "legendOrigin": "සෙවුම් ස්ථානය",
     "legendOriginDevice": "ඔබ",
     "legendCaregivers": "එහි ජීවත් වන සාත්තු සේවකයින්",
-    "legendServiceArea": "සේවය කරන වෙනත් ස්ථාන"
+    "legendServiceArea": "සේවය කරන වෙනත් ස්ථාන",
+    "coverageOne": "{place} හි සාත්තු සේවකයෙකු 1 දෙනෙක් ජීවත් වේ",
+    "coverageOther": "{place} හි සාත්තු සේවකයින් {count} දෙනෙක් ජීවත් වෙති",
+    "coverageTotalOne": "සිතියමේ සාත්තු සේවකයෙකු 1 දෙනෙක්",
+    "coverageTotalOther": "ස්ථාන {places} ක සාත්තු සේවකයින් {count} දෙනෙක්"
   },
   "careTypes": {
     "HOME_SHIFT": "නිවසේදී රැකවරණය (මුර පදනමින්)",

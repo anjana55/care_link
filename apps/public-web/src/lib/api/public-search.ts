@@ -6,6 +6,7 @@ import type {
   AiSearchResponse,
   ExtractedRequirements,
   Locale,
+  MapCityPoint,
   PublicCaregiverProfile,
   PublicMetaCity,
   PublicMetaLanguage,
@@ -29,6 +30,8 @@ export const publicSearchApi = {
   getCities: (districtId: number, locale?: Locale) =>
     api.get<PublicMetaCity[]>('/public/meta/locations/cities', { districtId, locale }),
   getSearchConfig: () => api.get<PublicSearchConfig>('/public/meta/search-config'),
+  // Where listed caregivers live, as city-level counts - the map before any search.
+  getCoverage: (locale?: Locale) => api.get<MapCityPoint[]>('/public/meta/coverage', { locale }),
   // "Use my location": a POST so the coordinates never appear in a URL or an access log.
   nearestCity: (body: NearestCityRequest) => api.post<NearestCity>('/public/geo/nearest-city', body),
   // Signed-in clients only: the profile city distances fall back to.

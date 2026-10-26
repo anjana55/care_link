@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
-import { SiteHeader } from '@/components/layout/site-header';
-import { SiteFooter } from '@/components/layout/site-footer';
 import { getBranding } from '@/lib/branding/server';
+import { FinderPage } from '@/components/search/finder-page';
 import {
-  LandingHero,
   LandingApps,
   LandingHowItWorks,
   LandingGallery,
@@ -20,29 +18,23 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * The landing page.
+ * The landing page: the caregiver finder, map first, with the marketing
+ * sections underneath.
  *
- * This used to be a near-copy of /find, plus a separate static HTML file served
- * by nginx at exactly "/" that shadowed this route entirely in production. The
- * real marketing page now lives here as a proper route, so it shares the header,
- * footer, theme and translations with every page it links to. The search
- * experience itself is /find - see components/search/finder-page.tsx.
+ * It used to open on a text hero whose main button sent visitors on to /find.
+ * Now the first screen is the search itself - a map of where caregivers are,
+ * with AI Search and Normal Search floating over it - so nobody has to click
+ * through to start looking. /find serves the same finder with its own
+ * shorter sections underneath.
  */
 export default function LandingPage() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <SiteHeader showBackLink={false} />
-
-      <main className="flex-1">
-        <LandingHero />
-        <LandingApps />
-        <LandingHowItWorks />
-        <AdSlot placement="home" className="pb-8" />
-        <LandingGallery />
-        <LandingCta />
-      </main>
-
-      <SiteFooter />
-    </div>
+    <FinderPage variant="landing">
+      <LandingApps />
+      <LandingHowItWorks />
+      <AdSlot placement="home" className="pb-8" />
+      <LandingGallery />
+      <LandingCta />
+    </FinderPage>
   );
 }

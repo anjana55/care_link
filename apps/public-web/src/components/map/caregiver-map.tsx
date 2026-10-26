@@ -6,7 +6,7 @@
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, useState } from 'react';
-import type { GeoJSONSource, LngLatBoundsLike, Map as MapLibreMap, Marker } from 'maplibre-gl';
+import type { GeoJSONSource, LngLatBoundsLike, Map as MapLibreMap, Marker, PaddingOptions } from 'maplibre-gl';
 import type { CaregiverHomeLocation, GeoPoint, MapCityPoint, SearchOrigin, ServiceAreaCity } from '@care-platform/shared';
 
 /**
@@ -44,7 +44,26 @@ interface CaregiverMapProps {
   /** Picks which name the basemap's place labels show. */
   locale?: string;
   className?: string;
+  /**
+   * Space to keep clear when framing the map, in px - e.g. the width of a
+   * search panel floating over its left edge, so nothing is framed under it.
+   */
+  padding?: number | PaddingOptions;
+  /**
+   * `cooperative` (default) needs two fingers / Ctrl+scroll to move the map,
+   * so a map in the middle of a page never traps scrolling. `free` is for a
+   * map that is the page itself, where a plain wheel or drag should move it.
+   */
+  gestures?: 'cooperative' | 'free';
+  /** Where the key goes: under the map (default) or floating over its bottom-right corner, clear of a panel on the left. */
+  legend?: 'below' | 'overlay';
 }
+
+/** Mainland Sri Lanka - what an empty map frames, rather than a fixed centre a side panel could cover. */
+const SRI_LANKA_BOUNDS: LngLatBoundsLike = [
+  [79.55, 5.9],
+  [81.9, 9.85],
+];
 
 /** A theme colour from the white-label CSS variables ("R G B" channels), as rgb(). */
 function themeColor(variable: string, fallback: string): string {
@@ -92,7 +111,17 @@ const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.
  * search radius as a circle, and a highlighted caregiver adds lines from
  * where they live to each city they will travel to work in.
  */
-export function CaregiverMap({ origin, points, highlight, labels, locale = 'en', className }: CaregiverMapProps) {
+export function CaregiverMap({
+  origin,
+  points,
+  highlight,
+  labels,
+  locale = 'en',
+  className,
+  padding = 32,
+  gestures = 'cooperative',
+  legend = 'below',
+}: CaregiverMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const lib = useRef<typeof import('maplibre-gl') | null>(null);
@@ -103,6 +132,10 @@ export function CaregiverMap({ origin, points, highlight, labels, locale = 'en',
   // render does not redraw the markers and re-frame a map the visitor has panned.
   const labelsRef = useRef(labels);
   labelsRef.current = labels;
+  // Same for the padding: a fresh object each render must not re-frame the map.
+  const paddingRef = useRef(padding);
+  paddingRef.current = padding;
+  const gesturesRef = useRef(gestures);
 
   // Create the map once. MapLibre touches `window`, so it is loaded only in the browser.
   useEffect(() => {
@@ -118,7 +151,7 @@ export function CaregiverMap({ origin, points, highlight, labels, locale = 'en',
           center: [80.7, 7.8],
           zoom: 6.5,
           attributionControl: { compact: true },
-          cooperativeGestures: true,
+          cooperativeGestures: gesturesRef.current === 'cooperative',
         });
         instance.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-right');
         instance.on('load', () => {
@@ -257,12 +290,51 @@ export function CaregiverMap({ origin, points, highlight, labels, locale = 'en',
       : origin
         ? circlePolygon(origin, origin.radiusKm, 8).map(([longitude, latitude]) => ({ latitude, longitude }))
         : points;
-    const bounds = boundsOf(frame);
-    if (bounds) instance.fitBounds(bounds, { padding: 32, maxZoom: 12, animate: !reducedMotion() });
+    const bounds = boundsOf(frame) ?? SRI_LANKA_BOUNDS;
+    instance.fitBounds(bounds, { padding: paddingRef.current, maxZoom: 12, animate: !reducedMotion() });
   }, [ready, origin, points, highlight]);
 
+  // A map that is the page switches between cooperative and free gestures as
+  // the layout changes (the side panel appears at desktop widths).
+  useEffect(() => {
+    gesturesRef.current = gestures;
+    const handler = map.current?.cooperativeGestures;
+    if (!ready || !handler) return;
+    if (gestures === 'cooperative') handler.enable();
+    else handler.disable();
+  }, [ready, gestures]);
+
+  const key = !failed && (
+    <ul
+      className={
+        legend === 'overlay'
+          ? 'pointer-events-none absolute bottom-9 right-2 z-[1] flex flex-col gap-1 rounded-DEFAULT bg-white/90 px-2.5 py-1.5 text-xs text-ink/70 shadow-sm backdrop-blur'
+          : 'mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink/70'
+      }
+    >
+      {origin && (
+        <li className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded-full border-2 border-accent" aria-hidden />
+          {labels.legend.origin}
+        </li>
+      )}
+      <li className="flex items-center gap-1.5">
+        <span className="inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-brand text-[8px] font-bold text-white" aria-hidden>
+          n
+        </span>
+        {labels.legend.caregivers}
+      </li>
+      {highlight && highlight.serviceArea.length > 0 && (
+        <li className="flex items-center gap-1.5">
+          <span className="ml-0.5 inline-block h-2.5 w-2.5 rotate-45 bg-accent" aria-hidden />
+          {labels.legend.serviceArea}
+        </li>
+      )}
+    </ul>
+  );
+
   return (
-    <div>
+    <div className={legend === 'overlay' ? 'h-full' : undefined}>
       <div className={className ?? 'relative h-72 w-full overflow-hidden rounded-lg border border-border bg-paper sm:h-96'}>
         {/* h-full rather than absolute/inset-0: MapLibre's own stylesheet sets
             .maplibregl-map to position: relative, which would collapse it to 0 px. */}
@@ -272,29 +344,9 @@ export function CaregiverMap({ origin, points, highlight, labels, locale = 'en',
             {labels.failed}
           </p>
         )}
+        {legend === 'overlay' && key}
       </div>
-      {!failed && (
-        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink/70">
-          {origin && (
-            <li className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-full border-2 border-accent" aria-hidden />
-              {labels.legend.origin}
-            </li>
-          )}
-          <li className="flex items-center gap-1.5">
-            <span className="inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-brand text-[8px] font-bold text-white" aria-hidden>
-              n
-            </span>
-            {labels.legend.caregivers}
-          </li>
-          {highlight && highlight.serviceArea.length > 0 && (
-            <li className="flex items-center gap-1.5">
-              <span className="ml-0.5 inline-block h-2.5 w-2.5 rotate-45 bg-accent" aria-hidden />
-              {labels.legend.serviceArea}
-            </li>
-          )}
-        </ul>
-      )}
+      {legend === 'below' && key}
     </div>
   );
 }
