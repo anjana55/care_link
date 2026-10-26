@@ -28,6 +28,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { TrainingProgrammeCard } from '@/components/international/training-programme-card';
+import { EmployerInterestCard, ReadinessChecklist } from '@/components/international/readiness-checklist';
 import { cn } from '@/lib/utils';
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
@@ -57,6 +58,8 @@ export default function WorkAbroadSectionPage() {
         <h1 className="text-xl font-bold text-ink">{t('portal.workAbroad.title')}</h1>
         <p className="mt-1 text-sm text-ink/60">{t('portal.workAbroad.intro')}</p>
       </div>
+      <EmployerInterestCard />
+      <ReadinessChecklist />
       <ReadinessCard />
       <TrainingCard />
       <SharedProfileCard />

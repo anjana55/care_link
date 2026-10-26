@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { BadgeCheck, CalendarDays, Check, Copy, GraduationCap, MessageSquare, Plane } from 'lucide-react';
+import { BadgeCheck, CalendarDays, Check, Copy, FileDown, GraduationCap, MessageSquare, Plane } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useCountryNames } from '@/lib/countries';
-import { useTalentProfile } from '@/lib/hooks/use-international';
+import { useIsEmployer, useTalentProfile } from '@/lib/hooks/use-international';
+import { InterviewRequestPanel, ShortlistButton } from '@/components/international/interview-request';
 import { ApiError } from '@/lib/api/client';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
@@ -38,6 +39,7 @@ export default function TalentProfilePage() {
   const { data: talent, isLoading, isError, error, refetch } = useTalentProfile(slug, locale);
   const notFound = error instanceof ApiError && error.status === 404;
   const [copied, setCopied] = useState(false);
+  const employer = useIsEmployer();
 
   async function copyLink() {
     try {
@@ -90,12 +92,25 @@ export default function TalentProfilePage() {
             </div>
 
             <div className="mt-6 flex flex-wrap justify-center gap-3 sm:justify-start">
+              {/* A signed-in employer saves and asks for interviews from their account;
+                  anyone else sends an enquiry. Either way, staff make the introduction. */}
+              {employer ? (
+                <ShortlistButton slug={talent.slug} />
+              ) : (
+                <Link
+                  href={`/international?talent=${encodeURIComponent(talent.slug)}#enquiry`}
+                  className="inline-flex items-center gap-2 rounded-DEFAULT bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"
+                >
+                  <MessageSquare className="h-4 w-4" aria-hidden />
+                  {t('talent.ask', { name: talent.firstName })}
+                </Link>
+              )}
               <Link
-                href={`/international?talent=${encodeURIComponent(talent.slug)}#enquiry`}
-                className="inline-flex items-center gap-2 rounded-DEFAULT bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"
+                href={`/talent/${encodeURIComponent(talent.slug)}/card`}
+                className="inline-flex items-center gap-2 rounded-DEFAULT border border-border px-4 py-2.5 text-sm font-medium text-ink hover:bg-paper"
               >
-                <MessageSquare className="h-4 w-4" aria-hidden />
-                {t('talent.ask', { name: talent.firstName })}
+                <FileDown className="h-4 w-4" aria-hidden />
+                {t('talent.card.download')}
               </Link>
               <button
                 type="button"
@@ -106,6 +121,12 @@ export default function TalentProfilePage() {
                 {copied ? t('talent.copied') : t('talent.copyLink')}
               </button>
             </div>
+
+            {employer && (
+              <div className="mt-5">
+                <InterviewRequestPanel slug={talent.slug} firstName={talent.firstName} />
+              </div>
+            )}
 
             <div className="mt-8 space-y-5">
               {talent.bio && (

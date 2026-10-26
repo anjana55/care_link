@@ -14,9 +14,11 @@ export interface AuthUser {
    * caregivers register and then manage their own profile, documents and shifts. Office-staff
    * roles are deliberately absent - they belong to the /staff app.
    */
-  role: 'PATIENT_GUARDIAN' | 'CAREGIVER';
+  role: 'PATIENT_GUARDIAN' | 'CAREGIVER' | 'EMPLOYER';
   patientId?: string;
   caregiverId?: string;
+  /** Overseas employers (international path): the organisation this login owns. */
+  employerId?: string;
 }
 
 /**
@@ -24,7 +26,7 @@ export interface AuthUser {
  * but a caregiver's home is their own area in THIS app (/caregiver/dashboard), not /staff/me.
  */
 export function postLoginPath(user: AuthUser): string {
-  return user.role === 'CAREGIVER' ? '/caregiver/dashboard' : '/';
+  return user.role === 'CAREGIVER' ? '/caregiver/dashboard' : user.role === 'EMPLOYER' ? '/employer' : '/';
 }
 
 function jwtPayload(token: string): Record<string, unknown> | null {
@@ -51,7 +53,7 @@ function decodeJwt(token: string): AuthUser | null {
     // An allowlist, not a deleted check. Widening it to "accept anything but
     // patients" would let an ADMIN/STAFF/VERIFIER token sign someone in on the
     // public site, where there is nothing for them to see.
-    if (payload.role !== 'PATIENT_GUARDIAN' && payload.role !== 'CAREGIVER') return null;
+    if (payload.role !== 'PATIENT_GUARDIAN' && payload.role !== 'CAREGIVER' && payload.role !== 'EMPLOYER') return null;
     return {
       userId: payload.sub,
       email: payload.email ?? null,
@@ -59,6 +61,7 @@ function decodeJwt(token: string): AuthUser | null {
       role: payload.role,
       patientId: payload.patientId,
       caregiverId: payload.caregiverId,
+      employerId: payload.employerId,
     };
   } catch {
     return null;
@@ -73,8 +76,8 @@ function decodeJwt(token: string): AuthUser | null {
  */
 export const INVALID_CREDENTIALS_MESSAGE = 'Invalid credentials';
 
-/** The two sign-in screens on this site. The API refuses credentials that belong to the other one. */
-export type LoginPortal = 'caregiver' | 'customer';
+/** The sign-in screens on this site. The API refuses credentials that belong to another one. */
+export type LoginPortal = 'caregiver' | 'customer' | 'employer';
 
 interface AuthContextValue {
   user: AuthUser | null;

@@ -1,4 +1,13 @@
 import type {
+  CaregiverEmployerInterest,
+  EmployerAccount,
+  EmployerAccountEnquiryRequest,
+  EmployerAccountUpdate,
+  EmployerOwnEnquiry,
+  EmployerRegistrationRequest,
+  InterviewRequest,
+  PublicTalentCard,
+  ReadinessReport,
   CaregiverTrainingEnrolment,
   EmployerEnquiryReceipt,
   EmployerEnquiryRequest,
@@ -17,7 +26,8 @@ import { api } from './client';
 export const internationalApi = {
   summary: () => api.get<InternationalSummary>('/public/international/summary'),
   sendEnquiry: (body: EmployerEnquiryRequest) => api.post<EmployerEnquiryReceipt>('/public/international/enquiries', body),
-  talent: (params: { locale: Locale; page?: number; pageSize?: number; country?: string }) => api.get<PublicTalentList>('/public/talent', params),
+  talent: (params: { locale: Locale; page?: number; pageSize?: number; country?: string; languageId?: string; training?: string; verifiedOnly?: boolean }) =>
+    api.get<PublicTalentList>('/public/talent', params),
   talentProfile: (slug: string, locale: Locale) => api.get<PublicTalentProfile>(`/public/talent/${encodeURIComponent(slug)}`, { locale }),
   training: (locale: Locale) => api.get<PublicTrainingProgramme[]>('/public/training', { locale }),
 };
@@ -41,4 +51,21 @@ export const workAbroadApi = {
     return api.post<SharedProfileSettings>(`/caregivers/${id}/shared-profile/photo`, form);
   },
   deletePhoto: (id: string) => api.delete<SharedProfileSettings>(`/caregivers/${id}/shared-profile/photo`),
+  checklist: (id: string) => api.get<ReadinessReport>(`/caregivers/${id}/overseas/checklist`),
+  interest: (id: string) => api.get<CaregiverEmployerInterest[]>(`/caregivers/${id}/overseas/interest`),
+};
+
+/** An overseas employer's own account. */
+export const employerApi = {
+  register: (body: EmployerRegistrationRequest) => api.post<{ message: string; devVerificationUrl?: string }>('/auth/register-employer', body),
+  me: () => api.get<EmployerAccount>('/employer/me'),
+  updateMe: (body: EmployerAccountUpdate) => api.patch<EmployerAccount>('/employer/me', body),
+  enquiries: (locale: Locale) => api.get<EmployerOwnEnquiry[]>('/employer/enquiries', { locale }),
+  createEnquiry: (body: EmployerAccountEnquiryRequest) => api.post<{ reference: string }>('/employer/enquiries', body),
+  requestInterview: (body: InterviewRequest, locale: Locale) => api.post<EmployerOwnEnquiry[]>(`/employer/candidates?locale=${locale}`, body),
+  act: (id: string, body: { action: 'REQUEST_INTERVIEW' | 'SELECT' | 'DECLINE'; message?: string }, locale: Locale) =>
+    api.patch<EmployerOwnEnquiry[]>(`/employer/candidates/${id}?locale=${locale}`, body),
+  shortlist: (locale: Locale) => api.get<PublicTalentCard[]>('/employer/shortlist', { locale }),
+  addToShortlist: (slug: string, locale: Locale) => api.put<PublicTalentCard[]>(`/employer/shortlist/${encodeURIComponent(slug)}?locale=${locale}`),
+  removeFromShortlist: (slug: string, locale: Locale) => api.delete<PublicTalentCard[]>(`/employer/shortlist/${encodeURIComponent(slug)}?locale=${locale}`),
 };

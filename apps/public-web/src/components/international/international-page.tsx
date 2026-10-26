@@ -8,7 +8,8 @@ import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { useTranslation } from '@/lib/i18n';
 import { useCountryNames } from '@/lib/countries';
-import { useInternationalSummary, useTalentDirectory, useTalentProfile } from '@/lib/hooks/use-international';
+import { useInternationalSummary, useIsEmployer, useTalentDirectory, useTalentProfile } from '@/lib/hooks/use-international';
+import { useMetaLanguages } from '@/lib/hooks/use-public-search';
 import { EmployerEnquiryForm } from './employer-enquiry-form';
 import { TalentCard } from './talent-card';
 import { Select } from '@/components/ui/input';
@@ -30,7 +31,21 @@ export function InternationalPage() {
   const { data: summary } = useInternationalSummary();
   const [page, setPage] = useState(1);
   const [country, setCountry] = useState('');
-  const { data: talent, isLoading: talentLoading } = useTalentDirectory(locale, page, country || undefined);
+  const [languageId, setLanguageId] = useState('');
+  const [training, setTraining] = useState('');
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const { data: languages = [] } = useMetaLanguages();
+  const employer = useIsEmployer();
+  const { data: talent, isLoading: talentLoading } = useTalentDirectory(locale, page, {
+    country: country || undefined,
+    languageId: languageId || undefined,
+    training: training || undefined,
+    verifiedOnly,
+  });
+  const filter = (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setter(e.target.value);
+    setPage(1);
+  };
 
   // Arrived from a shared profile's "Ask about her" button.
   const [talentSlug, setTalentSlug] = useState<string | null>(null);
@@ -79,6 +94,24 @@ export function InternationalPage() {
                   {t('international.ctaBrowse')}
                 </a>
               </div>
+              <p className="mt-5 text-sm text-white/80">
+                {employer ? (
+                  <Link href="/employer" className="font-semibold text-white underline-offset-2 hover:underline">
+                    {t('international.account.open')}
+                  </Link>
+                ) : (
+                  <>
+                    {t('international.account.prompt')}{' '}
+                    <Link href="/employer/register" className="font-semibold text-white underline-offset-2 hover:underline">
+                      {t('international.account.create')}
+                    </Link>{' '}
+                    ·{' '}
+                    <Link href="/employer/login" className="font-semibold text-white underline-offset-2 hover:underline">
+                      {t('nav.signIn')}
+                    </Link>
+                  </>
+                )}
+              </p>
             </div>
             {stats.length > 0 && (
               <dl className="grid grid-cols-3 gap-3 lg:grid-cols-1">
@@ -139,24 +172,50 @@ export function InternationalPage() {
                 <h2 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">{t('international.talent.title')}</h2>
                 <p className="mt-2 max-w-2xl text-sm text-ink/60">{t('international.talent.body')}</p>
               </div>
-              <label className="flex items-center gap-2 text-sm text-ink/70">
-                {t('international.talent.filterCountry')}
-                <Select
-                  value={country}
-                  onChange={(e) => {
-                    setCountry(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-48"
-                >
-                  <option value="">{t('international.talent.anyCountry')}</option>
-                  {countries.sorted.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name}
-                    </option>
-                  ))}
-                </Select>
-              </label>
+              <div className="flex flex-wrap items-end gap-3 text-sm text-ink/70">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs">{t('international.talent.filterCountry')}</span>
+                  <Select value={country} onChange={filter(setCountry)} className="w-44">
+                    <option value="">{t('international.talent.anyCountry')}</option>
+                    {countries.sorted.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs">{t('international.talent.filterLanguage')}</span>
+                  <Select value={languageId} onChange={filter(setLanguageId)} className="w-40">
+                    <option value="">{t('international.talent.anyLanguage')}</option>
+                    {languages.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs">{t('international.talent.filterTraining')}</span>
+                  <Select value={training} onChange={filter(setTraining)} className="w-44">
+                    <option value="">{t('international.talent.anyTraining')}</option>
+                    <option value="ENGLISH">{t('workAbroad.categories.ENGLISH')}</option>
+                    <option value="CAREGIVING">{t('workAbroad.categories.CAREGIVING')}</option>
+                  </Select>
+                </label>
+                <label className="flex h-10 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={verifiedOnly}
+                    onChange={(e) => {
+                      setVerifiedOnly(e.target.checked);
+                      setPage(1);
+                    }}
+                    className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
+                  />
+                  {t('international.talent.verifiedOnly')}
+                </label>
+              </div>
             </div>
 
             {talentLoading && <div className="mt-8 h-40 animate-pulse rounded-lg bg-paper" aria-hidden />}
@@ -196,10 +255,22 @@ export function InternationalPage() {
           <div className="mx-auto max-w-3xl px-4">
             <h2 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">{t('international.form.title')}</h2>
             <p className="mb-8 mt-2 text-sm text-ink/60">{t('international.form.body')}</p>
-            <EmployerEnquiryForm
-              talent={asked ? { slug: asked.slug, firstName: asked.firstName } : null}
-              onClearTalent={() => setTalentSlug(null)}
-            />
+            {employer ? (
+              <p className="rounded-lg border border-brand/30 bg-brand-light/40 p-5 text-sm text-ink">
+                {t('international.account.signedIn')}{' '}
+                <Link
+                  href={asked ? `/employer/enquiries/new?talent=${encodeURIComponent(asked.slug)}` : '/employer/enquiries/new'}
+                  className="font-semibold text-brand-dark underline-offset-2 hover:underline"
+                >
+                  {t('employer.nav.newEnquiry')}
+                </Link>
+              </p>
+            ) : (
+              <EmployerEnquiryForm
+                talent={asked ? { slug: asked.slug, firstName: asked.firstName } : null}
+                onClearTalent={() => setTalentSlug(null)}
+              />
+            )}
           </div>
         </section>
 

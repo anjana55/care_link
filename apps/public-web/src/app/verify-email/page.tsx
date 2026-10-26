@@ -68,7 +68,7 @@ function VerifyEmailInner() {
       setResendState({ pending: false, message: err instanceof ApiError && err.message ? err.message : t('verifyEmail.resendError') });
     }
   };
-  const loginHref = alreadyRole === 'CAREGIVER' ? '/caregiver/login' : '/login';
+  const loginHref = alreadyRole === 'CAREGIVER' ? '/caregiver/login' : alreadyRole === 'EMPLOYER' ? '/employer/login' : '/login';
 
   return (
     <div className="flex min-h-screen flex-col">
