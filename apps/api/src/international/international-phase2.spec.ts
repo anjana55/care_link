@@ -200,8 +200,9 @@ describe('candidates', () => {
     const employers = {
       assertVerified: opts.verified === false ? jest.fn().mockRejectedValue(new ForbiddenException()) : jest.fn().mockResolvedValue(EMPLOYER),
     };
-    const service = new CandidatesService(fake.db, shared as never, employers as never, n as never);
-    return { service, n, shared, ...fake };
+    const placements = { openForCandidate: jest.fn().mockResolvedValue('pl-1') };
+    const service = new CandidatesService(fake.db, shared as never, employers as never, n as never, placements as never);
+    return { service, n, shared, placements, ...fake };
   }
 
   it('puts forward only caregivers whose shared profile is live', async () => {

@@ -16,7 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { DocumentsService } from './documents.service';
-import { UploadDocumentDto } from './dto/upload-document.dto';
+import { DocumentVerificationDto, UploadDocumentDto } from './dto/upload-document.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CaregiverScope } from '../common/decorators/caregiver-scope.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
@@ -45,7 +45,7 @@ export class DocumentsController {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.documentsService.upload(caregiverId, dto.documentType, file, user.userId);
+    return this.documentsService.upload(caregiverId, dto.documentType, file, user.userId, dto.expiresOn ?? null);
   }
 
   // Was unscoped before self-registration existed (fine when every login was
@@ -75,10 +75,10 @@ export class DocumentsController {
   setVerification(
     @Param('caregiverId') caregiverId: string,
     @Param('id') id: string,
-    @Body('status') status: 'PENDING' | 'IN_PROGRESS' | 'VERIFIED' | 'REJECTED',
+    @Body() dto: DocumentVerificationDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.documentsService.setVerificationStatus(caregiverId, id, status, user.userId);
+    return this.documentsService.setVerificationStatus(caregiverId, id, dto.status, user.userId, dto.expiresOn);
   }
 
   // Admin as before; a caregiver may also withdraw their own document, but only

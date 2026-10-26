@@ -17,6 +17,9 @@ export function generateEnquiryReference(): string {
   return out;
 }
 
+/** Staff-facing note on the enquiry behind a vacancy. */
+const vacancyNote = (title: string) => ['Posted as a vacancy', title].join(': ');
+
 export const OPEN_ENQUIRY_STATUSES = ['NEW', 'IN_PROGRESS', 'INTRODUCED'] as const;
 
 const isDuplicate = (err: unknown) => {
@@ -50,7 +53,7 @@ export class EmployerEnquiriesService {
     // Asked from a shared profile: attach the caregiver, but only while that
     // profile is actually live - a stale link must not reach anyone.
     const caregiverId = dto.talentSlug ? await this.sharedProfiles.liveCaregiverIdForSlug(dto.talentSlug) : null;
-    return this.insert({
+    const { reference } = await this.insert({
       organisationName: dto.organisationName,
       organisationType: dto.organisationType,
       country: dto.country,
@@ -68,6 +71,7 @@ export class EmployerEnquiriesService {
       employerId: null,
       language: dto.language ?? 'en',
     });
+    return { reference };
   }
 
   /** A signed-in employer's enquiry: the organisation details come from their account. */
@@ -80,7 +84,7 @@ export class EmployerEnquiriesService {
       .limit(1);
     if (!account) throw new NotFoundException('Employer not found');
     const caregiverId = dto.talentSlug ? await this.sharedProfiles.liveCaregiverIdForSlug(dto.talentSlug) : null;
-    return this.insert({
+    const { reference } = await this.insert({
       organisationName: account.e.organisationName,
       organisationType: account.e.organisationType,
       country: dto.country ?? account.e.country,
@@ -98,16 +102,52 @@ export class EmployerEnquiriesService {
       employerId,
       language: 'en',
     });
+    return { reference };
   }
 
-  private async insert(values: EnquiryValues): Promise<EmployerEnquiryReceipt> {
+  /**
+   * The enquiry behind a vacancy an employer posts: applicants staff put
+   * forward become its candidates. No emails - the vacancy sends its own.
+   */
+  async createForVacancy(employerId: string, v: { country: string; rolesCount: number; careSetting: string; visaSponsorship: EnquiryValues['visaSponsorship']; startTimeframe: string | null; title: string }): Promise<{ id: string; reference: string }> {
+    const [account] = await this.db
+      .select({ e: employers, email: users.email })
+      .from(employers)
+      .innerJoin(users, eq(employers.userId, users.id))
+      .where(eq(employers.id, employerId))
+      .limit(1);
+    if (!account) throw new NotFoundException('Employer not found');
+    return this.insert(
+      {
+        organisationName: account.e.organisationName,
+        organisationType: account.e.organisationType,
+        country: v.country,
+        contactName: account.e.contactName,
+        email: (account.email ?? '').toLowerCase(),
+        phone: account.e.phone,
+        website: account.e.website,
+        rolesCount: v.rolesCount,
+        careSettings: [v.careSetting],
+        languages: null,
+        startTimeframe: v.startTimeframe,
+        visaSponsorship: v.visaSponsorship,
+        message: vacancyNote(v.title),
+        caregiverId: null,
+        employerId,
+        language: 'en',
+      },
+      { notify: false },
+    );
+  }
+
+  private async insert(values: EnquiryValues, { notify = true } = {}): Promise<{ id: string; reference: string }> {
     const id = uuid();
     for (let attempt = 0; ; attempt++) {
       const reference = generateEnquiryReference();
       try {
         await this.db.insert(employerEnquiries).values({ id, reference, ...values, consentAcceptedAt: new Date() });
-        void this.notifyCreated(id, reference, values);
-        return { reference };
+        if (notify) void this.notifyCreated(id, reference, values);
+        return { id, reference };
       } catch (err) {
         // A reference collision (1 in ~700 million) - draw again.
         if (isDuplicate(err) && attempt < 3) continue;

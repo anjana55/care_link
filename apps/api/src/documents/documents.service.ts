@@ -87,6 +87,7 @@ export class DocumentsService {
     documentType: DocumentType,
     file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
     uploadedByUserId: string,
+    expiresOn: string | null = null,
   ) {
     if (!file) throw new BadRequestException('Choose a file to upload.');
     this.validateUpload(file);
@@ -119,6 +120,7 @@ export class DocumentsService {
       sizeBytes: file.size,
       checksum,
       uploadedByUserId,
+      expiresOn,
     });
 
     return this.findOne(caregiverId, documentId);
@@ -134,6 +136,7 @@ export class DocumentsService {
         sizeBytes: caregiverDocuments.sizeBytes,
         verificationStatus: caregiverDocuments.verificationStatus,
         verifiedAt: caregiverDocuments.verifiedAt,
+        expiresOn: caregiverDocuments.expiresOn,
         createdAt: caregiverDocuments.createdAt,
       })
       .from(caregiverDocuments)
@@ -172,6 +175,7 @@ export class DocumentsService {
     id: string,
     status: 'PENDING' | 'IN_PROGRESS' | 'VERIFIED' | 'REJECTED',
     verifiedByUserId: string,
+    expiresOn?: string | null,
   ) {
     await this.findOne(caregiverId, id);
     await this.db
@@ -180,6 +184,7 @@ export class DocumentsService {
         verificationStatus: status,
         verifiedByUserId,
         verifiedAt: status === 'VERIFIED' || status === 'REJECTED' ? new Date() : null,
+        ...(expiresOn !== undefined ? { expiresOn } : {}),
       })
       .where(and(eq(caregiverDocuments.id, id), eq(caregiverDocuments.caregiverId, caregiverId)));
     return this.findOne(caregiverId, id);

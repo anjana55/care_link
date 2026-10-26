@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import { randomUUID as uuid } from 'crypto';
 import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
 import type {
+  CandidateSource,
   CandidateStatus,
   CaregiverEmployerInterest,
   EmployerCandidate,
@@ -16,6 +17,7 @@ import { SharedProfilesService } from './shared-profiles.service';
 import { EmployersService } from './employers.service';
 import { InternationalNotifier } from './international-notifier.service';
 import { OPEN_ENQUIRY_STATUSES, iso } from './employer-enquiries.service';
+import { PlacementsService } from './placements.service';
 
 type CandidateRow = typeof enquiryCandidates.$inferSelect;
 type EnquiryRow = typeof employerEnquiries.$inferSelect;
@@ -46,6 +48,7 @@ export class CandidatesService {
     private readonly sharedProfiles: SharedProfilesService,
     private readonly employers: EmployersService,
     private readonly notifier: InternationalNotifier,
+    private readonly placements: PlacementsService,
   ) {}
 
   // --- staff -------------------------------------------------------------------
@@ -61,7 +64,11 @@ export class CandidatesService {
     return rows.map((r) => toStaffCandidate(r.c, r.registrationNumber, r.fullName, live.get(r.c.caregiverId) ?? null));
   }
 
-  async propose(enquiryId: string, dto: ProposeCandidateDto): Promise<StaffCandidate[]> {
+  async propose(
+    enquiryId: string,
+    dto: ProposeCandidateDto,
+    { source = 'STAFF', notifyCaregiver = true }: { source?: CandidateSource; notifyCaregiver?: boolean } = {},
+  ): Promise<StaffCandidate[]> {
     const enquiry = await this.enquiry(enquiryId);
     if (!isOpen(enquiry)) throw new BadRequestException('This enquiry is no longer open.');
     const slug = (await this.sharedProfiles.liveSlugs([dto.caregiverId])).get(dto.caregiverId);
@@ -76,14 +83,14 @@ export class CandidatesService {
     if (existing) {
       await this.db
         .update(enquiryCandidates)
-        .set({ status: 'PROPOSED', source: 'STAFF', messageToEmployer: dto.messageToEmployer ?? null, interviewAt: null, updatedAt: new Date() })
+        .set({ status: 'PROPOSED', source, messageToEmployer: dto.messageToEmployer ?? null, interviewAt: null, updatedAt: new Date() })
         .where(eq(enquiryCandidates.id, existing.id));
     } else {
       await this.db.insert(enquiryCandidates).values({
         id: uuid(),
         enquiryId,
         caregiverId: dto.caregiverId,
-        source: 'STAFF',
+        source,
         status: 'PROPOSED',
         messageToEmployer: dto.messageToEmployer ?? null,
       });
@@ -92,11 +99,11 @@ export class CandidatesService {
       await this.db.update(employerEnquiries).set({ status: 'INTRODUCED', updatedAt: new Date() }).where(eq(employerEnquiries.id, enquiryId));
     }
     void this.notifyEmployer(enquiry, 'proposed');
-    void this.notifyCaregiver(dto.caregiverId, enquiry, 'interest');
+    if (notifyCaregiver) void this.notifyCaregiver(dto.caregiverId, enquiry, 'interest');
     return this.listForEnquiry(enquiryId);
   }
 
-  async update(candidateId: string, dto: UpdateCandidateDto): Promise<StaffCandidate> {
+  async update(candidateId: string, dto: UpdateCandidateDto, userId?: string): Promise<StaffCandidate> {
     const candidate = await this.candidate(candidateId);
     const changes: Partial<typeof enquiryCandidates.$inferInsert> = { updatedAt: new Date() };
     if (dto.status !== undefined) changes.status = dto.status;
@@ -108,6 +115,8 @@ export class CandidatesService {
       throw new BadRequestException('Set the interview date and time.');
     }
     await this.db.update(enquiryCandidates).set(changes).where(eq(enquiryCandidates.id, candidateId));
+    // Hired: placement tracking starts here (welfare check-ins, the fee invoice).
+    if (status === 'PLACED' && candidate.status !== 'PLACED') await this.placements.openForCandidate(candidateId, userId ?? null);
 
     const scheduled = status === 'INTERVIEW_SCHEDULED' && (candidate.status !== 'INTERVIEW_SCHEDULED' || dto.interviewAt !== undefined);
     if (scheduled) {

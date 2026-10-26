@@ -10,6 +10,7 @@
 
 import type { CareType } from './care-types';
 import type { Locale } from './locale';
+import type { BillingParty } from './billing';
 
 // --- countries -------------------------------------------------------------
 
@@ -123,6 +124,14 @@ export interface OverseasStaffSummary extends EmployerEnquirySummary {
   pendingProfiles: number;
   pendingEmployers: number;
   interviewRequests: number;
+  /** Vacancies employers posted that staff have not reviewed yet. */
+  pendingVacancies: number;
+  /** Applications to vacancies that staff have not acted on yet. */
+  newApplications: number;
+  /** Welfare check-ins past their due date. */
+  overdueCheckins: number;
+  /** Issued placement invoices past their due date and not paid. */
+  overdueInvoices: number;
 }
 
 /** Numbers for the employer landing page. Counts only. */
@@ -363,6 +372,9 @@ export interface EmployerAdminRow {
 
 // --- candidates ----------------------------------------------------------------
 
+export const candidateSourceValues = ['STAFF', 'EMPLOYER', 'APPLICATION'] as const;
+export type CandidateSource = (typeof candidateSourceValues)[number];
+
 export const candidateStatusValues = ['PROPOSED', 'INTERVIEW_REQUESTED', 'INTERVIEW_SCHEDULED', 'SELECTED', 'PLACED', 'NOT_PROCEEDING'] as const;
 export type CandidateStatus = (typeof candidateStatusValues)[number];
 
@@ -416,7 +428,7 @@ export interface StaffCandidate {
   talentSlug: string | null;
   /** Whether the shared profile is live right now (what the employer can see). */
   profileLive: boolean;
-  source: 'STAFF' | 'EMPLOYER';
+  source: CandidateSource;
   status: CandidateStatus;
   interviewAt: string | null;
   messageToEmployer: string | null;
@@ -478,4 +490,369 @@ export interface TalentPoolRow {
   talentSlug: string | null;
   profileLive: boolean;
   readiness: ReadinessReport;
+}
+
+// --- vacancy board ---------------------------------------------------------------
+
+export const englishLevelValues = ['BASIC', 'CONVERSATIONAL', 'FLUENT'] as const;
+export type EnglishLevel = (typeof englishLevelValues)[number];
+
+export const salaryPeriodValues = ['HOUR', 'MONTH', 'YEAR'] as const;
+export type SalaryPeriod = (typeof salaryPeriodValues)[number];
+
+export const vacancyStatusValues = ['PENDING_REVIEW', 'PUBLISHED', 'REJECTED', 'CLOSED', 'FILLED'] as const;
+export type VacancyStatus = (typeof vacancyStatusValues)[number];
+
+export const vacancyApplicationStatusValues = ['APPLIED', 'PUT_FORWARD', 'NOT_SUCCESSFUL', 'WITHDRAWN'] as const;
+export type VacancyApplicationStatus = (typeof vacancyApplicationStatusValues)[number];
+
+/** Currencies a salary or a fee may be quoted in. */
+export const CURRENCY_CODES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'NZD', 'JPY', 'SGD', 'AED', 'SAR', 'QAR', 'KWD', 'OMR', 'BHD', 'ILS', 'KRW', 'MYR', 'HKD', 'CHF', 'LKR'] as const;
+export type CurrencyCode = (typeof CURRENCY_CODES)[number];
+
+/** Currencies PayHere can take a card payment in. Anything else is paid by bank transfer. */
+export const PAYHERE_CURRENCIES = ['LKR', 'USD', 'GBP', 'EUR', 'AUD'] as const;
+
+export const VACANCY_LIMITS = { title: 150, city: 100, description: 4000, requirements: 2000, applicationMessage: 1000 } as const;
+
+/** What an employer (or staff) fills in to post a vacancy. */
+export interface VacancyInput {
+  title: string;
+  country: CountryCode;
+  city?: string | null;
+  careSetting: CareType;
+  rolesCount: number;
+  description: string;
+  requirements?: string | null;
+  minExperienceYears: number;
+  englishLevel: EnglishLevel;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  salaryCurrency?: CurrencyCode | null;
+  salaryPeriod?: SalaryPeriod | null;
+  contractMonths?: number | null;
+  accommodationProvided?: boolean | null;
+  visaSponsorship: VisaSponsorship;
+  startTimeframe?: string | null;
+  /** YYYY-MM-DD */
+  closesOn?: string | null;
+}
+
+/**
+ * A vacancy on the public board. Never the employer's name: the kind of
+ * employer and where. Introductions go through staff.
+ */
+export interface PublicVacancy {
+  reference: string;
+  title: string;
+  organisationType: EmployerType;
+  country: string;
+  city: string | null;
+  careSetting: string;
+  rolesCount: number;
+  description: string;
+  requirements: string | null;
+  minExperienceYears: number;
+  englishLevel: EnglishLevel;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  salaryCurrency: string | null;
+  salaryPeriod: SalaryPeriod | null;
+  contractMonths: number | null;
+  accommodationProvided: boolean | null;
+  visaSponsorship: VisaSponsorship;
+  startTimeframe: string | null;
+  closesOn: string | null;
+  publishedAt: string;
+}
+
+export interface PublicVacancyList {
+  items: PublicVacancy[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+/** A vacancy as its employer, or staff, see it. */
+export interface Vacancy extends Omit<PublicVacancy, 'publishedAt'> {
+  id: string;
+  enquiryId: string;
+  enquiryReference: string;
+  status: VacancyStatus;
+  reviewNote: string | null;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Applications not withdrawn. Staff see who; the employer sees only this count. */
+  applicationCount: number;
+}
+
+/** Staff only: who posted it. */
+export interface StaffVacancy extends Vacancy {
+  organisationName: string;
+  employer: { id: string; organisationName: string; status: EmployerStatus } | null;
+  newApplications: number;
+}
+
+/** POST /caregivers/:id/vacancies/:reference/apply */
+export interface VacancyApplicationRequest {
+  message?: string;
+}
+
+/** A caregiver's own application. */
+export interface CaregiverVacancyApplication {
+  id: string;
+  status: VacancyApplicationStatus;
+  createdAt: string;
+  vacancy: Pick<PublicVacancy, 'reference' | 'title' | 'country' | 'city' | 'organisationType'> & { open: boolean };
+}
+
+/** Staff view of an application. */
+export interface StaffVacancyApplication {
+  id: string;
+  vacancyId: string;
+  caregiverId: string;
+  registrationNumber: string;
+  fullName: string;
+  status: VacancyApplicationStatus;
+  message: string | null;
+  staffNote: string | null;
+  candidateId: string | null;
+  /** Whether the shared profile is live: only then can staff put them forward. */
+  profileLive: boolean;
+  readiness: ReadinessReport;
+  createdAt: string;
+}
+
+// --- placements --------------------------------------------------------------------
+
+export const placementStatusValues = ['PRE_DEPARTURE', 'DEPLOYED', 'COMPLETED', 'ENDED_EARLY'] as const;
+export type PlacementStatus = (typeof placementStatusValues)[number];
+
+export const checkinKindValues = ['ARRIVAL', 'DAY_30', 'DAY_90', 'DAY_180'] as const;
+export type CheckinKind = (typeof checkinKindValues)[number];
+
+/** Days after arrival each welfare check-in falls due. */
+export const CHECKIN_DAYS_AFTER_ARRIVAL: Record<CheckinKind, number> = { ARRIVAL: 3, DAY_30: 30, DAY_90: 90, DAY_180: 180 };
+
+export const checkinOutcomeValues = ['WELL', 'CONCERN', 'URGENT'] as const;
+export type CheckinOutcome = (typeof checkinOutcomeValues)[number];
+
+/** Months after the contract start during which an early end earns the employer a free replacement. */
+export const DEFAULT_GUARANTEE_MONTHS = 3;
+
+export interface PlacementCheckin {
+  id: string;
+  kind: CheckinKind;
+  dueOn: string;
+  completedOn: string | null;
+  outcome: CheckinOutcome | null;
+  note: string | null;
+}
+
+/** Staff view of a placement. */
+export interface StaffPlacement {
+  id: string;
+  candidateId: string;
+  enquiryId: string;
+  enquiryReference: string;
+  organisationName: string;
+  employerId: string | null;
+  caregiverId: string;
+  registrationNumber: string;
+  fullName: string;
+  country: string;
+  jobTitle: string | null;
+  status: PlacementStatus;
+  departureOn: string | null;
+  arrivedOn: string | null;
+  contractStartOn: string | null;
+  contractMonths: number | null;
+  contractEndsOn: string | null;
+  endedOn: string | null;
+  endReason: string | null;
+  guaranteeMonths: number;
+  guaranteeEndsOn: string | null;
+  feeAmount: number | null;
+  feeCurrency: string | null;
+  staffNote: string | null;
+  checkins: PlacementCheckin[];
+  /** The earliest check-in not done yet. */
+  nextCheckin: PlacementCheckin | null;
+  invoices: PlacementInvoiceSummary[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlacementUpdate {
+  jobTitle?: string | null;
+  status?: PlacementStatus;
+  departureOn?: string | null;
+  arrivedOn?: string | null;
+  contractStartOn?: string | null;
+  contractMonths?: number | null;
+  endedOn?: string | null;
+  endReason?: string | null;
+  guaranteeMonths?: number;
+  feeAmount?: number | null;
+  feeCurrency?: string | null;
+  staffNote?: string | null;
+}
+
+export interface CheckinUpdate {
+  completedOn: string | null;
+  outcome?: CheckinOutcome | null;
+  note?: string | null;
+}
+
+/** A placement as the employer sees it: first name only, never contact details. */
+export interface EmployerPlacement {
+  id: string;
+  enquiryReference: string;
+  talent: { firstName: string; slug: string | null; photoUrl: string | null };
+  country: string;
+  jobTitle: string | null;
+  status: PlacementStatus;
+  departureOn: string | null;
+  arrivedOn: string | null;
+  contractStartOn: string | null;
+  contractEndsOn: string | null;
+  guaranteeEndsOn: string | null;
+  invoices: PlacementInvoiceSummary[];
+}
+
+/** A caregiver's own placement. Never the employer's name: staff are the contact. */
+export interface CaregiverPlacement {
+  id: string;
+  country: string;
+  organisationType: EmployerType;
+  jobTitle: string | null;
+  status: PlacementStatus;
+  departureOn: string | null;
+  arrivedOn: string | null;
+  contractStartOn: string | null;
+  contractEndsOn: string | null;
+}
+
+// --- placement fee invoices ----------------------------------------------------------
+
+export const placementInvoiceStatusValues = ['DRAFT', 'ISSUED', 'PAID', 'VOID'] as const;
+export type PlacementInvoiceStatus = (typeof placementInvoiceStatusValues)[number];
+
+export const placementPaymentMethodValues = ['BANK_TRANSFER', 'CARD_ONLINE', 'OTHER'] as const;
+export type PlacementPaymentMethod = (typeof placementPaymentMethodValues)[number];
+
+/** Payment terms for a placement fee, from issue. */
+export const PLACEMENT_INVOICE_TERMS_DAYS = 14;
+
+export interface PlacementInvoiceSummary {
+  id: string;
+  number: string | null;
+  status: PlacementInvoiceStatus;
+  currency: string;
+  /** Decimal strings, e.g. "2500.00". */
+  amount: string;
+  amountPaid: string;
+  balance: string;
+  issueDate: string | null;
+  dueDate: string | null;
+  overdue: boolean;
+}
+
+export interface PlacementInvoicePayment {
+  id: string;
+  amount: string;
+  method: PlacementPaymentMethod;
+  paidOn: string;
+  reference: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+/** A whole invoice, as staff and (once issued) the employer see it. */
+export interface PlacementInvoice extends PlacementInvoiceSummary {
+  enquiryId: string;
+  enquiryReference: string;
+  placementId: string | null;
+  employerId: string | null;
+  description: string;
+  billToName: string;
+  billToEmail: string | null;
+  billToAddress: string | null;
+  billToCountry: string | null;
+  /** Who it is from: the business details in Settings > Billing, frozen on issue. */
+  seller: BillingParty;
+  footer: string | null;
+  notes: string | null;
+  voidReason: string | null;
+  payments: PlacementInvoicePayment[];
+  /** Whether the employer can pay this one by card right now. */
+  payOnline: boolean;
+  createdAt: string;
+}
+
+/** Staff list row. */
+export interface StaffPlacementInvoiceRow extends PlacementInvoiceSummary {
+  enquiryReference: string;
+  billToName: string;
+  description: string;
+}
+
+export interface PlacementInvoiceInput {
+  placementId?: string | null;
+  enquiryId?: string;
+  currency: CurrencyCode;
+  amount: number;
+  description: string;
+  billToName?: string;
+  billToEmail?: string | null;
+  billToAddress?: string | null;
+  billToCountry?: CountryCode | null;
+  notes?: string | null;
+}
+
+export interface PlacementPaymentInput {
+  amount: number;
+  method: PlacementPaymentMethod;
+  /** YYYY-MM-DD */
+  paidOn: string;
+  reference?: string | null;
+  note?: string | null;
+}
+
+// --- documents and expiry --------------------------------------------------------------
+
+export const expiryStateValues = ['VALID', 'EXPIRING', 'EXPIRED'] as const;
+export type ExpiryState = (typeof expiryStateValues)[number];
+
+/** A document is "expiring" this many days before it expires: when the first reminder goes out. */
+export const EXPIRY_WARNING_DAYS = 90;
+/** The second, closer reminder. */
+export const EXPIRY_FINAL_WARNING_DAYS = 30;
+
+/** A dated document of the caregiver's: their passport, or an upload staff gave an expiry date. */
+export interface CaregiverExpiringDocument {
+  /** 'PASSPORT', or the caregiver_documents id. */
+  key: string;
+  /** 'PASSPORT' or the upload's document type. */
+  documentType: string;
+  expiresOn: string;
+  daysLeft: number;
+  state: ExpiryState;
+}
+
+/** Staff list across caregivers. */
+export interface StaffExpiringDocument extends CaregiverExpiringDocument {
+  caregiverId: string;
+  registrationNumber: string;
+  fullName: string;
+  /** In an active placement abroad: an expiring passport there is urgent. */
+  placed: boolean;
+}
+
+/** What expiry state a date is in, today. */
+export function expiryState(expiresOn: string, today: string): { daysLeft: number; state: ExpiryState } {
+  const day = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+  const daysLeft = Math.round((day(expiresOn) - day(today)) / 86_400_000);
+  return { daysLeft, state: daysLeft < 0 ? 'EXPIRED' : daysLeft <= EXPIRY_WARNING_DAYS ? 'EXPIRING' : 'VALID' };
 }
