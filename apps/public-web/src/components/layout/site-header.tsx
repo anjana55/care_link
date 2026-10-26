@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Globe2 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
 import { BrandMark } from '@/components/layout/brand-mark';
@@ -69,6 +69,15 @@ export function SiteHeader({
         <div className="flex-1" />
 
         <div className="flex items-center gap-3">
+          {/* Overseas employers: the one destination in the top bar besides account links. */}
+          <Link
+            href="/international"
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-brand/30 px-3 py-1.5 text-sm font-semibold text-brand-dark transition-colors hover:border-brand hover:bg-brand-light"
+          >
+            <Globe2 className="h-4 w-4" aria-hidden />
+            <span className="hidden sm:inline">{t('nav.hireAbroad')}</span>
+            <span className="sm:hidden">{t('nav.hireAbroadShort')}</span>
+          </Link>
           <LanguageSwitcher />
           {user ? (
             <>

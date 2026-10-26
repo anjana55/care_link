@@ -15,6 +15,7 @@ const SECTIONS = [
   { href: '/caregiver/documents', key: 'portal.nav.documents' },
   { href: '/caregiver/shifts', key: 'portal.nav.shifts' },
   { href: '/caregiver/payments', key: 'portal.nav.payments' },
+  { href: '/caregiver/work-abroad', key: 'portal.nav.workAbroad' },
 ];
 
 /**

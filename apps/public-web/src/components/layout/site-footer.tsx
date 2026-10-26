@@ -24,6 +24,12 @@ export function SiteFooter() {
           <Link href="/find" className="text-ink/70 transition-colors hover:text-brand">
             {t('footer.finder')}
           </Link>
+          <Link href="/international" className="text-ink/70 transition-colors hover:text-brand">
+            {t('nav.hireAbroad')}
+          </Link>
+          <Link href="/work-abroad" className="text-ink/70 transition-colors hover:text-brand">
+            {t('footer.workAbroad')}
+          </Link>
           <Link href="/register" className="text-ink/70 transition-colors hover:text-brand">
             {t('nav.signUp')}
           </Link>

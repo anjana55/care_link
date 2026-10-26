@@ -11,7 +11,9 @@
     "signUp": "Sign up",
     "backHome": "Back to home",
     "myAccount": "My account",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "hireAbroad": "Hire from Sri Lanka",
+    "hireAbroadShort": "Employers"
   },
   "hero": {
     "title": "Find the right caregiver",
@@ -178,7 +180,8 @@
     "disclaimer": "Search results are ranked automatically based on the filters you provide. They are not a recommendation or guarantee of fit.",
     "navLabel": "Footer",
     "finder": "Find a caregiver",
-    "apiDocs": "API docs"
+    "apiDocs": "API docs",
+    "workAbroad": "Work abroad"
   },
   "register": {
     "heroTitle": "Find and hire the right caregiver for your family",
@@ -677,7 +680,8 @@
       "profile": "Profile",
       "documents": "Documents",
       "shifts": "Shifts",
-      "payments": "Payments"
+      "payments": "Payments",
+      "workAbroad": "Work abroad"
     },
     "loadError": "We could not load this page. Please refresh and try again.",
     "saveError": "We could not save that. Please try again.",
@@ -886,6 +890,94 @@
       },
       "reference": "Transfer reference: {reference}",
       "approvedHint": "Approved - the payment will be sent soon."
+    },
+    "workAbroad": {
+      "title": "Work abroad",
+      "intro": "Tell us if you want to work abroad, join our training, and choose whether to share your profile with overseas employers.",
+      "save": "Save",
+      "readiness": {
+        "title": "Working abroad",
+        "intro": "Our team uses this to find jobs that suit you. It is not shown publicly unless you share your profile.",
+        "open": "I am interested in working abroad",
+        "openHint": "You can change this at any time.",
+        "countries": "Countries I would like to work in (up to {max})",
+        "addCountry": "Add a country",
+        "removeCountry": "Remove {country}",
+        "passport": "Do you have a passport?",
+        "yes": "Yes",
+        "no": "No",
+        "passportExpiry": "Passport expiry date",
+        "availableFrom": "I could start from",
+        "passportNote": "We never ask for your passport number here, and it is never shown publicly."
+      },
+      "training": {
+        "title": "Training",
+        "intro": "Choose the courses you are interested in. Our team will contact you with dates and details.",
+        "interested": "I'm interested",
+        "withdraw": "Withdraw",
+        "interestedHint": "Thank you - our team will contact you about this course.",
+        "status": {
+          "INTERESTED": "Interested",
+          "ENROLLED": "Enrolled",
+          "COMPLETED": "Completed"
+        }
+      },
+      "share": {
+        "title": "Share your profile with employers",
+        "intro": "Your shared profile shows your first name, photo and a short introduction alongside your checked skills, languages and training. Employers ask our team about you - they never see your contact details.",
+        "state": {
+          "live": "Your profile is live",
+          "liveHint": "Employers can see it at your link and in our list of caregivers ready to work abroad.",
+          "pending": "Waiting for review",
+          "pendingHint": "Our team is checking your profile. It will go live once it is approved.",
+          "rejected": "Changes needed",
+          "rejectedHint": "Please update your profile and share it again.",
+          "paused": "Sharing is paused",
+          "pausedHint": "Your profile is hidden. Switch sharing back on whenever you like.",
+          "notListed": "Approved, but not visible yet",
+          "notListedHint": "Your profile will be visible once your registration is complete.",
+          "draft": "Not shared",
+          "draftHint": "Fill in your details, read the consent below, and share when you are ready."
+        },
+        "reviewNote": "Our team says:",
+        "addPhoto": "Add a photo",
+        "changePhoto": "Change photo",
+        "removePhoto": "Remove photo",
+        "photoAlt": "Your profile photo",
+        "photoUploaded": "Photo uploaded",
+        "photoTooLarge": "That photo is too large. Please choose one under 8 MB.",
+        "firstName": "First name",
+        "firstNameHint": "Only your first name is shown - never your surname.",
+        "headline": "Headline",
+        "headlinePlaceholder": "e.g. Caregiver with 8 years of elderly care",
+        "bio": "About you",
+        "bioPlaceholder": "Your experience, the care you enjoy giving, and why you want to work abroad.",
+        "bioHint": "Do not include your phone number, email or address.",
+        "reReview": "Saving changes sends your profile to our team for review again. It is hidden until then.",
+        "saveDetails": "Save details",
+        "saveFirst": "Save your details first.",
+        "consentTitle": "Before you share",
+        "consent1": "Your first name, photo, headline and introduction will be shown publicly on this website, at your link and in our list of caregivers ready to work abroad.",
+        "consent2": "Your checked skills, languages, qualifications, completed training, approximate age, years of experience and the countries you chose will be shown with them.",
+        "consent3": "Your surname, phone number, email, address, NIC, passport number and documents will never be shown.",
+        "consent4": "Employers contact our team about you, not you directly. Our team will contact you before any introduction.",
+        "consent5": "You can pause sharing or withdraw your consent at any time. Withdrawing deletes your photo and takes your profile offline.",
+        "consentAgree": "I have read this and I agree to share my profile.",
+        "share": "Share my profile",
+        "resume": "Turn sharing back on",
+        "sharedNotice": "Thank you - your profile has been sent to our team.",
+        "yourLink": "Your profile link",
+        "view": "View",
+        "linkNotLive": "This link will work once your profile is approved.",
+        "pause": "Pause sharing",
+        "pausedNotice": "Sharing paused - your profile is hidden.",
+        "newLink": "Get a new link",
+        "newLinkConfirm": "Your old link will stop working straight away. Continue?",
+        "newLinkNotice": "You have a new link. The old one no longer works.",
+        "withdraw": "Withdraw my consent and delete my photo",
+        "withdrawConfirm": "This takes your profile offline, deletes your photo and removes your consent. Continue?",
+        "withdrawnNotice": "Consent withdrawn. Your profile is offline and your photo has been deleted."
+      }
     }
   },
   "caregiverClaim": {
@@ -1216,5 +1308,191 @@
     "HOSPITAL": "Care at a hospital",
     "NURSING_HOME": "Nursing home for the elderly",
     "RETIREMENT_HOME": "Retirement home for the elderly"
+  },
+  "international": {
+    "pill": "For employers abroad",
+    "heroTitle": "Hire trusted caregivers from Sri Lanka",
+    "heroBody": "Agencies, care homes, hospitals and families overseas: tell us who you need and we will put forward verified caregivers trained in English and caregiving. You pay a placement fee only when a caregiver starts work with you.",
+    "ctaEnquire": "Tell us what you need",
+    "ctaBrowse": "See caregiver profiles",
+    "stats": {
+      "open": "Caregivers open to working abroad",
+      "profiles": "Profiles shared with employers",
+      "training": "Training courses completed"
+    },
+    "steps": {
+      "eyebrow": "How it works",
+      "title": "From enquiry to a caregiver at work",
+      "step1Title": "Tell us what you need",
+      "step1Body": "The roles, the care setting, the languages and when you need someone to start.",
+      "step2Title": "We shortlist",
+      "step2Body": "Our team matches verified caregivers who want to work in your country and checks they are ready.",
+      "step3Title": "Meet the candidates",
+      "step3Body": "We introduce the caregivers and arrange interviews. You choose who to hire.",
+      "step4Title": "They start work",
+      "step4Body": "Once a caregiver starts, you pay the agreed placement fee. Nothing before that."
+    },
+    "why": {
+      "title": "Why hire through us",
+      "verifiedTitle": "Verified before you see them",
+      "verifiedBody": "Identity, police clearance and qualifications are checked by our team before a caregiver is marked Verified.",
+      "trainedTitle": "Trained for the job",
+      "trainedBody": "Caregivers can take our English and basic caregiving courses. Completed training is shown on their profile.",
+      "mediatedTitle": "A team that stays involved",
+      "mediatedBody": "We handle every introduction and stay in touch with you and the caregiver through the process.",
+      "ethicalTitle": "Fair to caregivers",
+      "ethicalBody": "Caregivers are never charged a placement fee. The employer pays it, and only when a caregiver starts work."
+    },
+    "talent": {
+      "title": "Caregivers ready to work abroad",
+      "body": "Caregivers who chose to share their profile with employers. Contact details are never shown - ask about anyone here and our team will introduce you.",
+      "filterCountry": "Wants to work in",
+      "anyCountry": "Any country",
+      "empty": "No shared profiles match yet. Send us an enquiry and our team will find caregivers for you.",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "form": {
+      "title": "Tell us what you need",
+      "body": "We reply by email, usually within two working days. No commitment and no fee until a caregiver starts work.",
+      "organisationName": "Organisation or family name",
+      "organisationType": "Type of employer",
+      "country": "Country where they will work",
+      "contactName": "Your name",
+      "email": "Email",
+      "phone": "Phone (with country code)",
+      "website": "Website",
+      "careSettings": "Care settings",
+      "rolesCount": "Number of caregivers",
+      "startTimeframe": "When do you need them?",
+      "startPlaceholder": "e.g. within 3 months",
+      "visaSponsorship": "Will you sponsor the visa?",
+      "languages": "Languages needed",
+      "languagesPlaceholder": "e.g. English (fluent), basic Japanese",
+      "message": "Anything else we should know",
+      "messagePlaceholder": "Duties, working hours, accommodation, salary range...",
+      "consent": "I agree to be contacted about this enquiry and to my details being used to find caregivers for it.",
+      "submit": "Send enquiry",
+      "sending": "Sending...",
+      "required": "Please fill this in.",
+      "invalidEmail": "Please enter a valid email address.",
+      "invalidPhone": "Please enter the number with its country code, e.g. +81 90 1234 5678.",
+      "invalidRoles": "Please enter a number from 1 to 500.",
+      "chooseSetting": "Choose at least one care setting.",
+      "consentRequired": "Please tick this so we can contact you.",
+      "failed": "We could not send that just now. Please try again.",
+      "tooMany": "Too many enquiries from this connection. Please try again later.",
+      "sentTitle": "Thank you - we have your enquiry",
+      "sentBody": "Your reference is {reference}. We have emailed you a copy, and our team will be in touch soon.",
+      "aboutTalent": "Enquiring about {name}",
+      "aboutAnyone": "Ask about anyone instead",
+      "feeNote": "Placement fee only when a caregiver starts work.",
+      "feeLink": "How fees work"
+    },
+    "employerTypes": {
+      "RECRUITMENT_AGENCY": "Recruitment agency",
+      "CARE_HOME": "Care or nursing home",
+      "HOSPITAL": "Hospital or clinic",
+      "HOME_CARE_PROVIDER": "Home care provider",
+      "PRIVATE_FAMILY": "Private family",
+      "OTHER": "Other"
+    },
+    "visa": {
+      "YES": "Yes",
+      "NO": "No",
+      "UNSURE": "Not sure yet"
+    },
+    "faq": {
+      "title": "Questions employers ask",
+      "feeQ": "What does it cost?",
+      "feeA": "Sending an enquiry, meeting candidates and interviewing are free. You pay a placement fee, agreed with you in advance, only when a caregiver you hire starts work.",
+      "workerFeesQ": "Do caregivers pay anything?",
+      "workerFeesA": "No. Caregivers are never charged a placement fee by us. If anyone asks a caregiver for money in our name, please tell us.",
+      "visasQ": "Who arranges visas and contracts?",
+      "visasA": "The employer offers the contract and arranges the visa under the rules of their country. We will talk the process through with you and help the caregiver prepare their documents.",
+      "contactQ": "Can I contact a caregiver directly?",
+      "contactA": "Not through this site. To protect caregivers, contact details are never shown. Our team introduces you and arranges interviews.",
+      "languagesQ": "What languages do the caregivers speak?",
+      "languagesA": "Each profile lists the caregiver's languages and their level. Many have taken our English course. Tell us what you need and we will match on it."
+    },
+    "caregiverPrompt": "Are you a caregiver hoping to work abroad?",
+    "caregiverLink": "See how we can help"
+  },
+  "talent": {
+    "back": "Back to caregivers",
+    "notFound": "This profile is not available. The caregiver may have stopped sharing it.",
+    "browseOthers": "See other caregivers",
+    "ask": "Ask about {name}",
+    "copyLink": "Copy link",
+    "copied": "Link copied",
+    "about": "About {name}",
+    "workAbroad": "Working abroad",
+    "wantsToWorkIn": "Wants to work in {countries}",
+    "availableFrom": "Available from {month}",
+    "training": "Training completed",
+    "trainingNote": "Courses run by our platform. Not an accredited qualification.",
+    "languages": "Languages",
+    "levels": {
+      "BASIC": "Basic",
+      "CONVERSATIONAL": "Conversational",
+      "FLUENT": "Fluent",
+      "NATIVE": "Native"
+    },
+    "skills": "Skills",
+    "qualifications": "Qualifications",
+    "privacyNote": "The caregiver chose to share this profile and our team reviewed it. Contact details are never shown - ask about them and we will introduce you."
+  },
+  "workAbroad": {
+    "pill": "For caregivers",
+    "heroTitle": "Get ready to work abroad",
+    "heroBody": "Improve your English and caregiving skills with our training, then share your profile with employers overseas. Our team makes every introduction - and you never pay us a placement fee.",
+    "ctaOpen": "Open your Work abroad section",
+    "ctaJoin": "Join as a caregiver",
+    "ctaSignIn": "I already have an account",
+    "ctaTitle": "Ready to start?",
+    "benefits": {
+      "trainTitle": "Training",
+      "trainBody": "English and basic caregiving courses. Completed courses show on your profile.",
+      "shareTitle": "Your profile, your choice",
+      "shareBody": "Share a profile with your first name and photo only if you want to. Pause it or delete it any time.",
+      "connectTitle": "We make the introductions",
+      "connectBody": "Employers never get your phone number or address. Our team contacts you about suitable jobs.",
+      "noFeesTitle": "No placement fee for you",
+      "noFeesBody": "Employers pay the placement fee. If anyone asks you for money in our name, tell us."
+    },
+    "training": {
+      "eyebrow": "Training",
+      "title": "Courses you can join",
+      "body": "These courses are run by our team. They are not tied to any one country and are not an accredited qualification.",
+      "empty": "No courses are open right now. Please check again soon.",
+      "free": "Free",
+      "fee": "LKR {amount}",
+      "starts": "Starts {date}"
+    },
+    "categories": {
+      "ENGLISH": "English",
+      "CAREGIVING": "Caregiving",
+      "OTHER": "Other"
+    },
+    "formats": {
+      "IN_PERSON": "In person",
+      "ONLINE": "Online",
+      "BLENDED": "Online and in person"
+    },
+    "steps": {
+      "title": "How it works",
+      "step1Title": "Register as a caregiver",
+      "step1Body": "Create your profile and upload your documents so our team can verify you.",
+      "step2Title": "Tell us where you want to work",
+      "step2Body": "In your Work abroad section, choose the countries you are interested in and when you could start.",
+      "step3Title": "Train",
+      "step3Body": "Join our English and caregiving courses. We record each course you complete.",
+      "step4Title": "Share your profile",
+      "step4Body": "When you are ready, share your profile with employers. Our team reviews it first, then contacts you when an employer is interested."
+    },
+    "privacy": {
+      "title": "What employers see",
+      "body": "Only what you choose to share: your first name, a photo, a short introduction, and the skills, languages and training our team has checked. Never your surname, phone number, address, NIC or passport number."
+    }
   }
 }
