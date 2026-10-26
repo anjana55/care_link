@@ -2309,7 +2309,10 @@
     "tabs": {
       "enquiries": "Employer enquiries",
       "profiles": "Shared profiles",
-      "training": "Training"
+      "training": "Training",
+      "interviews": "Interview requests",
+      "employers": "Employers",
+      "pool": "Talent pool"
     },
     "status": {
       "NEW": "New",
@@ -2375,7 +2378,10 @@
       "feeHint": "Record the fee agreed with the employer. Caregivers are never charged a placement fee.",
       "note": "Internal note",
       "notePlaceholder": "Calls, shortlisted caregivers, next steps. Never shown to the employer or a caregiver.",
-      "saved": "Saved"
+      "saved": "Saved",
+      "account": "Employer account",
+      "hasAccount": "Has an account",
+      "noAccount": "Public form, no account"
     },
     "profiles": {
       "hint": "Check exactly what will be public: the photo should be the caregiver and suitable for employers, and the headline and introduction must not include contact details. Rejecting asks the caregiver to change it - say what.",
@@ -2454,6 +2460,97 @@
         "COMPLETED": "Completed",
         "WITHDRAWN": "Withdrawn"
       }
+    },
+    "employers": {
+      "hint": "Verify that an organisation is real and recruiting lawfully before it can ask for interviews. Rejecting or suspending tells the employer why - say what.",
+      "filter": "Show",
+      "filters": {
+        "PENDING_REVIEW": "Waiting for verification",
+        "VERIFIED": "Verified",
+        "REJECTED": "Rejected",
+        "SUSPENDED": "Suspended",
+        "all": "All"
+      },
+      "empty": "No employer accounts here.",
+      "status": {
+        "PENDING_REVIEW": "Waiting",
+        "VERIFIED": "Verified",
+        "REJECTED": "Rejected",
+        "SUSPENDED": "Suspended"
+      },
+      "noteRequired": "Tell the employer why.",
+      "unconfirmed": "email not confirmed",
+      "registration": "Registration no.",
+      "enquiries": "Enquiries",
+      "signedUp": "Signed up",
+      "notePlaceholder": "Note to the employer (required to reject or suspend)",
+      "verify": "Verify",
+      "reject": "Reject",
+      "suspend": "Suspend",
+      "confirmFirst": "The employer must confirm their email address before they can be verified."
+    },
+    "readiness": {
+      "registrationVerified": "Registration verified",
+      "openToOverseas": "Countries chosen",
+      "passportValid": "Passport valid",
+      "policeClearance": "Police clearance",
+      "english": "English",
+      "caregiving": "Caregiving training or qualification",
+      "sharedProfile": "Shared profile live",
+      "missing": "Missing",
+      "complete": "Ready"
+    },
+    "pool": {
+      "hint": "Every listed caregiver who is open to working abroad, most ready first. Only those with a live shared profile can be put forward to an employer.",
+      "search": "Search by name or registration number",
+      "country": "Country",
+      "anyCountry": "Any country",
+      "minReady": "Readiness",
+      "anyReadiness": "Any readiness",
+      "atLeast": "At least {count} of 7",
+      "caregiver": "Caregiver",
+      "countries": "Wants to work in",
+      "available": "Available from",
+      "readiness": "Readiness",
+      "profile": "Shared profile",
+      "empty": "No caregivers match.",
+      "live": "Live",
+      "notShared": "Not shared"
+    },
+    "interviews": {
+      "hint": "Employers who asked to interview a caregiver. Contact the caregiver, arrange the interview, then set the date on the enquiry.",
+      "note": "Employer's note",
+      "asked": "Asked",
+      "empty": "No interview requests waiting."
+    },
+    "candidates": {
+      "title": "Caregivers on this enquiry",
+      "hint": "The employer sees each caregiver only through their shared profile, with the status and your message below.",
+      "empty": "Nobody yet.",
+      "notLive": "Profile no longer shared - hidden from the employer",
+      "source": {
+        "STAFF": "Put forward by staff",
+        "EMPLOYER": "Asked about by the employer"
+      },
+      "status": {
+        "PROPOSED": "Put forward",
+        "INTERVIEW_REQUESTED": "Interview requested",
+        "INTERVIEW_SCHEDULED": "Interview arranged",
+        "SELECTED": "Selected by employer",
+        "PLACED": "Started work",
+        "NOT_PROCEEDING": "Not proceeding"
+      },
+      "employerSaid": "Employer:",
+      "interviewAt": "Interview date and time",
+      "messageToEmployer": "Message to the employer (shown to them)",
+      "placedHint": "Remember to mark the enquiry Placed and record the placement fee below.",
+      "propose": "Put a caregiver forward",
+      "sameCountry": "Only caregivers who want to work in this country",
+      "choose": "Choose a caregiver with a live shared profile",
+      "noneAvailable": "No caregivers with a live shared profile match",
+      "messagePlaceholder": "Optional message to the employer, e.g. why this caregiver fits",
+      "proposeButton": "Put forward",
+      "proposeHint": "The employer and the caregiver are both told by email."
     }
   }
 }
