@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { RequiredLegend } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { PasswordHelpCard } from '@/components/accounts/password-help-card';
+import { ClientSignInSummary } from '@/components/clients/client-sign-in-summary';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ClientProfileFields } from '@/components/clients/client-profile-fields';
@@ -206,6 +208,7 @@ export default function ClientDetailPage() {
           <TabsTrigger value="overview">{t('caregivers.profile.tabs.overview')}</TabsTrigger>
           {canEdit && <TabsTrigger value="lifecycle">{t('lifecycle.client.tab')}</TabsTrigger>}
           {canEdit && <TabsTrigger value="requests">{t('requests.related.title')}</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="signIn">{t('caregivers.profile.tabs.signIn')}</TabsTrigger>}
           {isAdmin && <TabsTrigger value="audit">{t('caregivers.profile.tabs.audit')}</TabsTrigger>}
         </TabsList>
 
@@ -248,6 +251,15 @@ export default function ClientDetailPage() {
               <RelatedRequests patientId={client.id} />
               <RelatedBookings patientId={client.id} />
               <RelatedInvoices patientId={client.id} />
+            </div>
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="signIn">
+            <div className="space-y-4">
+              <ClientSignInSummary client={client} />
+              <PasswordHelpCard path={`/patients/${client.id}/password`} refresh={['client', client.id]} email={client.email} hasPassword={Boolean(client.hasPassword)} />
             </div>
           </TabsContent>
         )}

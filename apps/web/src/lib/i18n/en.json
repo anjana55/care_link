@@ -595,7 +595,7 @@
         "FEMALE": "Female"
       }
     },
-    "subtitle": "Patients and guardians registered through the public site.",
+    "subtitle": "Patients and guardians who registered on the public site or were added by the office.",
     "deleteTitle": "Delete client",
     "confirmDelete": "This permanently deletes {name}'s account, together with their care requests, saved caregivers and bookings. It cannot be undone.",
     "status": {
@@ -3189,5 +3189,31 @@
       "guideDuplicates": "A row whose email address or phone number already belongs to anyone on the platform is skipped.",
       "guideResult": "Imported clients get a client account with no password. Those with a phone number sign in on the WhatsApp login page with a code sent to that number."
     }
+  },
+  "passwordHelp": {
+    "title": "Password",
+    "introHas": "Signs in with an email address and password. If they've forgotten it, email them a link to choose a new one.",
+    "introNone": "No password yet. Email them a link to set one, so they can sign in with their email address.",
+    "sendLink": "Email a reset link",
+    "sendLinkHint": "To {email}. They choose their own password; the link lasts 24 hours and confirms the address.",
+    "setPassword": "Set a password now",
+    "setPasswordHint": "For someone who can't use email. Tell them the password; they can change it after signing in.",
+    "newPassword": "New password",
+    "generate": "Generate",
+    "rule": "At least {n} characters.",
+    "sendLinkButton": "Send link",
+    "setPasswordButton": "Set password",
+    "auditNote": "Recorded in the audit log (never the password).",
+    "linkSent": "A reset link was sent to {email}. It works until {time}.",
+    "passwordSet": "The password for {email} was set, and they were signed out everywhere.",
+    "shownOnce": "Shown only now - give it to them in person or by phone, not by email.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "confirmLinkTitle": "Send a password reset link?",
+    "confirmLinkBody": "We'll email {email} a link to choose a new password. Their current password keeps working until they do.",
+    "confirmSetTitle": "Set a new password?",
+    "confirmSetBody": "The current password for {email} stops working straight away and they're signed out on every device.",
+    "noEmail": "This account has no email address, so it can't use a password. It signs in with WhatsApp or Google/Microsoft/Facebook. Add an email address first if they need a password.",
+    "accountInactive": "This account is deactivated, so it can't sign in until it is activated again."
   }
 }

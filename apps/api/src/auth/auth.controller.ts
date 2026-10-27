@@ -11,6 +11,8 @@ import { RegisterPatientDto } from './dto/register-patient.dto';
 import { RegisterEmployerDto } from './dto/register-employer.dto';
 import { VerifyEmailDto, ResendVerificationDto } from './dto/verify-email.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto, ResetPasswordWithTokenDto, ResetTokenDto } from './dto/password-reset.dto';
+import { PasswordResetService } from './password-reset.service';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
@@ -21,6 +23,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly auditService: AuditService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   @Public()
@@ -108,6 +111,33 @@ export class AuthController {
   @Post('resend-verification')
   resendVerification(@Body() dto: ResendVerificationDto) {
     return this.authService.resendVerification(dto.email);
+  }
+
+  // "Forgot password?" on the public site. Same answer whether or not the
+  // address has an account; tightly throttled because it sends email.
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.passwordReset.requestReset(dto.email);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post('reset-password/check')
+  checkResetLink(@Body() dto: ResetTokenDto) {
+    return this.passwordReset.checkToken(dto.token);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordWithTokenDto, @Req() req: Request) {
+    const { userId, role } = await this.passwordReset.resetWithToken(dto.token, dto.newPassword);
+    await this.auditService.record({ userId, action: 'RESET_PASSWORD_BY_LINK', entityType: 'User', entityId: userId, ipAddress: req.ip });
+    // The role, so the page can point at the right sign-in; never a session -
+    // the person signs in with the new password like any other time.
+    return { success: true, role };
   }
 
   @Public()
