@@ -21,10 +21,17 @@
 #   ./update.sh --pr=17             # an open pull request, to try it out
 #   ./update.sh --dry-run --pr=17   # only show what would happen
 #   ./update.sh --rollback          # back to the release before this one
+#   ./update.sh --follow            # watch a running (or the last) update
+#
+# Once you confirm, the update runs in the background: closing the terminal
+# or losing the SSH connection does not stop it. Your terminal shows its log
+# as it goes; Ctrl-C only stops watching. The log is kept in .deploy/logs/.
 #
 # Run it from the repo root on the server, as the same user that ran setup.sh.
 
 set -euo pipefail
+
+ORIG_ARGS=("$@")
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -44,6 +51,10 @@ KEEP_BACKUPS=5
 BUILD_CACHE_GB=""
 AUTO_ROLLBACK=1
 ASSUME_YES=0
+FOREGROUND=0
+FOLLOW=0
+# Set when this is the background run a terminal started (see confirm_and_detach).
+DETACHED="${CL_UPDATE_DETACHED:-0}"
 
 usage() {
   cat <<EOF
@@ -70,11 +81,17 @@ Options:
                      debugging instead of putting the previous one back.
   --dry-run          Show the plan and change nothing.
   -y, --yes          Don't ask before deploying.
+  --foreground       Run in this terminal instead of the background (the update
+                     then stops if the terminal disconnects).
+  --follow           Watch the update running now, or show the last one's log.
   -h, --help         Show this help.
+
+Once you confirm, the update carries on in the background even if your SSH
+connection drops. Ctrl-C only stops watching; './update.sh --follow' resumes.
 EOF
 }
 
-log()  { printf '\n\033[1;34m==>\033[0m %s\n' "$1"; }
+log()  { printf '\n\033[1;34m==>\033[0m %s \033[2m(%s)\033[0m\n' "$1" "$(date +%H:%M:%S)"; }
 warn() { printf '\033[1;33mwarning:\033[0m %s\n' "$1" >&2; }
 die()  { printf '\033[1;31merror:\033[0m %s\n' "$1" >&2; exit 1; }
 
@@ -92,6 +109,8 @@ for arg in "$@"; do
     --no-auto-rollback) AUTO_ROLLBACK=0 ;;
     --dry-run) DRY_RUN=1 ;;
     -y|--yes) ASSUME_YES=1 ;;
+    --foreground) FOREGROUND=1 ;;
+    --follow|--log) FOLLOW=1 ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $arg (see --help)" ;;
   esac
@@ -110,7 +129,89 @@ done
 command -v git >/dev/null 2>&1 || die "git isn't installed."
 git rev-parse --git-dir >/dev/null 2>&1 || die "This folder isn't a git checkout, so there is nothing to update from. Clone the repo (DEPLOYMENT.md Part 3)."
 docker info >/dev/null 2>&1 || die "Can't talk to the Docker daemon (is it running, and is your user in the 'docker' group? See DEPLOYMENT.md 17.4)."
-[ "$DRY_RUN" -eq 1 ] || cl_lock
+
+# ---------------------------------------------------------------------------
+# Running in the background
+# ---------------------------------------------------------------------------
+UPDATE_LOG_DIR="$CL_STATE_DIR/logs"
+UPDATE_PID_FILE="$CL_STATE_DIR/update.pid"
+KEEP_LOGS=20
+
+# Shows a log until the run writing it ends, then reports how it ended and
+# exits with its status. Ctrl-C stops watching only - the run carries on.
+watch_log() {
+  local logfile="$1" pid="$2"
+  trap 'printf "\n\nStopped watching. The update carries on in the background.\n  Watch again: ./update.sh --follow\n  Log: %s\n" "$logfile"; exit 0' INT
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    tail -n +1 -f --pid="$pid" "$logfile"
+  else
+    cat "$logfile"
+  fi
+  trap - INT
+  local status
+  status="$(cat "$logfile.status" 2>/dev/null || true)"
+  echo
+  case "$status" in
+    0) echo "The update finished successfully." ;;
+    "") echo "The update stopped without recording how it ended (was the server restarted?). See the log above." ;;
+    *) echo "The update failed (exit $status) - see the log above." ;;
+  esac
+  echo "  Log: $logfile"
+  [ -n "$status" ] || exit 1
+  exit "$status"
+}
+
+if [ "$FOLLOW" -eq 1 ]; then
+  [ -e "$UPDATE_LOG_DIR/latest.log" ] || die "No update has run in the background here yet."
+  watch_log "$(readlink -f "$UPDATE_LOG_DIR/latest.log")" "$(cat "$UPDATE_PID_FILE" 2>/dev/null || true)"
+fi
+
+# Asks to go ahead (unless --yes), then hands the rest of the update to a
+# background run in its own session - so a dropped SSH connection can't stop
+# it - and follows its log here. The background run re-runs this script with
+# the same options, pinned to the commit the plan just showed, so what you
+# confirmed is what deploys even if the branch moves meanwhile. It inherits
+# the lock, so nothing else can start in between.
+confirm_and_detach() {
+  local question="$1"
+  if [ "$ASSUME_YES" -ne 1 ] && [ "$DETACHED" != 1 ]; then
+    read -r -p "$question [y/N] " reply
+    [[ "$reply" =~ ^[Yy]$ ]] || die "Aborted."
+  fi
+  if [ "$DETACHED" = 1 ] || [ "$FOREGROUND" -eq 1 ]; then return 0; fi
+  if ! command -v setsid >/dev/null 2>&1; then
+    warn "setsid isn't available, so the update runs in this terminal - keep it connected until it finishes."
+    return 0
+  fi
+  mkdir -p "$UPDATE_LOG_DIR"
+  local logfile
+  logfile="$UPDATE_LOG_DIR/update-$(date +%Y%m%d-%H%M%S).log"
+  : > "$logfile"
+  ln -sfn "$(basename "$logfile")" "$UPDATE_LOG_DIR/latest.log"
+  # Keep the newest KEEP_LOGS logs. Never a reason to stop the update.
+  { ls -1t "$UPDATE_LOG_DIR"/update-*.log 2>/dev/null | tail -n +$(( KEEP_LOGS + 1 )) | while read -r old; do rm -f "$old" "$old.status"; done; } || true
+  CL_UPDATE_DETACHED=1 CL_UPDATE_TARGET="${TARGET:-}" CL_UPDATE_LOG="$logfile" \
+    setsid nohup "$SCRIPT_DIR/update.sh" "${ORIG_ARGS[@]}" --yes </dev/null >"$logfile" 2>&1 &
+  local pid=$!
+  echo "$pid" > "$UPDATE_PID_FILE"
+  # The background run holds the lock now (it inherited it): let go of ours.
+  exec 9>&-
+  log "Updating in the background (pid $pid) - safe to disconnect"
+  echo "  Log:   $logfile"
+  echo "  Watch: ./update.sh --follow   (Ctrl-C stops watching, not the update)"
+  echo
+  watch_log "$logfile" "$pid"
+}
+
+# The background run records how it ended, for whoever is watching.
+if [ "$DETACHED" = 1 ] && [ -n "${CL_UPDATE_LOG:-}" ]; then
+  trap 'echo $? > "$CL_UPDATE_LOG.status"' EXIT
+  echo "update.sh started $(date '+%Y-%m-%d %H:%M:%S %Z') by $(id -un): ${ORIG_ARGS[*]:-(latest main)}"
+fi
+
+# The background run already holds the lock: it inherited it from the
+# terminal that started it.
+[ "$DRY_RUN" -eq 1 ] || [ "$DETACHED" = 1 ] || cl_lock
 BUILD_CACHE_GB="${BUILD_CACHE_GB:-$(cl_default_build_cache_gb)}"
 
 # Local edits to tracked files would either block the checkout or be
@@ -157,10 +258,7 @@ if [ "$ROLLBACK" -eq 1 ]; then
   echo "  To:   ${PREVIOUS_COMMIT:0:12} (images $PREVIOUS_TAG)"
   LAST_BACKUP="$(cl_state_get LAST_BACKUP)"
   if [ "$DRY_RUN" -eq 1 ]; then echo "  (dry run - nothing changed)"; exit 0; fi
-  if [ "$ASSUME_YES" -ne 1 ]; then
-    read -r -p "Roll back? [y/N] " reply
-    [[ "$reply" =~ ^[Yy]$ ]] || die "Aborted."
-  fi
+  confirm_and_detach "Roll back?"
   git checkout -q --detach "$PREVIOUS_COMMIT"
   cl_env_set IMAGE_TAG "$PREVIOUS_TAG"
   compose up -d --no-build --force-recreate api web public-web
@@ -181,12 +279,19 @@ fi
 # ---------------------------------------------------------------------------
 # 1. Fetch what to deploy
 # ---------------------------------------------------------------------------
-log "Fetching from $REMOTE"
-if [ -n "$PR" ]; then
+if [ -n "${CL_UPDATE_TARGET:-}" ]; then
+  # The background run: deploy exactly the commit the terminal showed and you
+  # confirmed. No second fetch - it may need credentials that left with you.
+  git cat-file -e "${CL_UPDATE_TARGET}^{commit}" 2>/dev/null || die "The commit to deploy (${CL_UPDATE_TARGET:0:12}) isn't in this checkout."
+  TARGET="$CL_UPDATE_TARGET"
+  if [ -n "$PR" ]; then LABEL="PR #$PR"; else REF="${REF:-main}"; LABEL="$REF"; fi
+elif [ -n "$PR" ]; then
+  log "Fetching from $REMOTE"
   git fetch -q "$REMOTE" "pull/${PR}/head" || die "Couldn't fetch pull request #$PR from $REMOTE - check the number, and that $REMOTE is the GitHub repo."
   TARGET="$(git rev-parse FETCH_HEAD)"
   LABEL="PR #$PR"
 else
+  log "Fetching from $REMOTE"
   REF="${REF:-main}"
   git fetch -q "$REMOTE" || die "Couldn't fetch from $REMOTE."
   if git rev-parse -q --verify "refs/remotes/$REMOTE/$REF^{commit}" >/dev/null; then
@@ -282,10 +387,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "  (dry run - nothing changed)"
   exit 0
 fi
-if [ "$ASSUME_YES" -ne 1 ]; then
-  read -r -p "Deploy? [y/N] " reply
-  [[ "$reply" =~ ^[Yy]$ ]] || die "Aborted."
-fi
+confirm_and_detach "Deploy?"
 
 # ---------------------------------------------------------------------------
 # 3. Build what changed. The live site keeps running on the old containers
