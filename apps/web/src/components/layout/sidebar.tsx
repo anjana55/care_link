@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2 } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2, ArrowDownUp } from 'lucide-react';
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
 import { useAiStatus } from '@/lib/hooks/use-ai';
 import { useInternationalSummary } from '@/lib/hooks/use-international';
@@ -38,7 +38,11 @@ const PAYOUTS_ITEM = { href: '/payouts', key: 'nav.payouts', icon: Wallet };
 const ASSISTANT_ITEM = { href: '/assistant', key: 'nav.assistant', icon: Bot };
 
 // Admin-only: rendered separately from ITEMS so they never show for STAFF/VERIFIER.
-const ADMIN_ITEMS = [{ href: '/users', key: 'nav.users', icon: ShieldCheck }];
+const ADMIN_ITEMS = [
+  { href: '/users', key: 'nav.users', icon: ShieldCheck },
+  // Spreadsheet import/export: exports hold every NIC and phone number, so admins only.
+  { href: '/data-transfer', key: 'nav.dataTransfer', icon: ArrowDownUp },
+];
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();

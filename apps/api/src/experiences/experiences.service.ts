@@ -1,8 +1,8 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import { randomUUID as uuid } from 'crypto';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { experiences } from '../database/schema';
+import { caregivers, experiences } from '../database/schema';
 import { CreateExperienceDto } from './dto/create-experience.dto';
 import { UpdateExperienceDto } from './dto/update-experience.dto';
 
@@ -14,7 +14,26 @@ export class ExperiencesService {
     return this.db.select().from(experiences).where(eq(experiences.caregiverId, caregiverId));
   }
 
-  async create(caregiverId: string, dto: CreateExperienceDto) {
+  /** Dates are YYYY-MM-DD strings, so they compare as text. */
+  private checkDates(startDate?: string | Date | null, endDate?: string | Date | null) {
+    const day = (d: string | Date) => (d instanceof Date ? d.toISOString() : String(d)).slice(0, 10);
+    if (startDate && endDate && day(endDate) < day(startDate)) throw new BadRequestException('The end date cannot be before the start date.');
+  }
+
+  /**
+   * Office staff can't change a caregiver's work history once registered -
+   * only while still filling in the registration (a DRAFT), which is when the
+   * new-caregiver wizard adds it. After that it is an admin's job.
+   */
+  private async assertStaffMayChange(caregiverId: string, requesterRole?: string) {
+    if (requesterRole !== 'STAFF') return;
+    const [row] = await this.db.select({ status: caregivers.status }).from(caregivers).where(eq(caregivers.id, caregiverId)).limit(1);
+    if (row?.status !== 'DRAFT') throw new ForbiddenException('Only an admin can change the work history of a registered caregiver.');
+  }
+
+  async create(caregiverId: string, dto: CreateExperienceDto, requesterRole?: string) {
+    await this.assertStaffMayChange(caregiverId, requesterRole);
+    this.checkDates(dto.startDate, dto.endDate);
     const id = uuid();
     await this.db.insert(experiences).values({
       id,
@@ -44,9 +63,12 @@ export class ExperiencesService {
   }
 
   async update(caregiverId: string, id: string, dto: UpdateExperienceDto, requesterRole?: string) {
-    await this.findOne(caregiverId, id);
+    const current = await this.findOne(caregiverId, id);
+    this.checkDates(dto.startDate ?? current.startDate, dto.endDate === undefined ? current.endDate : dto.endDate);
     // See QualificationsService.update: a caregiver's edit is unchecked again.
+    // Only an admin sets the verification status directly.
     const changes: Record<string, unknown> = { ...dto };
+    if (requesterRole !== 'ADMIN') delete changes.verificationStatus;
     if (requesterRole === 'CAREGIVER') changes.verificationStatus = 'PENDING';
     await this.db
       .update(experiences)
@@ -57,6 +79,7 @@ export class ExperiencesService {
 
   async remove(caregiverId: string, id: string, requesterRole?: string) {
     const row = await this.findOne(caregiverId, id);
+    await this.assertStaffMayChange(caregiverId, requesterRole);
     // A caregiver may withdraw an entry nobody has accepted; once it is being
     // checked or verified, deleting it would erase what the check relied on.
     if (requesterRole === 'CAREGIVER' && !['PENDING', 'REJECTED'].includes(row.verificationStatus)) {

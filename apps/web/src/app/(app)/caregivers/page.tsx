@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowDownUp, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useCaregivers, useSkills, useLanguages, useLocationTree } from '@/lib/hooks/use-caregivers';
@@ -81,12 +81,22 @@ export default function CaregiversListPage() {
     <div>
       <div className="mb-2 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ink">{t('caregivers.title')}</h1>
-        <Link href="/caregivers/new">
-          <Button>
-            <Plus size={16} />
-            {t('caregivers.addNew')}
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {user?.role === 'ADMIN' && (
+            <Link href="/data-transfer">
+              <Button variant="secondary">
+                <ArrowDownUp size={16} />
+                {t('dataTransfer.button')}
+              </Button>
+            </Link>
+          )}
+          <Link href="/caregivers/new">
+            <Button>
+              <Plus size={16} />
+              {t('caregivers.addNew')}
+            </Button>
+          </Link>
+        </div>
       </div>
       <p className="mb-6 text-sm text-ink/60">{t('caregivers.subtitle')}</p>
 

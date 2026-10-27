@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowDownUp, Search, SlidersHorizontal } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
@@ -96,6 +96,14 @@ export default function ClientsListPage() {
     <div>
       <div className="mb-2 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ink">{t('clients.title')}</h1>
+        {user?.role === 'ADMIN' && (
+          <Link href="/data-transfer?type=clients">
+            <Button variant="secondary">
+              <ArrowDownUp size={16} />
+              {t('dataTransfer.button')}
+            </Button>
+          </Link>
+        )}
       </div>
       <p className="mb-6 text-sm text-ink/60">{t('clients.subtitle')}</p>
 

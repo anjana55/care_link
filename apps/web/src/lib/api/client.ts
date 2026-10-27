@@ -98,6 +98,8 @@ interface RequestOptions {
   method?: string;
   body?: unknown;
   isFormData?: boolean;
+  /** Return the body as a Blob (a file download) instead of parsing JSON. */
+  asBlob?: boolean;
   /** Serialised into the query string, skipping `undefined`/`null`/empty values
    * so a caller can pass something that may not be set without branching. The
    * locations endpoints take all their input this way. */
@@ -116,7 +118,7 @@ function withParams(path: string, params: RequestOptions['params']): string {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, isFormData = false, params } = options;
+  const { method = 'GET', body, isFormData = false, params, asBlob = false } = options;
   const url = `${API_URL}${withParams(path, params)}`;
   const tokens = getStoredTokens();
 
@@ -155,6 +157,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (res.status === 204) return undefined as T;
+  if (asBlob) return (await res.blob()) as T;
 
   const contentType = res.headers.get('content-type') ?? '';
   if (contentType.includes('application/json')) {
@@ -169,6 +172,8 @@ export const api = {
   patch: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
   put: <T,>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PUT', body }),
   delete: <T,>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
+  /** A file the API sends back (a CSV export, say), with the same sign-in refresh as every other call. */
+  download: (path: string, params?: RequestOptions['params']) => apiRequest<Blob>(path, { params, asBlob: true }),
   upload: <T,>(path: string, formData: FormData) => apiRequest<T>(path, { method: 'POST', body: formData, isFormData: true }),
 };
 

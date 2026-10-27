@@ -19,7 +19,8 @@
     "invoices": "Invoices",
     "payouts": "Payouts",
     "assistant": "Assistant",
-    "international": "Overseas"
+    "international": "Overseas",
+    "dataTransfer": "Import & export"
   },
   "login": {
     "title": "Sign in",
@@ -439,6 +440,24 @@
       "on": "On: the caregiver is told by email or WhatsApp as soon as a client asks for them.",
       "off": "Off: staff decide when to tell the caregiver, with \"Notify caregiver\" on the request.",
       "phoneCall": "Not available: this caregiver prefers phone calls, so staff ring them about new requests. Change their preferred contact method to email or WhatsApp to turn this on."
+    },
+    "experience": {
+      "title": "Work experience",
+      "summary": "{n} roles · {years} yr {months} mo in total",
+      "duration": "{years} yr {months} mo",
+      "add": "Add experience",
+      "addTitle": "Add work experience",
+      "editTitle": "Edit work experience",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteTitle": "Delete this experience?",
+      "deleteMessage": "{role} at {employer} will be removed from the caregiver's work history. This is recorded in the audit log.",
+      "patientCategory": "Patient category",
+      "referenceContact": "Reference contact",
+      "verification": "Verification",
+      "endHint": "Leave empty if they still work there.",
+      "endBeforeStart": "The end date cannot be before the start date.",
+      "adminOnly": "Only admins can change the work history."
     }
   },
   "clients": {
@@ -3078,6 +3097,97 @@
       "accountHint": "Link it to the employer's account so it shows in their employer area. It can't be moved once offers, vacancies or placements belong to that account.",
       "message": "Their message",
       "changed": "{n} change(s) to save"
+    }
+  },
+  "dataTransfer": {
+    "title": "Import & export",
+    "subtitle": "Download caregivers and clients as a spreadsheet, or add many at once from one.",
+    "button": "Import / export",
+    "tabs": {
+      "caregivers": "Caregivers",
+      "clients": "Clients"
+    },
+    "status": "Status",
+    "allStatuses": "All statuses",
+    "district": "District",
+    "allDistricts": "All districts",
+    "search": "Search",
+    "downloadCsv": "Download CSV",
+    "preparing": "Preparing…",
+    "exportPrivacy": "The file holds personal details (NIC, phone numbers, addresses). Every export is recorded in the audit log.",
+    "step": "Step {n}",
+    "step1": "Download the template. It has every column and an example row to replace.",
+    "step3": "Upload the file and check it. Nothing is saved until you confirm the import.",
+    "downloadTemplate": "Download template",
+    "guideTitle": "Columns and accepted values",
+    "requiredColumns": "Required columns",
+    "guideDates": "Dates as YYYY-MM-DD (or DD/MM/YYYY). Format phone and NIC columns as text so the spreadsheet keeps leading zeros.",
+    "guideLocation": "District and city are matched by name in English, Sinhala or Tamil; a name that isn't found is left blank and flagged.",
+    "file": "CSV file",
+    "check": "Check file",
+    "checking": "Checking…",
+    "startOver": "Start over",
+    "checkedTitle": "Checked {n} rows",
+    "doneTitle": "Import finished",
+    "summary": {
+      "ready": "{n} ready to import",
+      "created": "{n} added",
+      "duplicates": "{n} already on the platform",
+      "errors": "{n} with errors"
+    },
+    "ignoredColumns": "Columns not in the template were ignored: {columns}",
+    "importN": "Import {n} rows",
+    "importing": "Importing…",
+    "importHint": "Rows with errors or duplicates are skipped. Fix them in the file and import it again later.",
+    "nothingToImport": "No rows can be imported yet. Fix the errors below and check the file again.",
+    "filter": {
+      "all": "All rows",
+      "problems": "Only rows to look at"
+    },
+    "table": {
+      "row": "Row",
+      "name": "Name",
+      "result": "Result",
+      "details": "Details"
+    },
+    "noProblems": "Nothing to look at - every row is fine.",
+    "outcome": {
+      "READY": "Ready",
+      "CREATED": "Added",
+      "DUPLICATE": "Already exists",
+      "ERROR": "Error"
+    },
+    "issues": {
+      "required": "{column} is required.",
+      "invalid": "{column}: \"{value}\" isn't valid.",
+      "tooLong": "{column} is longer than {max} characters.",
+      "duplicate": "Already on the platform ({column} matches {match}).",
+      "duplicateFile": "Same person as row {row} in this file.",
+      "notFound": "{column} \"{value}\" wasn't found, so it was left blank.",
+      "needsEmail": "Email can't be the preferred contact without an email address.",
+      "needsContact": "Give an email address or a phone number.",
+      "fixedPhone": "{column}: the leading 0 was restored ({value}).",
+      "failed": "Couldn't be saved: {message}",
+      "allowed": "Use one of: {allowed}.",
+      "duplicateBare": "Already on the platform ({column} is in use)."
+    },
+    "caregivers": {
+      "exportTitle": "Export caregivers",
+      "exportHint": "One row per caregiver, with skills, languages and total years of experience. Choose filters, or leave them empty for everyone.",
+      "searchPlaceholder": "Name, registration no., phone or NIC",
+      "importTitle": "Import caregivers",
+      "step2": "Fill in one caregiver per row. Keep the header row as it is.",
+      "guideDuplicates": "A row whose NIC, passport, primary phone or registration number matches an existing caregiver is skipped, never overwritten.",
+      "guideResult": "Imported caregivers start as Draft with a new registration number, ready for documents and verification."
+    },
+    "clients": {
+      "exportTitle": "Export clients",
+      "exportHint": "One row per client, with who the care is for and what they need. Choose filters, or leave them empty for everyone.",
+      "searchPlaceholder": "Name, phone or email",
+      "importTitle": "Import clients",
+      "step2": "Fill in one client per row, with an email address or a phone number (or both).",
+      "guideDuplicates": "A row whose email address or phone number already belongs to anyone on the platform is skipped.",
+      "guideResult": "Imported clients get a client account with no password. Those with a phone number sign in on the WhatsApp login page with a code sent to that number."
     }
   }
 }
