@@ -1051,6 +1051,19 @@ cd ~/care_link
 ./update.sh                # deploy the latest main
 ```
 
+**You can disconnect.** Once you answer "Deploy?", the update runs in the
+background on the server, and your terminal just shows its log. Closing the
+terminal, losing Wi-Fi or the SSH session timing out does not stop it, and
+Ctrl-C only stops watching. To pick it up again from a new connection:
+
+```bash
+cd ~/care_link
+./update.sh --follow       # watch the running update, or read the last one's log
+```
+
+Each update's log is kept in `.deploy/logs/` (the last 20). Only one update
+runs at a time: starting another while one is running is refused.
+
 ### 16.1 Deploying a merged pull request
 
 Merge the PR on GitHub, then on the server:
@@ -1106,6 +1119,8 @@ gunzip -c backups/db-YYYYMMDD-HHMMSS-before-<commit>.sql.gz \
 | Keep more (or fewer) database backups | `./update.sh --keep-backups=10` (default 5) |
 | Leave a failed release running to debug it | `./update.sh --no-auto-rollback` |
 | Skip the "Deploy?" question | `./update.sh -y` |
+| Watch a running update, or the last one's log | `./update.sh --follow` |
+| Run in this terminal instead of the background | `./update.sh --foreground` (stops if the terminal disconnects) |
 
 `update.sh` refuses to run if files tracked by git have been edited on the
 server, since those edits would be deployed under the wrong name. Your
