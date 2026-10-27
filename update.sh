@@ -10,7 +10,7 @@
 #   2. works out which apps the change touches, and rebuilds only those
 #      (the others keep their images - no 15-minute rebuild for a CSS fix),
 #   3. backs up the database if the change adds migrations,
-#   4. swaps in the new containers, runs migrations, reloads nginx,
+#   4. runs migrations, swaps in the new containers, reloads nginx,
 #   5. checks the apps come up healthy - and if they don't, puts the
 #      previous release back automatically,
 #   6. cleans up, keeping the previous release's images for a rollback.
@@ -350,21 +350,29 @@ is_built() { [ -n "${BUILD[$1]:-}" ]; }
 
 log "Starting the new release"
 cl_wait_healthy mysql 120 || die "mysql isn't healthy - check: docker compose -f $COMPOSE_FILE --env-file $ENV_FILE logs mysql"
-# The API first, and migrations straight after it, so the web apps never talk
-# to new code on an old schema for longer than it takes to migrate. Apps the
-# change doesn't touch are not restarted at all: their containers already
-# run the very image this release tags.
+# Migrations and reference data run first, in a throwaway container on the new
+# image, while the current release keeps serving. They used to run inside the
+# freshly started API with `exec`: when that API crash-looped, MySQL was left
+# half-migrated (its DDL can't be rolled back) and every later run tripped over
+# the leftover tables. Now a failed migration stops here with the old release
+# untouched. The API is switched straight after, so it only meets the new
+# schema for the seconds this takes - migrations add, they don't remove.
+# Apps the change doesn't touch are not restarted at all: their containers
+# already run the very image this release tags.
+run_new_api() { IMAGE_TAG="$TARGET_TAG" compose run --rm --no-deps -T -w /app/apps/api "$@"; }
 if is_built api; then
-  switch_to "$TARGET_TAG" api
   log "Running database migrations"
-  compose exec -T -w /app/apps/api api node dist/src/database/migrate.js
+  run_new_api api node dist/src/database/migrate.js \
+    || die "Migrations failed; the current release is still running. MySQL can't undo table changes, so a migration that stopped part-way may have left some of its tables behind - see the error above before retrying."
   log "Refreshing reference data (skills, languages, locations)"
   # Idempotent: updates reference data in place and leaves an existing admin alone.
-  compose exec -T -w /app/apps/api \
+  run_new_api \
     -e INITIAL_ADMIN_EMAIL="$(cl_env_get INITIAL_ADMIN_EMAIL)" \
     -e INITIAL_ADMIN_PASSWORD="$(cl_env_get INITIAL_ADMIN_PASSWORD)" \
     -e INITIAL_ADMIN_NAME="$(cl_env_get INITIAL_ADMIN_NAME)" \
-    api node dist/src/database/seed-production.js
+    api node dist/src/database/seed-production.js \
+    || die "Refreshing reference data failed; the current release is still running."
+  switch_to "$TARGET_TAG" api
 fi
 WEB_APPS=()
 for s in web public-web; do is_built "$s" && WEB_APPS+=("$s"); done
