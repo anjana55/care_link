@@ -37,6 +37,9 @@ export default function TalentProfilePage() {
   const { slug } = useParams<{ slug: string }>();
   const countries = useCountryNames();
   const { data: talent, isLoading, isError, error, refetch } = useTalentProfile(slug, locale);
+  // A programme with a certificate is listed once, under certificates, where it has a number to check.
+  const certified = new Set(talent?.certificates.map((c) => c.programmeTitle) ?? []);
+  const trainingWithoutCertificate = talent?.completedTraining.filter((title) => !certified.has(title)) ?? [];
   const notFound = error instanceof ApiError && error.status === 404;
   const [copied, setCopied] = useState(false);
   const employer = useIsEmployer();
@@ -152,10 +155,10 @@ export default function TalentProfilePage() {
                 </Section>
               )}
 
-              {talent.completedTraining.length > 0 && (
+              {trainingWithoutCertificate.length > 0 && (
                 <Section title={t('talent.training')}>
                   <ul className="space-y-1">
-                    {talent.completedTraining.map((title) => (
+                    {trainingWithoutCertificate.map((title) => (
                       <li key={title} className="flex items-center gap-2 text-sm text-ink/80">
                         <GraduationCap className="h-4 w-4 shrink-0 text-brand" aria-hidden />
                         {title}
@@ -163,6 +166,40 @@ export default function TalentProfilePage() {
                     ))}
                   </ul>
                   <p className="mt-2 text-xs text-ink/50">{t('talent.trainingNote')}</p>
+                </Section>
+              )}
+
+              {talent.certificates.length > 0 && (
+                <Section title={t('talent.certificates')}>
+                  <ul className="space-y-1.5">
+                    {talent.certificates.map((c) => (
+                      <li key={c.number} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-ink/80">
+                        <BadgeCheck className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                        <span>{c.programmeTitle}</span>
+                        <Link href={`/verify/${c.verifyCode}`} className="font-mono text-xs text-brand underline-offset-2 hover:underline">
+                          {c.number}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-ink/50">{t('talent.certificatesNote')}</p>
+                </Section>
+              )}
+
+              {talent.assessments.length > 0 && (
+                <Section title={t('talent.results')}>
+                  <ul className="space-y-1.5">
+                    {talent.assessments.map((a) => (
+                      <li key={`${a.title}-${a.takenOn}`} className="flex flex-wrap items-center gap-x-2 text-sm text-ink/80">
+                        <GraduationCap className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                        <span className="font-medium">{a.title}</span>
+                        {a.score && <span className="tabular-nums">{a.score}</span>}
+                        {a.cefrLevel && <span className="rounded bg-paper px-1.5 py-0.5 text-xs font-semibold text-ink/70">{t('talent.cefr', { level: a.cefrLevel })}</span>}
+                        <span className="text-xs text-ink/50">{new Intl.DateTimeFormat(locale, { month: 'short', year: 'numeric' }).format(new Date(`${a.takenOn}T00:00:00Z`))}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-ink/50">{t('talent.resultsNote')}</p>
                 </Section>
               )}
 

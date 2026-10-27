@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, gte, inArray, isNull, like, or, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm';
 import {
   PASSPORT_MIN_VALIDITY_MONTHS,
   PUBLIC_CAREGIVER_STATUSES,
@@ -12,6 +12,7 @@ import {
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
+  caregiverAssessments,
   caregiverDocuments,
   caregiverLanguages,
   caregiverOverseasProfiles,
@@ -134,7 +135,7 @@ export class ReadinessService {
     const ids = [...new Set(caregiverIds)];
     const out = new Map<string, ReadinessFacts>();
     if (!ids.length) return out;
-    const [base, police, training, english, quals, live] = await Promise.all([
+    const [base, police, training, english, quals, live, englishTests] = await Promise.all([
       this.db
         .select({ id: caregivers.id, status: caregivers.status, overseas: caregiverOverseasProfiles })
         .from(caregivers)
@@ -173,10 +174,23 @@ export class ReadinessService {
         .from(qualifications)
         .where(and(inArray(qualifications.caregiverId, ids), eq(qualifications.verificationStatus, 'VERIFIED'))),
       this.sharedProfiles.liveSlugs(ids),
+      // A verified English test at B1 or above, still in date, counts as English too.
+      this.db
+        .selectDistinct({ id: caregiverAssessments.caregiverId })
+        .from(caregiverAssessments)
+        .where(
+          and(
+            inArray(caregiverAssessments.caregiverId, ids),
+            eq(caregiverAssessments.kind, 'ENGLISH'),
+            isNotNull(caregiverAssessments.verifiedAt),
+            inArray(caregiverAssessments.cefrLevel, ['B1', 'B2', 'C1', 'C2']),
+            or(isNull(caregiverAssessments.validUntil), gte(caregiverAssessments.validUntil, todayColombo())),
+          ),
+        ),
     ]);
     const has = (rows: { id: string }[]) => new Set(rows.map((r) => r.id));
     const policeSet = has(police);
-    const englishSet = has(english);
+    const englishSet = new Set([...has(english), ...has(englishTests)]);
     const qualSet = has(quals);
     const trainedIn = (category: string) => new Set(training.filter((t) => t.category === category).map((t) => t.id));
     const englishTraining = trainedIn('ENGLISH');

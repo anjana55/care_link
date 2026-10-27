@@ -27,6 +27,19 @@ import type {
   StaffVacancy,
   StaffVacancyApplication,
   VacancyInput,
+  AssessmentInput,
+  InterviewInput,
+  InterviewUpdate,
+  OfferReview,
+  OverseasReport,
+  DepartureItem,
+  DepartureItemUpdate,
+  StaffAssessment,
+  StaffInterview,
+  StaffJobOffer,
+  StaffWelfareReport,
+  TrainingCertificate,
+  WelfareStatus,
 } from '@care-platform/shared';
 import { API_URL, api, getStoredTokens } from '../api/client';
 
@@ -132,7 +145,8 @@ export function useTrainingEnrolments(programmeId: string | null) {
 export function useUpdateEnrolment(programmeId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: TrainingEnrolmentStatus }) => api.patch<TrainingEnrolmentRow>(`/international/training/enrolments/${id}`, { status }),
+    mutationFn: ({ id, ...body }: { id: string; status: TrainingEnrolmentStatus; progressPercent?: number | null; score?: number | null }) =>
+      api.patch<TrainingEnrolmentRow>(`/international/training/enrolments/${id}`, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['international', 'enrolments', programmeId] });
       queryClient.invalidateQueries({ queryKey: ['international', 'programmes'] });
@@ -369,4 +383,95 @@ export function useRunReminders() {
     mutationFn: () => api.post<{ reminders: number; overdueCheckins: number; overdueInvoices: number }>('/international/reminders/run'),
     onSuccess: () => invalidateOverseas(queryClient, 'expiring-documents'),
   });
+}
+
+// --- phase 4: results and certificates, interviews, offers, departure, welfare, reports ----
+
+export function useAssessments(filters: { status?: string; caregiverId?: string }, enabled = true) {
+  return useQuery({
+    queryKey: ['international', 'assessments', filters],
+    queryFn: () => api.get<StaffAssessment[]>('/international/assessments', filters),
+    enabled,
+  });
+}
+
+export function useAssessmentActions() {
+  const queryClient = useQueryClient();
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['international', 'assessments'] });
+    queryClient.invalidateQueries({ queryKey: ['international', 'summary'] });
+  };
+  const record = useMutation({ mutationFn: ({ caregiverId, body }: { caregiverId: string; body: AssessmentInput }) => api.post<StaffAssessment>(`/international/caregivers/${caregiverId}/assessments`, body), onSuccess: refresh });
+  const update = useMutation({ mutationFn: ({ id, body }: { id: string; body: AssessmentInput }) => api.put<StaffAssessment>(`/international/assessments/${id}`, body), onSuccess: refresh });
+  const verify = useMutation({ mutationFn: ({ id, verified }: { id: string; verified: boolean }) => api.patch<StaffAssessment>(`/international/assessments/${id}/verify`, { verified }), onSuccess: refresh });
+  const remove = useMutation({ mutationFn: (id: string) => api.delete(`/international/assessments/${id}`), onSuccess: refresh });
+  return { record, update, verify, remove };
+}
+
+export function useRevokeCertificate(programmeId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => api.post<TrainingCertificate>(`/international/certificates/${id}/revoke`, { reason }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['international', 'enrolments', programmeId] }),
+  });
+}
+
+export function useStaffInterviews(when: 'upcoming' | 'past' | 'all', enabled = true) {
+  return useQuery({ queryKey: ['international', 'interviews', when], queryFn: () => api.get<StaffInterview[]>('/international/interviews', { when }), enabled });
+}
+
+export function useInterviewActions(enquiryId: string | null) {
+  const queryClient = useQueryClient();
+  const refresh = () => {
+    if (enquiryId) queryClient.invalidateQueries({ queryKey: ['international', 'candidates', enquiryId] });
+    queryClient.invalidateQueries({ queryKey: ['international', 'interviews'] });
+    queryClient.invalidateQueries({ queryKey: ['international', 'interview-requests'] });
+    queryClient.invalidateQueries({ queryKey: ['international', 'summary'] });
+  };
+  const schedule = useMutation({ mutationFn: ({ candidateId, body }: { candidateId: string; body: InterviewInput }) => api.post<StaffInterview>(`/international/candidates/${candidateId}/interviews`, body), onSuccess: refresh });
+  const update = useMutation({ mutationFn: ({ id, body }: { id: string; body: InterviewUpdate }) => api.patch<StaffInterview>(`/international/interviews/${id}`, body), onSuccess: refresh });
+  return { schedule, update };
+}
+
+export function useStaffOffers(status: string, enabled = true) {
+  return useQuery({ queryKey: ['international', 'offers', status], queryFn: () => api.get<StaffJobOffer[]>('/international/offers', status ? { status } : undefined), enabled });
+}
+
+export function useReviewOffer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: OfferReview }) => api.patch<StaffJobOffer>(`/international/offers/${id}/review`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['international', 'offers'] });
+      queryClient.invalidateQueries({ queryKey: ['international', 'candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['international', 'summary'] });
+    },
+  });
+}
+
+export function useUpdateChecklistItem(placementId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ item, body }: { item: DepartureItem; body: DepartureItemUpdate }) => api.patch<StaffPlacement>(`/international/placements/${placementId}/checklist/${item}`, body),
+    onSuccess: (data) => queryClient.setQueryData(['international', 'placement', placementId], data),
+  });
+}
+
+export function useWelfareReports(status: string, enabled = true) {
+  return useQuery({ queryKey: ['international', 'welfare', status], queryFn: () => api.get<StaffWelfareReport[]>('/international/welfare', { status }), enabled, refetchInterval: 30_000 });
+}
+
+export function useWelfareActions() {
+  const queryClient = useQueryClient();
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['international', 'welfare'] });
+    queryClient.invalidateQueries({ queryKey: ['international', 'summary'] });
+  };
+  const reply = useMutation({ mutationFn: ({ id, body }: { id: string; body: string }) => api.post<StaffWelfareReport>(`/international/welfare/${id}/messages`, { body }), onSuccess: refresh });
+  const setStatus = useMutation({ mutationFn: ({ id, status }: { id: string; status: WelfareStatus }) => api.patch<StaffWelfareReport>(`/international/welfare/${id}/status`, { status }), onSuccess: refresh });
+  return { reply, setStatus };
+}
+
+export function useOverseasReport(range: { from?: string; to?: string }, enabled = true) {
+  return useQuery({ queryKey: ['international', 'report', range], queryFn: () => api.get<OverseasReport>('/international/reports', range), enabled });
 }

@@ -49,6 +49,24 @@ export class InternationalNotifier {
     }
   }
 
+  /**
+   * For emergencies (a caregiver's SOS): the alert list AND every active
+   * admin and staff account, so it cannot sit unread in one inbox.
+   */
+  async toAllStaff(label: string, notice: Notice): Promise<void> {
+    try {
+      const [list, everyone] = await Promise.all([this.staffRecipients(), this.activeStaffEmails()]);
+      const to = [...new Set([...list, ...everyone].map((a) => a.toLowerCase()))];
+      if (!to.length) {
+        this.logger.error(`${label}: no staff email address at all - it is waiting in Overseas > Welfare.`);
+        return;
+      }
+      await this.send(to, label, { ...notice, footer: 'Sent to every admin and staff account, and the request alert list in Settings > Email.' });
+    } catch (err) {
+      this.logger.error(`${label}: emergency alert failed - ${(err as Error).message}`);
+    }
+  }
+
   async toAddress(to: string | null | undefined, label: string, notice: Notice): Promise<void> {
     if (!to) return;
     try {
@@ -88,6 +106,10 @@ export class InternationalNotifier {
         .map((a) => a.trim())
         .filter(Boolean);
     }
+    return this.activeStaffEmails();
+  }
+
+  private async activeStaffEmails(): Promise<string[]> {
     const rows = await this.db
       .select({ email: users.email })
       .from(users)

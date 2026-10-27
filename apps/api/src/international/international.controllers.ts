@@ -36,6 +36,9 @@ import { EmployersService } from './employers.service';
 import { VacanciesService } from './vacancies.service';
 import { PlacementsService } from './placements.service';
 import { PlacementInvoicesService } from './placement-invoices.service';
+import { OffersService } from './offers.service';
+import { WelfareService } from './welfare.service';
+import { AssessmentsService } from './assessments.service';
 import { MAX_PHOTO_UPLOAD_BYTES } from './profile-photo';
 import {
   CreateEmployerEnquiryDto,
@@ -274,6 +277,9 @@ export class StaffInternationalController {
     private readonly vacancies: VacanciesService,
     private readonly placements: PlacementsService,
     private readonly placementInvoices: PlacementInvoicesService,
+    private readonly offers: OffersService,
+    private readonly welfare: WelfareService,
+    private readonly assessments: AssessmentsService,
   ) {}
 
   @Get('enquiries')
@@ -283,7 +289,7 @@ export class StaffInternationalController {
 
   @Get('enquiries/summary')
   async summary(): Promise<OverseasStaffSummary> {
-    const [enquiries, pendingProfiles, pendingEmployers, interviewRequests, pendingVacancies, newApplications, overdueCheckins, overdueInvoices] = await Promise.all([
+    const [enquiries, pendingProfiles, pendingEmployers, interviewRequests, pendingVacancies, newApplications, overdueCheckins, overdueInvoices, pendingOffers, welfare, pendingAssessments] = await Promise.all([
       this.enquiries.summary(),
       this.sharedProfiles.pendingCount(),
       this.employers.pendingCount(),
@@ -292,8 +298,24 @@ export class StaffInternationalController {
       this.vacancies.newApplicationCount(),
       this.placements.overdueCheckinCount(),
       this.placementInvoices.overdueCount(),
+      this.offers.pendingCount(),
+      this.welfare.openCounts(),
+      this.assessments.pendingCount(),
     ]);
-    return { ...enquiries, pendingProfiles, pendingEmployers, interviewRequests, pendingVacancies, newApplications, overdueCheckins, overdueInvoices };
+    return {
+      ...enquiries,
+      pendingProfiles,
+      pendingEmployers,
+      interviewRequests,
+      pendingVacancies,
+      newApplications,
+      overdueCheckins,
+      overdueInvoices,
+      pendingOffers,
+      openWelfare: welfare.open,
+      urgentWelfare: welfare.urgent,
+      pendingAssessments,
+    };
   }
 
   @Get('enquiries/:id/candidates')
@@ -381,7 +403,7 @@ export class StaffInternationalController {
 
   @Patch('training/enrolments/:id')
   @Audit({ action: 'UPDATE_TRAINING_ENROLMENT', entityType: 'TrainingEnrolment' })
-  updateEnrolment(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateTrainingEnrolmentDto) {
-    return this.training.updateEnrolment(id, dto);
+  updateEnrolment(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateTrainingEnrolmentDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.training.updateEnrolment(id, dto, user.userId);
   }
 }

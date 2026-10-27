@@ -214,11 +214,20 @@ export class TrainingProgrammeDto {
 
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(10_000)
   sortOrder?: number;
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @Type(() => Number) @IsInt() @Min(0) @Max(100)
+  passMark?: number | null;
 }
 
 export class UpdateTrainingEnrolmentDto {
   @ApiProperty({ enum: trainingEnrolmentStatusValues }) @IsIn(trainingEnrolmentStatusValues)
   status!: TrainingEnrolmentStatus;
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @Type(() => Number) @IsInt() @Min(0) @Max(100)
+  progressPercent?: number | null;
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @Type(() => Number) @IsInt() @Min(0) @Max(100)
+  score?: number | null;
 
   @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsDateString({ strict: true })
   completedAt?: string | null;

@@ -201,7 +201,7 @@ describe('candidates', () => {
       assertVerified: opts.verified === false ? jest.fn().mockRejectedValue(new ForbiddenException()) : jest.fn().mockResolvedValue(EMPLOYER),
     };
     const placements = { openForCandidate: jest.fn().mockResolvedValue('pl-1') };
-    const service = new CandidatesService(fake.db, shared as never, employers as never, n as never, placements as never);
+    const service = new CandidatesService(fake.db, shared as never, employers as never, n as never, placements as never, { forCandidates: jest.fn().mockResolvedValue(new Map()) } as never, { briefForCandidates: jest.fn().mockResolvedValue(new Map()), latestForCandidates: jest.fn().mockResolvedValue(new Map()) } as never);
     return { service, n, shared, placements, ...fake };
   }
 

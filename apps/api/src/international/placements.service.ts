@@ -28,6 +28,9 @@ import { SharedProfilesService } from './shared-profiles.service';
 import { InternationalNotifier } from './international-notifier.service';
 import { iso } from './employer-enquiries.service';
 import { addDays, addMonths, todayColombo } from './dates';
+import { JourneyService } from './journey.service';
+import { OffersService } from './offers.service';
+import { WelfareService } from './welfare.service';
 
 type PlacementRow = typeof placements.$inferSelect;
 type CheckinRow = typeof placementCheckins.$inferSelect;
@@ -85,6 +88,9 @@ export class PlacementsService {
     private readonly invoices: PlacementInvoicesService,
     private readonly sharedProfiles: SharedProfilesService,
     private readonly notifier: InternationalNotifier,
+    private readonly journey: JourneyService,
+    private readonly offers: OffersService,
+    private readonly welfare: WelfareService,
   ) {}
 
   /** Called when staff mark a candidate Placed. Idempotent: one placement per candidate. */
@@ -105,6 +111,8 @@ export class PlacementsService {
       .innerJoin(overseasVacancies, eq(vacancyApplications.vacancyId, overseasVacancies.id))
       .where(eq(vacancyApplications.candidateId, candidateId))
       .limit(1);
+    // An offer the caregiver accepted on the platform: its terms are the job.
+    const offer = await this.offers.acceptedFor(candidateId);
     const id = uuid();
     await this.db.insert(placements).values({
       id,
@@ -113,8 +121,9 @@ export class PlacementsService {
       caregiverId: row.c.caregiverId,
       employerId: row.e.employerId,
       country: row.e.country,
-      jobTitle: fromVacancy?.title ?? null,
-      contractMonths: fromVacancy?.contractMonths ?? null,
+      jobTitle: offer?.jobTitle ?? fromVacancy?.title ?? null,
+      contractMonths: offer?.contractMonths ?? fromVacancy?.contractMonths ?? null,
+      contractStartOn: offer?.startDate ?? null,
       guaranteeMonths: DEFAULT_GUARANTEE_MONTHS,
       feeAmount: row.e.placementFeeAmount,
       feeCurrency: row.e.placementFeeCurrency,
@@ -143,6 +152,9 @@ export class PlacementsService {
     const changes: Partial<PlacementRow> = {};
     for (const key of [
       'jobTitle',
+      'departureDetails',
+      'addressAbroad',
+      'phoneAbroad',
       'status',
       'departureOn',
       'arrivedOn',
@@ -271,7 +283,9 @@ export class PlacementsService {
       .where(eq(placements.caregiverId, caregiverId))
       .orderBy(desc(placements.createdAt))
       .limit(20);
+    const journeys = await this.journey.forPlacements(rows.map((r) => r.p));
     return rows.map(({ p, organisationType }) => ({
+      journey: journeys.get(p.id)!,
       id: p.id,
       country: p.country,
       organisationType,
@@ -321,9 +335,11 @@ export class PlacementsService {
   private async toStaff(rows: { p: PlacementRow; reference: string; organisationName: string; registrationNumber: string; fullName: string }[]): Promise<StaffPlacement[]> {
     const ids = rows.map((r) => r.p.id);
     if (!ids.length) return [];
-    const [checkins, invoices] = await Promise.all([
+    const [checkins, invoices, journeys, welfare] = await Promise.all([
       this.db.select().from(placementCheckins).where(inArray(placementCheckins.placementId, ids)).orderBy(asc(placementCheckins.dueOn)),
       this.invoices.summariesForPlacements(ids, { includeDrafts: true }),
+      this.journey.forPlacements(rows.map((r) => r.p)),
+      this.welfare.unresolvedByPlacement(ids),
     ]);
     return rows.map(({ p, reference, organisationName, registrationNumber, fullName }) => {
       const own = checkins.filter((c) => c.placementId === p.id).map(toCheckin);
@@ -354,6 +370,8 @@ export class PlacementsService {
         staffNote: p.staffNote,
         checkins: own,
         nextCheckin: ACTIVE_PLACEMENT_STATUSES.includes(p.status) ? (own.find((c) => !c.completedOn) ?? null) : null,
+        journey: journeys.get(p.id)!,
+        openWelfareReports: welfare.get(p.id) ?? 0,
         invoices: invoices.get(p.id) ?? [],
         createdAt: iso(p.createdAt),
         updatedAt: iso(p.updatedAt),

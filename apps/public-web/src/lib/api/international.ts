@@ -31,6 +31,20 @@ import type {
   SharedProfileSettings,
   SharedProfileUpdate,
 } from '@care-platform/shared';
+import type {
+  AssessmentInput,
+  CaregiverAssessment,
+  CaregiverInterview,
+  CaregiverJobOffer,
+  ContactAbroad,
+  EmployerInterview,
+  EmployerJobOffer,
+  OfferInput,
+  OfferResponse,
+  PublicCertificateCheck,
+  WelfareReport,
+  WelfareReportInput,
+} from '@care-platform/shared';
 import { api } from './client';
 
 /** The public international pages: employer enquiries, talent profiles and training. */
@@ -43,6 +57,7 @@ export const internationalApi = {
   training: (locale: Locale) => api.get<PublicTrainingProgramme[]>('/public/training', { locale }),
   vacancies: (params: { page?: number; pageSize?: number; country?: string; careSetting?: string; search?: string }) => api.get<PublicVacancyList>('/public/vacancies', params),
   vacancy: (reference: string) => api.get<PublicVacancy>(`/public/vacancies/${encodeURIComponent(reference)}`),
+  checkCertificate: (code: string) => api.get<PublicCertificateCheck>(`/public/certificates/${encodeURIComponent(code)}`),
 };
 
 /** A caregiver's own Work abroad section. */
@@ -72,6 +87,16 @@ export const workAbroadApi = {
   withdrawApplication: (id: string, applicationId: string) => api.delete<CaregiverVacancyApplication[]>(`/caregivers/${id}/vacancy-applications/${applicationId}`),
   placements: (id: string) => api.get<CaregiverPlacement[]>(`/caregivers/${id}/overseas/placements`),
   datedDocuments: (id: string) => api.get<CaregiverExpiringDocument[]>(`/caregivers/${id}/overseas/documents`),
+  assessments: (id: string) => api.get<CaregiverAssessment[]>(`/caregivers/${id}/overseas/assessments`),
+  addAssessment: (id: string, body: AssessmentInput) => api.post<CaregiverAssessment[]>(`/caregivers/${id}/overseas/assessments`, body),
+  removeAssessment: (id: string, assessmentId: string) => api.delete<CaregiverAssessment[]>(`/caregivers/${id}/overseas/assessments/${assessmentId}`),
+  interviews: (id: string) => api.get<CaregiverInterview[]>(`/caregivers/${id}/overseas/interviews`),
+  offers: (id: string) => api.get<CaregiverJobOffer[]>(`/caregivers/${id}/overseas/offers`),
+  respondOffer: (id: string, offerId: string, body: OfferResponse) => api.post<CaregiverJobOffer[]>(`/caregivers/${id}/overseas/offers/${offerId}/respond`, body),
+  saveContact: (id: string, placementId: string, body: ContactAbroad) => api.put<CaregiverPlacement[]>(`/caregivers/${id}/overseas/placements/${placementId}/contact`, body),
+  welfare: (id: string) => api.get<WelfareReport[]>(`/caregivers/${id}/overseas/welfare`),
+  report: (id: string, placementId: string, body: WelfareReportInput) => api.post<WelfareReport[]>(`/caregivers/${id}/overseas/placements/${placementId}/welfare`, body),
+  welfareMessage: (id: string, reportId: string, body: string) => api.post<WelfareReport[]>(`/caregivers/${id}/overseas/welfare/${reportId}/messages`, { body }),
 };
 
 /** An overseas employer's own account. */
@@ -95,4 +120,10 @@ export const employerApi = {
   invoices: () => api.get<PlacementInvoiceSummary[]>('/employer/invoices'),
   invoice: (id: string) => api.get<PlacementInvoice>(`/employer/invoices/${id}`),
   payInvoice: (id: string) => api.post<PayhereCheckout>(`/employer/invoices/${id}/payhere`),
+  interviewFeedback: (id: string, feedback: string) => api.patch<EmployerInterview>(`/employer/interviews/${id}/feedback`, { feedback }),
+  offers: () => api.get<EmployerJobOffer[]>('/employer/offers'),
+  offer: (id: string) => api.get<EmployerJobOffer>(`/employer/offers/${id}`),
+  makeOffer: (candidateId: string, body: OfferInput) => api.post<EmployerJobOffer>(`/employer/candidates/${candidateId}/offers`, body),
+  updateOffer: (id: string, body: OfferInput) => api.put<EmployerJobOffer>(`/employer/offers/${id}`, body),
+  withdrawOffer: (id: string) => api.post<EmployerJobOffer>(`/employer/offers/${id}/withdraw`),
 };

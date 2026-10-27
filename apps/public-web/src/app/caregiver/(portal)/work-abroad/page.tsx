@@ -8,6 +8,7 @@ import {
   MAX_TARGET_COUNTRIES,
   SHARED_PROFILE_CONSENT_VERSION,
   SHARED_PROFILE_LIMITS,
+  type CaregiverTrainingEnrolment,
   type CountryCode,
   type OverseasReadiness,
   type SharedProfileSettings,
@@ -30,6 +31,7 @@ import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { TrainingProgrammeCard } from '@/components/international/training-programme-card';
 import { EmployerInterestCard, ReadinessChecklist } from '@/components/international/readiness-checklist';
 import { DatedDocumentsCard, MyApplicationsCard, MyPlacementCard } from '@/components/international/overseas-status';
+import { DepartureCard, MyInterviewsCard, MyOffersCard, MyResultsCard, WelfareCard } from '@/components/international/caregiver-journey';
 import { cn } from '@/lib/utils';
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
@@ -47,10 +49,12 @@ function Card({ id, title, intro, children }: { id: string; title: string; intro
 }
 
 /**
- * The caregiver's Work abroad section: whether (and where) they want to work
- * abroad, the platform's training, a profile they can choose to share with
- * overseas employers, their vacancy applications, their placement once hired,
- * and which of their documents are running out.
+ * The caregiver's Work abroad section: job offers waiting for an answer and
+ * interviews coming up; once hired, their placement, help while abroad (SOS
+ * included) and the departure checklist; whether (and where) they want to
+ * work abroad, the platform's training with its certificates, their test
+ * results, a profile they can choose to share with overseas employers, their
+ * vacancy applications, and which of their documents are running out.
  */
 export default function WorkAbroadSectionPage() {
   const { t } = useTranslation();
@@ -60,13 +64,18 @@ export default function WorkAbroadSectionPage() {
         <h1 className="text-xl font-bold text-ink">{t('portal.workAbroad.title')}</h1>
         <p className="mt-1 text-sm text-ink/60">{t('portal.workAbroad.intro')}</p>
       </div>
+      <MyOffersCard />
+      <MyInterviewsCard />
       <MyPlacementCard />
+      <WelfareCard />
+      <DepartureCard />
       <EmployerInterestCard />
       <DatedDocumentsCard />
       <ReadinessChecklist />
       <MyApplicationsCard />
       <ReadinessCard />
       <TrainingCard />
+      <MyResultsCard />
       <SharedProfileCard />
     </div>
   );
@@ -200,7 +209,8 @@ function TrainingCard() {
   const { data: programmes = [], isLoading } = useTrainingProgrammes(locale);
   const { data: mine = [] } = useMyTraining();
   const interest = useTrainingInterest();
-  const statusOf = (id: string) => mine.find((m) => m.programmeId === id)?.status ?? null;
+  const enrolmentOf = (id: string) => mine.find((m) => m.programmeId === id) ?? null;
+  const statusOf = (id: string) => enrolmentOf(id)?.status ?? null;
 
   return (
     <Card id="training" title={t('portal.workAbroad.training.title')} intro={t('portal.workAbroad.training.intro')}>
@@ -239,11 +249,37 @@ function TrainingCard() {
                 )}
               </div>
               {status === 'INTERESTED' && <p className="mt-2 text-xs text-ink/60">{t('portal.workAbroad.training.interestedHint')}</p>}
+              <EnrolmentProgress enrolment={enrolmentOf(p.id)} />
             </TrainingProgrammeCard>
           );
         })}
       </div>
     </Card>
+  );
+}
+
+/** Progress while enrolled; the score and the certificate of completion once done. */
+function EnrolmentProgress({ enrolment: e }: { enrolment: CaregiverTrainingEnrolment | null }) {
+  const { t } = useTranslation();
+  if (!e) return null;
+  return (
+    <div className="mt-3 space-y-2">
+      {e.status === 'ENROLLED' && e.progressPercent !== null && (
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-paper" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={e.progressPercent} aria-label={t('portal.workAbroad.training.progress', { n: e.progressPercent })}>
+            <div className="h-full rounded-full bg-brand" style={{ width: `${e.progressPercent}%` }} />
+          </div>
+          <span className="text-xs tabular-nums text-ink/60">{t('portal.workAbroad.training.progress', { n: e.progressPercent })}</span>
+        </div>
+      )}
+      {e.status === 'COMPLETED' && e.score !== null && <p className="text-xs text-ink/70">{t('portal.workAbroad.training.score', { n: e.score })}</p>}
+      {e.status === 'COMPLETED' && e.certificate && !e.certificate.revoked && (
+        <Link href={`/caregiver/work-abroad/certificates/${e.id}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:text-brand-dark">
+          <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+          {t('portal.workAbroad.training.certificate')}
+        </Link>
+      )}
+    </div>
   );
 }
 

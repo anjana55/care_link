@@ -1,3 +1,13 @@
+import type {
+  EmployerInterview,
+  EmployerJobOffer,
+  OfferStatus,
+  PlacementJourney,
+  PublicAssessment,
+  PublicCertificate,
+  TrainingCertificate,
+} from './international-phase4';
+
 /**
  * The international paths: overseas employers looking for caregivers from
  * Sri Lanka, and local caregivers preparing for work abroad.
@@ -132,6 +142,14 @@ export interface OverseasStaffSummary extends EmployerEnquirySummary {
   overdueCheckins: number;
   /** Issued placement invoices past their due date and not paid. */
   overdueInvoices: number;
+  /** Offers employers signed that staff have not sent on yet. */
+  pendingOffers: number;
+  /** Welfare reports staff have not replied to yet. */
+  openWelfare: number;
+  /** Of those, SOS or urgent. */
+  urgentWelfare: number;
+  /** Test results caregivers added that staff have not verified. */
+  pendingAssessments: number;
 }
 
 /** Numbers for the employer landing page. Counts only. */
@@ -195,6 +213,8 @@ export interface TrainingProgramme {
   nextStartDate: string | null;
   isActive: boolean;
   sortOrder: number;
+  /** 0-100. With a pass mark, a certificate needs a score at or above it. */
+  passMark: number | null;
   /** Not counting withdrawn. */
   enrolmentCount: number;
 }
@@ -206,6 +226,10 @@ export interface CaregiverTrainingEnrolment {
   programmeId: string;
   status: TrainingEnrolmentStatus;
   completedAt: string | null;
+  /** 0-100, as staff last recorded it. */
+  progressPercent: number | null;
+  score: number | null;
+  certificate: TrainingCertificate | null;
 }
 
 /** Staff list of who has signed up for a programme. */
@@ -217,7 +241,18 @@ export interface TrainingEnrolmentRow {
   status: TrainingEnrolmentStatus;
   completedAt: string | null;
   staffNote: string | null;
+  progressPercent: number | null;
+  score: number | null;
+  certificate: TrainingCertificate | null;
   createdAt: string;
+}
+
+export interface TrainingEnrolmentUpdate {
+  status: TrainingEnrolmentStatus;
+  completedAt?: string | null;
+  staffNote?: string | null;
+  progressPercent?: number | null;
+  score?: number | null;
 }
 
 // --- shared profiles -------------------------------------------------------
@@ -296,6 +331,10 @@ export interface PublicTalentProfile {
   qualifications: string[];
   /** Platform training the caregiver has completed, by title in the visitor's language. */
   completedTraining: string[];
+  /** Certificates of completion, each checkable at /verify/<code>. */
+  certificates: PublicCertificate[];
+  /** Test results staff verified, still in date. */
+  assessments: PublicAssessment[];
   targetCountries: string[];
   availableFrom: string | null;
 }
@@ -386,6 +425,9 @@ export interface EmployerCandidate {
   messageToEmployer: string | null;
   /** Null once the caregiver stops sharing their profile: they are no longer shown. */
   talent: PublicTalentCard | null;
+  interviews: EmployerInterview[];
+  /** The latest offer to this caregiver on this enquiry. */
+  offer: EmployerJobOffer | null;
 }
 
 /** One of the employer's own enquiries, with the caregivers on it. */
@@ -436,6 +478,10 @@ export interface StaffCandidate {
   staffNote: string | null;
   /** Set once staff marked them Placed: the placement that tracks them. */
   placementId: string | null;
+  /** Every round, oldest first, with the employer's feedback. */
+  interviews: EmployerInterview[];
+  /** The latest offer, in brief. */
+  offer: { id: string; reference: string; status: OfferStatus; expired: boolean } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -681,6 +727,9 @@ export interface StaffPlacement {
   checkins: PlacementCheckin[];
   /** The earliest check-in not done yet. */
   nextCheckin: PlacementCheckin | null;
+  journey: PlacementJourney;
+  /** Welfare reports not resolved yet. */
+  openWelfareReports: number;
   invoices: PlacementInvoiceSummary[];
   createdAt: string;
   updatedAt: string;
@@ -688,6 +737,9 @@ export interface StaffPlacement {
 
 export interface PlacementUpdate {
   jobTitle?: string | null;
+  departureDetails?: string | null;
+  addressAbroad?: string | null;
+  phoneAbroad?: string | null;
   status?: PlacementStatus;
   departureOn?: string | null;
   arrivedOn?: string | null;
@@ -734,6 +786,7 @@ export interface CaregiverPlacement {
   arrivedOn: string | null;
   contractStartOn: string | null;
   contractEndsOn: string | null;
+  journey: PlacementJourney;
 }
 
 // --- placement fee invoices ----------------------------------------------------------
