@@ -436,7 +436,8 @@ export interface StaffWelfareReport extends WelfareReport {
 export interface WelfareReportInput {
   severity: WelfareSeverity;
   category: WelfareCategory;
-  message: string;
+  /** Optional for an SOS only: the button alone is enough. */
+  message?: string;
 }
 
 /**

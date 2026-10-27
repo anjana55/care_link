@@ -922,7 +922,10 @@
           "INTERESTED": "Interested",
           "ENROLLED": "Enrolled",
           "COMPLETED": "Completed"
-        }
+        },
+        "progress": "{n}% done",
+        "score": "Final score: {n} / 100",
+        "certificate": "Your certificate"
       },
       "share": {
         "title": "Share your profile with employers",
@@ -1048,6 +1051,91 @@
           "COMPLETED": "Contract completed",
           "ENDED_EARLY": "Ended early"
         }
+      },
+      "offers": {
+        "title": "Job offers",
+        "intro": "Offers employers have made you.",
+        "introWaiting": "An employer has made you a job offer. Read it carefully, then accept or decline it here.",
+        "answerBy": "Please answer by {date}.",
+        "accept": "Accept the offer",
+        "decline": "Decline",
+        "talkFirst": "Not sure? Call our team before you answer - we will go through it with you.",
+        "inPrinciple": "Accepting is an agreement in principle. You will sign the full employment contract later, with our help, before your visa application.",
+        "readTerms": "I have read the terms above and I want this job.",
+        "signLabel": "Type your full name to sign",
+        "signHint": "As it is written on your passport.",
+        "signAccept": "Sign and accept",
+        "reasonLabel": "Why are you declining? (optional - it helps our team find you a better match)",
+        "confirmDecline": "Decline the offer",
+        "yourReason": "Your reason: {reason}"
+      },
+      "interviews": {
+        "title": "Your interviews",
+        "intro": "Times are shown in your phone's time zone. Our team will call you before each interview to help you prepare."
+      },
+      "departure": {
+        "title": "Getting ready to go",
+        "intro": "What has to be done before you travel. Our team ticks each step off with you.",
+        "progress": "{done} of {total} done",
+        "done": "done",
+        "todo": "still to do",
+        "due": "by {date}",
+        "flight": "Your flight:",
+        "contactTitle": "Where we can reach you abroad",
+        "contactIntro": "Keep this up to date, so our team can reach you quickly. Your employer does not see it.",
+        "phone": "Phone number abroad",
+        "address": "Address abroad",
+        "saved": "Saved"
+      },
+      "welfare": {
+        "title": "Help while you are abroad",
+        "intro": "Tell us if something is wrong, or ask us anything. Only our team reads it - never your employer.",
+        "localNumbers": "In danger right now? Call the police in {country} on {police}, or an ambulance on {ambulance}.",
+        "localGeneric": "In danger right now? Call the local emergency number first - 112 works from most mobile phones.",
+        "sos": "SOS - I need help now",
+        "sosConfirm": "Send an SOS to our whole team now? We will call you straight away.",
+        "sosSend": "Yes, send SOS",
+        "sosHint": "For when you are not safe. Our whole team is alerted at once, with your phone number and address abroad.",
+        "sosSent": "Your SOS has been sent. Our team is calling you now. Keep your phone with you.",
+        "sent": "Sent. Our team will reply here and call you if needed.",
+        "reportTitle": "Tell us something",
+        "how": "How serious is it?",
+        "about": "What is it about?",
+        "message": "What is happening?",
+        "private": "Write in Sinhala, Tamil or English.",
+        "send": "Send to our team",
+        "yours": "Your messages to our team",
+        "ourTeam": "Our team",
+        "you": "You",
+        "reply": "Write a reply",
+        "sendReply": "Send reply"
+      },
+      "results": {
+        "title": "Test results",
+        "intro": "English tests and other results. Our team checks the original before a result counts - then it can show on your shared profile.",
+        "none": "No results yet.",
+        "add": "Add a result",
+        "kind": "What was tested",
+        "provider": "Test",
+        "testName": "Name of the test",
+        "testNamePlaceholder": "IELTS General Training",
+        "score": "Score or grade",
+        "cefr": "Level (CEFR)",
+        "cefrUnknown": "Not shown on the result",
+        "takenOn": "Date taken",
+        "validUntilLabel": "Valid until",
+        "validUntil": "valid until {date}",
+        "bringOriginal": "Bring or send the original result to our office, so we can verify it.",
+        "save": "Save result",
+        "verified": "Verified",
+        "waiting": "Waiting for our team",
+        "remove": "Remove {title}"
+      },
+      "certificate": {
+        "back": "Back to Work abroad",
+        "print": "Print or save as PDF",
+        "missing": "This certificate is not available.",
+        "englishNote": "The certificate is in English, for employers abroad."
       }
     }
   },
@@ -1530,7 +1618,12 @@
       "title": "Caregiver profile",
       "askTitle": "To ask about this caregiver, contact {brand}:",
       "footer": "Shared by the caregiver with their consent and reviewed by {brand}. Contact details are never shared - {brand} arranges all introductions. Printed {date}."
-    }
+    },
+    "certificates": "Certificates of completion",
+    "certificatesNote": "Programmes run by our platform, not accredited qualifications. Select a number to check it.",
+    "results": "Test results",
+    "resultsNote": "Checked by our team against the original result.",
+    "cefr": "CEFR {level}"
   },
   "workAbroad": {
     "pill": "For caregivers",
@@ -1627,7 +1720,8 @@
       "newEnquiry": "New enquiry",
       "account": "Account",
       "vacancies": "Vacancies",
-      "placements": "Placements & invoices"
+      "placements": "Placements & invoices",
+      "offers": "Offers"
     },
     "status": {
       "VERIFIED": "Your organisation is verified",
@@ -1803,6 +1897,61 @@
         "OTHER": "Other"
       },
       "feeTerms": "Placement fee for a caregiver introduced by us who has started work. Caregivers are never charged a placement fee."
+    },
+    "interviews": {
+      "addFeedback": "Add your feedback",
+      "feedbackLabel": "Your feedback on this interview",
+      "feedbackPlaceholder": "How did it go? Would you like to make an offer?",
+      "feedbackPrivate": "Only our team reads this. The caregiver does not see it.",
+      "sendFeedback": "Send feedback",
+      "yourFeedback": "Your feedback:"
+    },
+    "offers": {
+      "title": "Job offers",
+      "intro": "Offers you have made. Our team reads each one before the caregiver sees it.",
+      "empty": "You have not made any offers yet.",
+      "emptyCta": "See your candidates",
+      "make": "Make an offer",
+      "offerRef": "Offer {reference}",
+      "answerBy": "The caregiver can answer until {date}.",
+      "returnedHint": "Sent back by our team - change it and sign again.",
+      "returnedTitle": "Our team sent this offer back to you",
+      "newTitle": "Job offer to {name}",
+      "newIntro": "For enquiry {reference}. Our team will check the offer, then send it to the caregiver.",
+      "noCandidate": "We could not find this candidate on your enquiries.",
+      "signSend": "Sign and send to our team",
+      "signResend": "Sign again and send",
+      "letter": "Job offer",
+      "print": "Print or save as PDF",
+      "change": "Change the offer",
+      "withdraw": "Withdraw the offer",
+      "withdrawConfirm": "Withdraw this offer?",
+      "withdrawYes": "Yes, withdraw",
+      "declinedBecause": "The caregiver's reason: {reason}",
+      "inPrinciple": "An offer in principle. The employment contract is signed separately, before the visa application.",
+      "fingerprint": "Terms fingerprint: {hash}",
+      "form": {
+        "required": "Required",
+        "job": "The job",
+        "country": "Country",
+        "city": "City or town",
+        "startHint": "Expected; it depends on the visa.",
+        "contractMonths": "Contract (months)",
+        "hours": "Hours a week",
+        "pay": "Pay and conditions",
+        "currency": "Currency",
+        "period": "Paid per",
+        "meals": "Meals provided",
+        "leave": "Paid leave (days a year)",
+        "probation": "Probation (months)",
+        "expires": "Answer by",
+        "expiresHint": "If you leave this empty, the caregiver has 14 days from when we send it.",
+        "otherPlaceholder": "Visa and medical costs, uniform, overtime, days off, travel home...",
+        "sign": "Your signature",
+        "signIntro": "When you sign, our team checks the offer and sends it to {name}. If you change the terms later, you sign again.",
+        "authorised": "I am authorised to make this offer on behalf of {organisation}.",
+        "signature": "Type your full name to sign"
+      }
     }
   },
   "vacancies": {
@@ -1880,5 +2029,131 @@
         "WITHDRAWN": "Withdrawn"
       }
     }
+  },
+  "overseas": {
+    "offerStatus": {
+      "PENDING_REVIEW": "With our team",
+      "RETURNED": "Sent back to change",
+      "SENT": "Waiting for an answer",
+      "ACCEPTED": "Accepted",
+      "DECLINED": "Declined",
+      "WITHDRAWN": "Withdrawn",
+      "EXPIRED": "Answer date passed"
+    },
+    "accommodation": {
+      "PROVIDED_FREE": "Provided, free",
+      "PROVIDED_PAID": "Provided, paid from salary",
+      "NOT_PROVIDED": "Not provided"
+    },
+    "flights": {
+      "EMPLOYER": "Paid by the employer",
+      "CAREGIVER": "Paid by the caregiver",
+      "SHARED": "Shared"
+    },
+    "interviewMode": {
+      "VIDEO": "Video call",
+      "PHONE": "Phone call",
+      "IN_PERSON": "In person"
+    },
+    "interviewStatus": {
+      "SCHEDULED": "Booked",
+      "COMPLETED": "Held",
+      "CANCELLED": "Cancelled",
+      "NO_SHOW": "Did not take place"
+    },
+    "departure": {
+      "OFFER_ACCEPTED": "Job offer accepted",
+      "MEDICAL": "Medical check",
+      "POLICE_CLEARANCE": "Police clearance",
+      "CONTRACT_SIGNED": "Employment contract signed",
+      "VISA_APPLIED": "Visa applied for",
+      "VISA_GRANTED": "Visa granted",
+      "INSURANCE": "Insurance arranged",
+      "ORIENTATION": "Pre-departure orientation",
+      "FLIGHT_BOOKED": "Flight booked"
+    },
+    "welfareSeverity": {
+      "QUESTION": "A question",
+      "CONCERN": "A concern",
+      "URGENT": "Urgent - I need help soon",
+      "SOS": "SOS"
+    },
+    "welfareCategory": {
+      "PAY": "Pay",
+      "HOURS": "Working hours",
+      "ACCOMMODATION": "Accommodation",
+      "TREATMENT": "How I am treated",
+      "HEALTH": "My health",
+      "CONTRACT": "My contract",
+      "DOCUMENTS": "Passport or documents",
+      "SAFETY": "My safety",
+      "OTHER": "Something else"
+    },
+    "welfareStatus": {
+      "OPEN": "Sent",
+      "ACKNOWLEDGED": "Our team is on it",
+      "RESOLVED": "Closed"
+    },
+    "assessmentKind": {
+      "ENGLISH": "English",
+      "CAREGIVING_SKILLS": "Caregiving skills",
+      "OTHER": "Other"
+    },
+    "provider": {
+      "PLATFORM": "Our assessment",
+      "IELTS": "IELTS",
+      "OET": "OET",
+      "PTE": "PTE",
+      "TOEFL": "TOEFL",
+      "LANGUAGECERT": "LanguageCert",
+      "OTHER": "Other"
+    },
+    "terms": {
+      "jobTitle": "Job title",
+      "location": "Where",
+      "startDate": "Start date",
+      "startTbc": "To be agreed",
+      "contract": "Contract",
+      "months": "{n} months",
+      "hours": "Hours",
+      "hoursValue": "{n} hours a week",
+      "salary": "Salary",
+      "accommodation": "Accommodation",
+      "meals": "Meals",
+      "flights": "Flights",
+      "leave": "Paid leave",
+      "days": "{n} days a year",
+      "probation": "Probation",
+      "other": "Other terms",
+      "yes": "Yes",
+      "no": "No"
+    },
+    "employerSignature": "Employer's signature",
+    "caregiverSignature": "Caregiver's signature",
+    "yourSignature": "Your signature",
+    "notSigned": "Not signed yet",
+    "signedOn": "signed {when}",
+    "round": "Round {n}",
+    "minutes": "{n} minutes",
+    "joinCall": "Join the call",
+    "addToCalendar": "Add to calendar",
+    "icsSummaryCaregiver": "Job interview - employer in {country}",
+    "icsSummaryEmployer": "Interview with {name}"
+  },
+  "verify": {
+    "title": "Check a certificate",
+    "intro": "Confirm that a certificate of completion from us is genuine.",
+    "valid": "This certificate is genuine",
+    "validHelp": "We issued it, and it still stands.",
+    "revoked": "This certificate has been withdrawn",
+    "revokedHelp": "We issued it, but it no longer stands. Contact us if you need to know more.",
+    "notFound": "We could not find this certificate",
+    "notFoundHelp": "Check the address or code on the certificate. If it still does not work, the certificate was not issued by us.",
+    "error": "We could not check the certificate just now. Please try again.",
+    "number": "Certificate number",
+    "firstName": "Issued to (first name)",
+    "programme": "Programme",
+    "issued": "Issued",
+    "note": "Only the first name is shown, to protect the holder's privacy. Match it with the name on the certificate."
   }
 }

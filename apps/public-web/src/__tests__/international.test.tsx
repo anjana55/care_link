@@ -121,6 +121,8 @@ describe('employer enquiry form', () => {
 
 describe('shared talent profile', () => {
   const profile: PublicTalentProfile = {
+    certificates: [{ number: 'TC-2026-K7Q2M9', verifyCode: 'ABCDEFGHJK23', programmeTitle: 'Basic caregiving', issuedOn: '2026-09-01' }],
+    assessments: [],
     slug: 'abcdefgh2345',
     firstName: 'Nadeesha',
     headline: 'Home carer for older people',
@@ -134,7 +136,7 @@ describe('shared talent profile', () => {
     languages: [{ name: 'English', proficiency: 'FLUENT' }],
     skills: ['Dementia care'],
     qualifications: ['Certificate in Caregiving'],
-    completedTraining: ['English for caregivers'],
+    completedTraining: ['English for caregivers', 'Basic caregiving'],
     targetCountries: ['JP'],
     availableFrom: '2027-01-01',
   };
@@ -146,6 +148,9 @@ describe('shared talent profile', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Nadeesha' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Nadeesha' })).toHaveAttribute('src', expect.stringContaining('/public/talent/abcdefgh2345/photo'));
     expect(screen.getByText('English for caregivers')).toBeInTheDocument();
+    // A certified programme is listed once, with its number linking to the public check.
+    expect(screen.getAllByText('Basic caregiving')).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'TC-2026-K7Q2M9' })).toHaveAttribute('href', '/verify/ABCDEFGHJK23');
     expect(screen.getByText(/Not an accredited qualification/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ask about Nadeesha' })).toHaveAttribute('href', '/international?talent=abcdefgh2345#enquiry');
     // No way to reach the caregiver directly.

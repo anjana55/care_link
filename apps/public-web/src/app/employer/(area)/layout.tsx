@@ -13,6 +13,7 @@ import { rememberReturnTo } from '@/lib/return-to';
 const SECTIONS = [
   { href: '/employer', key: 'employer.nav.overview' },
   { href: '/employer/vacancies', key: 'employer.nav.vacancies' },
+  { href: '/employer/offers', key: 'employer.nav.offers' },
   { href: '/employer/placements', key: 'employer.nav.placements' },
   { href: '/employer/shortlist', key: 'employer.nav.shortlist' },
   { href: '/international#talent', key: 'employer.nav.browse' },

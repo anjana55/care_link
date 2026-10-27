@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { EmployerAccountEnquiryRequest, EmployerAccountUpdate, InterviewRequest, Locale, OverseasReadiness, SharedProfileSettings, SharedProfileUpdate, VacancyInput } from '@care-platform/shared';
+import type { AssessmentInput, ContactAbroad, OfferInput, OfferResponse, WelfareReportInput, EmployerAccountEnquiryRequest, EmployerAccountUpdate, InterviewRequest, Locale, OverseasReadiness, SharedProfileSettings, SharedProfileUpdate, VacancyInput } from '@care-platform/shared';
 import { employerApi, internationalApi, workAbroadApi } from '../api/international';
 import { useAuth } from '../api/auth-context';
 import { useCaregiverId } from './use-caregiver-portal';
@@ -295,4 +295,94 @@ export function useEmployerInvoice(id: string, waitingForPayment: boolean) {
 
 export function usePayInvoice(id: string) {
   return useMutation({ mutationFn: () => employerApi.payInvoice(id) });
+}
+
+// --- phase 4: certificates, results, interviews, offers, departure, welfare -----
+
+export function useCertificateCheck(code: string | null) {
+  return useQuery({ queryKey: ['international', 'certificate', code], queryFn: () => internationalApi.checkCertificate(code!), enabled: Boolean(code), retry: false });
+}
+
+export function useMyAssessments() {
+  const id = useCaregiverId();
+  const queryClient = useQueryClient();
+  const key = ['portal', id, 'assessments'];
+  const query = useQuery({ queryKey: key, queryFn: () => workAbroadApi.assessments(id!), enabled: Boolean(id) });
+  const add = useMutation({ mutationFn: (body: AssessmentInput) => workAbroadApi.addAssessment(id!, body), onSuccess: (data) => queryClient.setQueryData(key, data) });
+  const remove = useMutation({ mutationFn: (assessmentId: string) => workAbroadApi.removeAssessment(id!, assessmentId), onSuccess: (data) => queryClient.setQueryData(key, data) });
+  return { ...query, add, remove };
+}
+
+export function useMyInterviews() {
+  const id = useCaregiverId();
+  return useQuery({ queryKey: ['portal', id, 'interviews'], queryFn: () => workAbroadApi.interviews(id!), enabled: Boolean(id) });
+}
+
+export function useMyOffers() {
+  const id = useCaregiverId();
+  const queryClient = useQueryClient();
+  const key = ['portal', id, 'offers'];
+  const query = useQuery({ queryKey: key, queryFn: () => workAbroadApi.offers(id!), enabled: Boolean(id) });
+  const respond = useMutation({
+    mutationFn: ({ offerId, body }: { offerId: string; body: OfferResponse }) => workAbroadApi.respondOffer(id!, offerId, body),
+    onSuccess: (data) => {
+      queryClient.setQueryData(key, data);
+      queryClient.invalidateQueries({ queryKey: ['portal', id, 'interest'] });
+    },
+  });
+  return { ...query, respond };
+}
+
+export function useSaveContactAbroad() {
+  const id = useCaregiverId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ placementId, body }: { placementId: string; body: ContactAbroad }) => workAbroadApi.saveContact(id!, placementId, body),
+    onSuccess: (data) => queryClient.setQueryData(['portal', id, 'placements'], data),
+  });
+}
+
+export function useMyWelfare() {
+  const id = useCaregiverId();
+  const queryClient = useQueryClient();
+  const key = ['portal', id, 'welfare'];
+  const query = useQuery({ queryKey: key, queryFn: () => workAbroadApi.welfare(id!), enabled: Boolean(id), refetchInterval: 60_000 });
+  const report = useMutation({
+    mutationFn: ({ placementId, body }: { placementId: string; body: WelfareReportInput }) => workAbroadApi.report(id!, placementId, body),
+    onSuccess: (data) => queryClient.setQueryData(key, data),
+  });
+  const message = useMutation({
+    mutationFn: ({ reportId, body }: { reportId: string; body: string }) => workAbroadApi.welfareMessage(id!, reportId, body),
+    onSuccess: (data) => queryClient.setQueryData(key, data),
+  });
+  return { ...query, report, message };
+}
+
+export function useInterviewFeedback(locale: Locale) {
+  const employer = useIsEmployer();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, feedback }: { id: string; feedback: string }) => employerApi.interviewFeedback(id, feedback),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer', employer?.employerId, 'enquiries', locale] }),
+  });
+}
+
+export function useEmployerOffers() {
+  const employer = useIsEmployer();
+  return useQuery({ queryKey: ['employer', employer?.employerId, 'offers'], queryFn: employerApi.offers, enabled: Boolean(employer) });
+}
+
+export function useEmployerOffer(id: string | null) {
+  const employer = useIsEmployer();
+  return useQuery({ queryKey: ['employer', employer?.employerId, 'offer', id], queryFn: () => employerApi.offer(id!), enabled: Boolean(employer && id) });
+}
+
+export function useOfferActions() {
+  const employer = useIsEmployer();
+  const queryClient = useQueryClient();
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['employer', employer?.employerId] });
+  const make = useMutation({ mutationFn: ({ candidateId, body }: { candidateId: string; body: OfferInput }) => employerApi.makeOffer(candidateId, body), onSuccess: refresh });
+  const update = useMutation({ mutationFn: ({ id, body }: { id: string; body: OfferInput }) => employerApi.updateOffer(id, body), onSuccess: refresh });
+  const withdraw = useMutation({ mutationFn: (id: string) => employerApi.withdrawOffer(id), onSuccess: refresh });
+  return { make, update, withdraw };
 }

@@ -81,7 +81,7 @@ const enquiry = (over: Partial<EmployerOwnEnquiry> = {}): EmployerOwnEnquiry => 
   rolesCount: 2,
   careSettings: ['NURSING_HOME'],
   createdAt: '2026-10-20T08:00:00Z',
-  candidates: [{ id: 'c1', status: 'PROPOSED', interviewAt: null, messageToEmployer: 'Strong English', talent: talentCard }],
+  candidates: [{ id: 'c1', status: 'PROPOSED', interviewAt: null, messageToEmployer: 'Strong English', talent: talentCard, interviews: [], offer: null }],
   ...over,
 });
 
@@ -196,7 +196,7 @@ describe('employer area', () => {
 
   it('says a caregiver who stopped sharing is no longer available, without showing them', async () => {
     const { default: Overview } = await import('@/app/employer/(area)/page');
-    route({ '/employer/me': account(), '/employer/enquiries': [enquiry({ candidates: [{ id: 'c1', status: 'PROPOSED', interviewAt: null, messageToEmployer: null, talent: null }] })] });
+    route({ '/employer/me': account(), '/employer/enquiries': [enquiry({ candidates: [{ id: 'c1', status: 'PROPOSED', interviewAt: null, messageToEmployer: null, talent: null, interviews: [], offer: null }] })] });
     renderUi(<Overview />);
     expect(await screen.findByText('This caregiver is no longer available.')).toBeInTheDocument();
     expect(screen.queryByText('Nadeesha')).not.toBeInTheDocument();
@@ -206,6 +206,8 @@ describe('employer area', () => {
 describe('shared profile, seen by a signed-in employer', () => {
   const profile: PublicTalentProfile = {
     ...talentCard,
+    certificates: [],
+    assessments: [],
     bio: null,
     approxAge: 41,
     hasVerifiedQualification: false,
