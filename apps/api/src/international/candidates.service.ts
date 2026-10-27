@@ -18,6 +18,8 @@ import { EmployersService } from './employers.service';
 import { InternationalNotifier } from './international-notifier.service';
 import { OPEN_ENQUIRY_STATUSES, iso } from './employer-enquiries.service';
 import { PlacementsService } from './placements.service';
+import { InterviewsService } from './interviews.service';
+import { OffersService } from './offers.service';
 
 type CandidateRow = typeof enquiryCandidates.$inferSelect;
 type EnquiryRow = typeof employerEnquiries.$inferSelect;
@@ -49,6 +51,8 @@ export class CandidatesService {
     private readonly employers: EmployersService,
     private readonly notifier: InternationalNotifier,
     private readonly placements: PlacementsService,
+    private readonly interviews: InterviewsService,
+    private readonly offers: OffersService,
   ) {}
 
   // --- staff -------------------------------------------------------------------
@@ -61,8 +65,18 @@ export class CandidatesService {
       .leftJoin(placements, eq(placements.candidateId, enquiryCandidates.id))
       .where(eq(enquiryCandidates.enquiryId, enquiryId))
       .orderBy(asc(enquiryCandidates.createdAt));
-    const live = await this.sharedProfiles.liveSlugs(rows.map((r) => r.c.caregiverId));
-    return rows.map((r) => ({ ...toStaffCandidate(r.c, r.registrationNumber, r.fullName, live.get(r.c.caregiverId) ?? null), placementId: r.placementId ?? null }));
+    const ids = rows.map((r) => r.c.id);
+    const [live, interviews, offers] = await Promise.all([
+      this.sharedProfiles.liveSlugs(rows.map((r) => r.c.caregiverId)),
+      this.interviews.forCandidates(ids),
+      this.offers.briefForCandidates(ids),
+    ]);
+    return rows.map((r) => ({
+      ...toStaffCandidate(r.c, r.registrationNumber, r.fullName, live.get(r.c.caregiverId) ?? null),
+      placementId: r.placementId ?? null,
+      interviews: interviews.get(r.c.id) ?? [],
+      offer: offers.get(r.c.id) ?? null,
+    }));
   }
 
   async propose(
@@ -149,6 +163,8 @@ export class CandidatesService {
     return rows.map((r) => ({
       ...toStaffCandidate(r.c, r.registrationNumber, r.fullName, live.get(r.c.caregiverId) ?? null),
       placementId: null,
+      interviews: [],
+      offer: null,
       enquiry: { id: r.c.enquiryId, reference: r.reference, organisationName: r.organisationName, country: r.country },
     }));
   }
@@ -179,10 +195,14 @@ export class CandidatesService {
         ),
       )
       .orderBy(asc(enquiryCandidates.createdAt));
-    const cards = await this.sharedProfiles.liveCards(
-      candidates.map((c) => c.caregiverId),
-      locale,
-    );
+    const [cards, interviews, offers] = await Promise.all([
+      this.sharedProfiles.liveCards(
+        candidates.map((c) => c.caregiverId),
+        locale,
+      ),
+      this.interviews.forCandidates(candidates.map((c) => c.id)),
+      this.offers.latestForCandidates(candidates.map((c) => c.id)),
+    ]);
     return enquiries.map((e) => ({
       id: e.id,
       reference: e.reference,
@@ -201,6 +221,8 @@ export class CandidatesService {
             messageToEmployer: c.messageToEmployer,
             // A caregiver who stopped sharing is not shown at all - only that someone is no longer available.
             talent: cards.get(c.caregiverId) ?? null,
+            interviews: interviews.get(c.id) ?? [],
+            offer: offers.get(c.id) ?? null,
           }),
         ),
     }));
@@ -368,7 +390,7 @@ function countryName(code: string): string {
   }
 }
 
-function toStaffCandidate(c: CandidateRow, registrationNumber: string, fullName: string, slug: string | null): Omit<StaffCandidate, 'placementId'> {
+function toStaffCandidate(c: CandidateRow, registrationNumber: string, fullName: string, slug: string | null): Omit<StaffCandidate, 'placementId' | 'interviews' | 'offer'> {
   return {
     id: c.id,
     caregiverId: c.caregiverId,

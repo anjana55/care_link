@@ -167,6 +167,20 @@ const optionalDate = () => (target: object, key: string) => {
 };
 
 export class UpdatePlacementDto {
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(300)
+  departureDetails?: string | null;
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(500)
+  addressAbroad?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @Transform(blankToNull)
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @Matches(/^\+?[0-9 ()-]{6,30}$/, { message: 'Please enter a phone number, with the country code.' })
+  phoneAbroad?: string | null;
+
   @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(150)
   jobTitle?: string | null;
 

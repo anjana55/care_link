@@ -15,6 +15,13 @@ import { VacanciesService } from './vacancies.service';
 import { PlacementsService } from './placements.service';
 import { PlacementInvoicesService } from './placement-invoices.service';
 import { DocumentExpiryService } from './document-expiry.service';
+import { AssessmentsService } from './assessments.service';
+import { InterviewsService } from './interviews.service';
+import { OffersService } from './offers.service';
+import { JourneyService } from './journey.service';
+import { WelfareService } from './welfare.service';
+import { ReportsService } from './reports.service';
+import { CaregiverPhase4Controller, EmployerPhase4Controller, PublicCertificatesController, StaffPhase4Controller } from './phase4.controllers';
 import {
   CaregiverOverseasController,
   EmployerPhase3Controller,
@@ -32,7 +39,9 @@ import {
  * Overseas employers looking for caregivers from Sri Lanka, and local
  * caregivers preparing for work abroad: enquiries, overseas readiness,
  * training and shareable profiles; the vacancy board, placements with their
- * welfare check-ins, placement-fee invoices, and document expiry reminders.
+ * welfare check-ins, placement-fee invoices, and document expiry reminders;
+ * test results and certificates of completion, interviews and job offers,
+ * the departure checklist and welfare reports from abroad, and reports.
  */
 @Module({
   imports: [PublicSearchModule, EmailModule, BillingModule],
@@ -46,6 +55,10 @@ import {
     EmployerPhase3Controller,
     StaffOverseasPhase3Controller,
     PlacementPayhereNotifyController,
+    PublicCertificatesController,
+    CaregiverPhase4Controller,
+    EmployerPhase4Controller,
+    StaffPhase4Controller,
   ],
   providers: [
     InternationalNotifier,
@@ -60,6 +73,12 @@ import {
     PlacementsService,
     PlacementInvoicesService,
     DocumentExpiryService,
+    AssessmentsService,
+    InterviewsService,
+    OffersService,
+    JourneyService,
+    WelfareService,
+    ReportsService,
   ],
 })
 export class InternationalModule {}

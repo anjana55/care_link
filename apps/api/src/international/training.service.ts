@@ -1,17 +1,53 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID as uuid } from 'crypto';
-import { and, asc, count, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import {
   resolveLocale,
   type CaregiverTrainingEnrolment,
   type Locale,
+  type PublicCertificate,
+  type PublicCertificateCheck,
   type PublicTrainingProgramme,
+  type TrainingCertificate,
   type TrainingEnrolmentRow,
   type TrainingProgramme,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { caregivers, trainingEnrolments, trainingProgrammes } from '../database/schema';
+import { caregivers, sharedProfiles, trainingCertificates, trainingEnrolments, trainingProgrammes } from '../database/schema';
 import { TrainingProgrammeDto, UpdateTrainingEnrolmentDto } from './dto/international.dto';
+import { randomCode, withUniqueRetry } from './codes';
+
+type CertificateRow = typeof trainingCertificates.$inferSelect;
+
+export function toCertificate(c: CertificateRow): TrainingCertificate {
+  return {
+    id: c.id,
+    number: c.number,
+    verifyCode: c.verifyCode,
+    programmeId: c.programmeId,
+    programmeTitle: c.programmeTitle,
+    holderName: c.holderName,
+    issuedOn: c.issuedOn,
+    score: c.score,
+    revoked: !!c.revokedAt,
+    revokedReason: c.revokedReason,
+  };
+}
+
+/** The first word of a full name, for the public certificate check. */
+export function firstNameOf(fullName: string): string {
+  return (fullName.trim().split(/\s+/)[0] ?? '').slice(0, 60);
+}
+
+/**
+ * Whether completion can be recorded with this score. A programme with a
+ * pass mark needs a score at or above it; one without needs none.
+ */
+export function checkCompletion(passMark: number | null, score: number | null): void {
+  if (passMark === null) return;
+  if (score === null) throw new BadRequestException(`Record the final score: this programme's pass mark is ${passMark}.`);
+  if (score < passMark) throw new BadRequestException(`The score is below this programme's pass mark (${passMark}). Keep them enrolled, or withdraw them.`);
+}
 
 type ProgrammeRow = typeof trainingProgrammes.$inferSelect;
 
@@ -56,10 +92,106 @@ export class TrainingService {
 
   async enrolmentsFor(caregiverId: string): Promise<CaregiverTrainingEnrolment[]> {
     const rows = await this.db
-      .select({ id: trainingEnrolments.id, programmeId: trainingEnrolments.programmeId, status: trainingEnrolments.status, completedAt: trainingEnrolments.completedAt })
+      .select({ e: trainingEnrolments, cert: trainingCertificates })
       .from(trainingEnrolments)
+      .leftJoin(trainingCertificates, eq(trainingCertificates.enrolmentId, trainingEnrolments.id))
       .where(eq(trainingEnrolments.caregiverId, caregiverId));
-    return rows;
+    return rows.map(({ e, cert }) => ({
+      id: e.id,
+      programmeId: e.programmeId,
+      status: e.status,
+      completedAt: e.completedAt,
+      progressPercent: e.progressPercent,
+      score: e.score,
+      certificate: cert ? toCertificate(cert) : null,
+    }));
+  }
+
+  // --- certificates ------------------------------------------------------------
+
+  /** Live certificates for talent profiles. */
+  async publicCertificates(caregiverIds: string[]): Promise<Map<string, PublicCertificate[]>> {
+    const result = new Map<string, PublicCertificate[]>();
+    if (!caregiverIds.length) return result;
+    const rows = await this.db
+      .select()
+      .from(trainingCertificates)
+      .where(and(inArray(trainingCertificates.caregiverId, caregiverIds), isNull(trainingCertificates.revokedAt)))
+      .orderBy(desc(trainingCertificates.issuedOn));
+    for (const c of rows) {
+      const list = result.get(c.caregiverId) ?? [];
+      list.push({ number: c.number, verifyCode: c.verifyCode, programmeTitle: c.programmeTitle, issuedOn: c.issuedOn });
+      result.set(c.caregiverId, list);
+    }
+    return result;
+  }
+
+  /**
+   * The public check behind the QR code on a certificate. Says whether the
+   * number is genuine and still stands, and the first name it was issued to
+   * - enough to match the paper in front of you, not enough to find anyone.
+   */
+  async checkCertificate(code: string): Promise<PublicCertificateCheck> {
+    const [c] = await this.db.select().from(trainingCertificates).where(eq(trainingCertificates.verifyCode, code.toUpperCase())).limit(1);
+    if (!c) throw new NotFoundException('Certificate not found');
+    return { number: c.number, firstName: c.holderFirstName, programmeTitle: c.programmeTitle, issuedOn: c.issuedOn, status: c.revokedAt ? 'REVOKED' : 'VALID' };
+  }
+
+  async revokeCertificate(id: string, reason: string): Promise<TrainingCertificate> {
+    const [c] = await this.db.select().from(trainingCertificates).where(eq(trainingCertificates.id, id)).limit(1);
+    if (!c) throw new NotFoundException('Certificate not found');
+    if (!c.revokedAt) await this.db.update(trainingCertificates).set({ revokedAt: new Date(), revokedReason: reason }).where(eq(trainingCertificates.id, id));
+    const [after] = await this.db.select().from(trainingCertificates).where(eq(trainingCertificates.id, id)).limit(1);
+    return toCertificate(after);
+  }
+
+  async certificatesIssuedCount(): Promise<number> {
+    const [{ n }] = await this.db.select({ n: count() }).from(trainingCertificates).where(isNull(trainingCertificates.revokedAt));
+    return Number(n);
+  }
+
+  /**
+   * Issues the certificate for a completed enrolment, or brings back one that
+   * was revoked when completion was undone. One per enrolment.
+   */
+  private async issueCertificate(enrolmentId: string, userId: string | null): Promise<void> {
+    const [row] = await this.db
+      .select({ e: trainingEnrolments, programme: trainingProgrammes, fullName: caregivers.fullName, sharedFirstName: sharedProfiles.firstName })
+      .from(trainingEnrolments)
+      .innerJoin(trainingProgrammes, eq(trainingEnrolments.programmeId, trainingProgrammes.id))
+      .innerJoin(caregivers, eq(trainingEnrolments.caregiverId, caregivers.id))
+      .leftJoin(sharedProfiles, eq(sharedProfiles.caregiverId, trainingEnrolments.caregiverId))
+      .where(eq(trainingEnrolments.id, enrolmentId))
+      .limit(1);
+    if (!row) return;
+    const [existing] = await this.db.select().from(trainingCertificates).where(eq(trainingCertificates.enrolmentId, enrolmentId)).limit(1);
+    const issuedOn = row.e.completedAt ?? todayColombo();
+    if (existing) {
+      // Re-completed after an undo, or the score changed: the same number stands.
+      await this.db
+        .update(trainingCertificates)
+        .set({ revokedAt: null, revokedReason: null, score: row.e.score, issuedOn: existing.revokedAt ? issuedOn : existing.issuedOn })
+        .where(eq(trainingCertificates.id, existing.id));
+      return;
+    }
+    const year = issuedOn.slice(0, 4);
+    await withUniqueRetry(() =>
+      this.db.insert(trainingCertificates).values({
+        id: uuid(),
+        number: `TC-${year}-${randomCode(6)}`,
+        verifyCode: randomCode(12),
+        enrolmentId,
+        caregiverId: row.e.caregiverId,
+        programmeId: row.e.programmeId,
+        programmeTitle: row.programme.titleEn,
+        holderName: row.fullName,
+        // The name they already chose to share publicly, if any; else the first word of their name.
+        holderFirstName: row.sharedFirstName || firstNameOf(row.fullName),
+        issuedOn,
+        score: row.e.score,
+        issuedByUserId: userId,
+      }),
+    );
   }
 
   /** "I'm interested": a new sign-up, or a withdrawn one picked up again. */
@@ -157,24 +289,56 @@ export class TrainingService {
         status: trainingEnrolments.status,
         completedAt: trainingEnrolments.completedAt,
         staffNote: trainingEnrolments.staffNote,
+        progressPercent: trainingEnrolments.progressPercent,
+        score: trainingEnrolments.score,
         createdAt: trainingEnrolments.createdAt,
+        cert: trainingCertificates,
       })
       .from(trainingEnrolments)
       .innerJoin(caregivers, eq(trainingEnrolments.caregiverId, caregivers.id))
+      .leftJoin(trainingCertificates, eq(trainingCertificates.enrolmentId, trainingEnrolments.id))
       .where(eq(trainingEnrolments.programmeId, programmeId))
       .orderBy(asc(trainingEnrolments.createdAt));
-    return rows.map((r) => ({ ...r, createdAt: new Date(r.createdAt).toISOString() }));
+    return rows.map(({ cert, ...r }) => ({ ...r, certificate: cert ? toCertificate(cert) : null, createdAt: new Date(r.createdAt).toISOString() }));
   }
 
-  async updateEnrolment(id: string, dto: UpdateTrainingEnrolmentDto): Promise<TrainingEnrolmentRow> {
-    const [row] = await this.db.select({ programmeId: trainingEnrolments.programmeId }).from(trainingEnrolments).where(eq(trainingEnrolments.id, id)).limit(1);
+  /**
+   * Status, progress and score. Recording completion issues the certificate
+   * of completion (with a passing score, if the programme has a pass mark);
+   * moving a completed enrolment back revokes it.
+   */
+  async updateEnrolment(id: string, dto: UpdateTrainingEnrolmentDto, userId: string | null = null): Promise<TrainingEnrolmentRow> {
+    const [row] = await this.db
+      .select({ e: trainingEnrolments, passMark: trainingProgrammes.passMark })
+      .from(trainingEnrolments)
+      .innerJoin(trainingProgrammes, eq(trainingEnrolments.programmeId, trainingProgrammes.id))
+      .where(eq(trainingEnrolments.id, id))
+      .limit(1);
     if (!row) throw new NotFoundException('Enrolment not found');
-    const completedAt = dto.status === 'COMPLETED' ? (dto.completedAt ?? todayColombo()) : null;
+    const score = dto.score !== undefined ? dto.score : row.e.score;
+    if (dto.status === 'COMPLETED') checkCompletion(row.passMark, score);
+    const completedAt = dto.status === 'COMPLETED' ? (dto.completedAt ?? row.e.completedAt ?? todayColombo()) : null;
     await this.db
       .update(trainingEnrolments)
-      .set({ status: dto.status, completedAt, ...(dto.staffNote !== undefined ? { staffNote: dto.staffNote } : {}), updatedAt: new Date() })
+      .set({
+        status: dto.status,
+        completedAt,
+        ...(dto.staffNote !== undefined ? { staffNote: dto.staffNote } : {}),
+        ...(dto.progressPercent !== undefined ? { progressPercent: dto.progressPercent } : {}),
+        ...(dto.status === 'COMPLETED' ? { progressPercent: 100 } : {}),
+        ...(dto.score !== undefined ? { score: dto.score } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(trainingEnrolments.id, id));
-    return (await this.enrolments(row.programmeId)).find((e) => e.id === id)!;
+    if (dto.status === 'COMPLETED') {
+      await this.issueCertificate(id, userId);
+    } else if (row.e.status === 'COMPLETED') {
+      await this.db
+        .update(trainingCertificates)
+        .set({ revokedAt: new Date(), revokedReason: 'Completion was withdrawn.' })
+        .where(and(eq(trainingCertificates.enrolmentId, id), isNull(trainingCertificates.revokedAt)));
+    }
+    return (await this.enrolments(row.e.programmeId)).find((e) => e.id === id)!;
   }
 
   private async programme(id: string): Promise<TrainingProgramme> {
@@ -203,6 +367,7 @@ function programmeValues(dto: TrainingProgrammeDto) {
     nextStartDate: dto.nextStartDate ?? null,
     isActive: dto.isActive ?? true,
     sortOrder: dto.sortOrder ?? 0,
+    passMark: dto.passMark ?? null,
   };
 }
 
@@ -222,6 +387,7 @@ function toProgramme(r: ProgrammeRow, enrolmentCount: number): TrainingProgramme
     nextStartDate: r.nextStartDate,
     isActive: r.isActive,
     sortOrder: r.sortOrder,
+    passMark: r.passMark,
     enrolmentCount,
   };
 }

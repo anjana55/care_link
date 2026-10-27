@@ -236,6 +236,8 @@ export const trainingProgrammes = mysqlTable('training_programmes', {
   nextStartDate: date('next_start_date', { mode: 'string' }),
   isActive: boolean('is_active').notNull().default(true),
   sortOrder: int('sort_order').notNull().default(0),
+  // 0-100. Set: a certificate of completion needs a score at or above it.
+  passMark: int('pass_mark'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -261,6 +263,9 @@ export const trainingEnrolments = mysqlTable(
     status: mysqlEnum('status', trainingEnrolmentStatusEnum).notNull().default('INTERESTED'),
     completedAt: date('completed_at', { mode: 'string' }),
     staffNote: varchar('staff_note', { length: 500 }),
+    // 0-100 each. Progress is staff's estimate; score is the final assessment.
+    progressPercent: int('progress_percent'),
+    score: int('score'),
     createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   },
@@ -464,6 +469,11 @@ export const placements = mysqlTable(
     guaranteeMonths: int('guarantee_months').notNull().default(3),
     feeAmount: decimal('fee_amount', { precision: 12, scale: 2, mode: 'number' }),
     feeCurrency: varchar('fee_currency', { length: 3 }),
+    // Flight and meeting point, for the caregiver: "UL 225, 21 Nov 08:40, BIA departures hall".
+    departureDetails: varchar('departure_details', { length: 300 }),
+    // Where the caregiver lives and can be reached abroad. They keep it up to date.
+    addressAbroad: varchar('address_abroad', { length: 500 }),
+    phoneAbroad: varchar('phone_abroad', { length: 30 }),
     // Internal: never shown to the employer or the caregiver.
     staffNote: text('staff_note'),
     createdByUserId: varchar('created_by_user_id', { length: 36 }),
@@ -649,5 +659,286 @@ export const documentExpiryReminders = mysqlTable(
   },
   (table) => ({
     once: uniqueIndex('document_expiry_reminders_unique').on(table.caregiverId, table.subject, table.expiresOn, table.stage),
+  }),
+);
+
+
+// === phase 4 ====================================================================================
+
+// --- assessments -----------------------------------------------------------------------------
+
+export const assessmentKindEnum = ['ENGLISH', 'CAREGIVING_SKILLS', 'OTHER'] as const;
+export const assessmentProviderEnum = ['PLATFORM', 'IELTS', 'OET', 'PTE', 'TOEFL', 'LANGUAGECERT', 'OTHER'] as const;
+export const cefrLevelEnum = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
+
+/**
+ * A test result: IELTS, OET, our own skills assessment. A caregiver may add
+ * their own; it counts (and shows on their talent profile) only once staff
+ * have seen the original and verified it.
+ */
+export const caregiverAssessments = mysqlTable(
+  'caregiver_assessments',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    caregiverId: varchar('caregiver_id', { length: 36 })
+      .notNull()
+      .references(() => caregivers.id),
+    kind: mysqlEnum('kind', assessmentKindEnum).notNull(),
+    provider: mysqlEnum('provider', assessmentProviderEnum).notNull(),
+    title: varchar('title', { length: 120 }).notNull(),
+    score: varchar('score', { length: 20 }),
+    cefrLevel: mysqlEnum('cefr_level', cefrLevelEnum),
+    takenOn: date('taken_on', { mode: 'string' }).notNull(),
+    validUntil: date('valid_until', { mode: 'string' }),
+    addedBy: mysqlEnum('added_by', ['CAREGIVER', 'STAFF']).notNull(),
+    verifiedByUserId: varchar('verified_by_user_id', { length: 36 }),
+    verifiedAt: datetime('verified_at'),
+    // Internal: never shown to the caregiver.
+    note: varchar('note', { length: 500 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    caregiverIdx: index('caregiver_assessments_caregiver_idx').on(table.caregiverId),
+    pendingIdx: index('caregiver_assessments_verified_idx').on(table.verifiedAt),
+  }),
+);
+
+// --- certificates of completion --------------------------------------------------------------
+
+/**
+ * Issued when staff record a programme as completed (with a passing score,
+ * where the programme has a pass mark). Not an accredited qualification.
+ * The holder's name and the programme title are frozen on issue, so a later
+ * rename never changes a certificate already handed out.
+ */
+export const trainingCertificates = mysqlTable(
+  'training_certificates',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    number: varchar('number', { length: 20 }).notNull().unique(),
+    verifyCode: varchar('verify_code', { length: 12 }).notNull().unique(),
+    enrolmentId: varchar('enrolment_id', { length: 36 })
+      .notNull()
+      .unique()
+      .references(() => trainingEnrolments.id),
+    caregiverId: varchar('caregiver_id', { length: 36 })
+      .notNull()
+      .references(() => caregivers.id),
+    programmeId: varchar('programme_id', { length: 36 })
+      .notNull()
+      .references(() => trainingProgrammes.id),
+    programmeTitle: varchar('programme_title', { length: 200 }).notNull(),
+    holderName: varchar('holder_name', { length: 255 }).notNull(),
+    // Shown on the public check: first name only.
+    holderFirstName: varchar('holder_first_name', { length: 60 }).notNull(),
+    issuedOn: date('issued_on', { mode: 'string' }).notNull(),
+    score: int('score'),
+    issuedByUserId: varchar('issued_by_user_id', { length: 36 }),
+    revokedAt: datetime('revoked_at'),
+    revokedReason: varchar('revoked_reason', { length: 500 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    caregiverIdx: index('training_certificates_caregiver_idx').on(table.caregiverId),
+  }),
+);
+
+// --- interviews ----------------------------------------------------------------------------------
+
+export const interviewModeEnum = ['VIDEO', 'PHONE', 'IN_PERSON'] as const;
+export const interviewStatusEnum = ['SCHEDULED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'] as const;
+
+/** An interview staff arranged between an employer and a candidate. A candidate can have several rounds. */
+export const candidateInterviews = mysqlTable(
+  'candidate_interviews',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    candidateId: varchar('candidate_id', { length: 36 })
+      .notNull()
+      .references(() => enquiryCandidates.id),
+    round: int('round').notNull(),
+    // UTC.
+    scheduledAt: datetime('scheduled_at').notNull(),
+    durationMinutes: int('duration_minutes').notNull(),
+    mode: mysqlEnum('mode', interviewModeEnum).notNull(),
+    meetingLink: varchar('meeting_link', { length: 500 }),
+    location: varchar('location', { length: 300 }),
+    // Shown to both sides.
+    instructions: varchar('instructions', { length: 1000 }),
+    status: mysqlEnum('status', interviewStatusEnum).notNull().default('SCHEDULED'),
+    cancelReason: varchar('cancel_reason', { length: 500 }),
+    // The employer's, after the interview. Staff see it; the caregiver does not.
+    feedback: varchar('feedback', { length: 2000 }),
+    createdByUserId: varchar('created_by_user_id', { length: 36 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    candidateIdx: index('candidate_interviews_candidate_idx').on(table.candidateId),
+    scheduleIdx: index('candidate_interviews_schedule_idx').on(table.status, table.scheduledAt),
+  }),
+);
+
+// --- job offers -----------------------------------------------------------------------------------
+
+export const offerStatusEnum = ['PENDING_REVIEW', 'RETURNED', 'SENT', 'ACCEPTED', 'DECLINED', 'WITHDRAWN'] as const;
+export const accommodationEnum = ['PROVIDED_FREE', 'PROVIDED_PAID', 'NOT_PROVIDED'] as const;
+export const flightsPaidByEnum = ['EMPLOYER', 'CAREGIVER', 'SHARED'] as const;
+
+/**
+ * A job offer from an employer to a candidate. The employer signs it by
+ * typing their name; staff check it before the caregiver sees it; the
+ * caregiver accepts by typing theirs, or declines. Each signature records
+ * the fingerprint of the terms it covers (terms_hash): editing the terms
+ * clears both signatures.
+ */
+export const jobOffers = mysqlTable(
+  'job_offers',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    // "OF-7K2Q9M"
+    reference: varchar('reference', { length: 16 }).notNull().unique(),
+    candidateId: varchar('candidate_id', { length: 36 })
+      .notNull()
+      .references(() => enquiryCandidates.id),
+    enquiryId: varchar('enquiry_id', { length: 36 })
+      .notNull()
+      .references(() => employerEnquiries.id),
+    employerId: varchar('employer_id', { length: 36 })
+      .notNull()
+      .references(() => employers.id),
+    caregiverId: varchar('caregiver_id', { length: 36 })
+      .notNull()
+      .references(() => caregivers.id),
+    status: mysqlEnum('status', offerStatusEnum).notNull().default('PENDING_REVIEW'),
+    jobTitle: varchar('job_title', { length: 150 }).notNull(),
+    country: varchar('country', { length: 2 }).notNull(),
+    city: varchar('city', { length: 100 }),
+    startDate: date('start_date', { mode: 'string' }),
+    contractMonths: int('contract_months').notNull(),
+    hoursPerWeek: int('hours_per_week').notNull(),
+    salaryAmount: decimal('salary_amount', { precision: 12, scale: 2, mode: 'number' }).notNull(),
+    salaryCurrency: varchar('salary_currency', { length: 3 }).notNull(),
+    salaryPeriod: mysqlEnum('salary_period', salaryPeriodEnum).notNull(),
+    accommodation: mysqlEnum('accommodation', accommodationEnum).notNull(),
+    mealsProvided: boolean('meals_provided').notNull().default(false),
+    flightsPaidBy: mysqlEnum('flights_paid_by', flightsPaidByEnum).notNull(),
+    annualLeaveDays: int('annual_leave_days'),
+    probationMonths: int('probation_months'),
+    otherTerms: text('other_terms'),
+    expiresOn: date('expires_on', { mode: 'string' }),
+    termsHash: varchar('terms_hash', { length: 64 }).notNull(),
+    employerSignatureName: varchar('employer_signature_name', { length: 120 }),
+    employerSignedAt: datetime('employer_signed_at'),
+    employerSignedByUserId: varchar('employer_signed_by_user_id', { length: 36 }),
+    employerSignedIp: varchar('employer_signed_ip', { length: 45 }),
+    caregiverSignatureName: varchar('caregiver_signature_name', { length: 120 }),
+    caregiverSignedAt: datetime('caregiver_signed_at'),
+    caregiverSignedIp: varchar('caregiver_signed_ip', { length: 45 }),
+    // Staff, to the employer, when sending it back.
+    reviewNote: varchar('review_note', { length: 500 }),
+    reviewedByUserId: varchar('reviewed_by_user_id', { length: 36 }),
+    declineReason: varchar('decline_reason', { length: 500 }),
+    sentAt: datetime('sent_at'),
+    respondedAt: datetime('responded_at'),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    candidateIdx: index('job_offers_candidate_idx').on(table.candidateId),
+    caregiverIdx: index('job_offers_caregiver_idx').on(table.caregiverId),
+    employerIdx: index('job_offers_employer_idx').on(table.employerId),
+    statusIdx: index('job_offers_status_idx').on(table.status),
+  }),
+);
+
+// --- departure checklist -----------------------------------------------------------------------------
+
+export const departureItemEnum = [
+  'OFFER_ACCEPTED',
+  'MEDICAL',
+  'POLICE_CLEARANCE',
+  'CONTRACT_SIGNED',
+  'VISA_APPLIED',
+  'VISA_GRANTED',
+  'INSURANCE',
+  'ORIENTATION',
+  'FLIGHT_BOOKED',
+] as const;
+
+/** One row per placement and item: what has to be done before the caregiver flies. */
+export const placementChecklistItems = mysqlTable(
+  'placement_checklist_items',
+  {
+    placementId: varchar('placement_id', { length: 36 })
+      .notNull()
+      .references(() => placements.id),
+    item: mysqlEnum('item', departureItemEnum).notNull(),
+    doneOn: date('done_on', { mode: 'string' }),
+    dueOn: date('due_on', { mode: 'string' }),
+    note: varchar('note', { length: 500 }),
+    updatedByUserId: varchar('updated_by_user_id', { length: 36 }),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.placementId, table.item] }),
+  }),
+);
+
+// --- welfare reports ----------------------------------------------------------------------------------
+
+export const welfareSeverityEnum = ['QUESTION', 'CONCERN', 'URGENT', 'SOS'] as const;
+export const welfareCategoryEnum = ['PAY', 'HOURS', 'ACCOMMODATION', 'TREATMENT', 'HEALTH', 'CONTRACT', 'DOCUMENTS', 'SAFETY', 'OTHER'] as const;
+export const welfareStatusEnum = ['OPEN', 'ACKNOWLEDGED', 'RESOLVED'] as const;
+
+/**
+ * A caregiver abroad telling staff something is wrong - or asking a
+ * question. SOS and URGENT reports alert every staff member at once. Never
+ * shown to the employer.
+ */
+export const welfareReports = mysqlTable(
+  'welfare_reports',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    // "WR-7K2Q9M": for the phone.
+    reference: varchar('reference', { length: 16 }).notNull().unique(),
+    placementId: varchar('placement_id', { length: 36 })
+      .notNull()
+      .references(() => placements.id),
+    caregiverId: varchar('caregiver_id', { length: 36 })
+      .notNull()
+      .references(() => caregivers.id),
+    severity: mysqlEnum('severity', welfareSeverityEnum).notNull(),
+    category: mysqlEnum('category', welfareCategoryEnum).notNull(),
+    status: mysqlEnum('status', welfareStatusEnum).notNull().default('OPEN'),
+    acknowledgedAt: datetime('acknowledged_at'),
+    acknowledgedByUserId: varchar('acknowledged_by_user_id', { length: 36 }),
+    resolvedAt: datetime('resolved_at'),
+    resolvedByUserId: varchar('resolved_by_user_id', { length: 36 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    statusIdx: index('welfare_reports_status_idx').on(table.status, table.severity),
+    placementIdx: index('welfare_reports_placement_idx').on(table.placementId),
+    caregiverIdx: index('welfare_reports_caregiver_idx').on(table.caregiverId),
+  }),
+);
+
+export const welfareReportMessages = mysqlTable(
+  'welfare_report_messages',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    reportId: varchar('report_id', { length: 36 })
+      .notNull()
+      .references(() => welfareReports.id),
+    authorRole: mysqlEnum('author_role', ['CAREGIVER', 'STAFF']).notNull(),
+    authorUserId: varchar('author_user_id', { length: 36 }),
+    body: text('body').notNull(),
+    createdAt: datetime('created_at', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => ({
+    reportIdx: index('welfare_report_messages_report_idx').on(table.reportId, table.createdAt),
   }),
 );
