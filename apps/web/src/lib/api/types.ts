@@ -390,6 +390,9 @@ export interface Client {
   isActive: boolean;
   emailVerifiedAt: string | null;
   lastLoginAt: string | null;
+  /** Detail endpoint only: email + password sign-in is set up, and the WhatsApp number is confirmed. */
+  hasPassword?: boolean;
+  phoneVerifiedAt?: string | null;
 }
 
 export type ClientGender = 'MALE' | 'FEMALE' | 'OTHER';

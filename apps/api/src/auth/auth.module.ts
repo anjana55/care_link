@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
+import { PasswordResetService } from './password-reset.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuditModule } from '../audit/audit.module';
@@ -36,6 +37,7 @@ import { SocialAuthSettingsController } from './social/social-settings.controlle
   ],
   providers: [
     AuthService,
+    PasswordResetService,
     WhatsappAuthService,
     SocialAuthService,
     JwtStrategy,
@@ -44,6 +46,6 @@ import { SocialAuthSettingsController } from './social/social-settings.controlle
     SocialProviderRegistry,
   ],
   controllers: [AuthController, WhatsappAuthController, SocialAuthController, SocialAuthSettingsController],
-  exports: [AuthService, SocialAuthService],
+  exports: [AuthService, SocialAuthService, PasswordResetService],
 })
 export class AuthModule {}

@@ -2155,5 +2155,33 @@
     "programme": "Programme",
     "issued": "Issued",
     "note": "Only the first name is shown, to protect the holder's privacy. Match it with the name on the certificate."
+  },
+  "passwordReset": {
+    "forgotLink": "Forgot your password?",
+    "forgotTitle": "Forgot your password?",
+    "forgotBody": "Enter the email address you sign in with and we'll send you a link to set a new password.",
+    "sendLink": "Send reset link",
+    "requestError": "We couldn't send the link. Please try again.",
+    "sentTitle": "Check your email",
+    "sentHint": "The link works once and expires in 1 hour. If nothing arrives, check your spam folder, or ask us for help.",
+    "whatsappHint": "Signed up with WhatsApp or Google? You don't need a password - sign in the same way you registered.",
+    "backToLogin": "Back to sign in",
+    "invalidTitle": "This link can't be used",
+    "invalidBody": "It has expired or has already been used. Ask for a new one - it only takes a moment.",
+    "askAgain": "Send me a new link",
+    "setTitle": "Set your password",
+    "resetTitle": "Choose a new password",
+    "forAccount": "For {email}",
+    "chooseBody": "Choose a password you don't use anywhere else.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "rule": "At least {n} characters.",
+    "mismatch": "The two passwords don't match.",
+    "save": "Save password",
+    "resetError": "We couldn't save the password. Please try again.",
+    "signOutNote": "You'll be signed out on every device and can sign in again with the new password.",
+    "doneTitle": "Password saved",
+    "doneBody": "Your new password is ready. Sign in with your email address and the new password.",
+    "signIn": "Sign in"
   }
 }

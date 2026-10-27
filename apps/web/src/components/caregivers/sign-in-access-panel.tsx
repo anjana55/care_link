@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/api/client';
 import { useCaregiverSignIn, useChangeCaregiverContact, useIssueClaimCode, useResetCaregiverSignIn } from '@/lib/hooks/use-caregivers';
 import type { CaregiverSignInMethods, IssuedClaimCode, ResetSignInRequest, SocialProviderName } from '@/lib/api/types';
 import { Card, CardContent } from '@/components/ui/card';
+import { PasswordHelpCard } from '@/components/accounts/password-help-card';
 import { Button } from '@/components/ui/button';
 import { FieldError, Input, Label } from '@/components/ui/input';
 
@@ -151,6 +152,10 @@ export function SignInAccessPanel({
           )}
         </CardContent>
       </Card>
+
+      {canReset && methods.hasAccount && (
+        <PasswordHelpCard path={`/caregivers/${caregiverId}/sign-in/password`} refresh={['caregiver-sign-in', caregiverId]} email={methods.email} hasPassword={methods.hasPassword} />
+      )}
 
       {methods.claimable && (
         <Card>

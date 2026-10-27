@@ -86,6 +86,11 @@ export default function CaregiverLoginPage() {
               <div>
                 <Label htmlFor="password" required>{t('login.password')}</Label>
                 <Input id="password" type="password" {...register('password', { required: true })} />
+                <div className="mt-1.5 text-right">
+                  <Link href="/forgot-password?for=caregiver" className="text-xs font-medium text-brand-dark hover:underline">
+                    {t('passwordReset.forgotLink')}
+                  </Link>
+                </div>
               </div>
 
               {serverError && (

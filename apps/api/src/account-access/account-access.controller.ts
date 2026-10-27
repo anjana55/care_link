@@ -7,6 +7,7 @@ import { AuditService } from '../audit/audit.service';
 import { AccountAccessService } from './account-access.service';
 import { ResetSignInDto } from './dto/reset-sign-in.dto';
 import { ChangeCaregiverContactDto } from './dto/change-contact.dto';
+import { AdminPasswordResetDto } from '../auth/dto/password-reset.dto';
 
 /**
  * Staff tools for a caregiver's sign-in, under the caregiver they belong to.
@@ -95,5 +96,24 @@ export class AccountAccessController {
       ipAddress: req.ip,
     });
     return result;
+  }
+
+  /**
+   * Admin only: email the caregiver a link to set a new password, or set one
+   * for them. Audited without the password.
+   */
+  @Post(':id/sign-in/password')
+  @Roles('ADMIN')
+  async password(@Param('id') id: string, @Body() dto: AdminPasswordResetDto, @CurrentUser() user: AuthenticatedUser, @Req() req: Request) {
+    const { result, methods } = await this.access.passwordHelp(id, dto, user.userId);
+    await this.audit.record({
+      userId: user.userId,
+      action: dto.mode === 'SEND_LINK' ? 'SEND_CAREGIVER_PASSWORD_LINK' : 'SET_CAREGIVER_PASSWORD',
+      entityType: 'Caregiver',
+      entityId: id,
+      metadata: { email: result.email },
+      ipAddress: req.ip,
+    });
+    return { ...methods, passwordResult: result };
   }
 }

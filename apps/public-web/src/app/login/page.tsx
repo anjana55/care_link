@@ -72,6 +72,11 @@ export default function LoginPage() {
                 type="password"
                 {...register('password', { required: true })}
               />
+              <div className="mt-1.5 text-right">
+                <Link href="/forgot-password?for=client" className="text-xs font-medium text-brand-dark hover:underline">
+                  {t('passwordReset.forgotLink')}
+                </Link>
+              </div>
             </div>
 
             {serverError && (
