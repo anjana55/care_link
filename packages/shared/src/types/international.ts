@@ -434,6 +434,8 @@ export interface StaffCandidate {
   messageToEmployer: string | null;
   employerMessage: string | null;
   staffNote: string | null;
+  /** Set once staff marked them Placed: the placement that tracks them. */
+  placementId: string | null;
   createdAt: string;
   updatedAt: string;
 }

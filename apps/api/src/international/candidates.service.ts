@@ -11,7 +11,7 @@ import type {
   StaffCandidateWithEnquiry,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { caregivers, employerEnquiries, enquiryCandidates, users } from '../database/schema';
+import { caregivers, employerEnquiries, enquiryCandidates, placements, users } from '../database/schema';
 import { EmployerCandidateActionDto, InterviewRequestDto, ProposeCandidateDto, UpdateCandidateDto } from './dto/international.dto';
 import { SharedProfilesService } from './shared-profiles.service';
 import { EmployersService } from './employers.service';
@@ -55,13 +55,14 @@ export class CandidatesService {
 
   async listForEnquiry(enquiryId: string): Promise<StaffCandidate[]> {
     const rows = await this.db
-      .select({ c: enquiryCandidates, registrationNumber: caregivers.registrationNumber, fullName: caregivers.fullName })
+      .select({ c: enquiryCandidates, registrationNumber: caregivers.registrationNumber, fullName: caregivers.fullName, placementId: placements.id })
       .from(enquiryCandidates)
       .innerJoin(caregivers, eq(enquiryCandidates.caregiverId, caregivers.id))
+      .leftJoin(placements, eq(placements.candidateId, enquiryCandidates.id))
       .where(eq(enquiryCandidates.enquiryId, enquiryId))
       .orderBy(asc(enquiryCandidates.createdAt));
     const live = await this.sharedProfiles.liveSlugs(rows.map((r) => r.c.caregiverId));
-    return rows.map((r) => toStaffCandidate(r.c, r.registrationNumber, r.fullName, live.get(r.c.caregiverId) ?? null));
+    return rows.map((r) => ({ ...toStaffCandidate(r.c, r.registrationNumber, r.fullName, live.get(r.c.caregiverId) ?? null), placementId: r.placementId ?? null }));
   }
 
   async propose(
@@ -147,6 +148,7 @@ export class CandidatesService {
     const live = await this.sharedProfiles.liveSlugs(rows.map((r) => r.c.caregiverId));
     return rows.map((r) => ({
       ...toStaffCandidate(r.c, r.registrationNumber, r.fullName, live.get(r.c.caregiverId) ?? null),
+      placementId: null,
       enquiry: { id: r.c.enquiryId, reference: r.reference, organisationName: r.organisationName, country: r.country },
     }));
   }
@@ -366,7 +368,7 @@ function countryName(code: string): string {
   }
 }
 
-function toStaffCandidate(c: CandidateRow, registrationNumber: string, fullName: string, slug: string | null): StaffCandidate {
+function toStaffCandidate(c: CandidateRow, registrationNumber: string, fullName: string, slug: string | null): Omit<StaffCandidate, 'placementId'> {
   return {
     id: c.id,
     caregiverId: c.caregiverId,

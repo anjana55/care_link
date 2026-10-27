@@ -315,6 +315,7 @@ export class CaregiversService {
           documentType: caregiverDocuments.documentType,
           originalFilename: caregiverDocuments.originalFilename,
           verificationStatus: caregiverDocuments.verificationStatus,
+          expiresOn: caregiverDocuments.expiresOn,
           createdAt: caregiverDocuments.createdAt,
         })
         .from(caregiverDocuments)

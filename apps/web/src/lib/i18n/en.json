@@ -375,7 +375,9 @@
       "resetToPending": "Reset to pending",
       "inProgress": "In progress",
       "verified": "Verified",
-      "rejected": "Rejected"
+      "rejected": "Rejected",
+      "expiresOn": "Expires on",
+      "expires": "Expires"
     },
     "signIn": {
       "noAccount": "No sign-in yet. This caregiver was added by staff and has never set up an account.",
@@ -2312,7 +2314,11 @@
       "training": "Training",
       "interviews": "Interview requests",
       "employers": "Employers",
-      "pool": "Talent pool"
+      "pool": "Talent pool",
+      "vacancies": "Vacancies",
+      "placements": "Placements",
+      "invoices": "Invoices",
+      "expiring": "Expiring documents"
     },
     "status": {
       "NEW": "New",
@@ -2530,7 +2536,8 @@
       "notLive": "Profile no longer shared - hidden from the employer",
       "source": {
         "STAFF": "Put forward by staff",
-        "EMPLOYER": "Asked about by the employer"
+        "EMPLOYER": "Asked about by the employer",
+        "APPLICATION": "Applied to a vacancy"
       },
       "status": {
         "PROPOSED": "Put forward",
@@ -2550,7 +2557,219 @@
       "noneAvailable": "No caregivers with a live shared profile match",
       "messagePlaceholder": "Optional message to the employer, e.g. why this caregiver fits",
       "proposeButton": "Put forward",
-      "proposeHint": "The employer and the caregiver are both told by email."
+      "proposeHint": "The employer and the caregiver are both told by email.",
+      "openPlacement": "Open placement"
+    },
+    "vacancies": {
+      "hint": "Vacancies employers post wait here for review before they go on the public board. Read each one's applicants and put forward those who fit - they become candidates on the enquiry.",
+      "filter": "Show",
+      "filters": {
+        "PENDING_REVIEW": "Waiting for review",
+        "PUBLISHED": "On the board",
+        "REJECTED": "Sent back",
+        "CLOSED": "Closed",
+        "FILLED": "Filled",
+        "all": "All"
+      },
+      "empty": "No vacancies here.",
+      "roles": "{count} roles",
+      "contract": "{months} months",
+      "periods": {
+        "HOUR": "hour",
+        "MONTH": "month",
+        "YEAR": "year"
+      },
+      "english": {
+        "BASIC": "Basic",
+        "CONVERSATIONAL": "Conversational",
+        "FLUENT": "Fluent"
+      },
+      "notePlaceholder": "Note to the employer (needed to send it back)",
+      "noteRequired": "Tell the employer what to change.",
+      "publish": "Publish",
+      "sendBack": "Send back",
+      "markFilled": "Mark filled",
+      "close": "Close",
+      "edit": "Edit",
+      "onBoard": "View on the board",
+      "applications": "Applications: {count}",
+      "noApplications": "No applications yet.",
+      "appStatus": {
+        "APPLIED": "Waiting",
+        "PUT_FORWARD": "Put forward",
+        "NOT_SUCCESSFUL": "Not put forward",
+        "WITHDRAWN": "Withdrawn"
+      },
+      "putForward": "Put forward",
+      "notSuccessful": "Not this time",
+      "needsLiveProfile": "Their shared profile must be live before they can be put forward.",
+      "onEnquiry": "Vacancies",
+      "noneOnEnquiry": "No vacancy posted for this enquiry.",
+      "post": "Post a vacancy",
+      "form": {
+        "title": "Job title",
+        "setting": "Care setting",
+        "roles": "Roles",
+        "city": "City",
+        "description": "Description",
+        "experience": "Minimum years of experience",
+        "english": "English",
+        "requirements": "Other requirements",
+        "salaryMin": "Salary from",
+        "salaryMax": "Salary up to",
+        "period": "Per",
+        "contract": "Contract (months)",
+        "accommodation": "Accommodation",
+        "yes": "Provided",
+        "no": "Not provided",
+        "closes": "Closes on",
+        "publish": "Publish on the board"
+      }
+    },
+    "placements": {
+      "hint": "Caregivers hired through the platform. Call each one when a check-in falls due - overdue check-ins are in red and in the daily email.",
+      "filter": "Show",
+      "filters": {
+        "active": "Running",
+        "PRE_DEPARTURE": "Preparing to travel",
+        "DEPLOYED": "Working",
+        "COMPLETED": "Completed",
+        "ENDED_EARLY": "Ended early",
+        "all": "All"
+      },
+      "empty": "No placements here.",
+      "caregiver": "Caregiver",
+      "where": "Employer",
+      "nextCheckin": "Next check-in",
+      "fee": "Fee",
+      "afterArrival": "Scheduled on arrival",
+      "unpaid": "Invoice unpaid",
+      "invoiced": "Invoiced",
+      "notInvoiced": "Not invoiced",
+      "status": {
+        "PRE_DEPARTURE": "Preparing to travel",
+        "DEPLOYED": "Working",
+        "COMPLETED": "Completed",
+        "ENDED_EARLY": "Ended early"
+      },
+      "checkin": {
+        "ARRIVAL": "Arrival call",
+        "DAY_30": "30-day call",
+        "DAY_90": "90-day call",
+        "DAY_180": "180-day call"
+      },
+      "outcome": {
+        "WELL": "Doing well",
+        "CONCERN": "A concern",
+        "URGENT": "Urgent - needs help"
+      },
+      "back": "Placements",
+      "notFound": "Placement not found.",
+      "guarantee": "Free replacement if it ends before {date}",
+      "checkins": "Welfare check-ins",
+      "noCheckins": "Check-ins are scheduled once you record the arrival date.",
+      "due": "Due {date}",
+      "recordCheckin": "Record call",
+      "editCheckin": "Change",
+      "calledOn": "Called on",
+      "howAreThey": "How are they?",
+      "notePlaceholder": "What they said, anything to follow up",
+      "urgentHint": "Saving this alerts every staff member by email.",
+      "invoices": "Placement fee",
+      "noInvoices": "No invoice yet.",
+      "setFeeFirst": "Set the fee below to raise the invoice.",
+      "raiseInvoice": "Raise invoice",
+      "invoiceDescription": "Placement fee - {name}, {job}",
+      "caregiverRole": "caregiver",
+      "details": "Placement details",
+      "jobTitle": "Job title",
+      "departure": "Departure",
+      "arrived": "Arrived",
+      "contractStart": "Contract start",
+      "contractMonths": "Contract (months)",
+      "guaranteeMonths": "Replacement guarantee (months)",
+      "endedOn": "Ended on",
+      "endReason": "Why it ended early",
+      "arrivalNeeded": "Add the arrival date to mark them as working."
+    },
+    "invoices": {
+      "hint": "Placement-fee invoices to overseas employers. Card payments arrive by themselves; record bank transfers here.",
+      "outstanding": "Outstanding",
+      "filter": "Show",
+      "filters": {
+        "all": "All",
+        "DRAFT": "Draft",
+        "ISSUED": "Unpaid",
+        "overdue": "Overdue",
+        "PAID": "Paid",
+        "VOID": "Void"
+      },
+      "empty": "No invoices here.",
+      "number": "Invoice",
+      "billTo": "Bill to",
+      "amount": "Amount",
+      "balance": "Balance",
+      "due": "Due",
+      "draft": "Draft",
+      "back": "Invoices",
+      "notFound": "Invoice not found.",
+      "placement": "Placement",
+      "payments": "Payments",
+      "method": {
+        "BANK_TRANSFER": "Bank transfer",
+        "CARD_ONLINE": "Card (PayHere)",
+        "OTHER": "Other"
+      },
+      "invoice": "Invoice",
+      "description": "Description",
+      "paid": "Paid",
+      "issued": "Issued",
+      "voided": "Voided: {reason}",
+      "employerCanPay": "The employer can see this invoice in their account and pay it by card.",
+      "employerSees": "The employer can see this invoice in their account; it can't be paid by card in this currency.",
+      "noAccount": "This employer has no account - send them the invoice yourself.",
+      "draftTitle": "Draft invoice",
+      "address": "Address",
+      "notes": "Notes on the invoice",
+      "notesPlaceholder": "Shown to the employer",
+      "issueTitle": "Issue",
+      "issueHint": "Issuing numbers the invoice and emails it to {email}. It can't be changed afterwards.",
+      "issueNoEmail": "Issuing numbers the invoice. There is no email address to send it to.",
+      "issue": "Issue and send",
+      "deleteDraft": "Delete draft",
+      "deleteConfirm": "Delete this draft?",
+      "recordPayment": "Record a payment",
+      "recordRefund": "Record a refund",
+      "paidOn": "Paid on",
+      "methodLabel": "Method",
+      "reference": "Reference",
+      "referencePlaceholder": "Bank reference or SWIFT number",
+      "isRefund": "This is a refund",
+      "voidTitle": "Void",
+      "voidPlaceholder": "Why it is being voided",
+      "void": "Void invoice"
+    },
+    "expiring": {
+      "hint": "Passports and documents that have expired or will soon. Caregivers are emailed at 90 and 30 days and once after; call the ones abroad first.",
+      "runNow": "Send today's reminders",
+      "window": "Within",
+      "within": "Within {days} days",
+      "ran": "Reminders sent: {count}",
+      "empty": "Nothing expiring in this window.",
+      "abroad": "Abroad",
+      "daysLeft": "{days} days left",
+      "expired": "Expired {days} days ago",
+      "types": {
+        "PASSPORT": "Passport",
+        "NIC": "NIC",
+        "GRAMA_NILADHARI_CERTIFICATE": "Grama Niladhari certificate",
+        "POLICE_CLEARANCE": "Police clearance",
+        "CAREGIVER_CERTIFICATE": "Caregiver certificate",
+        "NVQ_CERTIFICATE": "NVQ certificate",
+        "NURSING_CERTIFICATE": "Nursing certificate",
+        "CV": "CV",
+        "OTHER": "Other document"
+      }
     }
   }
 }

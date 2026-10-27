@@ -251,8 +251,11 @@ export function useSetQualificationVerification(caregiverId: string) {
 export function useSetDocumentVerification(caregiverId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { documentId: string; status: string }) =>
-      api.patch(`/caregivers/${caregiverId}/documents/${data.documentId}/verification`, { status: data.status }),
+    mutationFn: (data: { documentId: string; status: string; expiresOn?: string | null }) =>
+      api.patch(`/caregivers/${caregiverId}/documents/${data.documentId}/verification`, {
+        status: data.status,
+        ...(data.expiresOn !== undefined ? { expiresOn: data.expiresOn } : {}),
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['caregiver', caregiverId] });
     },
@@ -272,9 +275,10 @@ export function useRemoveDocument(caregiverId: string) {
 export function useUploadDocument(caregiverId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { documentType: string; file: File }) => {
+    mutationFn: (data: { documentType: string; file: File; expiresOn?: string }) => {
       const formData = new FormData();
       formData.append('documentType', data.documentType);
+      if (data.expiresOn) formData.append('expiresOn', data.expiresOn);
       formData.append('file', data.file);
       return api.upload(`/caregivers/${caregiverId}/documents`, formData);
     },

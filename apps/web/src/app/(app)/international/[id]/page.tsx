@@ -13,6 +13,7 @@ import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EnquiryStatusBadge, countryName } from '@/components/international/shared';
 import { CandidatesCard } from '@/components/international/candidates-card';
+import { EnquiryVacanciesCard } from '@/components/international/enquiry-vacancies-card';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -163,6 +164,7 @@ export default function EmployerEnquiryPage() {
       </div>
 
       <CandidatesCard enquiry={enquiry} />
+      <EnquiryVacanciesCard enquiry={enquiry} />
 
       <Card>
         <CardHeader>
