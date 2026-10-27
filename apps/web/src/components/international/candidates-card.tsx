@@ -2,15 +2,16 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ExternalLink, Plane, UserPlus } from 'lucide-react';
+import { ExternalLink, FileSignature, Plane, UserPlus } from 'lucide-react';
 import { candidateStatusValues, type CandidateStatus, type EmployerEnquiry, type StaffCandidate } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useEnquiryCandidates, useProposeCandidate, useTalentPool, useUpdateCandidate } from '@/lib/hooks/use-international';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input, Label, Select, Textarea } from '@/components/ui/input';
+import { Label, Select, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { ReadinessBar } from './readiness-bar';
+import { InterviewsPanel } from './interviews-panel';
 
 const STATUS_STYLES: Record<CandidateStatus, string> = {
   PROPOSED: 'bg-accent-light text-accent',
@@ -20,14 +21,6 @@ const STATUS_STYLES: Record<CandidateStatus, string> = {
   PLACED: 'bg-brand-dark text-white',
   NOT_PROCEEDING: 'bg-ink/10 text-ink/60',
 };
-
-/** datetime-local value for an ISO time, in the browser's zone. */
-function toLocalInput(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 /**
  * The caregivers on an enquiry. Staff put caregivers forward from the talent
@@ -63,12 +56,11 @@ function CandidateEditor({ enquiryId, candidate: c }: { enquiryId: string; candi
   const { t } = useTranslation();
   const update = useUpdateCandidate(enquiryId);
   const [status, setStatus] = useState<CandidateStatus>(c.status);
-  const [interviewAt, setInterviewAt] = useState(toLocalInput(c.interviewAt));
   const [messageToEmployer, setMessageToEmployer] = useState(c.messageToEmployer ?? '');
   const [staffNote, setStaffNote] = useState(c.staffNote ?? '');
   const [saved, setSaved] = useState(false);
   const dirty =
-    status !== c.status || interviewAt !== toLocalInput(c.interviewAt) || messageToEmployer !== (c.messageToEmployer ?? '') || staffNote !== (c.staffNote ?? '');
+    status !== c.status || messageToEmployer !== (c.messageToEmployer ?? '') || staffNote !== (c.staffNote ?? '');
 
   return (
     <div className="rounded-lg border border-border p-4">
@@ -92,6 +84,16 @@ function CandidateEditor({ enquiryId, candidate: c }: { enquiryId: string; candi
         </div>
         <span className={cn('rounded px-2 py-0.5 text-xs font-medium', STATUS_STYLES[c.status])}>{t(`international.candidates.status.${c.status}`)}</span>
       </div>
+      <InterviewsPanel enquiryId={enquiryId} candidate={c} />
+      {c.offer && (
+        <Link
+          href={`/international?tab=offers&offer=${c.offer.id}`}
+          className="mt-2 inline-flex items-center gap-1.5 rounded bg-paper px-2 py-1 text-xs font-medium text-ink hover:text-brand-dark"
+        >
+          <FileSignature size={12} aria-hidden />
+          {t('international.offers.ref', { reference: c.offer.reference })} · {c.offer.expired ? t('international.offers.expired') : t(`international.offers.status.${c.offer.status}`)}
+        </Link>
+      )}
       {c.employerMessage && (
         <p className="mt-2 rounded bg-paper px-3 py-2 text-sm text-ink/80">
           <span className="font-semibold">{t('international.candidates.employerSaid')}</span> {c.employerMessage}
@@ -114,18 +116,6 @@ function CandidateEditor({ enquiryId, candidate: c }: { enquiryId: string; candi
               </option>
             ))}
           </Select>
-        </div>
-        <div>
-          <Label htmlFor={`iv-${c.id}`}>{t('international.candidates.interviewAt')}</Label>
-          <Input
-            id={`iv-${c.id}`}
-            type="datetime-local"
-            value={interviewAt}
-            onChange={(e) => {
-              setSaved(false);
-              setInterviewAt(e.target.value);
-            }}
-          />
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor={`me-${c.id}`}>{t('international.candidates.messageToEmployer')}</Label>
@@ -153,7 +143,6 @@ function CandidateEditor({ enquiryId, candidate: c }: { enquiryId: string; candi
               {
                 id: c.id,
                 status,
-                interviewAt: interviewAt ? new Date(interviewAt).toISOString() : null,
                 messageToEmployer: messageToEmployer.trim() || null,
                 staffNote: staffNote.trim() || null,
               },

@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n/provider';
-import { useInterviewRequests } from '@/lib/hooks/use-international';
+import { useInterviewRequests, useStaffInterviews } from '@/lib/hooks/use-international';
 import { countryName } from './shared';
+import { fmtIn } from './interviews-panel';
 
-/** Employers waiting for staff to arrange an interview, oldest first. */
+/** Employers waiting for staff to arrange an interview, oldest first; then the interviews already booked. */
 export function InterviewRequestsTab() {
   const { t, locale } = useTranslation();
   const { data = [], isLoading } = useInterviewRequests();
@@ -63,6 +64,38 @@ export function InterviewRequestsTab() {
           </tbody>
         </table>
       </div>
+      <UpcomingInterviews />
     </div>
+  );
+}
+
+function UpcomingInterviews() {
+  const { t, locale } = useTranslation();
+  const { data = [], isLoading } = useStaffInterviews('upcoming');
+  return (
+    <section className="mt-8">
+      <h2 className="mb-2 text-sm font-semibold text-ink">{t('international.interviews.upcoming')}</h2>
+      {isLoading && <p className="text-sm text-ink/50">{t('common.loading')}</p>}
+      {!isLoading && data.length === 0 && <p className="text-sm text-ink/50">{t('international.interviews.noneUpcoming')}</p>}
+      {data.length > 0 && (
+        <ul className="divide-y divide-border rounded-lg border border-border bg-white">
+          {data.map((i) => (
+            <li key={i.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm">
+              <span className="font-medium tabular-nums text-ink">{fmtIn(i.scheduledAt, 'Asia/Colombo', locale)}</span>
+              <Link href={`/caregivers/${i.caregiverId}`} className="text-brand-dark hover:underline">
+                {i.fullName}
+              </Link>
+              <span className="text-ink/70">{i.organisationName}</span>
+              <span className="text-xs text-ink/50">
+                {t('international.interviews.round', { n: i.round })} · {t(`international.interviews.mode.${i.mode}`)}
+              </span>
+              <Link href={`/international/${i.enquiryId}`} className="ml-auto text-xs tabular-nums text-brand-dark hover:underline">
+                {i.enquiryReference}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

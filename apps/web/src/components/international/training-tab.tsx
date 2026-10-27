@@ -7,12 +7,13 @@ import {
   trainingCategoryValues,
   trainingEnrolmentStatusValues,
   trainingFormatValues,
+  type TrainingEnrolmentRow,
   type TrainingEnrolmentStatus,
   type TrainingProgramme,
   type TrainingProgrammeInput,
 } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
-import { useSaveTrainingProgramme, useTrainingEnrolments, useTrainingProgrammes, useUpdateEnrolment } from '@/lib/hooks/use-international';
+import { useRevokeCertificate, useSaveTrainingProgramme, useTrainingEnrolments, useTrainingProgrammes, useUpdateEnrolment } from '@/lib/hooks/use-international';
 import { Button } from '@/components/ui/button';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -31,6 +32,7 @@ const EMPTY: TrainingProgrammeInput = {
   nextStartDate: null,
   isActive: true,
   sortOrder: 0,
+  passMark: null,
 };
 
 /**
@@ -89,7 +91,7 @@ export function TrainingTab() {
                 </Button>
               </div>
             </div>
-            {selected === p.id && <Enrolments programmeId={p.id} />}
+            {selected === p.id && <Enrolments programmeId={p.id} passMark={p.passMark} />}
           </div>
         ))}
       </div>
@@ -155,6 +157,11 @@ function ProgrammeForm({ initial, onDone }: { initial: { id?: string; values: Tr
           <Input id="tp-start" type="date" value={v.nextStartDate ?? ''} onChange={(e) => set({ nextStartDate: e.target.value || null })} />
         </div>
         <div>
+          <Label htmlFor="tp-pass">{t('international.training.passMark')}</Label>
+          <Input id="tp-pass" type="number" min={0} max={100} value={v.passMark ?? ''} onChange={(e) => set({ passMark: e.target.value === '' ? null : Number(e.target.value) })} />
+          <p className="mt-1 text-xs text-ink/50">{t('international.training.passMarkHint')}</p>
+        </div>
+        <div>
           <Label htmlFor="tp-order">{t('international.training.sortOrder')}</Label>
           <Input id="tp-order" type="number" min={0} value={v.sortOrder} onChange={(e) => set({ sortOrder: Number(e.target.value) || 0 })} />
         </div>
@@ -203,54 +210,100 @@ function ProgrammeForm({ initial, onDone }: { initial: { id?: string; values: Tr
   );
 }
 
-function Enrolments({ programmeId }: { programmeId: string }) {
+function Enrolments({ programmeId, passMark }: { programmeId: string; passMark: number | null }) {
   const { t } = useTranslation();
   const { data = [], isLoading } = useTrainingEnrolments(programmeId);
-  const update = useUpdateEnrolment(programmeId);
 
   if (isLoading) return <p className="mt-3 text-sm text-ink/50">{t('common.loading')}</p>;
   if (!data.length) return <p className="mt-3 text-sm text-ink/50">{t('international.training.noSignUps')}</p>;
 
   return (
-    <div className="mt-4 overflow-x-auto border-t border-border pt-3">
-      <table className="w-full min-w-[560px] text-left text-sm">
-        <thead className="text-xs uppercase tracking-wide text-ink/50">
-          <tr>
-            <th className="py-2 pr-4 font-medium">{t('international.training.caregiver')}</th>
-            <th className="py-2 pr-4 font-medium">{t('international.training.signedUp')}</th>
-            <th className="py-2 pr-4 font-medium">{t('international.training.statusLabel')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((e) => (
-            <tr key={e.id} className="border-t border-border">
-              <td className="py-2 pr-4">
-                <Link href={`/caregivers/${e.caregiverId}`} className="font-medium text-brand-dark hover:underline">
-                  {e.fullName}
-                </Link>
-                <div className="text-xs tabular-nums text-ink/50">{e.registrationNumber}</div>
-              </td>
-              <td className="py-2 pr-4 text-ink/70">{new Date(e.createdAt).toLocaleDateString()}</td>
-              <td className="py-2 pr-4">
-                <Select
-                  className="w-44"
-                  value={e.status}
-                  disabled={update.isPending}
-                  aria-label={t('international.training.statusLabel')}
-                  onChange={(ev) => update.mutate({ id: e.id, status: ev.target.value as TrainingEnrolmentStatus })}
-                >
-                  {trainingEnrolmentStatusValues.map((s) => (
-                    <option key={s} value={s}>
-                      {t(`international.training.enrolment.${s}`)}
-                    </option>
-                  ))}
-                </Select>
-                {e.completedAt && <div className="mt-0.5 text-xs text-ink/50">{t('international.training.completedOn', { date: e.completedAt })}</div>}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="mt-4 border-t border-border pt-3">
+      {passMark !== null && <p className="mb-2 text-xs text-ink/60">{t('international.training.passMarkIs', { n: passMark })}</p>}
+      <ul className="divide-y divide-border">
+        {data.map((e) => (
+          <EnrolmentRow key={`${e.id}-${e.status}-${e.score}-${e.progressPercent}`} programmeId={programmeId} enrolment={e} />
+        ))}
+      </ul>
     </div>
+  );
+}
+
+/**
+ * One sign-up: status, progress and the final score. Recording Completed
+ * issues the certificate of completion (the API checks the pass mark); a
+ * certificate can be withdrawn with a reason, which shows on its public check.
+ */
+function EnrolmentRow({ programmeId, enrolment: e }: { programmeId: string; enrolment: TrainingEnrolmentRow }) {
+  const { t } = useTranslation();
+  const update = useUpdateEnrolment(programmeId);
+  const revoke = useRevokeCertificate(programmeId);
+  const [status, setStatus] = useState<TrainingEnrolmentStatus>(e.status);
+  const [progress, setProgress] = useState(e.progressPercent === null ? '' : String(e.progressPercent));
+  const [score, setScore] = useState(e.score === null ? '' : String(e.score));
+  const [revoking, setRevoking] = useState(false);
+  const [reason, setReason] = useState('');
+  const num = (v: string) => (v === '' ? null : Number(v));
+  const dirty = status !== e.status || num(progress) !== e.progressPercent || num(score) !== e.score;
+  const cert = e.certificate;
+
+  return (
+    <li className="flex flex-wrap items-end gap-3 py-3 text-sm">
+      <div className="min-w-44 flex-1">
+        <Link href={`/caregivers/${e.caregiverId}`} className="font-medium text-brand-dark hover:underline">
+          {e.fullName}
+        </Link>
+        <div className="text-xs tabular-nums text-ink/50">
+          {e.registrationNumber} · {t('international.training.signedUpOn', { date: new Date(e.createdAt).toLocaleDateString() })}
+        </div>
+        {e.completedAt && <div className="text-xs text-ink/50">{t('international.training.completedOn', { date: e.completedAt })}</div>}
+      </div>
+      <div>
+        <Label htmlFor={`es-${e.id}`}>{t('international.training.statusLabel')}</Label>
+        <Select id={`es-${e.id}`} className="w-40" value={status} onChange={(ev) => setStatus(ev.target.value as TrainingEnrolmentStatus)}>
+          {trainingEnrolmentStatusValues.map((s) => (
+            <option key={s} value={s}>
+              {t(`international.training.enrolment.${s}`)}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor={`ep-${e.id}`}>{t('international.training.progress')}</Label>
+        <Input id={`ep-${e.id}`} className="w-20" type="number" min={0} max={100} value={progress} onChange={(ev) => setProgress(ev.target.value)} />
+      </div>
+      <div>
+        <Label htmlFor={`sc-${e.id}`}>{t('international.training.score')}</Label>
+        <Input id={`sc-${e.id}`} className="w-20" type="number" min={0} max={100} value={score} onChange={(ev) => setScore(ev.target.value)} />
+      </div>
+      <Button size="sm" disabled={!dirty || update.isPending} onClick={() => update.mutate({ id: e.id, status, progressPercent: num(progress), score: num(score) })}>
+        {t('common.save')}
+      </Button>
+      {cert && (
+        <div className="basis-full text-xs">
+          <span className={cert.revoked ? 'text-ink/50 line-through' : 'font-medium text-brand-dark'}>{t('international.training.certificate', { number: cert.number })}</span>
+          {cert.revoked && cert.revokedReason && <span className="ml-2 text-ink/60">{t('international.training.revokedBecause', { reason: cert.revokedReason })}</span>}
+          {!cert.revoked && !revoking && (
+            <button type="button" className="ml-3 text-danger hover:underline" onClick={() => setRevoking(true)}>
+              {t('international.training.revoke')}
+            </button>
+          )}
+          {revoking && (
+            <span className="mt-1 flex flex-wrap items-center gap-2">
+              <Input className="h-8 w-64" value={reason} onChange={(ev) => setReason(ev.target.value)} maxLength={500} placeholder={t('international.training.revokeReason')} aria-label={t('international.training.revokeReason')} />
+              <Button size="sm" variant="danger" disabled={reason.trim().length < 3 || revoke.isPending} onClick={() => revoke.mutate({ id: cert.id, reason: reason.trim() }, { onSuccess: () => setRevoking(false) })}>
+                {t('international.training.confirmRevoke')}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setRevoking(false)}>
+                {t('common.cancel')}
+              </Button>
+            </span>
+          )}
+        </div>
+      )}
+      {(update.isError || revoke.isError) && (
+        <p className="basis-full text-xs text-danger">{(update.error ?? revoke.error) instanceof Error ? (update.error ?? revoke.error)!.message : t('common.actionFailed')}</p>
+      )}
+    </li>
   );
 }
