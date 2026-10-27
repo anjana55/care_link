@@ -1,10 +1,10 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomInt, randomUUID as uuid } from 'crypto';
 import { and, count, desc, eq, inArray, like, or, type SQL } from 'drizzle-orm';
 import type { EmployerEnquiry, EmployerEnquiryList, EmployerEnquiryReceipt, EmployerEnquirySummary } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { caregivers, employerEnquiries, employers, sharedProfiles, users } from '../database/schema';
-import { CreateEmployerEnquiryDto, EmployerAccountEnquiryDto, EmployerEnquiryQueryDto, UpdateEmployerEnquiryDto } from './dto/international.dto';
+import { caregivers, employerEnquiries, employers, jobOffers, overseasVacancies, placements, sharedProfiles, users } from '../database/schema';
+import { CreateEmployerEnquiryDto, EditEnquiryDetailsDto, EmployerAccountEnquiryDto, EmployerEnquiryQueryDto, UpdateEmployerEnquiryDto } from './dto/international.dto';
 import { SharedProfilesService } from './shared-profiles.service';
 import { InternationalNotifier } from './international-notifier.service';
 
@@ -204,6 +204,58 @@ export class EmployerEnquiriesService {
     if (dto.status && dto.status !== 'NEW') changes.assignedToUserId = userId;
     await this.db.update(employerEnquiries).set(changes).where(eq(employerEnquiries.id, id));
     return this.findOne(id);
+  }
+
+  /**
+   * An admin's correction to what the employer sent, or a change to which
+   * employer account the enquiry belongs to. The account link can't change
+   * once offers, vacancies or placements on the enquiry belong to that
+   * account: they would be cut off from the employer who owns them.
+   */
+  async editDetails(id: string, dto: EditEnquiryDetailsDto): Promise<EmployerEnquiry> {
+    const current = await this.findOne(id);
+    const changes: Partial<typeof employerEnquiries.$inferInsert> = { updatedAt: new Date() };
+    for (const key of [
+      'organisationName',
+      'organisationType',
+      'country',
+      'contactName',
+      'phone',
+      'website',
+      'rolesCount',
+      'careSettings',
+      'languages',
+      'startTimeframe',
+      'visaSponsorship',
+      'message',
+    ] as const) {
+      if (dto[key] !== undefined) (changes as Record<string, unknown>)[key] = dto[key];
+    }
+    if (dto.email !== undefined) changes.email = dto.email.toLowerCase();
+
+    const currentEmployerId = current.employer?.id ?? null;
+    if (dto.employerId !== undefined && dto.employerId !== currentEmployerId) {
+      if (dto.employerId) {
+        const [exists] = await this.db.select({ id: employers.id }).from(employers).where(eq(employers.id, dto.employerId)).limit(1);
+        if (!exists) throw new NotFoundException('Employer not found');
+      }
+      if (currentEmployerId && (await this.tiedToAccount(id))) {
+        throw new BadRequestException('Offers, vacancies or placements on this enquiry belong to its employer account, so it cannot be moved to another account.');
+      }
+      changes.employerId = dto.employerId;
+    }
+    await this.db.update(employerEnquiries).set(changes).where(eq(employerEnquiries.id, id));
+    return this.findOne(id);
+  }
+
+  /** Whether anything on the enquiry is owned by its employer account. */
+  private async tiedToAccount(enquiryId: string): Promise<boolean> {
+    const [[o], [v], [p]] = await Promise.all([
+      this.db.select({ n: count() }).from(jobOffers).where(eq(jobOffers.enquiryId, enquiryId)),
+      this.db.select({ n: count() }).from(overseasVacancies).where(eq(overseasVacancies.enquiryId, enquiryId)),
+      this.db.select({ n: count() }).from(placements).where(eq(placements.enquiryId, enquiryId)),
+    ]);
+    return Number(o.n) + Number(v.n) + Number(p.n) > 0;
   }
 
   async summary(): Promise<EmployerEnquirySummary> {

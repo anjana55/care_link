@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   EmployerEnquiry,
   EmployerEnquiryList,
+  EnquiryDetailsInput,
   EmployerEnquiryStatus,
   OverseasStaffSummary,
   EmployerAdminRow,
@@ -155,6 +156,19 @@ export function useUpdateEnrolment(programmeId: string | null) {
 }
 
 // --- phase 2: employers, candidates, talent pool -------------------------------
+
+/** Admins: correct what the employer sent, or link the enquiry to an employer account. */
+export function useEditEnquiryDetails(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: EnquiryDetailsInput) => api.put<EmployerEnquiry>(`/international/enquiries/${id}/details`, body),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['international', 'enquiry', id], data);
+      queryClient.invalidateQueries({ queryKey: ['international', 'enquiries'] });
+      queryClient.invalidateQueries({ queryKey: ['international', 'employers'] });
+    },
+  });
+}
 
 export function useEmployerAccounts(status: string) {
   return useQuery({

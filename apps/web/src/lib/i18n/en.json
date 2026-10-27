@@ -3066,6 +3066,18 @@
       "completions": "Completed",
       "certificates": "Certificates issued",
       "results": "Results verified"
+    },
+    "edit": {
+      "button": "Edit details",
+      "title": "Edit enquiry",
+      "hint": "Correct what the employer sent, or link the enquiry to their account. Only what you change is saved, and every edit is recorded in the audit log.",
+      "organisation": "Organisation",
+      "emailHint": "Earlier enquiries are linked to an employer account by this email when the account is verified.",
+      "noAccount": "Not linked to an employer account",
+      "sameEmail": "same email",
+      "accountHint": "Link it to the employer's account so it shows in their employer area. It can't be moved once offers, vacancies or placements belong to that account.",
+      "message": "Their message",
+      "changed": "{n} change(s) to save"
     }
   }
 }

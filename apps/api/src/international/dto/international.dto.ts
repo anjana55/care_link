@@ -154,6 +154,59 @@ export class UpdateEmployerEnquiryDto {
   placementFeeCurrency?: string | null;
 }
 
+/**
+ * An admin correcting what the employer sent - a misspelt name, the wrong
+ * email (which is also how earlier enquiries find an account), the number of
+ * roles - or linking the enquiry to the employer's account. Every field is
+ * optional: only what is sent changes.
+ */
+export class EditEnquiryDetailsDto {
+  @ApiPropertyOptional() @IsOptional() @Transform(trim) @IsString() @MinLength(2) @MaxLength(200)
+  organisationName?: string;
+
+  @ApiPropertyOptional({ enum: employerTypeValues }) @IsOptional() @IsIn(employerTypeValues)
+  organisationType?: EmployerType;
+
+  @ApiPropertyOptional({ description: 'ISO 3166-1 alpha-2' }) @IsOptional() @IsIn(COUNTRY_CODES)
+  country?: CountryCode;
+
+  @ApiPropertyOptional() @IsOptional() @Transform(trim) @IsString() @MinLength(2) @MaxLength(150)
+  contactName?: string;
+
+  @ApiPropertyOptional() @IsOptional() @Transform(trim) @IsEmail() @MaxLength(255)
+  email?: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @Matches(/^\+?[0-9 ()-]{6,30}$/, { message: 'Please enter a phone number, with the country code.' })
+  phone?: string | null;
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(255)
+  website?: string | null;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 500 }) @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(500)
+  rolesCount?: number;
+
+  @ApiPropertyOptional({ enum: careTypeValues, isArray: true })
+  @IsOptional() @IsArray() @ArrayMinSize(1) @ArrayMaxSize(careTypeValues.length) @IsIn(careTypeValues, { each: true })
+  careSettings?: CareType[];
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(255)
+  languages?: string | null;
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(100)
+  startTimeframe?: string | null;
+
+  @ApiPropertyOptional({ enum: visaSponsorshipValues }) @IsOptional() @IsIn(visaSponsorshipValues)
+  visaSponsorship?: VisaSponsorship;
+
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @Transform(blankToNull) @ValidateIf((_, v) => v !== null) @IsString() @MaxLength(3000)
+  message?: string | null;
+
+  /** The employer account this enquiry belongs to; null to unlink. */
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @IsUUID()
+  employerId?: string | null;
+}
+
 // --- overseas readiness ----------------------------------------------------
 
 export class UpdateOverseasReadinessDto {

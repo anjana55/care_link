@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, ExternalLink, Mail, Phone, UserRound } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Mail, Pencil, Phone, UserRound } from 'lucide-react';
 import { employerEnquiryStatusValues, type EmployerEnquiryStatus } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EnquiryStatusBadge, countryName } from '@/components/international/shared';
 import { CandidatesCard } from '@/components/international/candidates-card';
 import { EnquiryVacanciesCard } from '@/components/international/enquiry-vacancies-card';
+import { EditEnquiryForm } from '@/components/international/edit-enquiry-form';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -27,7 +28,8 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 /**
  * One overseas employer enquiry. Staff contact the employer (email and phone
  * are here), shortlist and introduce caregivers, and - when a caregiver
- * starts work - mark it Placed and record the placement fee agreed.
+ * starts work - mark it Placed and record the placement fee agreed. Admins
+ * can also correct what the employer sent, and link it to their account.
  */
 export default function EmployerEnquiryPage() {
   const { t, locale } = useTranslation();
@@ -41,6 +43,7 @@ export default function EmployerEnquiryPage() {
   const [fee, setFee] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -82,86 +85,96 @@ export default function EmployerEnquiryPage() {
             {enquiry.reference} · {enquiry.organisationName}
           </h1>
           <EnquiryStatusBadge status={enquiry.status} />
+          {user?.role === 'ADMIN' && !editing && (
+            <Button size="sm" variant="secondary" className="ml-auto" onClick={() => setEditing(true)}>
+              <Pencil size={14} aria-hidden className="mr-1.5" />
+              {t('international.edit.button')}
+            </Button>
+          )}
         </div>
         <p className="mt-1 text-sm text-ink/60">{t('international.detail.received', { date: new Date(enquiry.createdAt).toLocaleString() })}</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('international.detail.employer')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl>
-              <Row label={t('international.detail.type')}>{t(`international.employerTypes.${enquiry.organisationType}`)}</Row>
-              <Row label={t('international.enquiries.country')}>{countryName(enquiry.country, locale)}</Row>
-              <Row label={t('international.detail.contact')}>{enquiry.contactName}</Row>
-              <Row label={t('international.detail.email')}>
-                <a href={`mailto:${enquiry.email}?subject=${encodeURIComponent(enquiry.reference)}`} className="inline-flex items-center gap-1 text-brand-dark hover:underline">
-                  <Mail size={14} aria-hidden />
-                  {enquiry.email}
-                </a>
-              </Row>
-              {enquiry.phone && (
-                <Row label={t('international.detail.phone')}>
-                  <a href={`tel:${enquiry.phone.replace(/[^\d+]/g, '')}`} className="inline-flex items-center gap-1 text-brand-dark hover:underline">
-                    <Phone size={14} aria-hidden />
-                    {enquiry.phone}
+      {editing ? (
+        <EditEnquiryForm enquiry={enquiry} onDone={() => setEditing(false)} />
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('international.detail.employer')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl>
+                <Row label={t('international.detail.type')}>{t(`international.employerTypes.${enquiry.organisationType}`)}</Row>
+                <Row label={t('international.enquiries.country')}>{countryName(enquiry.country, locale)}</Row>
+                <Row label={t('international.detail.contact')}>{enquiry.contactName}</Row>
+                <Row label={t('international.detail.email')}>
+                  <a href={`mailto:${enquiry.email}?subject=${encodeURIComponent(enquiry.reference)}`} className="inline-flex items-center gap-1 text-brand-dark hover:underline">
+                    <Mail size={14} aria-hidden />
+                    {enquiry.email}
                   </a>
                 </Row>
-              )}
-              {enquiry.website && (
-                <Row label={t('international.detail.website')}>
-                  <a href={/^https?:\/\//.test(enquiry.website) ? enquiry.website : `https://${enquiry.website}`} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-brand-dark hover:underline">
-                    <ExternalLink size={14} aria-hidden />
-                    {enquiry.website}
-                  </a>
-                </Row>
-              )}
-              <Row label={t('international.detail.language')}>{enquiry.language.toUpperCase()}</Row>
-              <Row label={t('international.detail.account')}>
-                {enquiry.employer ? (
-                  <span>
-                    {t('international.detail.hasAccount')} · {t(`international.employers.status.${enquiry.employer.status}`)}
-                  </span>
-                ) : (
-                  <span className="text-ink/50">{t('international.detail.noAccount')}</span>
+                {enquiry.phone && (
+                  <Row label={t('international.detail.phone')}>
+                    <a href={`tel:${enquiry.phone.replace(/[^\d+]/g, '')}`} className="inline-flex items-center gap-1 text-brand-dark hover:underline">
+                      <Phone size={14} aria-hidden />
+                      {enquiry.phone}
+                    </a>
+                  </Row>
                 )}
-              </Row>
-            </dl>
-          </CardContent>
-        </Card>
+                {enquiry.website && (
+                  <Row label={t('international.detail.website')}>
+                    <a href={/^https?:\/\//.test(enquiry.website) ? enquiry.website : `https://${enquiry.website}`} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-brand-dark hover:underline">
+                      <ExternalLink size={14} aria-hidden />
+                      {enquiry.website}
+                    </a>
+                  </Row>
+                )}
+                <Row label={t('international.detail.language')}>{enquiry.language.toUpperCase()}</Row>
+                <Row label={t('international.detail.account')}>
+                  {enquiry.employer ? (
+                    <span>
+                      {enquiry.employer.organisationName} · {t(`international.employers.status.${enquiry.employer.status}`)}
+                    </span>
+                  ) : (
+                    <span className="text-ink/50">{t('international.detail.noAccount')}</span>
+                  )}
+                </Row>
+              </dl>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('international.detail.needs')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl>
-              <Row label={t('international.enquiries.roles')}>{enquiry.rolesCount}</Row>
-              <Row label={t('international.detail.settings')}>{enquiry.careSettings.map((c) => t(`careTypes.${c}`)).join(', ')}</Row>
-              {enquiry.languages && <Row label={t('international.detail.languages')}>{enquiry.languages}</Row>}
-              {enquiry.startTimeframe && <Row label={t('international.detail.start')}>{enquiry.startTimeframe}</Row>}
-              <Row label={t('international.detail.visa')}>{t(`international.visa.${enquiry.visaSponsorship}`)}</Row>
-            </dl>
-            {enquiry.message && <p className="mt-3 whitespace-pre-line rounded bg-paper p-3 text-sm text-ink/80">{enquiry.message}</p>}
-            {enquiry.caregiver && (
-              <div className="mt-4 flex flex-wrap items-center gap-2 rounded border border-accent/30 bg-accent-light/40 p-3 text-sm">
-                <UserRound size={16} className="text-accent" aria-hidden />
-                <span>{t('international.detail.askedAbout')}</span>
-                <Link href={`/caregivers/${enquiry.caregiver.id}`} className="font-medium text-brand-dark hover:underline">
-                  {enquiry.caregiver.fullName} ({enquiry.caregiver.registrationNumber})
-                </Link>
-                {enquiry.caregiver.talentSlug && (
-                  <a href={`/talent/${enquiry.caregiver.talentSlug}`} target="_blank" rel="noreferrer" className="text-xs text-ink/60 hover:underline">
-                    {t('international.detail.sharedProfile')}
-                  </a>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('international.detail.needs')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl>
+                <Row label={t('international.enquiries.roles')}>{enquiry.rolesCount}</Row>
+                <Row label={t('international.detail.settings')}>{enquiry.careSettings.map((c) => t(`careTypes.${c}`)).join(', ')}</Row>
+                {enquiry.languages && <Row label={t('international.detail.languages')}>{enquiry.languages}</Row>}
+                {enquiry.startTimeframe && <Row label={t('international.detail.start')}>{enquiry.startTimeframe}</Row>}
+                <Row label={t('international.detail.visa')}>{t(`international.visa.${enquiry.visaSponsorship}`)}</Row>
+              </dl>
+              {enquiry.message && <p className="mt-3 whitespace-pre-line rounded bg-paper p-3 text-sm text-ink/80">{enquiry.message}</p>}
+              {enquiry.caregiver && (
+                <div className="mt-4 flex flex-wrap items-center gap-2 rounded border border-accent/30 bg-accent-light/40 p-3 text-sm">
+                  <UserRound size={16} className="text-accent" aria-hidden />
+                  <span>{t('international.detail.askedAbout')}</span>
+                  <Link href={`/caregivers/${enquiry.caregiver.id}`} className="font-medium text-brand-dark hover:underline">
+                    {enquiry.caregiver.fullName} ({enquiry.caregiver.registrationNumber})
+                  </Link>
+                  {enquiry.caregiver.talentSlug && (
+                    <a href={`/talent/${enquiry.caregiver.talentSlug}`} target="_blank" rel="noreferrer" className="text-xs text-ink/60 hover:underline">
+                      {t('international.detail.sharedProfile')}
+                    </a>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <CandidatesCard enquiry={enquiry} />
       <EnquiryVacanciesCard enquiry={enquiry} />
