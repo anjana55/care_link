@@ -34,6 +34,11 @@ export async function purgeUnverifiedPhoneAccount(db: Database, phone: string): 
 
     const [profile] = await db.select({ status: caregivers.status }).from(caregivers).where(eq(caregivers.userId, id)).limit(1);
     if (profile && profile.status !== 'DRAFT') continue;
+    // Likewise a client staff have already acted on - reviewed and made
+    // active, or brought in by an import - is a real record, not an abandoned
+    // sign-up. Only an untouched self-registration (PENDING_REVIEW) goes.
+    const [client] = await db.select({ status: patients.status }).from(patients).where(eq(patients.userId, id)).limit(1);
+    if (client && client.status !== 'PENDING_REVIEW') continue;
     await db.delete(caregivers).where(eq(caregivers.userId, id));
     await db.delete(patients).where(eq(patients.userId, id));
     await db.delete(refreshTokens).where(eq(refreshTokens.userId, id));

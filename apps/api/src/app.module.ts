@@ -23,6 +23,7 @@ import { CaregiversModule } from './caregivers/caregivers.module';
 import { PatientsModule } from './patients/patients.module';
 import { QualificationsModule } from './qualifications/qualifications.module';
 import { ExperiencesModule } from './experiences/experiences.module';
+import { DataTransferModule } from './data-transfer/data-transfer.module';
 import { AvailabilityModule } from './availability/availability.module';
 import { CaregiverSkillsModule } from './caregiver-skills/caregiver-skills.module';
 import { CaregiverLanguagesModule } from './caregiver-languages/caregiver-languages.module';
@@ -75,6 +76,7 @@ import { InternationalModule } from './international/international.module';
     PatientsModule,
     QualificationsModule,
     ExperiencesModule,
+    DataTransferModule,
     AvailabilityModule,
     CaregiverSkillsModule,
     CaregiverLanguagesModule,

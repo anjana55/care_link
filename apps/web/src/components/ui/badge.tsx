@@ -30,7 +30,7 @@ export function StatusBadge({ status, label }: { status: CaregiverStatus | Clien
   );
 }
 
-export function VerificationBadge({ status }: { status: string }) {
+export function VerificationBadge({ status, label }: { status: string; label?: string }) {
   const styles: Record<string, string> = {
     PENDING: 'bg-accent-light text-accent',
     IN_PROGRESS: 'bg-accent-light text-accent',
@@ -39,7 +39,7 @@ export function VerificationBadge({ status }: { status: string }) {
   };
   return (
     <span className={cn('inline-flex items-center rounded px-2 py-0.5 text-xs font-medium', styles[status] ?? '')}>
-      {status.replace('_', ' ')}
+      {label ?? status.replace('_', ' ')}
     </span>
   );
 }

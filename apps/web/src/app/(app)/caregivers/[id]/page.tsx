@@ -46,6 +46,7 @@ import { StatusMoveSelect, type StatusMoveConfirmation } from '@/components/ui/s
 import { allowedNextStatuses } from '@/lib/caregiver-status';
 import { AutoNotifyToggle } from '@/components/caregivers/auto-notify-toggle';
 import { CaregiverResultsCard } from '@/components/international/caregiver-results-card';
+import { ExperienceCard } from '@/components/caregivers/experience-card';
 import type { CaregiverStatus } from '@/lib/api/types';
 import { Input, Select, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
@@ -338,6 +339,7 @@ export default function CaregiverProfilePage() {
         <TabsList>
           <TabsTrigger value="overview">{t('caregivers.profile.tabs.overview')}</TabsTrigger>
           <TabsTrigger value="qualifications">{t('caregivers.profile.tabs.qualifications')}</TabsTrigger>
+          <TabsTrigger value="experience">{t('caregivers.profile.tabs.experience')}</TabsTrigger>
           <TabsTrigger value="documents">{t('caregivers.profile.tabs.documents')}</TabsTrigger>
           <TabsTrigger value="references">{t('caregivers.profile.tabs.references')}</TabsTrigger>
           <TabsTrigger value="verification">{t('caregivers.profile.tabs.verification')}</TabsTrigger>
@@ -688,6 +690,10 @@ export default function CaregiverProfilePage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="experience">
+          <ExperienceCard caregiverId={id} canEdit={user?.role === 'ADMIN'} />
         </TabsContent>
 
         <TabsContent value="documents">

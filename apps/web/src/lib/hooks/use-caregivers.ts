@@ -16,6 +16,7 @@ import type {
   LocationProvince,
   PagedCities,
   Qualification,
+  Experience,
   CaregiverSignInMethods,
   ChangeCaregiverContactRequest,
   ResetSignInRequest,
@@ -234,6 +235,31 @@ export function useRemoveQualification(caregiverId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['qualifications', caregiverId] });
     },
+  });
+}
+
+/** Work history: every office role reads it; only admins change it. */
+export function useExperiences(caregiverId: string) {
+  return useQuery({
+    queryKey: ['experiences', caregiverId],
+    queryFn: () => api.get<Experience[]>(`/caregivers/${caregiverId}/experiences`),
+  });
+}
+
+export function useSaveExperience(caregiverId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id?: string; data: Record<string, unknown> }) =>
+      id ? api.patch<Experience>(`/caregivers/${caregiverId}/experiences/${id}`, data) : api.post<Experience>(`/caregivers/${caregiverId}/experiences`, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['experiences', caregiverId] }),
+  });
+}
+
+export function useRemoveExperience(caregiverId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/caregivers/${caregiverId}/experiences/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['experiences', caregiverId] }),
   });
 }
 

@@ -196,6 +196,10 @@ export interface Experience {
   description: string | null;
   careType: string | null;
   patientCategory: string | null;
+  referenceContact: string | null;
+  verificationStatus: 'PENDING' | 'IN_PROGRESS' | 'VERIFIED' | 'REJECTED';
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CaregiverHealthInfo {
