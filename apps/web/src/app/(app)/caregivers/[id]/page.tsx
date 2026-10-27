@@ -46,7 +46,7 @@ import { StatusMoveSelect, type StatusMoveConfirmation } from '@/components/ui/s
 import { allowedNextStatuses } from '@/lib/caregiver-status';
 import { AutoNotifyToggle } from '@/components/caregivers/auto-notify-toggle';
 import type { CaregiverStatus } from '@/lib/api/types';
-import { Select, RequiredLegend } from '@/components/ui/input';
+import { Input, Select, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
 import { makePersonalInfoSchema, requiredFieldsOf, UNSET_ID, type PersonalInfoValues } from '@/lib/schemas/personal-info';
 import { Trash2 } from 'lucide-react';
@@ -120,6 +120,7 @@ export default function CaregiverProfilePage() {
   const setReferenceVerification = useSetReferenceVerification(id);
 
   const [docType, setDocType] = useState('NIC');
+  const [docExpiry, setDocExpiry] = useState('');
   const [deleteRefId, setDeleteRefId] = useState<string | null>(null);
   const [refName, setRefName] = useState('');
   const [refRelationship, setRefRelationship] = useState('');
@@ -704,6 +705,10 @@ export default function CaregiverProfilePage() {
                     </Select>
                   </div>
                   <div>
+                    <label htmlFor="doc-expiry" className="mb-1 block text-xs font-medium text-ink/70">{t('caregivers.edit.expiresOn')}</label>
+                    <Input id="doc-expiry" type="date" value={docExpiry} onChange={(e) => setDocExpiry(e.target.value)} className="w-40" />
+                  </div>
+                  <div>
                     <div className="mb-1 text-xs font-medium text-ink/70">{t('caregivers.edit.fileLabel')}</div>
                     <input
                       ref={fileInputRef}
@@ -711,7 +716,7 @@ export default function CaregiverProfilePage() {
                       accept=".pdf,.jpg,.jpeg,.png,.webp"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) uploadDocument.mutate({ documentType: docType, file });
+                        if (file) uploadDocument.mutate({ documentType: docType, file, expiresOn: docExpiry || undefined }, { onSuccess: () => setDocExpiry('') });
                       }}
                       className="text-sm text-ink/70 file:mr-3 file:rounded file:border-0 file:bg-brand-light file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-dark"
                     />
@@ -728,6 +733,23 @@ export default function CaregiverProfilePage() {
                   <div>
                     <div className="text-sm text-ink">{d.documentType.replace('_', ' ')}</div>
                     <div className="text-xs text-ink/50">{d.originalFilename}</div>
+                    {(user?.role === 'ADMIN' || user?.role === 'VERIFIER') ? (
+                      <label className="mt-1 flex items-center gap-2 text-xs text-ink/60">
+                        {t('caregivers.edit.expires')}
+                        <input
+                          type="date"
+                          defaultValue={d.expiresOn ?? ''}
+                          disabled={setDocumentVerification.isPending}
+                          onBlur={(e) => {
+                            const next = e.target.value || null;
+                            if (next !== (d.expiresOn ?? null)) setDocumentVerification.mutate({ documentId: d.id, status: d.verificationStatus || 'PENDING', expiresOn: next });
+                          }}
+                          className={`rounded border border-border px-1.5 py-0.5 text-xs ${d.expiresOn && d.expiresOn < new Date().toISOString().slice(0, 10) ? 'text-danger' : ''}`}
+                        />
+                      </label>
+                    ) : (
+                      d.expiresOn && <div className="text-xs text-ink/60">{t('caregivers.edit.expires')} {d.expiresOn}</div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {(user?.role === 'ADMIN' || user?.role === 'VERIFIER') && (

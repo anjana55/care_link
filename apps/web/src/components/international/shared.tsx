@@ -25,3 +25,20 @@ export function countryName(code: string, locale: string): string {
     return code;
   }
 }
+
+/** An amount in its currency, in the staff member's number format. */
+export function money(amount: string | number | null, currency: string | null, locale: string): string {
+  if (amount === null || !currency) return '-';
+  const n = typeof amount === 'number' ? amount : Number(amount);
+  try {
+    return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
+  } catch {
+    return `${currency} ${n.toFixed(2)}`;
+  }
+}
+
+/** 'YYYY-MM-DD' as a short date, with no time zone shift. */
+export function day(date: string | null, locale: string): string {
+  if (!date) return '-';
+  return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00Z`));
+}

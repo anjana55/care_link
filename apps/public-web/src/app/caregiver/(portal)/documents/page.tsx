@@ -4,7 +4,8 @@ import { useRef, useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError, fetchBlob } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
-import { Label, Select } from '@/components/ui/input';
+import { Input, Label, Select } from '@/components/ui/input';
+import { fmtDate } from '@/lib/colombo-time';
 import { VerificationBadge, isWithdrawable } from '@/components/portal/status-badge';
 import { useCaregiverId, useDeleteDocument, useDocuments, useUploadDocument } from '@/lib/hooks/use-caregiver-portal';
 import type { CaregiverDocument, DocumentType } from '@/lib/api/portal-types';
@@ -72,6 +73,7 @@ export default function CaregiverDocumentsPage() {
   const [choice, setChoice] = useState<Choice>('identity');
   const [idKind, setIdKind] = useState<IdKind>('NIC');
   const [file, setFile] = useState<File | null>(null);
+  const [expiresOn, setExpiresOn] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -91,11 +93,12 @@ export default function CaregiverDocumentsPage() {
     if (!file) return setError(t('portal.documents.chooseFile'));
     setError(null);
     upload.mutate(
-      { file, documentType: documentTypeFor(choice, idKind) },
+      { file, documentType: documentTypeFor(choice, idKind), expiresOn: expiresOn || undefined },
       {
         onSuccess: () => {
           setNotice(t('portal.documents.uploaded'));
           setFile(null);
+          setExpiresOn('');
           if (fileInput.current) fileInput.current.value = '';
         },
         onError: (err) => setError(err instanceof ApiError ? err.message : t('portal.saveError')),
@@ -176,16 +179,26 @@ export default function CaregiverDocumentsPage() {
             {upload.isPending ? t('common.loading') : t('portal.documents.upload')}
           </Button>
         </div>
-        {choice === 'identity' && (
-          <div className="mt-4 max-w-xs">
-            <Label htmlFor="idKind">{t('portal.documents.idKind')}</Label>
-            <Select id="idKind" value={idKind} onChange={(e) => setIdKind(e.target.value as IdKind)}>
-              {ID_KINDS.map((k) => (
-                <option key={k} value={k}>{t(`portal.documents.idKinds.${k}`)}</option>
-              ))}
-            </Select>
-          </div>
-        )}
+        <div className="mt-4 flex flex-wrap gap-4">
+          {choice === 'identity' && (
+            <div className="w-full max-w-xs">
+              <Label htmlFor="idKind">{t('portal.documents.idKind')}</Label>
+              <Select id="idKind" value={idKind} onChange={(e) => setIdKind(e.target.value as IdKind)}>
+                {ID_KINDS.map((k) => (
+                  <option key={k} value={k}>{t(`portal.documents.idKinds.${k}`)}</option>
+                ))}
+              </Select>
+            </div>
+          )}
+          {/* Passports and police clearances run out; we remind the caregiver before they do. */}
+          {((choice === 'identity' && idKind === 'PASSPORT') || choice === 'police' || choice === 'other') && (
+            <div className="w-full max-w-xs">
+              <Label htmlFor="expiresOn">{t('portal.documents.expiresOn')}</Label>
+              <Input id="expiresOn" type="date" value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} />
+              <p className="mt-1 text-xs text-ink/50">{t('portal.documents.expiresHint')}</p>
+            </div>
+          )}
+        </div>
         <p className="mt-2 text-xs text-ink/50">{t('portal.documents.fileHint')}</p>
         {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
         {notice && <p role="status" className="mt-3 text-sm text-brand-dark">{notice}</p>}
@@ -204,6 +217,11 @@ export default function CaregiverDocumentsPage() {
                 <p className="truncate text-xs text-ink/50">
                   {doc.originalFilename} · {size(doc.sizeBytes)} · {new Date(doc.createdAt).toLocaleDateString(locale)}
                 </p>
+                {doc.expiresOn && (
+                  <p className={`text-xs ${doc.expiresOn < new Date().toISOString().slice(0, 10) ? 'font-medium text-red-700' : 'text-ink/60'}`}>
+                    {t('portal.documents.expires', { date: fmtDate(doc.expiresOn, locale) })}
+                  </p>
+                )}
                 {doc.verificationStatus === 'REJECTED' && (
                   <p className="mt-1 text-xs text-red-700">{t('portal.documents.rejectedHint')}</p>
                 )}

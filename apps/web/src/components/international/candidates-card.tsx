@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ExternalLink, UserPlus } from 'lucide-react';
+import { ExternalLink, Plane, UserPlus } from 'lucide-react';
 import { candidateStatusValues, type CandidateStatus, type EmployerEnquiry, type StaffCandidate } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useEnquiryCandidates, useProposeCandidate, useTalentPool, useUpdateCandidate } from '@/lib/hooks/use-international';
@@ -137,6 +137,12 @@ function CandidateEditor({ enquiryId, candidate: c }: { enquiryId: string; candi
         </div>
       </div>
       {status === 'PLACED' && c.status !== 'PLACED' && <p className="mt-2 text-xs text-ink/60">{t('international.candidates.placedHint')}</p>}
+      {c.placementId && (
+        <Link href={`/international/placements/${c.placementId}`} className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-dark hover:underline">
+          <Plane size={12} aria-hidden />
+          {t('international.candidates.openPlacement')}
+        </Link>
+      )}
       {update.isError && <p className="mt-2 text-xs text-danger">{update.error instanceof Error ? update.error.message : t('common.actionFailed')}</p>}
       <div className="mt-3 flex items-center gap-3">
         <Button

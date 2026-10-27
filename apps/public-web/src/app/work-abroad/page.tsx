@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, BookOpen, Eye, GraduationCap, HandCoins, Handshake, UserRoundCheck } from 'lucide-react';
+import { ArrowRight, BookOpen, BriefcaseBusiness, Eye, GraduationCap, HandCoins, Handshake, UserRoundCheck } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/lib/api/auth-context';
 import { useTrainingProgrammes } from '@/lib/hooks/use-international';
@@ -74,6 +74,26 @@ export default function WorkAbroadPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="pb-16">
+          <div className="mx-auto max-w-5xl px-4">
+            <div className="flex flex-col gap-4 rounded-lg border border-brand/30 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex gap-4">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-brand-light text-brand-dark">
+                  <BriefcaseBusiness className="h-5 w-5" aria-hidden />
+                </span>
+                <div>
+                  <h2 className="text-base font-semibold text-ink">{t('workAbroad.vacancies.title')}</h2>
+                  <p className="mt-1 text-sm text-ink/60">{t('workAbroad.vacancies.body')}</p>
+                </div>
+              </div>
+              <Link href="/work-abroad/vacancies" className="inline-flex shrink-0 items-center justify-center gap-2 rounded bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark">
+                {t('workAbroad.vacancies.cta')}
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+            </div>
           </div>
         </section>
 

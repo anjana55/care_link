@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { CalendarClock, MessageSquare, Plus, UserX } from 'lucide-react';
+import { CalendarClock, Megaphone, MessageSquare, Plus, UserX } from 'lucide-react';
 import type { EmployerCandidate, EmployerOwnEnquiry } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { useCountryNames } from '@/lib/countries';
@@ -29,10 +29,18 @@ export default function EmployerOverviewPage() {
           <h1 className="text-xl font-bold text-ink">{account ? t('employer.overview.title', { name: account.organisationName }) : t('employer.nav.overview')}</h1>
           <p className="mt-1 text-sm text-ink/60">{t('employer.overview.intro')}</p>
         </div>
-        <Link href="/employer/enquiries/new" className="inline-flex items-center gap-2 rounded-DEFAULT bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark">
-          <Plus className="h-4 w-4" aria-hidden />
-          {t('employer.nav.newEnquiry')}
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {account?.status === 'VERIFIED' && (
+            <Link href="/employer/vacancies/new" className="inline-flex items-center gap-2 rounded-DEFAULT border border-brand px-4 py-2 text-sm font-semibold text-brand hover:bg-brand-light">
+              <Megaphone className="h-4 w-4" aria-hidden />
+              {t('employer.vacancies.new')}
+            </Link>
+          )}
+          <Link href="/employer/enquiries/new" className="inline-flex items-center gap-2 rounded-DEFAULT bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark">
+            <Plus className="h-4 w-4" aria-hidden />
+            {t('employer.nav.newEnquiry')}
+          </Link>
+        </div>
       </div>
 
       {account && <EmployerStatusBanner account={account} />}

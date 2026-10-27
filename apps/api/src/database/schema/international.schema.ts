@@ -133,7 +133,8 @@ export const employerEnquiries = mysqlTable(
 export const candidateStatusEnum = ['PROPOSED', 'INTERVIEW_REQUESTED', 'INTERVIEW_SCHEDULED', 'SELECTED', 'PLACED', 'NOT_PROCEEDING'] as const;
 export type CandidateStatus = (typeof candidateStatusEnum)[number];
 
-export const candidateSourceEnum = ['STAFF', 'EMPLOYER'] as const;
+// APPLICATION: the caregiver applied to one of the employer's vacancies and staff put them forward.
+export const candidateSourceEnum = ['STAFF', 'EMPLOYER', 'APPLICATION'] as const;
 export type CandidateSource = (typeof candidateSourceEnum)[number];
 
 /**
@@ -315,5 +316,338 @@ export const sharedProfiles = mysqlTable(
   },
   (table) => ({
     statusIdx: index('shared_profiles_status_idx').on(table.status),
+  }),
+);
+
+// --- vacancy board ----------------------------------------------------------------
+
+export const englishLevelEnum = ['BASIC', 'CONVERSATIONAL', 'FLUENT'] as const;
+export const salaryPeriodEnum = ['HOUR', 'MONTH', 'YEAR'] as const;
+
+/**
+ * PENDING_REVIEW: posted by an employer, waiting for staff. PUBLISHED: on the
+ * public board. REJECTED: staff sent it back (note says why). CLOSED: no
+ * longer taking applications. FILLED: every role has been placed.
+ */
+export const vacancyStatusEnum = ['PENDING_REVIEW', 'PUBLISHED', 'REJECTED', 'CLOSED', 'FILLED'] as const;
+export type VacancyStatus = (typeof vacancyStatusEnum)[number];
+
+/**
+ * A job abroad, on the public vacancy board. Every vacancy hangs off an
+ * employer enquiry, so applicants staff put forward land on that enquiry as
+ * candidates and follow the same path to interview and placement.
+ *
+ * The board never names the employer: caregivers see the kind of employer,
+ * the country and the terms. Introductions still go through staff.
+ */
+export const overseasVacancies = mysqlTable(
+  'overseas_vacancies',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    // "VC-7K2Q9M": short enough to read out on the phone.
+    reference: varchar('reference', { length: 16 }).notNull().unique(),
+    enquiryId: varchar('enquiry_id', { length: 36 })
+      .notNull()
+      .references(() => employerEnquiries.id),
+    employerId: varchar('employer_id', { length: 36 }).references(() => employers.id),
+    title: varchar('title', { length: 150 }).notNull(),
+    country: varchar('country', { length: 2 }).notNull(),
+    city: varchar('city', { length: 100 }),
+    careSetting: varchar('care_setting', { length: 40 }).notNull(),
+    rolesCount: int('roles_count').notNull(),
+    description: text('description').notNull(),
+    requirements: text('requirements'),
+    minExperienceYears: int('min_experience_years').notNull().default(0),
+    englishLevel: mysqlEnum('english_level', englishLevelEnum).notNull().default('CONVERSATIONAL'),
+    salaryMin: decimal('salary_min', { precision: 12, scale: 2, mode: 'number' }),
+    salaryMax: decimal('salary_max', { precision: 12, scale: 2, mode: 'number' }),
+    salaryCurrency: varchar('salary_currency', { length: 3 }),
+    salaryPeriod: mysqlEnum('salary_period', salaryPeriodEnum),
+    contractMonths: int('contract_months'),
+    accommodationProvided: boolean('accommodation_provided'),
+    visaSponsorship: mysqlEnum('visa_sponsorship', visaSponsorshipEnum).notNull().default('UNSURE'),
+    startTimeframe: varchar('start_timeframe', { length: 100 }),
+    // Last day applications are taken. Null = until staff close it.
+    closesOn: date('closes_on', { mode: 'string' }),
+    status: mysqlEnum('status', vacancyStatusEnum).notNull().default('PENDING_REVIEW'),
+    reviewNote: varchar('review_note', { length: 500 }),
+    reviewedByUserId: varchar('reviewed_by_user_id', { length: 36 }),
+    reviewedAt: datetime('reviewed_at'),
+    publishedAt: datetime('published_at'),
+    createdByUserId: varchar('created_by_user_id', { length: 36 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    statusIdx: index('overseas_vacancies_status_idx').on(table.status, table.publishedAt),
+    employerIdx: index('overseas_vacancies_employer_idx').on(table.employerId),
+    enquiryIdx: index('overseas_vacancies_enquiry_idx').on(table.enquiryId),
+  }),
+);
+
+/**
+ * APPLIED: waiting for staff. PUT_FORWARD: staff made the caregiver a
+ * candidate on the vacancy's enquiry (candidateId). NOT_SUCCESSFUL: staff
+ * decided not to put them forward. WITHDRAWN: the caregiver stepped back.
+ */
+export const vacancyApplicationStatusEnum = ['APPLIED', 'PUT_FORWARD', 'NOT_SUCCESSFUL', 'WITHDRAWN'] as const;
+export type VacancyApplicationStatus = (typeof vacancyApplicationStatusEnum)[number];
+
+export const vacancyApplications = mysqlTable(
+  'vacancy_applications',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    vacancyId: varchar('vacancy_id', { length: 36 })
+      .notNull()
+      .references(() => overseasVacancies.id),
+    caregiverId: varchar('caregiver_id', { length: 36 })
+      .notNull()
+      .references(() => caregivers.id),
+    status: mysqlEnum('status', vacancyApplicationStatusEnum).notNull().default('APPLIED'),
+    // The caregiver's note to staff. Never sent to the employer as written.
+    message: varchar('message', { length: 1000 }),
+    candidateId: varchar('candidate_id', { length: 36 }).references(() => enquiryCandidates.id),
+    // Internal: never shown to the caregiver.
+    staffNote: varchar('staff_note', { length: 1000 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    oncePerVacancy: uniqueIndex('vacancy_applications_vacancy_caregiver_unique').on(table.vacancyId, table.caregiverId),
+    caregiverIdx: index('vacancy_applications_caregiver_idx').on(table.caregiverId),
+    statusIdx: index('vacancy_applications_status_idx').on(table.status, table.createdAt),
+  }),
+);
+
+// --- placements ----------------------------------------------------------------------
+
+/**
+ * PRE_DEPARTURE: hired, preparing to travel. DEPLOYED: arrived and working.
+ * COMPLETED: the contract ran its course. ENDED_EARLY: it stopped before the
+ * contract end (endReason says why).
+ */
+export const placementStatusEnum = ['PRE_DEPARTURE', 'DEPLOYED', 'COMPLETED', 'ENDED_EARLY'] as const;
+export type PlacementStatus = (typeof placementStatusEnum)[number];
+
+/**
+ * A caregiver hired through the platform, from the moment staff mark the
+ * candidate Placed until the contract ends. Staff check on the caregiver at
+ * set points after arrival (placement_checkins); the employer is invoiced
+ * the placement fee (placement_invoices).
+ */
+export const placements = mysqlTable(
+  'placements',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    candidateId: varchar('candidate_id', { length: 36 })
+      .notNull()
+      .unique()
+      .references(() => enquiryCandidates.id),
+    enquiryId: varchar('enquiry_id', { length: 36 })
+      .notNull()
+      .references(() => employerEnquiries.id),
+    caregiverId: varchar('caregiver_id', { length: 36 })
+      .notNull()
+      .references(() => caregivers.id),
+    employerId: varchar('employer_id', { length: 36 }).references(() => employers.id),
+    country: varchar('country', { length: 2 }).notNull(),
+    jobTitle: varchar('job_title', { length: 150 }),
+    status: mysqlEnum('status', placementStatusEnum).notNull().default('PRE_DEPARTURE'),
+    departureOn: date('departure_on', { mode: 'string' }),
+    arrivedOn: date('arrived_on', { mode: 'string' }),
+    contractStartOn: date('contract_start_on', { mode: 'string' }),
+    contractMonths: int('contract_months'),
+    endedOn: date('ended_on', { mode: 'string' }),
+    endReason: varchar('end_reason', { length: 500 }),
+    // If the placement ends within this many months of the contract start,
+    // the employer is offered a replacement without a second fee.
+    guaranteeMonths: int('guarantee_months').notNull().default(3),
+    feeAmount: decimal('fee_amount', { precision: 12, scale: 2, mode: 'number' }),
+    feeCurrency: varchar('fee_currency', { length: 3 }),
+    // Internal: never shown to the employer or the caregiver.
+    staffNote: text('staff_note'),
+    createdByUserId: varchar('created_by_user_id', { length: 36 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    statusIdx: index('placements_status_idx').on(table.status),
+    caregiverIdx: index('placements_caregiver_idx').on(table.caregiverId),
+    employerIdx: index('placements_employer_idx').on(table.employerId),
+    enquiryIdx: index('placements_enquiry_idx').on(table.enquiryId),
+  }),
+);
+
+export const checkinKindEnum = ['ARRIVAL', 'DAY_30', 'DAY_90', 'DAY_180'] as const;
+export type CheckinKind = (typeof checkinKindEnum)[number];
+
+export const checkinOutcomeEnum = ['WELL', 'CONCERN', 'URGENT'] as const;
+export type CheckinOutcome = (typeof checkinOutcomeEnum)[number];
+
+/** A welfare call staff make to a placed caregiver, due a set time after arrival. */
+export const placementCheckins = mysqlTable(
+  'placement_checkins',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    placementId: varchar('placement_id', { length: 36 })
+      .notNull()
+      .references(() => placements.id),
+    kind: mysqlEnum('kind', checkinKindEnum).notNull(),
+    dueOn: date('due_on', { mode: 'string' }).notNull(),
+    completedOn: date('completed_on', { mode: 'string' }),
+    outcome: mysqlEnum('outcome', checkinOutcomeEnum),
+    note: varchar('note', { length: 1000 }),
+    recordedByUserId: varchar('recorded_by_user_id', { length: 36 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    oncePerKind: uniqueIndex('placement_checkins_placement_kind_unique').on(table.placementId, table.kind),
+    dueIdx: index('placement_checkins_due_idx').on(table.completedOn, table.dueOn),
+  }),
+);
+
+// --- placement fee invoices -------------------------------------------------------------
+
+/**
+ * The employer's placement fee, invoiced in the employer's currency. Kept
+ * apart from client invoices (billing.schema.ts), which are always to a local
+ * client, in rupees, for care.
+ *
+ * DRAFT: staff are preparing it; no number, the employer cannot see it.
+ * ISSUED: numbered and sent. PAID: payments cover the amount. VOID: cancelled
+ * (only with nothing paid); the number stays used.
+ */
+export const placementInvoiceStatusEnum = ['DRAFT', 'ISSUED', 'PAID', 'VOID'] as const;
+export type PlacementInvoiceStatus = (typeof placementInvoiceStatusEnum)[number];
+
+export const placementInvoices = mysqlTable(
+  'placement_invoices',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    // "PF-2026-0007", set on issue.
+    number: varchar('number', { length: 24 }).unique(),
+    enquiryId: varchar('enquiry_id', { length: 36 })
+      .notNull()
+      .references(() => employerEnquiries.id),
+    placementId: varchar('placement_id', { length: 36 }).references(() => placements.id),
+    employerId: varchar('employer_id', { length: 36 }).references(() => employers.id),
+    status: mysqlEnum('status', placementInvoiceStatusEnum).notNull().default('DRAFT'),
+    currency: varchar('currency', { length: 3 }).notNull(),
+    amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+    amountPaid: decimal('amount_paid', { precision: 12, scale: 2 }).notNull().default('0.00'),
+    description: varchar('description', { length: 300 }).notNull(),
+    billToName: varchar('bill_to_name', { length: 200 }).notNull(),
+    billToEmail: varchar('bill_to_email', { length: 255 }),
+    billToAddress: varchar('bill_to_address', { length: 500 }),
+    billToCountry: varchar('bill_to_country', { length: 2 }),
+    issueDate: date('issue_date', { mode: 'string' }),
+    dueDate: date('due_date', { mode: 'string' }),
+    // Who it is from, frozen on issue (see invoices.seller_snapshot).
+    sellerSnapshot: text('seller_snapshot'),
+    footer: text('footer'),
+    // Printed on the invoice, for the employer.
+    notes: text('notes'),
+    createdByUserId: varchar('created_by_user_id', { length: 36 }),
+    issuedAt: datetime('issued_at'),
+    paidAt: datetime('paid_at'),
+    voidedAt: datetime('voided_at'),
+    voidReason: varchar('void_reason', { length: 500 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    statusIdx: index('placement_invoices_status_idx').on(table.status, table.dueDate),
+    employerIdx: index('placement_invoices_employer_idx').on(table.employerId),
+    placementIdx: index('placement_invoices_placement_idx').on(table.placementId),
+    enquiryIdx: index('placement_invoices_enquiry_idx').on(table.enquiryId),
+  }),
+);
+
+/** Issued placement invoices are numbered without gaps, per calendar year. */
+export const placementInvoiceCounters = mysqlTable('placement_invoice_counters', {
+  year: int('year').primaryKey(),
+  lastNumber: int('last_number').notNull().default(0),
+});
+
+export const placementPaymentMethodEnum = ['BANK_TRANSFER', 'CARD_ONLINE', 'OTHER'] as const;
+export type PlacementPaymentMethod = (typeof placementPaymentMethodEnum)[number];
+
+/**
+ * Money against a placement invoice: a payment (positive) or a refund
+ * (negative). Online card payments carry PayHere's payment id, unique, so a
+ * repeated notification is counted once.
+ */
+export const placementInvoicePayments = mysqlTable(
+  'placement_invoice_payments',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    invoiceId: varchar('invoice_id', { length: 36 })
+      .notNull()
+      .references(() => placementInvoices.id),
+    amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+    method: mysqlEnum('method', placementPaymentMethodEnum).notNull(),
+    paidOn: date('paid_on', { mode: 'string' }).notNull(),
+    reference: varchar('reference', { length: 120 }),
+    note: varchar('note', { length: 500 }),
+    externalId: varchar('external_id', { length: 80 }).unique(),
+    recordedByUserId: varchar('recorded_by_user_id', { length: 36 }),
+    createdAt: datetime('created_at', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => ({
+    invoiceIdx: index('placement_invoice_payments_invoice_idx').on(table.invoiceId),
+  }),
+);
+
+export const placementCheckoutStatusEnum = ['PENDING', 'SUCCESS', 'FAILED', 'CANCELLED', 'CHARGEDBACK'] as const;
+
+/** One attempt to pay a placement invoice online; its id is PayHere's order_id. */
+export const placementCheckouts = mysqlTable(
+  'placement_checkouts',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    invoiceId: varchar('invoice_id', { length: 36 })
+      .notNull()
+      .references(() => placementInvoices.id),
+    amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull(),
+    mode: mysqlEnum('mode', ['SANDBOX', 'LIVE']).notNull(),
+    status: mysqlEnum('status', placementCheckoutStatusEnum).notNull().default('PENDING'),
+    paymentId: varchar('payment_id', { length: 64 }),
+    method: varchar('method', { length: 20 }),
+    statusMessage: varchar('status_message', { length: 255 }),
+    createdByUserId: varchar('created_by_user_id', { length: 36 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    invoiceIdx: index('placement_checkouts_invoice_idx').on(table.invoiceId),
+  }),
+);
+
+// --- document expiry reminders ----------------------------------------------------------
+
+export const expiryReminderStageEnum = ['DAYS_90', 'DAYS_30', 'EXPIRED'] as const;
+export type ExpiryReminderStage = (typeof expiryReminderStageEnum)[number];
+
+/**
+ * Which expiry reminders have gone out, so each is sent once. Keyed on the
+ * expiry date as well: a renewed passport (new date) starts a fresh cycle.
+ * subject is 'PASSPORT' or 'DOC:<caregiver_documents.id>'.
+ */
+export const documentExpiryReminders = mysqlTable(
+  'document_expiry_reminders',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    caregiverId: varchar('caregiver_id', { length: 36 })
+      .notNull()
+      .references(() => caregivers.id),
+    subject: varchar('subject', { length: 60 }).notNull(),
+    expiresOn: date('expires_on', { mode: 'string' }).notNull(),
+    stage: mysqlEnum('stage', expiryReminderStageEnum).notNull(),
+    sentAt: datetime('sent_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    once: uniqueIndex('document_expiry_reminders_unique').on(table.caregiverId, table.subject, table.expiresOn, table.stage),
   }),
 );

@@ -33,6 +33,9 @@ import { TrainingService } from './training.service';
 import { ReadinessService } from './readiness.service';
 import { CandidatesService } from './candidates.service';
 import { EmployersService } from './employers.service';
+import { VacanciesService } from './vacancies.service';
+import { PlacementsService } from './placements.service';
+import { PlacementInvoicesService } from './placement-invoices.service';
 import { MAX_PHOTO_UPLOAD_BYTES } from './profile-photo';
 import {
   CreateEmployerEnquiryDto,
@@ -268,6 +271,9 @@ export class StaffInternationalController {
     private readonly employers: EmployersService,
     private readonly candidates: CandidatesService,
     private readonly readiness: ReadinessService,
+    private readonly vacancies: VacanciesService,
+    private readonly placements: PlacementsService,
+    private readonly placementInvoices: PlacementInvoicesService,
   ) {}
 
   @Get('enquiries')
@@ -277,13 +283,17 @@ export class StaffInternationalController {
 
   @Get('enquiries/summary')
   async summary(): Promise<OverseasStaffSummary> {
-    const [enquiries, pendingProfiles, pendingEmployers, interviewRequests] = await Promise.all([
+    const [enquiries, pendingProfiles, pendingEmployers, interviewRequests, pendingVacancies, newApplications, overdueCheckins, overdueInvoices] = await Promise.all([
       this.enquiries.summary(),
       this.sharedProfiles.pendingCount(),
       this.employers.pendingCount(),
       this.candidates.interviewRequestCount(),
+      this.vacancies.pendingCount(),
+      this.vacancies.newApplicationCount(),
+      this.placements.overdueCheckinCount(),
+      this.placementInvoices.overdueCount(),
     ]);
-    return { ...enquiries, pendingProfiles, pendingEmployers, interviewRequests };
+    return { ...enquiries, pendingProfiles, pendingEmployers, interviewRequests, pendingVacancies, newApplications, overdueCheckins, overdueInvoices };
   }
 
   @Get('enquiries/:id/candidates')
@@ -299,8 +309,8 @@ export class StaffInternationalController {
 
   @Patch('candidates/:id')
   @Audit({ action: 'UPDATE_CANDIDATE', entityType: 'EnquiryCandidate' })
-  updateCandidate(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCandidateDto) {
-    return this.candidates.update(id, dto);
+  updateCandidate(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCandidateDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.candidates.update(id, dto, user.userId);
   }
 
   @Get('interview-requests')

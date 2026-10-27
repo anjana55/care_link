@@ -12,16 +12,22 @@ import { TrainingTab } from '@/components/international/training-tab';
 import { EmployersTab } from '@/components/international/employers-tab';
 import { TalentPoolTab } from '@/components/international/talent-pool-tab';
 import { InterviewRequestsTab } from '@/components/international/interview-requests-tab';
+import { VacanciesTab } from '@/components/international/vacancies-tab';
+import { PlacementsTab } from '@/components/international/placements-tab';
+import { InvoicesTab } from '@/components/international/invoices-tab';
+import { ExpiringTab } from '@/components/international/expiring-tab';
 import { cn } from '@/lib/utils';
 
-const TABS = ['enquiries', 'interviews', 'employers', 'pool', 'profiles', 'training'] as const;
+const TABS = ['enquiries', 'interviews', 'vacancies', 'placements', 'invoices', 'employers', 'pool', 'expiring', 'profiles', 'training'] as const;
 type Tab = (typeof TABS)[number];
 
 /**
  * Overseas: the staff side of the international paths. Employer enquiries
- * (worked like the Requests queue), interview requests from employers,
- * employer accounts to verify, the talent pool of caregivers open to work
- * abroad, shared profiles waiting for review, and training programmes.
+ * (worked like the Requests queue), interview requests from employers, the
+ * vacancy board and its applicants, placements with their welfare check-ins,
+ * placement-fee invoices, employer accounts to verify, the talent pool,
+ * expiring passports and documents, shared profiles waiting for review, and
+ * training programmes.
  * ADMIN and STAFF, like Requests.
  */
 export default function InternationalPage() {
@@ -46,6 +52,9 @@ export default function InternationalPage() {
   const counts: Partial<Record<Tab, number>> = {
     enquiries: summary?.new,
     interviews: summary?.interviewRequests,
+    vacancies: summary ? summary.pendingVacancies + summary.newApplications : undefined,
+    placements: summary?.overdueCheckins,
+    invoices: summary?.overdueInvoices,
     employers: summary?.pendingEmployers,
     profiles: summary?.pendingProfiles,
   };
@@ -79,6 +88,10 @@ export default function InternationalPage() {
 
       {tab === 'enquiries' && <EnquiriesTab />}
       {tab === 'interviews' && <InterviewRequestsTab />}
+      {tab === 'vacancies' && <VacanciesTab />}
+      {tab === 'placements' && <PlacementsTab />}
+      {tab === 'invoices' && <InvoicesTab />}
+      {tab === 'expiring' && <ExpiringTab />}
       {tab === 'employers' && <EmployersTab />}
       {tab === 'pool' && <TalentPoolTab />}
       {tab === 'profiles' && <SharedProfilesTab />}

@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, inArray, isNull, like, or, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, like, or, sql } from 'drizzle-orm';
 import {
   PASSPORT_MIN_VALIDITY_MONTHS,
   PUBLIC_CAREGIVER_STATUSES,
@@ -22,6 +22,7 @@ import {
   trainingProgrammes,
 } from '../database/schema';
 import { SharedProfilesService } from './shared-profiles.service';
+import { addMonths, todayColombo } from './dates';
 import { TalentPoolQueryDto } from './dto/international.dto';
 
 /** Everything readiness is worked out from, for one caregiver. */
@@ -40,16 +41,7 @@ export interface ReadinessFacts {
   sharedProfileLive: boolean;
 }
 
-const todayColombo = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
-
-/** YYYY-MM-DD plus whole months, clamped to the month's last day (31 Aug + 6 months = 28/29 Feb). */
-export function addMonths(isoDate: string, months: number): string {
-  const [y, m, d] = isoDate.split('-').map(Number);
-  const target = new Date(Date.UTC(y, m - 1 + months, 1));
-  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
-  target.setUTCDate(Math.min(d, lastDay));
-  return target.toISOString().slice(0, 10);
-}
+export { addMonths };
 
 /**
  * Ready to work abroad, in general - not for any one country, since training
@@ -156,6 +148,8 @@ export class ReadinessService {
             inArray(caregiverDocuments.caregiverId, ids),
             eq(caregiverDocuments.documentType, 'POLICE_CLEARANCE'),
             eq(caregiverDocuments.verificationStatus, 'VERIFIED'),
+            // An expired clearance no longer counts.
+            or(isNull(caregiverDocuments.expiresOn), gte(caregiverDocuments.expiresOn, todayColombo())),
           ),
         ),
       this.db

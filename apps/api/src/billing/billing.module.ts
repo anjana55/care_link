@@ -14,7 +14,8 @@ import { BankAccountsController, BillingAdjustmentsController, BillingSettingsCo
   imports: [EmailModule, WhatsappModule],
   controllers: [BillingSettingsController, BankAccountsController, InvoicesController, PayoutsController, BillingAdjustmentsController, MyBillingController, PayhereNotifyController],
   providers: [BillingSettingsService, BillingNotifier, InvoicesService, PayoutsService, PayhereService, AdjustmentsService, BankAccountsService],
-  // Booking corrections adjust invoices and pay statements through these.
-  exports: [InvoicesService, PayoutsService, AdjustmentsService],
+  // Booking corrections adjust invoices and pay statements through these;
+  // placement fee invoices (international) take the business details and PayHere merchant from the settings.
+  exports: [InvoicesService, PayoutsService, AdjustmentsService, BillingSettingsService],
 })
 export class BillingModule {}

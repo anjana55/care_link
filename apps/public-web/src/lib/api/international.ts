@@ -1,4 +1,15 @@
 import type {
+  CaregiverExpiringDocument,
+  CaregiverPlacement,
+  CaregiverVacancyApplication,
+  EmployerPlacement,
+  PayhereCheckout,
+  PlacementInvoice,
+  PlacementInvoiceSummary,
+  PublicVacancy,
+  PublicVacancyList,
+  Vacancy,
+  VacancyInput,
   CaregiverEmployerInterest,
   EmployerAccount,
   EmployerAccountEnquiryRequest,
@@ -30,6 +41,8 @@ export const internationalApi = {
     api.get<PublicTalentList>('/public/talent', params),
   talentProfile: (slug: string, locale: Locale) => api.get<PublicTalentProfile>(`/public/talent/${encodeURIComponent(slug)}`, { locale }),
   training: (locale: Locale) => api.get<PublicTrainingProgramme[]>('/public/training', { locale }),
+  vacancies: (params: { page?: number; pageSize?: number; country?: string; careSetting?: string; search?: string }) => api.get<PublicVacancyList>('/public/vacancies', params),
+  vacancy: (reference: string) => api.get<PublicVacancy>(`/public/vacancies/${encodeURIComponent(reference)}`),
 };
 
 /** A caregiver's own Work abroad section. */
@@ -53,6 +66,12 @@ export const workAbroadApi = {
   deletePhoto: (id: string) => api.delete<SharedProfileSettings>(`/caregivers/${id}/shared-profile/photo`),
   checklist: (id: string) => api.get<ReadinessReport>(`/caregivers/${id}/overseas/checklist`),
   interest: (id: string) => api.get<CaregiverEmployerInterest[]>(`/caregivers/${id}/overseas/interest`),
+  applications: (id: string) => api.get<CaregiverVacancyApplication[]>(`/caregivers/${id}/vacancy-applications`),
+  apply: (id: string, reference: string, message?: string) =>
+    api.post<CaregiverVacancyApplication[]>(`/caregivers/${id}/vacancies/${encodeURIComponent(reference)}/apply`, message ? { message } : {}),
+  withdrawApplication: (id: string, applicationId: string) => api.delete<CaregiverVacancyApplication[]>(`/caregivers/${id}/vacancy-applications/${applicationId}`),
+  placements: (id: string) => api.get<CaregiverPlacement[]>(`/caregivers/${id}/overseas/placements`),
+  datedDocuments: (id: string) => api.get<CaregiverExpiringDocument[]>(`/caregivers/${id}/overseas/documents`),
 };
 
 /** An overseas employer's own account. */
@@ -68,4 +87,12 @@ export const employerApi = {
   shortlist: (locale: Locale) => api.get<PublicTalentCard[]>('/employer/shortlist', { locale }),
   addToShortlist: (slug: string, locale: Locale) => api.put<PublicTalentCard[]>(`/employer/shortlist/${encodeURIComponent(slug)}?locale=${locale}`),
   removeFromShortlist: (slug: string, locale: Locale) => api.delete<PublicTalentCard[]>(`/employer/shortlist/${encodeURIComponent(slug)}?locale=${locale}`),
+  vacancies: () => api.get<Vacancy[]>('/employer/vacancies'),
+  createVacancy: (body: VacancyInput) => api.post<Vacancy>('/employer/vacancies', body),
+  updateVacancy: (id: string, body: VacancyInput) => api.put<Vacancy>(`/employer/vacancies/${id}`, body),
+  closeVacancy: (id: string) => api.post<Vacancy>(`/employer/vacancies/${id}/close`),
+  placements: (locale: Locale) => api.get<EmployerPlacement[]>('/employer/placements', { locale }),
+  invoices: () => api.get<PlacementInvoiceSummary[]>('/employer/invoices'),
+  invoice: (id: string) => api.get<PlacementInvoice>(`/employer/invoices/${id}`),
+  payInvoice: (id: string) => api.post<PayhereCheckout>(`/employer/invoices/${id}/payhere`),
 };

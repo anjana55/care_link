@@ -826,7 +826,10 @@
       "idKinds": {
         "NIC": "National ID card (NIC)",
         "PASSPORT": "Passport"
-      }
+      },
+      "expiresOn": "Expiry date (if it has one)",
+      "expiresHint": "We'll remind you before it runs out.",
+      "expires": "Expires {date}"
     },
     "profile": {
       "title": "Your profile",
@@ -1013,6 +1016,37 @@
           "SELECTED": "The employer would like to hire you",
           "PLACED": "Started work",
           "NOT_PROCEEDING": "Not proceeding"
+        }
+      },
+      "applications": {
+        "title": "Your applications",
+        "intro": "Vacancies you applied for, and where each stands.",
+        "browse": "Browse vacancies",
+        "none": "You haven't applied for any vacancies yet.",
+        "closed": "Vacancy closed",
+        "withdraw": "Withdraw"
+      },
+      "dated": {
+        "title": "Passport and documents",
+        "intro": "Most countries need a passport valid for at least six months to issue a work visa.",
+        "valid": "Valid",
+        "expired": "Expired",
+        "daysLeft": "{days} days left",
+        "renew": "Renew it in good time and upload the new one.",
+        "upload": "Upload a document"
+      },
+      "placement": {
+        "title": "Your job abroad",
+        "departure": "Departure",
+        "arrived": "Arrived",
+        "contractStart": "Contract start",
+        "contractEnd": "Contract end",
+        "help": "Our team will call you after you arrive, and again during your contract. If you need help at any time, contact us.",
+        "status": {
+          "PRE_DEPARTURE": "Getting ready to travel",
+          "DEPLOYED": "Working",
+          "COMPLETED": "Contract completed",
+          "ENDED_EARLY": "Ended early"
         }
       }
     }
@@ -1549,6 +1583,11 @@
     "privacy": {
       "title": "What employers see",
       "body": "Only what you choose to share: your first name, a photo, a short introduction, and the skills, languages and training our team has checked. Never your surname, phone number, address, NIC or passport number."
+    },
+    "vacancies": {
+      "title": "Jobs abroad",
+      "body": "Browse caregiving vacancies overseas that our team has checked, and apply from your account.",
+      "cta": "See vacancies"
     }
   },
   "employer": {
@@ -1586,7 +1625,9 @@
       "shortlist": "Shortlist",
       "browse": "Browse caregivers",
       "newEnquiry": "New enquiry",
-      "account": "Account"
+      "account": "Account",
+      "vacancies": "Vacancies",
+      "placements": "Placements & invoices"
     },
     "status": {
       "VERIFIED": "Your organisation is verified",
@@ -1664,6 +1705,180 @@
       "title": "Account",
       "locked": "Your organisation has been verified, so its name, type and country can only be changed by our team.",
       "email": "Signed in as {email}"
+    },
+    "vacancies": {
+      "title": "Your vacancies",
+      "intro": "Post a vacancy and caregivers can apply. Our team checks each vacancy before it goes on the board, and puts forward the applicants who fit - they then appear on your Overview.",
+      "new": "Post a vacancy",
+      "newIntro": "Our team checks every vacancy before it goes on the board - usually within a working day.",
+      "verifyFirst": "Once our team has verified your organisation you can post vacancies.",
+      "empty": "You haven't posted any vacancies yet.",
+      "emptyCta": "Post your first vacancy",
+      "enquiry": "Enquiry {reference}",
+      "applications": "Applications: {count}",
+      "viewOnBoard": "View on the board",
+      "edit": "Edit",
+      "close": "Close",
+      "editTitle": "Change vacancy",
+      "notEditable": "A live vacancy can't be changed. Close it, or ask our team to change it.",
+      "sentTitle": "Vacancy sent for review",
+      "sentBody": "Your vacancy {reference} is with our team. We'll email you when it is on the board.",
+      "status": {
+        "PENDING_REVIEW": "Waiting for review",
+        "PUBLISHED": "On the board",
+        "REJECTED": "Needs changes",
+        "CLOSED": "Closed",
+        "FILLED": "Filled"
+      },
+      "form": {
+        "role": "The role",
+        "title": "Job title",
+        "titlePlaceholder": "e.g. Care assistant, dementia unit",
+        "setting": "Care setting",
+        "roles": "Number of caregivers",
+        "country": "Country of work",
+        "city": "City",
+        "description": "About the job",
+        "descriptionHint": "Duties, shifts, the people they will care for. Please don't include your organisation's name or contact details - introductions go through our team.",
+        "who": "Who you are looking for",
+        "experience": "Minimum years of experience",
+        "english": "English needed",
+        "requirements": "Other requirements",
+        "terms": "Pay and terms",
+        "salaryMin": "Salary from",
+        "salaryMax": "Salary up to",
+        "currency": "Currency",
+        "period": "Paid per",
+        "periods": {
+          "HOUR": "Hour",
+          "MONTH": "Month",
+          "YEAR": "Year"
+        },
+        "contract": "Contract length (months)",
+        "accommodation": "Accommodation",
+        "notSaying": "Not stated",
+        "yes": "Provided",
+        "no": "Not provided",
+        "closes": "Applications close",
+        "start": "When should they start?",
+        "startPlaceholder": "e.g. March 2027",
+        "reviewNote": "Caregivers never pay a fee for a job they find through us. Vacancies that ask caregivers for money are not published.",
+        "choose": "Choose…",
+        "missing": "Please fill in the job title, care setting, country and a description of at least 20 characters.",
+        "badRoles": "Please enter a number from 1 to 200.",
+        "badSalary": "Please check the salary: the highest cannot be below the lowest.",
+        "submit": "Send for review",
+        "resubmit": "Save and send for review"
+      }
+    },
+    "placements": {
+      "title": "Placements and invoices",
+      "intro": "Caregivers you have hired through us, and our placement fee invoices. Our team keeps in touch with each caregiver after they arrive.",
+      "empty": "No placements yet. When a caregiver you select starts work, it appears here.",
+      "otherInvoices": "Other invoices",
+      "guarantee": "Free replacement if the placement ends before {date}",
+      "status": {
+        "PRE_DEPARTURE": "Preparing to travel",
+        "DEPLOYED": "Working",
+        "COMPLETED": "Contract completed",
+        "ENDED_EARLY": "Ended early"
+      }
+    },
+    "invoices": {
+      "label": "Invoice {number}",
+      "overdue": "Overdue",
+      "due": "Due {date}",
+      "enquiry": "Enquiry",
+      "notFound": "We couldn't find that invoice.",
+      "payHint": "Securely by card through PayHere.",
+      "status": {
+        "DRAFT": "Draft",
+        "ISSUED": "Unpaid",
+        "PAID": "Paid",
+        "VOID": "Cancelled"
+      },
+      "method": {
+        "BANK_TRANSFER": "Bank transfer",
+        "CARD_ONLINE": "Card",
+        "OTHER": "Other"
+      },
+      "feeTerms": "Placement fee for a caregiver introduced by us who has started work. Caregivers are never charged a placement fee."
+    }
+  },
+  "vacancies": {
+    "title": "Jobs abroad",
+    "intro": "Caregiving vacancies from employers overseas, checked by our team. Apply from your caregiver account - we put suitable caregivers forward and arrange every interview.",
+    "backToWorkAbroad": "Work abroad",
+    "back": "All vacancies",
+    "noFees": "We never charge caregivers a fee",
+    "noFeesTitle": "No fees for caregivers",
+    "noFeesBody": "We never ask you for money to apply, to be put forward or to be placed. The employer pays our fee. If anyone asks you to pay, tell us.",
+    "howTitle": "How it works",
+    "howBody": "Our team reads every application. If you fit, we share your profile with the employer and call you before any interview. Your phone number and address are never given to the employer.",
+    "filters": {
+      "country": "Country",
+      "anyCountry": "Any country",
+      "setting": "Care setting",
+      "anySetting": "Any setting",
+      "search": "Search",
+      "searchPlaceholder": "Job title or city",
+      "go": "Search"
+    },
+    "count": "Vacancies: {count}",
+    "empty": "No vacancies match right now. New ones are posted often - keep your Work abroad section up to date.",
+    "emptyCta": "Open Work abroad",
+    "pages": "Pages",
+    "prev": "Previous",
+    "next": "Next",
+    "roles": "Roles: {count}",
+    "view": "View and apply",
+    "posted": "Posted {date}",
+    "closes": "Closes {date}",
+    "contract": "{months}-month contract",
+    "accommodation": "Accommodation provided",
+    "start": "Start: {when}",
+    "per": {
+      "HOUR": "{amount} an hour",
+      "MONTH": "{amount} a month",
+      "YEAR": "{amount} a year"
+    },
+    "english": {
+      "BASIC": "Basic English",
+      "CONVERSATIONAL": "Conversational English",
+      "FLUENT": "Fluent English"
+    },
+    "visa": {
+      "YES": "The employer sponsors the visa",
+      "NO": "No visa sponsorship",
+      "UNSURE": "Visa sponsorship to be confirmed"
+    },
+    "about": "About the job",
+    "need": "What you need",
+    "experience": "At least {years} years of caregiving experience",
+    "noExperience": "No minimum experience",
+    "reference": "Reference {reference}",
+    "notFound": "This vacancy is no longer open",
+    "notFoundBody": "It may have been filled or closed. Have a look at the other vacancies.",
+    "apply": {
+      "title": "Apply for this job",
+      "signInFirst": "Sign in to your caregiver account to apply. It's free.",
+      "signIn": "Sign in",
+      "join": "Join as a caregiver",
+      "caregiversOnly": "Only caregivers can apply for vacancies.",
+      "shareFirst": "Our team can only put you forward once your shared profile is live.",
+      "shareLink": "Share your profile",
+      "message": "A note for our team (optional)",
+      "messagePlaceholder": "Your experience with this kind of care, and when you could start.",
+      "messageHint": "Our team reads this. It is not sent to the employer as written.",
+      "button": "Apply",
+      "sentOn": "Applied {date}",
+      "seeAll": "See your applications",
+      "status": {
+        "APPLIED": "Application sent - our team will reply",
+        "PUT_FORWARD": "Put forward to the employer",
+        "NOT_SUCCESSFUL": "Not put forward this time",
+        "WITHDRAWN": "Withdrawn"
+      }
     }
   }
 }

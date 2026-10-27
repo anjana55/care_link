@@ -112,6 +112,8 @@ export interface CaregiverDetail {
     documentType: string;
     originalFilename: string;
     verificationStatus: string;
+    /** YYYY-MM-DD; caregivers are reminded before it. */
+    expiresOn: string | null;
     createdAt: string;
   }[];
 }

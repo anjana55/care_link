@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { TrainingProgrammeCard } from '@/components/international/training-programme-card';
 import { EmployerInterestCard, ReadinessChecklist } from '@/components/international/readiness-checklist';
+import { DatedDocumentsCard, MyApplicationsCard, MyPlacementCard } from '@/components/international/overseas-status';
 import { cn } from '@/lib/utils';
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
@@ -47,8 +48,9 @@ function Card({ id, title, intro, children }: { id: string; title: string; intro
 
 /**
  * The caregiver's Work abroad section: whether (and where) they want to work
- * abroad, the platform's training, and a profile they can choose to share with
- * overseas employers.
+ * abroad, the platform's training, a profile they can choose to share with
+ * overseas employers, their vacancy applications, their placement once hired,
+ * and which of their documents are running out.
  */
 export default function WorkAbroadSectionPage() {
   const { t } = useTranslation();
@@ -58,8 +60,11 @@ export default function WorkAbroadSectionPage() {
         <h1 className="text-xl font-bold text-ink">{t('portal.workAbroad.title')}</h1>
         <p className="mt-1 text-sm text-ink/60">{t('portal.workAbroad.intro')}</p>
       </div>
+      <MyPlacementCard />
       <EmployerInterestCard />
+      <DatedDocumentsCard />
       <ReadinessChecklist />
+      <MyApplicationsCard />
       <ReadinessCard />
       <TrainingCard />
       <SharedProfileCard />

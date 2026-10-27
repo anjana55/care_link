@@ -16,6 +16,17 @@ import type {
   TrainingEnrolmentStatus,
   TrainingProgramme,
   TrainingProgrammeInput,
+  CheckinUpdate,
+  PlacementInvoice,
+  PlacementInvoiceInput,
+  PlacementPaymentInput,
+  PlacementUpdate,
+  StaffExpiringDocument,
+  StaffPlacement,
+  StaffPlacementInvoiceRow,
+  StaffVacancy,
+  StaffVacancyApplication,
+  VacancyInput,
 } from '@care-platform/shared';
 import { API_URL, api, getStoredTokens } from '../api/client';
 
@@ -190,6 +201,8 @@ export function useUpdateCandidate(enquiryId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['international', 'candidates', enquiryId] });
       queryClient.invalidateQueries({ queryKey: ['international', 'interview-requests'] });
+      // Marking someone Placed opens a placement.
+      queryClient.invalidateQueries({ queryKey: ['international', 'placements'] });
       queryClient.invalidateQueries({ queryKey: ['international', 'summary'] });
     },
   });
@@ -199,5 +212,161 @@ export function useInterviewRequests() {
   return useQuery({
     queryKey: ['international', 'interview-requests'],
     queryFn: () => api.get<StaffCandidateWithEnquiry[]>('/international/interview-requests'),
+  });
+}
+
+// --- phase 3: vacancies, placements, placement invoices, expiring documents ----------
+
+const invalidateOverseas = (queryClient: ReturnType<typeof useQueryClient>, ...keys: string[]) => {
+  for (const key of keys) queryClient.invalidateQueries({ queryKey: ['international', key] });
+  queryClient.invalidateQueries({ queryKey: ['international', 'summary'] });
+};
+
+export function useStaffVacancies(filters: { status?: string; enquiryId?: string }, enabled = true) {
+  return useQuery({
+    queryKey: ['international', 'vacancies', filters],
+    queryFn: () => api.get<StaffVacancy[]>('/international/vacancies', { ...(filters.status ? { status: filters.status } : {}), ...(filters.enquiryId ? { enquiryId: filters.enquiryId } : {}) }),
+    enabled,
+  });
+}
+
+export function useSaveStaffVacancy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: string; body: VacancyInput & { enquiryId?: string } }) =>
+      id ? api.put<StaffVacancy>(`/international/vacancies/${id}`, body) : api.post<StaffVacancy>('/international/vacancies', body),
+    onSuccess: () => invalidateOverseas(queryClient, 'vacancies'),
+  });
+}
+
+export function useReviewVacancy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, note }: { id: string; status: 'PUBLISHED' | 'REJECTED' | 'CLOSED' | 'FILLED'; note?: string }) =>
+      api.patch<StaffVacancy>(`/international/vacancies/${id}/review`, { status, ...(note ? { note } : {}) }),
+    onSuccess: () => invalidateOverseas(queryClient, 'vacancies'),
+  });
+}
+
+export function useVacancyApplications(vacancyId: string | null) {
+  return useQuery({
+    queryKey: ['international', 'vacancy-applications', vacancyId],
+    queryFn: () => api.get<StaffVacancyApplication[]>(`/international/vacancies/${vacancyId}/applications`),
+    enabled: Boolean(vacancyId),
+  });
+}
+
+export function useUpdateApplication(vacancyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; status?: 'PUT_FORWARD' | 'NOT_SUCCESSFUL' | 'APPLIED'; messageToEmployer?: string | null; staffNote?: string | null }) =>
+      api.patch<StaffVacancyApplication>(`/international/vacancy-applications/${id}`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['international', 'vacancy-applications', vacancyId] });
+      queryClient.invalidateQueries({ queryKey: ['international', 'candidates'] });
+      invalidateOverseas(queryClient, 'vacancies');
+    },
+  });
+}
+
+export function usePlacements(status: string, enabled = true) {
+  return useQuery({
+    queryKey: ['international', 'placements', status],
+    queryFn: () => api.get<StaffPlacement[]>('/international/placements', status === 'all' ? {} : { status }),
+    enabled,
+  });
+}
+
+export function usePlacement(id: string) {
+  return useQuery({ queryKey: ['international', 'placement', id], queryFn: () => api.get<StaffPlacement>(`/international/placements/${id}`) });
+}
+
+export function useUpdatePlacement(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: PlacementUpdate) => api.patch<StaffPlacement>(`/international/placements/${id}`, body),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['international', 'placement', id], data);
+      invalidateOverseas(queryClient, 'placements');
+    },
+  });
+}
+
+export function useRecordCheckin(placementId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ checkinId, ...body }: CheckinUpdate & { checkinId: string }) => api.patch<StaffPlacement>(`/international/placements/${placementId}/checkins/${checkinId}`, body),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['international', 'placement', placementId], data);
+      invalidateOverseas(queryClient, 'placements');
+    },
+  });
+}
+
+export function usePlacementInvoices(status: string, enabled = true) {
+  return useQuery({
+    queryKey: ['international', 'placement-invoices', status],
+    queryFn: () => api.get<StaffPlacementInvoiceRow[]>('/international/placement-invoices', status === 'all' ? {} : { status }),
+    enabled,
+  });
+}
+
+export function usePlacementInvoice(id: string) {
+  return useQuery({ queryKey: ['international', 'placement-invoice', id], queryFn: () => api.get<PlacementInvoice>(`/international/placement-invoices/${id}`) });
+}
+
+type InvoiceAction =
+  | { kind: 'create'; body: PlacementInvoiceInput }
+  | { kind: 'update'; id: string; body: Omit<PlacementInvoiceInput, 'placementId' | 'enquiryId'> }
+  | { kind: 'issue'; id: string }
+  | { kind: 'void'; id: string; reason: string }
+  | { kind: 'payment'; id: string; body: PlacementPaymentInput };
+
+/** Every change to a placement invoice; its answer replaces the cached invoice. */
+export function usePlacementInvoiceAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (a: InvoiceAction): Promise<PlacementInvoice> => {
+      switch (a.kind) {
+        case 'create':
+          return api.post('/international/placement-invoices', a.body);
+        case 'update':
+          return api.put(`/international/placement-invoices/${a.id}`, a.body);
+        case 'issue':
+          return api.post(`/international/placement-invoices/${a.id}/issue`);
+        case 'void':
+          return api.post(`/international/placement-invoices/${a.id}/void`, { reason: a.reason });
+        case 'payment':
+          return api.post(`/international/placement-invoices/${a.id}/payments`, a.body);
+      }
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['international', 'placement-invoice', data.id], data);
+      invalidateOverseas(queryClient, 'placement-invoices', 'placement', 'placements');
+    },
+  });
+}
+
+export function useDeleteDraftInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/international/placement-invoices/${id}`),
+    onSuccess: () => invalidateOverseas(queryClient, 'placement-invoices', 'placement', 'placements'),
+  });
+}
+
+export function useExpiringDocuments(withinDays: number, enabled = true) {
+  return useQuery({
+    queryKey: ['international', 'expiring-documents', withinDays],
+    queryFn: () => api.get<StaffExpiringDocument[]>('/international/expiring-documents', { withinDays }),
+    enabled,
+  });
+}
+
+export function useRunReminders() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<{ reminders: number; overdueCheckins: number; overdueInvoices: number }>('/international/reminders/run'),
+    onSuccess: () => invalidateOverseas(queryClient, 'expiring-documents'),
   });
 }

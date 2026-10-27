@@ -12,6 +12,7 @@ import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
 import { Button } from '@/components/ui/button';
 import { Input, Label, RequiredLegend } from '@/components/ui/input';
 import { SocialLoginButtons } from '@/components/caregivers/social-login-buttons';
+import { takeReturnTo } from '@/lib/return-to';
 
 /**
  * Caregiver sign-in, the counterpart to /caregiver/signup.
@@ -43,7 +44,10 @@ export default function CaregiverLoginPage() {
       // The caregiver's own area is in this app (the old /staff/me wizard reads
       // its tokens from a different localStorage key, so it would have opened
       // signed out).
-      window.location.assign('/caregiver/dashboard');
+      // Back to where they set out from - a vacancy they wanted to apply for -
+      // but never to a client's "contact this caregiver" flow.
+      const next = takeReturnTo('/caregiver/dashboard');
+      window.location.assign(next.startsWith('/caregivers/') ? '/caregiver/dashboard' : next);
     } catch (err) {
       // Surface the server's actual message. The API returns one message for
       // both "no such user" and "wrong password", so this leaks nothing about
