@@ -16,18 +16,23 @@ import { VacanciesTab } from '@/components/international/vacancies-tab';
 import { PlacementsTab } from '@/components/international/placements-tab';
 import { InvoicesTab } from '@/components/international/invoices-tab';
 import { ExpiringTab } from '@/components/international/expiring-tab';
+import { OffersTab } from '@/components/international/offers-tab';
+import { WelfareTab } from '@/components/international/welfare-tab';
+import { ResultsTab } from '@/components/international/results-tab';
+import { ReportsTab } from '@/components/international/reports-tab';
 import { cn } from '@/lib/utils';
 
-const TABS = ['enquiries', 'interviews', 'vacancies', 'placements', 'invoices', 'employers', 'pool', 'expiring', 'profiles', 'training'] as const;
+const TABS = ['enquiries', 'interviews', 'offers', 'vacancies', 'placements', 'welfare', 'invoices', 'employers', 'pool', 'results', 'expiring', 'profiles', 'training', 'reports'] as const;
 type Tab = (typeof TABS)[number];
 
 /**
  * Overseas: the staff side of the international paths. Employer enquiries
- * (worked like the Requests queue), interview requests from employers, the
+ * (worked like the Requests queue), interviews, job offers to review, the
  * vacancy board and its applicants, placements with their welfare check-ins,
- * placement-fee invoices, employer accounts to verify, the talent pool,
- * expiring passports and documents, shared profiles waiting for review, and
- * training programmes.
+ * welfare reports and SOS from caregivers abroad, placement-fee invoices,
+ * employer accounts to verify, the talent pool, test results to verify,
+ * expiring passports and documents, shared profiles waiting for review,
+ * training programmes, and reports.
  * ADMIN and STAFF, like Requests.
  */
 export default function InternationalPage() {
@@ -57,6 +62,9 @@ export default function InternationalPage() {
     invoices: summary?.overdueInvoices,
     employers: summary?.pendingEmployers,
     profiles: summary?.pendingProfiles,
+    offers: summary?.pendingOffers,
+    welfare: summary?.openWelfare,
+    results: summary?.pendingAssessments,
   };
   const badge = (key: Tab) => counts[key];
 
@@ -80,7 +88,11 @@ export default function InternationalPage() {
               )}
             >
               {t(`international.tabs.${key}`)}
-              {!!n && <span className="rounded-full bg-accent px-1.5 text-xs font-semibold tabular-nums text-white">{n}</span>}
+              {!!n && (
+                <span className={cn('rounded-full px-1.5 text-xs font-semibold tabular-nums text-white', key === 'welfare' && summary?.urgentWelfare ? 'bg-danger' : 'bg-accent')}>
+                  {n}
+                </span>
+              )}
             </button>
           );
         })}
@@ -96,6 +108,10 @@ export default function InternationalPage() {
       {tab === 'pool' && <TalentPoolTab />}
       {tab === 'profiles' && <SharedProfilesTab />}
       {tab === 'training' && <TrainingTab />}
+      {tab === 'offers' && <OffersTab />}
+      {tab === 'welfare' && <WelfareTab />}
+      {tab === 'results' && <ResultsTab />}
+      {tab === 'reports' && <ReportsTab />}
     </div>
   );
 }

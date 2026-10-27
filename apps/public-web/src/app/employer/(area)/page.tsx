@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { CalendarClock, Megaphone, MessageSquare, Plus, UserX } from 'lucide-react';
-import type { EmployerCandidate, EmployerOwnEnquiry } from '@care-platform/shared';
+import { CalendarClock, CalendarPlus, FileSignature, Megaphone, MessageSquare, Plus, UserX, Video } from 'lucide-react';
+import type { EmployerCandidate, EmployerInterview, EmployerOwnEnquiry } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { useCountryNames } from '@/lib/countries';
 import { ApiError } from '@/lib/api/client';
-import { useCandidateActions, useEmployerAccount, useEmployerEnquiries } from '@/lib/hooks/use-international';
+import { useCandidateActions, useEmployerAccount, useEmployerEnquiries, useInterviewFeedback } from '@/lib/hooks/use-international';
+import { downloadIcs, fmtInterview, isUpcoming } from '@/lib/interview-time';
+import { OfferStatusBadge } from '@/components/international/offer-terms';
 import { EmployerStatusBanner, CandidateStatusBadge } from '@/components/international/employer-status';
 import { TalentPhoto } from '@/components/international/talent-card';
 import { Button } from '@/components/ui/button';
@@ -101,7 +103,10 @@ function CandidateRow({ candidate, verified }: { candidate: EmployerCandidate; v
   const [message, setMessage] = useState('');
   const [confirming, setConfirming] = useState<'DECLINE' | null>(null);
   const talent = candidate.talent;
-  const interview = candidate.interviewAt ? new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeStyle: 'short' }).format(new Date(candidate.interviewAt)) : null;
+  // Before phase 4, an interview was just a time on the candidate; show it only when there is no interview record.
+  const interview = candidate.interviewAt && candidate.interviews.length === 0 ? new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeStyle: 'short' }).format(new Date(candidate.interviewAt)) : null;
+  const offer = candidate.offer;
+  const canOffer = verified && !['PLACED', 'NOT_PROCEEDING'].includes(candidate.status) && (!offer || ['DECLINED', 'WITHDRAWN'].includes(offer.status) || offer.expired);
 
   if (!talent) {
     return (
@@ -140,6 +145,22 @@ function CandidateRow({ candidate, verified }: { candidate: EmployerCandidate; v
               {t('employer.overview.interviewAt', { when: interview })}
             </p>
           )}
+          {candidate.interviews.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {candidate.interviews.map((i) => (
+                <InterviewLine key={i.id} interview={i} firstName={talent.firstName} />
+              ))}
+            </ul>
+          )}
+          {offer && (
+            <p className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <FileSignature className="h-4 w-4 text-ink/50" aria-hidden />
+              <Link href={`/employer/offers/${offer.id}`} className="font-medium text-brand hover:text-brand-dark hover:underline">
+                {t('employer.offers.offerRef', { reference: offer.reference })}
+              </Link>
+              <OfferStatusBadge status={offer.status} expired={offer.expired} />
+            </p>
+          )}
           {candidate.messageToEmployer && (
             <p className="mt-2 flex gap-1.5 rounded bg-paper px-3 py-2 text-sm text-ink/80">
               <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-ink/40" aria-hidden />
@@ -174,6 +195,12 @@ function CandidateRow({ candidate, verified }: { candidate: EmployerCandidate; v
                 {t('employer.overview.select')}
               </Button>
             )}
+            {canOffer && (
+              <Link href={`/employer/offers/new?candidate=${candidate.id}`} className="inline-flex items-center gap-1.5 rounded-DEFAULT border border-brand px-3 py-1.5 text-sm font-semibold text-brand hover:bg-brand-light">
+                <FileSignature className="h-4 w-4" aria-hidden />
+                {t('employer.offers.make')}
+              </Link>
+            )}
             {canDecline &&
               (confirming === 'DECLINE' ? (
                 <span className="flex items-center gap-2 text-sm">
@@ -198,6 +225,95 @@ function CandidateRow({ candidate, verified }: { candidate: EmployerCandidate; v
             </p>
           )}
         </div>
+      )}
+    </li>
+  );
+}
+
+/**
+ * One interview round: the time in the employer's own zone, how to join, a
+ * calendar download, and - once it has happened - their feedback for our team.
+ */
+function InterviewLine({ interview: i, firstName }: { interview: EmployerInterview; firstName: string }) {
+  const { t, locale } = useTranslation();
+  const feedback = useInterviewFeedback(locale);
+  const [text, setText] = useState('');
+  const [writing, setWriting] = useState(false);
+  const upcoming = isUpcoming(i);
+  const happened = i.status !== 'CANCELLED' && new Date(i.scheduledAt).getTime() < Date.now();
+
+  return (
+    <li className="rounded bg-paper px-3 py-2 text-sm">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <CalendarClock className="h-4 w-4 text-brand" aria-hidden />
+        <span className={i.status === 'CANCELLED' ? 'text-ink/50 line-through' : 'font-medium text-ink'}>{fmtInterview(i.scheduledAt, locale)}</span>
+        <span className="text-xs text-ink/60">
+          {t('overseas.round', { n: i.round })} · {t(`overseas.interviewMode.${i.mode}`)} · {t('overseas.minutes', { n: i.durationMinutes })}
+        </span>
+        {i.status !== 'SCHEDULED' && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-ink/70">{t(`overseas.interviewStatus.${i.status}`)}</span>}
+      </p>
+      {i.status === 'CANCELLED' && i.cancelReason && <p className="mt-1 text-xs text-ink/60">{i.cancelReason}</p>}
+      {upcoming && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+          {i.meetingLink && (
+            <a href={i.meetingLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-brand hover:text-brand-dark">
+              <Video className="h-4 w-4" aria-hidden />
+              {t('overseas.joinCall')}
+            </a>
+          )}
+          {i.location && <span className="text-ink/70">{i.location}</span>}
+          <button type="button" onClick={() => downloadIcs(i, t('overseas.icsSummaryEmployer', { name: firstName }))} className="inline-flex items-center gap-1 text-ink/70 hover:text-brand-dark">
+            <CalendarPlus className="h-4 w-4" aria-hidden />
+            {t('overseas.addToCalendar')}
+          </button>
+        </div>
+      )}
+      {upcoming && i.instructions && <p className="mt-1 whitespace-pre-line text-xs text-ink/70">{i.instructions}</p>}
+      {i.feedback && (
+        <p className="mt-1 text-xs text-ink/70">
+          <span className="font-semibold">{t('employer.interviews.yourFeedback')}</span> {i.feedback}
+        </p>
+      )}
+      {happened && !i.feedback && !writing && (
+        <button type="button" onClick={() => setWriting(true)} className="mt-1 text-xs font-semibold text-brand hover:text-brand-dark">
+          {t('employer.interviews.addFeedback')}
+        </button>
+      )}
+      {writing && (
+        <form
+          className="mt-2 space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            feedback.mutate({ id: i.id, feedback: text.trim() }, { onSuccess: () => setWriting(false) });
+          }}
+        >
+          <label htmlFor={`fb-${i.id}`} className="sr-only">
+            {t('employer.interviews.feedbackLabel')}
+          </label>
+          <textarea
+            id={`fb-${i.id}`}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={2000}
+            rows={3}
+            placeholder={t('employer.interviews.feedbackPlaceholder')}
+            className="w-full rounded-DEFAULT border border-border bg-white px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+          />
+          <p className="text-xs text-ink/50">{t('employer.interviews.feedbackPrivate')}</p>
+          <div className="flex gap-2">
+            <Button size="sm" type="submit" disabled={text.trim().length < 2 || feedback.isPending}>
+              {t('employer.interviews.sendFeedback')}
+            </Button>
+            <Button size="sm" type="button" variant="ghost" onClick={() => setWriting(false)}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+          {feedback.isError && (
+            <p role="alert" className="text-xs text-danger">
+              {feedback.error instanceof ApiError ? feedback.error.message : t('portal.saveError')}
+            </p>
+          )}
+        </form>
       )}
     </li>
   );

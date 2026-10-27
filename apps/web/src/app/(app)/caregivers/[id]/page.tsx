@@ -45,6 +45,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { StatusMoveSelect, type StatusMoveConfirmation } from '@/components/ui/status-move-select';
 import { allowedNextStatuses } from '@/lib/caregiver-status';
 import { AutoNotifyToggle } from '@/components/caregivers/auto-notify-toggle';
+import { CaregiverResultsCard } from '@/components/international/caregiver-results-card';
 import type { CaregiverStatus } from '@/lib/api/types';
 import { Input, Select, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
@@ -798,6 +799,11 @@ export default function CaregiverProfilePage() {
               {caregiver.documents.length === 0 && <p className="py-5 text-sm text-ink/40">No documents uploaded.</p>}
             </CardContent>
           </Card>
+          {isAdminOrStaff && (
+            <div className="mt-6">
+              <CaregiverResultsCard caregiverId={id} />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="references">

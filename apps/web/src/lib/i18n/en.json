@@ -2318,7 +2318,11 @@
       "vacancies": "Vacancies",
       "placements": "Placements",
       "invoices": "Invoices",
-      "expiring": "Expiring documents"
+      "expiring": "Expiring documents",
+      "offers": "Offers",
+      "welfare": "Welfare",
+      "results": "Test results",
+      "reports": "Reports"
     },
     "status": {
       "NEW": "New",
@@ -2465,7 +2469,18 @@
         "ENROLLED": "Enrolled",
         "COMPLETED": "Completed",
         "WITHDRAWN": "Withdrawn"
-      }
+      },
+      "passMark": "Pass mark (0-100)",
+      "passMarkHint": "Leave empty if there is no final assessment.",
+      "passMarkIs": "Pass mark: {n}. A certificate needs a score at or above it.",
+      "progress": "Progress %",
+      "score": "Score",
+      "signedUpOn": "signed up {date}",
+      "certificate": "Certificate {number}",
+      "revoke": "Withdraw certificate",
+      "revokeReason": "Why? (shown to anyone who checks it)",
+      "confirmRevoke": "Withdraw",
+      "revokedBecause": "Withdrawn: {reason}"
     },
     "employers": {
       "hint": "Verify that an organisation is real and recruiting lawfully before it can ask for interviews. Rejecting or suspending tells the employer why - say what.",
@@ -2527,7 +2542,45 @@
       "hint": "Employers who asked to interview a caregiver. Contact the caregiver, arrange the interview, then set the date on the enquiry.",
       "note": "Employer's note",
       "asked": "Asked",
-      "empty": "No interview requests waiting."
+      "empty": "No interview requests waiting.",
+      "title": "Interviews",
+      "book": "Book an interview",
+      "bookButton": "Book and email both sides",
+      "none": "No interviews yet.",
+      "upcoming": "Booked interviews",
+      "noneUpcoming": "No interviews booked.",
+      "round": "Round {n}",
+      "minutes": "{n} min",
+      "when": "Date and time",
+      "zone": "In time zone",
+      "duration": "Length",
+      "inColombo": "That is {when} in Colombo.",
+      "how": "How",
+      "link": "Video call link",
+      "location": "Where",
+      "instructions": "Instructions for both sides",
+      "instructionsPlaceholder": "Who joins, what to have ready...",
+      "emailed": "The employer and the caregiver are both emailed the time, in Sri Lanka time and UTC. Their own screens show it in their time zone.",
+      "move": "Move",
+      "saveMove": "Save and email both sides",
+      "cancel": "Cancel interview",
+      "cancelReason": "Why is it cancelled?",
+      "confirmCancel": "Cancel and email both sides",
+      "cancelledBecause": "Cancelled: {reason}",
+      "markHeld": "It took place",
+      "markNoShow": "Did not take place",
+      "feedback": "Employer's feedback:",
+      "mode": {
+        "VIDEO": "Video call",
+        "PHONE": "Phone call",
+        "IN_PERSON": "In person"
+      },
+      "status": {
+        "SCHEDULED": "Booked",
+        "COMPLETED": "Held",
+        "CANCELLED": "Cancelled",
+        "NO_SHOW": "Did not take place"
+      }
     },
     "candidates": {
       "title": "Caregivers on this enquiry",
@@ -2770,6 +2823,249 @@
         "CV": "CV",
         "OTHER": "Other document"
       }
+    },
+    "offers": {
+      "hint": "Job offers employers signed. Read each one before the caregiver sees it: send it on, or return it to the employer with a note.",
+      "filter": "Show offers",
+      "empty": "No offers here.",
+      "ref": "Offer {reference}",
+      "expired": "Answer date passed",
+      "employerSigned": "Signed by the employer",
+      "caregiverSigned": "Signed by the caregiver",
+      "notSigned": "Not signed",
+      "openEnquiry": "Enquiry {reference}",
+      "answerBy": "Answer by {date}",
+      "noteSent": "Note to the employer: {note}",
+      "declinedBecause": "The caregiver's reason: {reason}",
+      "acceptedHint": "Accepted. Mark the candidate Placed on the enquiry to start the placement and its departure checklist.",
+      "reviewHint": "Check the pay against the vacancy and the law where the job is, and that nothing is missing. Then send it, or return it with a note.",
+      "note": "Note",
+      "notePlaceholder": "Optional when sending; needed when returning - what should the employer change?",
+      "send": "Send to the caregiver",
+      "return": "Return to the employer",
+      "filters": {
+        "PENDING_REVIEW": "Waiting for review",
+        "open": "All open",
+        "SENT": "With the caregiver",
+        "ACCEPTED": "Accepted",
+        "DECLINED": "Declined",
+        "RETURNED": "Returned",
+        "WITHDRAWN": "Withdrawn",
+        "all": "All"
+      },
+      "status": {
+        "PENDING_REVIEW": "Waiting for review",
+        "RETURNED": "Returned",
+        "SENT": "With the caregiver",
+        "ACCEPTED": "Accepted",
+        "DECLINED": "Declined",
+        "WITHDRAWN": "Withdrawn"
+      },
+      "accommodation": {
+        "PROVIDED_FREE": "Provided, free",
+        "PROVIDED_PAID": "Provided, paid from salary",
+        "NOT_PROVIDED": "Not provided"
+      },
+      "flights": {
+        "EMPLOYER": "Employer pays",
+        "CAREGIVER": "Caregiver pays",
+        "SHARED": "Shared"
+      },
+      "terms": {
+        "jobTitle": "Job",
+        "where": "Where",
+        "start": "Start",
+        "tbc": "To be agreed",
+        "contract": "Contract",
+        "months": "{n} months",
+        "hours": "Hours",
+        "hoursValue": "{n} a week",
+        "salary": "Salary",
+        "accommodation": "Accommodation",
+        "meals": "Meals",
+        "flights": "Flights",
+        "leave": "Paid leave",
+        "days": "{n} days a year",
+        "probation": "Probation"
+      }
+    },
+    "welfare": {
+      "hint": "Caregivers abroad telling us something is wrong. SOS and urgent reports are emailed to every staff member - call the caregiver first, then reply here.",
+      "filter": "Show reports",
+      "empty": "No reports here.",
+      "us": "Our team",
+      "reply": "Reply",
+      "replyPlaceholder": "Write to the caregiver...",
+      "replyHint": "The caregiver is emailed that we replied. The first reply marks the report as acknowledged.",
+      "send": "Send reply",
+      "acknowledge": "Acknowledge",
+      "resolve": "Close",
+      "reopen": "Reopen",
+      "reach": "How to reach them",
+      "phoneAbroad": "Phone abroad",
+      "addressAbroad": "Address abroad",
+      "homeContact": "Emergency contact at home",
+      "employer": "Employer",
+      "localEmergency": "Local emergency numbers",
+      "localNumbers": "Police {police} · Ambulance {ambulance}",
+      "openPlacement": "Open the placement",
+      "openCaregiver": "Open the caregiver",
+      "filters": {
+        "open": "Not closed",
+        "OPEN": "Not replied to",
+        "ACKNOWLEDGED": "Acknowledged",
+        "RESOLVED": "Closed",
+        "all": "All"
+      },
+      "severity": {
+        "SOS": "SOS",
+        "URGENT": "Urgent",
+        "CONCERN": "Concern",
+        "QUESTION": "Question"
+      },
+      "status": {
+        "OPEN": "Not replied to",
+        "ACKNOWLEDGED": "Acknowledged",
+        "RESOLVED": "Closed"
+      },
+      "category": {
+        "PAY": "Pay",
+        "HOURS": "Working hours",
+        "ACCOMMODATION": "Accommodation",
+        "TREATMENT": "Treatment",
+        "HEALTH": "Health",
+        "CONTRACT": "Contract",
+        "DOCUMENTS": "Passport or documents",
+        "SAFETY": "Safety",
+        "OTHER": "Other"
+      }
+    },
+    "results": {
+      "hint": "Test results caregivers added. Check each against the original before verifying: only verified results count towards readiness and show on talent profiles.",
+      "filter": "Show results",
+      "empty": "No results here.",
+      "cardTitle": "Test results (overseas)",
+      "noneForCaregiver": "No test results recorded.",
+      "record": "Record a result",
+      "kindLabel": "What was tested",
+      "providerLabel": "Test",
+      "title": "Name of the test",
+      "score": "Score or grade",
+      "cefr": "CEFR level",
+      "takenOn": "Taken on",
+      "validUntil": "Valid until",
+      "note": "Internal note",
+      "taken": "taken {date}",
+      "until": "valid until {date}",
+      "verified": "Verified",
+      "unverified": "Not verified",
+      "verify": "Verify",
+      "unverify": "Unverify",
+      "confirmDelete": "Delete for good",
+      "filters": {
+        "pending": "Waiting to be verified",
+        "verified": "Verified",
+        "all": "All"
+      },
+      "addedBy": {
+        "CAREGIVER": "added by the caregiver",
+        "STAFF": "recorded by staff"
+      },
+      "kind": {
+        "ENGLISH": "English",
+        "CAREGIVING_SKILLS": "Caregiving skills",
+        "OTHER": "Other"
+      },
+      "provider": {
+        "PLATFORM": "Our assessment",
+        "IELTS": "IELTS",
+        "OET": "OET",
+        "PTE": "PTE",
+        "TOEFL": "TOEFL",
+        "LANGUAGECERT": "LanguageCert",
+        "OTHER": "Other"
+      }
+    },
+    "journey": {
+      "title": "Departure",
+      "progress": "{done} of {total} done",
+      "edit": "Note or date",
+      "note": "Note for the caregiver",
+      "notePlaceholder": "Where to go, what to bring",
+      "dueLabel": "Due by",
+      "due": "due {date}",
+      "flight": "Flight and meeting point",
+      "flightPlaceholder": "UL 454, 21 Nov 08:40 - BIA departures, gate 3",
+      "phone": "Phone abroad",
+      "address": "Address abroad",
+      "contactHint": "The caregiver sees all of this and keeps their contact abroad up to date. The employer sees none of it.",
+      "openReports": "{n} welfare report(s) not closed - open Welfare",
+      "items": {
+        "OFFER_ACCEPTED": "Job offer accepted",
+        "MEDICAL": "Medical check",
+        "POLICE_CLEARANCE": "Police clearance",
+        "CONTRACT_SIGNED": "Employment contract signed",
+        "VISA_APPLIED": "Visa applied for",
+        "VISA_GRANTED": "Visa granted",
+        "INSURANCE": "Insurance arranged",
+        "ORIENTATION": "Pre-departure orientation",
+        "FLIGHT_BOOKED": "Flight booked"
+      }
+    },
+    "reports": {
+      "hint": "Choose a range.",
+      "range": "{from} to {to}, by the Colombo calendar.",
+      "rangeLabel": "Range",
+      "ranges": {
+        "3m": "Last 3 months",
+        "12m": "Last 12 months",
+        "ytd": "This year",
+        "all": "Last 5 years"
+      },
+      "tiles": {
+        "placements": "Placements",
+        "timeToPlace": "Median time to place",
+        "collected": "Fees collected",
+        "outstanding": "Owed now"
+      },
+      "days": "{n} days",
+      "fromProposed": "{n} days from being put forward",
+      "overdue": "{n} overdue",
+      "funnel": "From enquiry to placement",
+      "funnelNote": "Counted when each step happened in the range. The percentage is against the step before.",
+      "steps": {
+        "enquiries": "Enquiries",
+        "candidatesProposed": "Put forward",
+        "interviewsHeld": "Interviews held",
+        "offersSent": "Offers sent",
+        "offersAccepted": "Offers accepted",
+        "placements": "Placements"
+      },
+      "enquiriesByMonth": "Enquiries by month",
+      "placementsByMonth": "Placements by month",
+      "revenue": "Placement fees",
+      "invoiced": "Invoiced in the range",
+      "collected": "Collected in the range",
+      "outstandingNow": "Owed now",
+      "byCountry": "Collected, by employer country",
+      "outcomes": "Placements now",
+      "inGuarantee": "Ended early inside the guarantee",
+      "checkins": "Welfare check-ins done on time",
+      "checkinsValue": "{done} of {due} ({pct}%)",
+      "welfare": "Welfare reports in the range",
+      "demand": "Demand and supply by country",
+      "demandNote": "Enquiries, vacancies and roles in the range, against caregivers open to work there now. Red: more roles than caregivers.",
+      "country": "Country",
+      "vacancies": "Vacancies",
+      "roles": "Roles",
+      "pool": "Talent pool",
+      "settings": "Care settings asked for:",
+      "noData": "Nothing in this range yet.",
+      "training": "Training",
+      "interested": "Sign-ups",
+      "completions": "Completed",
+      "certificates": "Certificates issued",
+      "results": "Results verified"
     }
   }
 }

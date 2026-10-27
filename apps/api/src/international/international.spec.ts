@@ -75,7 +75,8 @@ function profiles(results: unknown[], publicSearch?: Partial<PublicSearchService
     fake.db,
     files,
     (publicSearch ?? {}) as PublicSearchService,
-    (training ?? { completedTitles: jest.fn().mockResolvedValue(new Map()) }) as unknown as TrainingService,
+    (training ?? { completedTitles: jest.fn().mockResolvedValue(new Map()), publicCertificates: jest.fn().mockResolvedValue(new Map()) }) as unknown as TrainingService,
+    { publicFor: jest.fn().mockResolvedValue(new Map()) } as never,
   );
   return { service, ...fake, files };
 }
@@ -180,15 +181,20 @@ describe('SharedProfilesService', () => {
     const { service } = profiles(
       [[{ p: live, overseas: { caregiverId: 'cg-1', openToOverseas: true, targetCountries: ['JP', 'XX'], passportHeld: true, passportExpiry: '2030-01-01', availableFrom: '2027-01-01' } }]],
       { profilesFor: jest.fn().mockResolvedValue(new Map([['cg-1', base]])) },
-      { completedTitles: jest.fn().mockResolvedValue(new Map([['cg-1', ['English for caregivers']]])) },
+      {
+        completedTitles: jest.fn().mockResolvedValue(new Map([['cg-1', ['English for caregivers']]])),
+        publicCertificates: jest.fn().mockResolvedValue(new Map([['cg-1', [{ number: 'TC-2026-ABC234', verifyCode: 'ABCDEFGHJK23', programmeTitle: 'English for caregivers', issuedOn: '2026-09-01' }]]])),
+      },
     );
     const profile = await service.publicProfile('abcdefgh2345', 'en');
     expect(Object.keys(profile).sort()).toEqual(
       [
         'approxAge',
+        'assessments',
         'availableFrom',
         'bio',
         'careTypes',
+        'certificates',
         'completedTraining',
         'firstName',
         'hasVerifiedQualification',
@@ -206,6 +212,8 @@ describe('SharedProfilesService', () => {
     expect(profile.targetCountries).toEqual(['JP']);
     expect(profile.photoUrl).toBe('/public/talent/abcdefgh2345/photo?v=1234abcd');
     expect(JSON.stringify(profile)).not.toMatch(/Negombo|passport|2030-01-01|pub"/);
+    // A certificate on the profile: its number and check code, never the holder's full name.
+    expect(Object.keys(profile.certificates[0]).sort()).toEqual(['issuedOn', 'number', 'programmeTitle', 'verifyCode']);
   });
 });
 
@@ -273,6 +281,7 @@ describe('training', () => {
     nextStartDate: null,
     isActive: true,
     sortOrder: 0,
+    passMark: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -283,7 +292,9 @@ describe('training', () => {
   });
 
   it('records completion with today as the date when staff do not give one', async () => {
-    const fake = fakeDb([[{ programmeId: 'p1' }], [row], [{ n: 1 }], [{ id: 'e1', createdAt: new Date() }]]);
+    const enrolment = { id: 'e1', programmeId: 'p1', caregiverId: 'cg-1', status: 'ENROLLED', completedAt: null, score: null, progressPercent: 40, staffNote: null };
+    // the enrolment; (update); certificate: no caregiver row found; then the programme list.
+    const fake = fakeDb([[{ e: enrolment, passMark: null }], [], [row], [{ n: 1 }], [{ id: 'e1', createdAt: new Date(), cert: null }]]);
     const service = new TrainingService(fake.db);
     await service.updateEnrolment('e1', { status: 'COMPLETED' });
     expect(fake.writes[0].values).toMatchObject({ status: 'COMPLETED', completedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });

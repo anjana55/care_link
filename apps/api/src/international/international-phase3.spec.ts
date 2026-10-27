@@ -229,7 +229,7 @@ describe('CandidatesService and placements', () => {
     const fake = fakeDb([[candidate], [{ c: { ...candidate, status: 'PLACED' }, registrationNumber: 'CG-1', fullName: 'N P' }]]);
     const placements = { openForCandidate: jest.fn().mockResolvedValue('pl-1') };
     const shared = { liveSlugs: jest.fn().mockResolvedValue(new Map()) };
-    const service = new CandidatesService(fake.db, shared as never, {} as never, notifier() as never, placements as never);
+    const service = new CandidatesService(fake.db, shared as never, {} as never, notifier() as never, placements as never, { forCandidates: jest.fn().mockResolvedValue(new Map()) } as never, { briefForCandidates: jest.fn().mockResolvedValue(new Map()), latestForCandidates: jest.fn().mockResolvedValue(new Map()) } as never);
     await service.update('cand-1', { status: 'PLACED' }, 'staff-1');
     expect(placements.openForCandidate).toHaveBeenCalledWith('cand-1', 'staff-1');
   });

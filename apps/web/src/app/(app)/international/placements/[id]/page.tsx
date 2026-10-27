@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { countryName, day, money } from '@/components/international/shared';
 import { PLACEMENT_STYLES } from '@/components/international/placements-tab';
 import { INVOICE_STYLES } from '@/components/international/invoices-tab';
+import { JourneyCard } from '@/components/international/journey-card';
 
 const todayColombo = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
 
@@ -75,6 +76,18 @@ export default function PlacementPage() {
           </p>
         )}
       </div>
+
+      {p.openWelfareReports > 0 && (
+        <Link
+          href="/international?tab=welfare"
+          className="flex items-center gap-2 rounded-lg border border-danger/40 bg-danger/5 px-4 py-3 text-sm font-medium text-danger hover:bg-danger/10"
+        >
+          <AlertCircle size={16} aria-hidden />
+          {t('international.journey.openReports', { n: p.openWelfareReports })}
+        </Link>
+      )}
+
+      {(p.status === 'PRE_DEPARTURE' || p.status === 'DEPLOYED') && <JourneyCard placement={p} />}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <CheckinsCard placement={p} />

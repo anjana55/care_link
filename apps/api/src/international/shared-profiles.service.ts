@@ -19,6 +19,7 @@ import { caregiverLanguages, caregiverOverseasProfiles, caregivers, sharedProfil
 import { STORAGE_SERVICE, type StorageService } from '../storage/storage.interface';
 import { PublicSearchService } from '../public-search/public-search.service';
 import { TrainingService } from './training.service';
+import { AssessmentsService } from './assessments.service';
 import { preparePublicPhoto } from './profile-photo';
 import { ReviewSharedProfileDto, ShareProfileDto, SharedProfileQueryDto, TalentQueryDto, UpdateSharedProfileDto } from './dto/international.dto';
 
@@ -73,6 +74,7 @@ export class SharedProfilesService {
     @Inject(STORAGE_SERVICE) private readonly storage: StorageService,
     private readonly publicSearch: PublicSearchService,
     private readonly training: TrainingService,
+    private readonly assessments: AssessmentsService,
   ) {}
 
   // --- the caregiver's own settings -----------------------------------------
@@ -281,9 +283,11 @@ export class SharedProfilesService {
       .where(and(eq(sharedProfiles.slug, slug), isLiveProfile()))
       .limit(1);
     if (!row) throw new NotFoundException('Profile not found');
-    const [profiles, completed] = await Promise.all([
+    const [profiles, completed, certificates, assessments] = await Promise.all([
       this.publicSearch.profilesFor([row.p.caregiverId], locale),
       this.training.completedTitles([row.p.caregiverId], locale),
+      this.training.publicCertificates([row.p.caregiverId]),
+      this.assessments.publicFor([row.p.caregiverId]),
     ]);
     const base = profiles.get(row.p.caregiverId);
     if (!base) throw new NotFoundException('Profile not found');
@@ -303,6 +307,8 @@ export class SharedProfilesService {
       skills: base.skills.map((s) => s.name),
       qualifications: base.qualificationSummary,
       completedTraining: completed.get(row.p.caregiverId) ?? [],
+      certificates: certificates.get(row.p.caregiverId) ?? [],
+      assessments: assessments.get(row.p.caregiverId) ?? [],
       targetCountries: (overseas?.targetCountries ?? []).filter(isCountryCode),
       availableFrom: overseas?.availableFrom ?? null,
     };

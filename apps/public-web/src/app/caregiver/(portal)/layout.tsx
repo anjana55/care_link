@@ -51,8 +51,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="border-b border-border bg-white">
+    <div className="min-h-screen bg-paper print:bg-white">
+      <header className="border-b border-border bg-white print:hidden">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <Link href="/" className="min-w-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
             <BrandMark />
@@ -90,7 +90,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           })}
         </nav>
       </header>
-      <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-4xl px-4 py-6 print:max-w-none print:p-0">{children}</main>
     </div>
   );
 }
