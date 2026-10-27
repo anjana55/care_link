@@ -371,3 +371,74 @@ describe('phase 4 access', () => {
     }
   });
 });
+
+// --- admin edits to an enquiry ----------------------------------------------------------------
+
+describe('editing an enquiry', () => {
+  const row = (over: Record<string, unknown> = {}) => ({
+    e: {
+      id: 'enq-1',
+      reference: 'IE-7K2Q9M',
+      organisationName: 'Sakura Care',
+      organisationType: 'CARE_HOME',
+      country: 'JP',
+      contactName: 'Aiko Tanaka',
+      email: 'aiko@sakura.example',
+      phone: null,
+      website: null,
+      rolesCount: 2,
+      careSettings: ['NURSING_HOME'],
+      languages: null,
+      startTimeframe: null,
+      visaSponsorship: 'YES',
+      message: null,
+      caregiverId: null,
+      employerId: 'emp-1',
+      status: 'INTRODUCED',
+      staffNote: null,
+      placementFeeAmount: null,
+      placementFeeCurrency: null,
+      language: 'en',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...over,
+    },
+    registrationNumber: null,
+    fullName: null,
+    slug: null,
+    employerName: 'Sakura Care',
+    employerStatus: 'VERIFIED',
+  });
+
+  async function service(results: unknown[]) {
+    const { EmployerEnquiriesService } = await import('./employer-enquiries.service');
+    const fake = fakeDb(results);
+    return { service: new EmployerEnquiriesService(fake.db, {} as never, notifier() as never), ...fake };
+  }
+
+  it('changes only the fields sent, and keeps emails lower-case', async () => {
+    const { service: s, writes } = await service([[row()], [row({ rolesCount: 3 })]]);
+    await s.editDetails('enq-1', { rolesCount: 3, email: 'HR@Sakura.example' });
+    expect(writes[0].values).toMatchObject({ rolesCount: 3, email: 'hr@sakura.example' });
+    expect(writes[0].values).not.toHaveProperty('organisationName');
+    expect(writes[0].values).not.toHaveProperty('employerId');
+  });
+
+  it('will not move an enquiry whose offers or placements belong to its employer account', async () => {
+    const { service: s, writes } = await service([[row()], [{ id: 'emp-2' }], [{ n: 1 }], [{ n: 0 }], [{ n: 0 }]]);
+    await expect(s.editDetails('enq-1', { employerId: 'emp-2' })).rejects.toThrow(/cannot be moved/);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('links an enquiry sent without an account to the employer', async () => {
+    const { service: s, writes } = await service([[row({ employerId: null })], [{ id: 'emp-2' }], [row({ employerId: 'emp-2' })]]);
+    await s.editDetails('enq-1', { employerId: 'emp-2' });
+    expect(writes[0].values).toMatchObject({ employerId: 'emp-2' });
+  });
+
+  it('is for admins only', () => {
+    const { StaffInternationalController } = jest.requireActual('./international.controllers');
+    const reflector = new Reflector();
+    expect(reflector.get(ROLES_KEY, StaffInternationalController.prototype.editDetails)).toEqual(['ADMIN']);
+  });
+});

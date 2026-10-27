@@ -392,6 +392,24 @@ export type EmployerAccountUpdate = Partial<
 >;
 
 /** Staff list of employer accounts. */
+/** An admin's correction to an enquiry: only the fields sent change. employerId null unlinks the account. */
+export interface EnquiryDetailsInput {
+  organisationName?: string;
+  organisationType?: EmployerType;
+  country?: CountryCode;
+  contactName?: string;
+  email?: string;
+  phone?: string | null;
+  website?: string | null;
+  rolesCount?: number;
+  careSettings?: CareType[];
+  languages?: string | null;
+  startTimeframe?: string | null;
+  visaSponsorship?: VisaSponsorship;
+  message?: string | null;
+  employerId?: string | null;
+}
+
 export interface EmployerAdminRow {
   id: string;
   email: string | null;

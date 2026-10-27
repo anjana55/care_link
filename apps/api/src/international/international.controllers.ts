@@ -54,6 +54,7 @@ import {
   TalentQueryDto,
   TrainingProgrammeDto,
   UpdateEmployerEnquiryDto,
+  EditEnquiryDetailsDto,
   UpdateOverseasReadinessDto,
   UpdateSharedProfileDto,
   UpdateTrainingEnrolmentDto,
@@ -360,6 +361,14 @@ export class StaffInternationalController {
   @Audit({ action: 'VIEW_EMPLOYER_ENQUIRY', entityType: 'EmployerEnquiry' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.enquiries.findOne(id);
+  }
+
+  /** Admins only: correct what the employer sent, or change which employer account it belongs to. */
+  @Put('enquiries/:id/details')
+  @Roles('ADMIN')
+  @Audit({ action: 'EDIT_EMPLOYER_ENQUIRY', entityType: 'EmployerEnquiry' })
+  editDetails(@Param('id', ParseUUIDPipe) id: string, @Body() dto: EditEnquiryDetailsDto) {
+    return this.enquiries.editDetails(id, dto);
   }
 
   @Patch('enquiries/:id')
