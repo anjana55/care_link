@@ -6,6 +6,7 @@ import {
   CARE_DUE_SHIFT_STATUSES,
   addDays,
   careCutOff,
+  careOccurrenceId,
   careOccurrences,
   colomboToUtc,
   colomboToday,
@@ -298,12 +299,14 @@ export class CarePlansService {
         .where(eq(carePlans.id, plan.id));
       const replaced = new Set(edit.insert.map((i) => i.replaces).filter(Boolean));
       const added = edit.insert.filter((i) => !i.replaces).length;
-      const changedCount = replaced.size + edit.update.filter((u) => u.contentChanged).length;
+      const changedCount = replaced.size + edit.update.filter((u) => u.change === 'content').length;
+      const settingsCount = edit.update.filter((u) => u.change === 'settings').length;
       const removed = edit.close.filter((c) => !replaced.has(c.id)).length + edit.remove.length;
       const parts = [
         added ? `${added} added` : null,
         changedCount ? `${changedCount} changed` : null,
         removed ? `${removed} removed` : null,
+        settingsCount ? `reminders changed on ${settingsCount}` : null,
         notesChanged ? 'notes changed' : null,
       ].filter(Boolean);
       await this.event(tx as unknown as Database, bookingId, 'CARE_PLAN_CHANGED', actor, `From ${dto.effectiveFrom}: ${parts.join(', ') || 'order changed'}`);
@@ -378,7 +381,11 @@ export class CarePlansService {
         return {
           activityId: o.activityId,
           dueKey: o.dueKey,
+          occurrenceId: careOccurrenceId(s.shiftId, o.activityId, o.dueKey),
           dueAt: o.dueAt.toISOString(),
+          dueBy: o.dueBy.toISOString(),
+          remindAt: o.remindAt ? o.remindAt.toISOString() : null,
+          reminderMinutesBefore: f.reminderMinutesBefore,
           category: f.category,
           title: pickText(f.title, locale),
           instructions: pickText(f.instructions, locale),

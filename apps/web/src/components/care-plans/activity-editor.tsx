@@ -3,6 +3,9 @@
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import {
   ALL_WEEKDAYS,
+  CARE_ON_TIME_CHOICES,
+  CARE_REMINDER_CHOICES,
+  DEFAULT_CARE_ON_TIME_MINUTES,
   careActivityCategoryValues,
   careActivityProblems,
   careActivityTimingValues,
@@ -47,6 +50,8 @@ export const blankDraft = (): DraftActivity => ({
   timesText: '',
   daysOfWeek: null,
   isCritical: false,
+  reminderMinutesBefore: null,
+  onTimeMinutes: null,
 });
 
 const parseTimes = (text: string) =>
@@ -202,6 +207,42 @@ export function ActivityEditor({
                 </div>
               </div>
 
+              {/* For the caregiver's phone reminders: when to remind, and (set times) how long it counts as on time. */}
+              <div className="mt-2 flex flex-wrap items-center gap-2 pl-8 text-sm">
+                <Select
+                  aria-label={t('carePlans.editor.reminder')}
+                  className="h-8 w-56"
+                  value={d.reminderMinutesBefore === null ? '' : String(d.reminderMinutesBefore)}
+                  onChange={(e) => set(d.key, { reminderMinutesBefore: e.target.value === '' ? null : Number(e.target.value) })}
+                >
+                  <option value="">{t('carePlans.reminder.none')}</option>
+                  {/* Keep a value saved before the choices changed selectable. */}
+                  {[...new Set([...CARE_REMINDER_CHOICES, ...(d.reminderMinutesBefore === null ? [] : [d.reminderMinutesBefore])])]
+                    .sort((x, y) => x - y)
+                    .map((m) => (
+                      <option key={m} value={m}>
+                        {m === 0 ? t('carePlans.reminder.atTime') : t('carePlans.reminder.before', { minutes: m })}
+                      </option>
+                    ))}
+                </Select>
+                {d.timing === 'AT_TIMES' && (
+                  <Select
+                    aria-label={t('carePlans.editor.onTime')}
+                    className="h-8 w-56"
+                    value={String(d.onTimeMinutes ?? DEFAULT_CARE_ON_TIME_MINUTES)}
+                    onChange={(e) => set(d.key, { onTimeMinutes: Number(e.target.value) === DEFAULT_CARE_ON_TIME_MINUTES ? null : Number(e.target.value) })}
+                  >
+                    {[...new Set([...CARE_ON_TIME_CHOICES, d.onTimeMinutes ?? DEFAULT_CARE_ON_TIME_MINUTES])]
+                      .sort((x, y) => x - y)
+                      .map((m) => (
+                        <option key={m} value={m}>
+                          {t('carePlans.reminder.onTimeWithin', { minutes: m })}
+                        </option>
+                      ))}
+                  </Select>
+                )}
+              </div>
+
               <div className="mt-2 flex flex-wrap items-center gap-1 pl-8" role="group" aria-label={t('carePlans.editor.days')}>
                 <button
                   type="button"
@@ -263,5 +304,7 @@ export function ActivityEditor({
 export function whenText(a: CareActivityFields, t: (k: string, v?: Record<string, string | number>) => string, locale: Locale) {
   const when = a.timing === 'AT_TIMES' ? a.times.join(', ') : a.timing === 'SLOT' && a.slot ? t(`carePlans.slot.${a.slot}`) : t('carePlans.timing.ANY');
   const days = a.daysOfWeek ? a.daysOfWeek.map((d) => fmtWeekday(d, locale)).join(' ') : t('carePlans.editor.everyShift');
-  return `${when} · ${days}`;
+  const reminder =
+    a.reminderMinutesBefore === null ? null : a.reminderMinutesBefore === 0 ? t('carePlans.reminder.atTimeShort') : t('carePlans.reminder.beforeShort', { minutes: a.reminderMinutesBefore });
+  return [when, days, reminder].filter(Boolean).join(' · ');
 }

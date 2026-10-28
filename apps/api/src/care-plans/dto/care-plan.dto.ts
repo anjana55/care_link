@@ -20,6 +20,8 @@ import {
 import {
   MAX_CARE_ACTIVITIES,
   MAX_CARE_NOTES,
+  MAX_CARE_ON_TIME_MINUTES,
+  MAX_CARE_REMINDER_MINUTES,
   MAX_CARE_REASON,
   MAX_CARE_TIMES,
   careActivityCategoryValues,
@@ -86,6 +88,20 @@ export class CareActivityDto {
   @IsOptional()
   @IsBoolean()
   isCritical?: boolean;
+
+  @ApiPropertyOptional({ description: 'Remind the caregiver this many minutes before the item is due; 0 = at the time; null = no reminder' })
+  @IsOptional()
+  @IsInt({ message: 'Choose when to remind the caregiver' })
+  @Min(0, { message: 'Choose when to remind the caregiver' })
+  @Max(MAX_CARE_REMINDER_MINUTES, { message: 'Choose when to remind the caregiver' })
+  reminderMinutesBefore?: number | null;
+
+  @ApiPropertyOptional({ description: 'Set-time activities: minutes after each time it still counts as on time; null = 60' })
+  @IsOptional()
+  @IsInt({ message: 'Choose how long an item counts as on time' })
+  @Min(5, { message: 'Choose how long an item counts as on time' })
+  @Max(MAX_CARE_ON_TIME_MINUTES, { message: 'Choose how long an item counts as on time' })
+  onTimeMinutes?: number | null;
 }
 
 export class CarePlanTemplateDto {

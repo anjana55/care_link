@@ -24,6 +24,8 @@ export interface ActivityRow {
   times: string | null;
   daysOfWeek: string | null;
   isCritical: boolean;
+  reminderMinutesBefore: number | null;
+  onTimeMinutes: number | null;
 }
 
 /** MySQL JSON columns can come back as a string from some drivers; accept both. */
@@ -48,6 +50,8 @@ export function rowToFields(r: ActivityRow): CareActivityFields {
     times: r.times ? r.times.split(',').filter(Boolean) : [],
     daysOfWeek: r.daysOfWeek ? (r.daysOfWeek.split(',').map(Number) as IsoWeekday[]) : null,
     isCritical: Boolean(r.isCritical),
+    reminderMinutesBefore: r.reminderMinutesBefore ?? null,
+    onTimeMinutes: r.onTimeMinutes ?? null,
   };
 }
 
@@ -64,6 +68,8 @@ export function fieldsToColumns(f: CareActivityFields) {
     times: n.times.length ? n.times.join(',') : null,
     daysOfWeek: n.daysOfWeek ? n.daysOfWeek.join(',') : null,
     isCritical: n.isCritical,
+    reminderMinutesBefore: n.reminderMinutesBefore,
+    onTimeMinutes: n.onTimeMinutes,
   };
 }
 
@@ -74,6 +80,8 @@ const PROBLEM_TEXT: Record<string, string> = {
   slot: 'Choose the part of the day',
   times: 'Enter the times as HH:MM, each once',
   daysOfWeek: 'Choose at least one day, or every shift',
+  reminder: 'Choose when to remind the caregiver',
+  onTime: 'Choose how long an item counts as on time',
 };
 
 /** Cleans the activities from a form and rejects the first one that does not make sense. */
@@ -89,6 +97,8 @@ export function cleanActivities<T extends CareActivityDto>(list: T[]): (CareActi
       times: a.times ?? [],
       daysOfWeek: a.daysOfWeek?.length ? a.daysOfWeek : null,
       isCritical: Boolean(a.isCritical),
+      reminderMinutesBefore: a.reminderMinutesBefore ?? null,
+      onTimeMinutes: a.onTimeMinutes ?? null,
     };
     const [problem] = careActivityProblems(fields);
     if (problem) throw new BadRequestException(PROBLEM_TEXT[problem] ?? 'Check the activities');

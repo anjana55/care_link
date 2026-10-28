@@ -1,4 +1,4 @@
-import { careCutOff, careOccurrences, colomboToUtc, type CareActivityFields, type CareActivityForShift } from '@care-platform/shared';
+import { careCutOff, careOccurrenceId, careOccurrences, colomboToUtc, type CareActivityFields, type CareActivityForShift } from '@care-platform/shared';
 import { activitiesInForce, earliestEditDate, planCarePlanEdit, type EditableActivity } from './plan-edit';
 
 const act = (p: Partial<CareActivityForShift> & { id: string }): CareActivityForShift => ({
@@ -59,6 +59,31 @@ describe('care occurrences', () => {
   });
 });
 
+describe('occurrence windows and reminders (for a caregiver app)', () => {
+  const day = shift('2026-11-02', '08:00', '2026-11-02', '17:00');
+  const iso = (d: string, t: string) => colomboToUtc(d, t).toISOString();
+  const window = (o: { dueAt: Date; dueBy: Date; remindAt: Date | null }) => [o.dueAt.toISOString(), o.dueBy.toISOString(), o.remindAt?.toISOString() ?? null];
+
+  it('gives a set-time item an hour on time by default, or the activity\'s own allowance, never past the shift', () => {
+    const [nine, fourThirty] = careOccurrences([act({ id: 'm', timing: 'AT_TIMES', times: ['09:00', '16:30'], reminderMinutesBefore: 15 })], day);
+    expect(window(nine)).toEqual([iso('2026-11-02', '09:00'), iso('2026-11-02', '10:00'), iso('2026-11-02', '08:45')]);
+    expect(window(fourThirty)).toEqual([iso('2026-11-02', '16:30'), iso('2026-11-02', '17:00'), iso('2026-11-02', '16:15')]);
+    const [tight] = careOccurrences([act({ id: 'm', timing: 'AT_TIMES', times: ['09:00'], onTimeMinutes: 15 })], day);
+    expect(window(tight)).toEqual([iso('2026-11-02', '09:00'), iso('2026-11-02', '09:15'), null]);
+  });
+
+  it('gives a slot item the part of the slot inside the shift, and an any-time item the whole shift', () => {
+    const [am] = careOccurrences([act({ id: 'b', timing: 'SLOT', slot: 'MORNING', reminderMinutesBefore: 0 })], day);
+    expect(window(am)).toEqual([iso('2026-11-02', '08:00'), iso('2026-11-02', '12:00'), iso('2026-11-02', '08:00')]);
+    const [any] = careOccurrences([act({ id: 'l' })], day);
+    expect(window(any)).toEqual([iso('2026-11-02', '08:00'), iso('2026-11-02', '17:00'), null]);
+  });
+
+  it('keys each occurrence by shift, activity and due time', () => {
+    expect(careOccurrenceId('s1', 'm', '09:00')).toBe('s1:m:09:00');
+  });
+});
+
 describe('care cut-off', () => {
   it('is midnight after the day a day shift ends', () => {
     expect(careCutOff(colomboToUtc('2026-11-02', '17:00')).toISOString()).toBe(colomboToUtc('2026-11-03', '00:00').toISOString());
@@ -84,6 +109,8 @@ const fields = (title: string, extra: Partial<CareActivityFields> = {}): CareAct
   times: [],
   daysOfWeek: null,
   isCritical: false,
+  reminderMinutesBefore: null,
+  onTimeMinutes: null,
   ...extra,
 });
 const row = (id: string, title: string, p: Partial<EditableActivity> = {}): EditableActivity => ({
@@ -117,8 +144,15 @@ describe('editing a care plan from a date', () => {
 
   it('changes in place an activity that has not started and has nothing recorded', () => {
     const edit = planCarePlanEdit([row('a', 'Bath', { effectiveFrom: from, hasRecords: false })], [{ id: 'a', ...fields('Bed bath') }], from);
-    expect(edit.update).toEqual([{ id: 'a', fields: expect.objectContaining({ title: { en: 'Bed bath' } }), sortOrder: 0, contentChanged: true }]);
+    expect(edit.update).toEqual([{ id: 'a', fields: expect.objectContaining({ title: { en: 'Bed bath' } }), sortOrder: 0, change: 'content' }]);
     expect(edit.close).toEqual([]);
+  });
+
+  it('changes only the reminder or on-time window in place, even on an activity that already ran', () => {
+    const edit = planCarePlanEdit([row('a', 'Tablets')], [{ id: 'a', ...fields('Tablets', { reminderMinutesBefore: 15 }) }], from);
+    expect(edit.close).toEqual([]);
+    expect(edit.insert).toEqual([]);
+    expect(edit.update).toEqual([{ id: 'a', fields: expect.objectContaining({ reminderMinutesBefore: 15 }), sortOrder: 0, change: 'settings' }]);
   });
 
   it('closes a removed activity that already ran, and deletes one that never applied', () => {

@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, datetime, date, mysqlEnum, text, index, json, boolean, int, uniqueIndex } from 'drizzle-orm/mysql-core';
+import { mysqlTable, varchar, datetime, date, mysqlEnum, text, index, json, boolean, int, smallint, uniqueIndex } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
 import {
   careActivityCategoryValues,
@@ -32,11 +32,17 @@ const activityColumns = () => ({
   instructions: json('instructions').$type<LocalizedText>(),
   timing: mysqlEnum('timing', careActivityTimingValues).notNull().default('ANY'),
   slot: mysqlEnum('slot', careSlotValues),
-  // 'HH:MM' Colombo times, comma-separated, for AT_TIMES.
-  times: varchar('times', { length: 100 }),
+  // 'HH:MM' Colombo times, comma-separated, for AT_TIMES (up to 24: hourly through a live-in day).
+  times: varchar('times', { length: 150 }),
   // ISO weekdays of the shift's start, comma-separated; null = every shift.
   daysOfWeek: varchar('days_of_week', { length: 13 }),
   isCritical: boolean('is_critical').notNull().default(false),
+  // For caregiver reminders (a phone app, later): minutes before the item's
+  // window opens; 0 = at the time, null = none. A setting - editing it never
+  // starts a new version of the activity.
+  reminderMinutesBefore: smallint('reminder_minutes_before'),
+  // AT_TIMES only: minutes after each time the item still counts as on time; null = the default (60).
+  onTimeMinutes: smallint('on_time_minutes'),
 });
 
 export const carePlanTemplates = mysqlTable(

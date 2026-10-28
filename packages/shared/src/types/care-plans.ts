@@ -51,13 +51,25 @@ export type CarePlanTemplateStatus = (typeof carePlanTemplateStatusValues)[numbe
 export const CARE_DUE_SHIFT_STATUSES: readonly ShiftStatus[] = ['SCHEDULED', 'COMPLETED'];
 
 export const MAX_CARE_ACTIVITIES = 60;
-export const MAX_CARE_TIMES = 12;
+/** Up to hourly through a 24-hour live-in day. */
+export const MAX_CARE_TIMES = 24;
 export const MAX_CARE_TITLE = 120;
 export const MAX_CARE_INSTRUCTIONS = 1000;
 export const MAX_CARE_NOTES = 2000;
 export const MAX_CARE_REASON = 300;
 /** A caregiver can read a shift's plan from this long before it starts until its cut-off. */
 export const CAREGIVER_PLAN_LEAD_HOURS = 24;
+
+/**
+ * Reminders (for the caregiver's phone, later): how long before an item's
+ * window opens the caregiver is reminded. Null = no reminder; 0 = at the time.
+ */
+export const CARE_REMINDER_CHOICES = [0, 5, 10, 15, 30, 60, 120] as const;
+export const MAX_CARE_REMINDER_MINUTES = 720;
+/** For a set-time item: how long after the time it still counts as on time, unless the activity says otherwise. */
+export const DEFAULT_CARE_ON_TIME_MINUTES = 60;
+export const CARE_ON_TIME_CHOICES = [15, 30, 60, 120, 240] as const;
+export const MAX_CARE_ON_TIME_MINUTES = 720;
 
 /** Text staff write in each language the deployment offers. At least one must be filled. */
 export type LocalizedText = Partial<Record<Locale, string>>;
@@ -98,6 +110,14 @@ export interface CareActivityFields {
   /** ISO weekdays of the shift's start; null = every shift. */
   daysOfWeek: IsoWeekday[] | null;
   isCritical: boolean;
+  /**
+   * Remind the caregiver this many minutes before the item's window opens (see
+   * CareOccurrence); 0 = at the time, null = no reminder. Settings only: changing
+   * it never changes what was due.
+   */
+  reminderMinutesBefore: number | null;
+  /** AT_TIMES only: how long after each time the item still counts as on time; null = DEFAULT_CARE_ON_TIME_MINUTES. */
+  onTimeMinutes: number | null;
 }
 
 /** Problems with one activity's fields, as message keys - the API and the forms share them. */
@@ -109,6 +129,10 @@ export function careActivityProblems(a: Partial<CareActivityFields>): string[] {
   if (a.timing === 'SLOT' && (!a.slot || !(careSlotValues as readonly string[]).includes(a.slot))) out.push('slot');
   if (a.timing === 'AT_TIMES' && (!a.times?.length || a.times.length > MAX_CARE_TIMES || a.times.some((t) => !isValidTime(t)) || new Set(a.times).size !== a.times.length)) out.push('times');
   if (a.daysOfWeek && (!a.daysOfWeek.length || a.daysOfWeek.some((d) => !Number.isInteger(d) || d < 1 || d > 7))) out.push('daysOfWeek');
+  const r = a.reminderMinutesBefore;
+  if (r !== null && r !== undefined && (!Number.isInteger(r) || r < 0 || r > MAX_CARE_REMINDER_MINUTES)) out.push('reminder');
+  const o = a.onTimeMinutes;
+  if (o !== null && o !== undefined && (!Number.isInteger(o) || o < 5 || o > MAX_CARE_ON_TIME_MINUTES)) out.push('onTime');
   return out;
 }
 
@@ -119,11 +143,26 @@ export function normalizeCareActivity<T extends CareActivityFields>(a: T): T {
     slot: a.timing === 'SLOT' ? a.slot : null,
     times: a.timing === 'AT_TIMES' ? [...new Set(a.times)].sort() : [],
     daysOfWeek: a.daysOfWeek && a.daysOfWeek.length < 7 ? ([...new Set(a.daysOfWeek)].sort((x, y) => x - y) as IsoWeekday[]) : null,
+    reminderMinutesBefore: a.reminderMinutesBefore ?? null,
+    // Only set-time items have an on-time window of their own; the default is stored as null.
+    onTimeMinutes: a.timing === 'AT_TIMES' && a.onTimeMinutes && a.onTimeMinutes !== DEFAULT_CARE_ON_TIME_MINUTES ? a.onTimeMinutes : null,
   };
 }
 
-/** True when two activities would be due and read the same - an edit that changes nothing. */
+/** True when two activities would be due and read the same, reminders and on-time window included - an edit that changes nothing. */
 export function sameCareActivity(a: CareActivityFields, b: CareActivityFields): boolean {
+  const x = normalizeCareActivity(a);
+  const y = normalizeCareActivity(b);
+  return sameCareDue(x, y) && x.reminderMinutesBefore === y.reminderMinutesBefore && x.onTimeMinutes === y.onTimeMinutes;
+}
+
+/**
+ * True when two activities ask for the same thing at the same times, ignoring
+ * the reminder and the on-time window. A change to those alone is a setting,
+ * not a new version of the activity: what was due on earlier days, and the
+ * records against it, stay exactly as they were.
+ */
+export function sameCareDue(a: CareActivityFields, b: CareActivityFields): boolean {
   const x = normalizeCareActivity(a);
   const y = normalizeCareActivity(b);
   const text = (t: LocalizedText) => JSON.stringify(LOCALES.map((l) => t[l]?.trim() ?? ''));
@@ -142,7 +181,7 @@ export function sameCareActivity(a: CareActivityFields, b: CareActivityFields): 
 // --- occurrences and the cut-off ------------------------------------------------
 
 /** A plan activity as the occurrence rule needs it. */
-export interface CareActivityForShift extends Pick<CareActivityFields, 'timing' | 'slot' | 'times' | 'daysOfWeek'> {
+export interface CareActivityForShift extends Pick<CareActivityFields, 'timing' | 'slot' | 'times' | 'daysOfWeek'>, Partial<Pick<CareActivityFields, 'reminderMinutesBefore' | 'onTimeMinutes'>> {
   id: string;
   sortOrder: number;
   /** 'YYYY-MM-DD', inclusive. */
@@ -151,15 +190,35 @@ export interface CareActivityForShift extends Pick<CareActivityFields, 'timing' 
   effectiveTo: string | null;
 }
 
+/**
+ * One activity due on one shift. Every occurrence has a window with a real
+ * start and end instant (UTC), so a phone can schedule a reminder before it
+ * opens and, if wanted, a nudge once it has closed:
+ * - AT_TIMES: from the time until the on-time allowance has passed (never past the shift's end);
+ * - SLOT: the part of the slot inside the shift;
+ * - ANY: the whole shift.
+ */
 export interface CareOccurrence {
   activityId: string;
   /** 'ANY', the slot name, or the 'HH:MM' time - unique for one activity on one shift. */
   dueKey: string;
-  /** When it is due, for AT_TIMES; the slot's start (or the shift's start) otherwise - used for ordering. */
+  /** When the window opens - the set time, or the start of the slot or shift. Used for ordering. */
   dueAt: Date;
+  /** When the window closes. */
+  dueBy: Date;
+  /** When to remind the caregiver, from the activity's reminder setting; null = no reminder. */
+  remindAt: Date | null;
   /** Colombo date it is due on. */
   dueDate: string;
 }
+
+/**
+ * One stable id per occurrence - shift, activity version and due key - for a
+ * phone to key its scheduled notifications on, so a re-sync replaces rather
+ * than duplicates them. An edit that changes what is due starts a new activity
+ * version (a new id); a reminder or on-time change keeps the id.
+ */
+export const careOccurrenceId = (shiftId: string, activityId: string, dueKey: string) => `${shiftId}:${activityId}:${dueKey}`;
 
 const ms = (d: Date | string) => new Date(d).getTime();
 
@@ -202,8 +261,19 @@ export function careOccurrences(activities: CareActivityForShift[], shift: { sta
 
   for (const a of activities) {
     if (!careActivityAppliesOn(a, date)) continue;
+    const lead = a.reminderMinutesBefore ?? null;
+    const push = (dueKey: string, open: number, close: number, dueDate: string) =>
+      out.push({
+        activityId: a.id,
+        dueKey,
+        dueAt: new Date(open),
+        dueBy: new Date(close),
+        remindAt: lead === null ? null : new Date(open - lead * 60_000),
+        dueDate,
+        order: a.sortOrder,
+      });
     if (a.timing === 'ANY') {
-      out.push({ activityId: a.id, dueKey: 'ANY', dueAt: new Date(start), dueDate: date, order: a.sortOrder });
+      push('ANY', start, end, date);
     } else if (a.timing === 'SLOT' && a.slot) {
       const w = CARE_SLOT_WINDOWS[a.slot];
       for (const d of days) {
@@ -211,17 +281,18 @@ export function careOccurrences(activities: CareActivityForShift[], shift: { sta
         const we = ms(colomboToUtc(w.end <= w.start ? addDays(d, 1) : d, w.end));
         if (ws < end && we > start) {
           const at = Math.max(ws, start);
-          out.push({ activityId: a.id, dueKey: a.slot, dueAt: new Date(at), dueDate: toColombo(new Date(at)).date, order: a.sortOrder });
+          push(a.slot, at, Math.min(we, end), toColombo(new Date(at)).date);
           break;
         }
       }
     } else if (a.timing === 'AT_TIMES') {
+      const allowance = (a.onTimeMinutes ?? DEFAULT_CARE_ON_TIME_MINUTES) * 60_000;
       for (const time of a.times) {
         if (!isValidTime(time)) continue;
         for (const d of days) {
           const at = ms(colomboToUtc(d, time));
           if (at >= start && at < end) {
-            out.push({ activityId: a.id, dueKey: time, dueAt: new Date(at), dueDate: d, order: a.sortOrder });
+            push(time, at, Math.min(at + allowance, end), d);
             break;
           }
         }
@@ -314,9 +385,16 @@ export interface UpdateCarePlanInput {
 
 /** One item on a shift's checklist. */
 export interface CareChecklistItem {
+  /** careOccurrenceId(shiftId, activityId, dueKey) - stable across re-fetches. */
+  occurrenceId: string;
   activityId: string;
   dueKey: string;
+  /** The item's window (ISO UTC): opens at dueAt, closes at dueBy. */
   dueAt: string;
+  dueBy: string;
+  /** When the caregiver would be reminded (ISO UTC); null = no reminder on this activity. */
+  remindAt: string | null;
+  reminderMinutesBefore: number | null;
   category: CareActivityCategory;
   title: string;
   instructions: string;
