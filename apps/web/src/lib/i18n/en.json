@@ -3330,7 +3330,9 @@
       "timing": "Choose when it is done.",
       "slot": "Choose the part of the day.",
       "times": "Enter times as HH:MM, separated by commas, each once.",
-      "daysOfWeek": "Choose at least one day, or every shift."
+      "daysOfWeek": "Choose at least one day, or every shift.",
+      "reminder": "Choose when to remind the caregiver.",
+      "onTime": "Choose how long it counts as on time."
     },
     "outcome": {
       "open": "Not marked",
@@ -3362,7 +3364,9 @@
       "everyShift": "Every shift",
       "instructions": "Instructions",
       "instructionsPlaceholder": "How to do it, what to watch for (optional)",
-      "add": "Add activity"
+      "add": "Add activity",
+      "reminder": "Remind the caregiver",
+      "onTime": "Counts as on time within"
     },
     "templates": {
       "title": "Care plan templates",
@@ -3440,6 +3444,14 @@
         "CLIENT": "Marked by the client",
         "STAFF": "Corrected by staff"
       }
+    },
+    "reminder": {
+      "none": "No reminder",
+      "atTime": "Remind at the time",
+      "before": "Remind {minutes} min before",
+      "onTimeWithin": "On time within {minutes} min",
+      "atTimeShort": "reminder at the time",
+      "beforeShort": "reminder {minutes} min before"
     }
   }
 }

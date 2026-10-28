@@ -176,6 +176,13 @@
       "when": 1793160335653,
       "tag": "0024_care_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1793168600134,
+      "tag": "0025_care_plan_reminders",
+      "breakpoints": true
     }
   ]
 }

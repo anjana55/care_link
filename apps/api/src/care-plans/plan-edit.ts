@@ -1,4 +1,4 @@
-import { addDays, normalizeCareActivity, sameCareActivity, type CareActivityFields } from '@care-platform/shared';
+import { addDays, normalizeCareActivity, sameCareActivity, sameCareDue, type CareActivityFields } from '@care-platform/shared';
 
 /** A plan activity as the edit rule needs it. */
 export interface EditableActivity extends CareActivityFields {
@@ -11,8 +11,13 @@ export interface EditableActivity extends CareActivityFields {
 }
 
 export interface CarePlanEdit {
-  /** Rows changed in place: an activity not yet in force with nothing recorded, or only a new position. */
-  update: { id: string; fields: CareActivityFields; sortOrder: number; contentChanged: boolean }[];
+  /**
+   * Rows changed in place. `change` says why: only a new position (`order`);
+   * only the reminder or on-time window (`settings`) - these never start a new
+   * version, so earlier records and occurrence ids stay put; or any change to an
+   * activity that has not started and has nothing recorded (`content`).
+   */
+  update: { id: string; fields: CareActivityFields; sortOrder: number; change: 'order' | 'settings' | 'content' }[];
   /** Rows that stop the day before the edit takes effect. */
   close: { id: string; effectiveTo: string }[];
   /** Rows that never applied and have nothing recorded - deleted outright. */
@@ -45,6 +50,9 @@ export function earliestEditDate(all: { effectiveFrom: string; effectiveTo: stri
  *
  * - An incoming activity with the id of one in force and the same content
  *   keeps that row (its position may change).
+ * - Only the reminder or on-time window changed: the row is updated in place,
+ *   whatever its dates - these are settings, not what is due, so a new version
+ *   would only orphan the records against the old one. They apply at once.
  * - Changed content: a row that only starts on or after `from` with nothing
  *   recorded is changed in place; otherwise the old row closes the day before
  *   `from` and a new row starts on `from`, linked to it.
@@ -69,9 +77,11 @@ export function planCarePlanEdit(existing: EditableActivity[], incoming: (CareAc
     }
     kept.add(old.id);
     if (sameCareActivity(old, fields)) {
-      if (old.sortOrder !== sortOrder) edit.update.push({ id: old.id, fields: normalizeCareActivity(stripRow(old)), sortOrder, contentChanged: false });
+      if (old.sortOrder !== sortOrder) edit.update.push({ id: old.id, fields: normalizeCareActivity(stripRow(old)), sortOrder, change: 'order' });
+    } else if (sameCareDue(old, fields)) {
+      edit.update.push({ id: old.id, fields, sortOrder, change: 'settings' });
     } else if (fresh(old)) {
-      edit.update.push({ id: old.id, fields, sortOrder, contentChanged: true });
+      edit.update.push({ id: old.id, fields, sortOrder, change: 'content' });
     } else {
       edit.close.push({ id: old.id, effectiveTo: dayBefore });
       edit.insert.push({ fields, sortOrder, replaces: old.id });
@@ -96,6 +106,8 @@ function stripId(a: CareActivityFields & { id?: string }): CareActivityFields {
     times: a.times ?? [],
     daysOfWeek: a.daysOfWeek ?? null,
     isCritical: Boolean(a.isCritical),
+    reminderMinutesBefore: a.reminderMinutesBefore ?? null,
+    onTimeMinutes: a.onTimeMinutes ?? null,
   };
 }
 

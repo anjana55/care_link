@@ -18,9 +18,13 @@ jest.mock('@/lib/api/client', () => ({
 }));
 
 const item = (over: Partial<CareChecklistShift['items'][number]> = {}): CareChecklistShift['items'][number] => ({
+  occurrenceId: 's1:a1:09:00',
   activityId: 'a1',
   dueKey: '09:00',
   dueAt: '2026-11-02T03:30:00.000Z',
+  dueBy: '2026-11-02T04:30:00.000Z',
+  remindAt: '2026-11-02T03:15:00.000Z',
+  reminderMinutesBefore: 15,
   category: 'MEDICATION',
   title: 'Morning tablets',
   instructions: 'With breakfast',
