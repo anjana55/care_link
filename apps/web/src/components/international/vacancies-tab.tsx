@@ -9,6 +9,7 @@ import { useReviewVacancy, useStaffVacancies, useUpdateApplication, useVacancyAp
 import { Button } from '@/components/ui/button';
 import { Select, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { DeleteRecordButton } from '@/components/overseas-admin/delete-record-button';
 import { countryName } from './shared';
 import { ReadinessBar } from './readiness-bar';
 import { StaffVacancyForm } from './staff-vacancy-form';
@@ -88,7 +89,10 @@ export function VacancyCard({ vacancy: v, compact = false }: { vacancy: StaffVac
               {v.employer && ` (${t(`international.employers.status.${v.employer.status}`)})`}
             </p>
           </div>
-          <span className={cn('rounded px-2 py-0.5 text-xs font-medium', STATUS_STYLES[v.status])}>{t(`international.vacancies.filters.${v.status}`)}</span>
+          <span className="flex items-center gap-1">
+            <span className={cn('rounded px-2 py-0.5 text-xs font-medium', STATUS_STYLES[v.status])}>{t(`international.vacancies.filters.${v.status}`)}</span>
+            <DeleteRecordButton compact path={`/international/vacancies/${v.id}`} title={t('overseasAdmin.vacancy.deleteTitle', { reference: v.reference })} body={t('overseasAdmin.vacancy.deleteBody')} />
+          </span>
         </div>
         <p className="mt-2 text-sm text-ink/70">
           {[v.city, countryName(v.country, locale)].filter(Boolean).join(', ')} · {t(`careTypes.${v.careSetting}`)} · {t('international.vacancies.roles', { count: v.rolesCount })}

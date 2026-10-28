@@ -9,6 +9,7 @@ import { useWelfareActions, useWelfareReports } from '@/lib/hooks/use-internatio
 import { Button } from '@/components/ui/button';
 import { Select, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { DeleteRecordButton } from '@/components/overseas-admin/delete-record-button';
 import { countryName } from './shared';
 
 export const SEVERITY_STYLES: Record<WelfareSeverity, string> = {
@@ -131,6 +132,11 @@ function ReportRow({ report: r, initiallyOpen }: { report: StaffWelfareReport; i
               <p className="text-xs text-ink/50">{t('international.welfare.replyHint')}</p>
               {(send.isError || setStatus.isError) && <p className="text-xs text-danger">{t('common.actionFailed')}</p>}
             </form>
+            {r.status === 'RESOLVED' && (
+              <div className="flex justify-end">
+                <DeleteRecordButton path={`/international/welfare/${r.id}`} title={t('overseasAdmin.welfare.deleteTitle', { reference: r.reference })} body={t('overseasAdmin.welfare.deleteBody')} />
+              </div>
+            )}
           </div>
           <aside className="space-y-3 rounded bg-paper p-3 text-sm">
             <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink/60">

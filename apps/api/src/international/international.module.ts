@@ -21,6 +21,9 @@ import { OffersService } from './offers.service';
 import { JourneyService } from './journey.service';
 import { WelfareService } from './welfare.service';
 import { ReportsService } from './reports.service';
+import { AdminRecordsService } from './admin-records.service';
+import { AdminOverseasController } from './admin.controllers';
+import { AuthModule } from '../auth/auth.module';
 import { CaregiverPhase4Controller, EmployerPhase4Controller, PublicCertificatesController, StaffPhase4Controller } from './phase4.controllers';
 import {
   CaregiverOverseasController,
@@ -44,7 +47,7 @@ import {
  * the departure checklist and welfare reports from abroad, and reports.
  */
 @Module({
-  imports: [PublicSearchModule, EmailModule, BillingModule],
+  imports: [PublicSearchModule, EmailModule, BillingModule, AuthModule],
   controllers: [
     PublicInternationalController,
     CaregiverInternationalController,
@@ -59,6 +62,7 @@ import {
     CaregiverPhase4Controller,
     EmployerPhase4Controller,
     StaffPhase4Controller,
+    AdminOverseasController,
   ],
   providers: [
     InternationalNotifier,
@@ -79,6 +83,7 @@ import {
     JourneyService,
     WelfareService,
     ReportsService,
+    AdminRecordsService,
   ],
 })
 export class InternationalModule {}

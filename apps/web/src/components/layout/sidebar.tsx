@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2, ArrowDownUp } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2, ArrowDownUp, GraduationCap } from 'lucide-react';
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
 import { useAiStatus } from '@/lib/hooks/use-ai';
 import { useInternationalSummary } from '@/lib/hooks/use-international';
@@ -29,6 +29,8 @@ const CLIENT_ITEM = { href: '/clients', key: 'nav.clients', icon: HeartHandshake
 const REQUESTS_ITEM = { href: '/requests', key: 'nav.requests', icon: Inbox };
 // Overseas employer enquiries, shared-profile review and training: ADMIN + STAFF, like Requests.
 const OVERSEAS_ITEM = { href: '/international', key: 'nav.international', icon: Globe2 };
+// Training programmes and sign-ups: ADMIN + STAFF, like Overseas, which it used to sit under.
+const TRAINING_ITEM = { href: '/training', key: 'nav.training', icon: GraduationCap };
 const BOOKINGS_ITEM = { href: '/bookings', key: 'nav.bookings', icon: CalendarDays };
 // Billing follows the work it bills: ADMIN + STAFF, like Bookings.
 const INVOICES_ITEM = { href: '/invoices', key: 'nav.invoices', icon: ReceiptText };
@@ -57,7 +59,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   // Requests lead for the roles that work them: it is the day's worklist.
   // Clients sit straight after Caregivers, the list they mirror.
   const base = canSeeClients
-    ? [ITEMS[0], REQUESTS_ITEM, OVERSEAS_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM]
+    ? [ITEMS[0], REQUESTS_ITEM, OVERSEAS_ITEM, TRAINING_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM]
     : ITEMS;
   const items = [...base, ...(user?.role === 'ADMIN' ? ADMIN_ITEMS : []), SETTINGS_ITEM];
 

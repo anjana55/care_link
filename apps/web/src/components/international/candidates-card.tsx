@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label, Select, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { DeleteRecordButton } from '@/components/overseas-admin/delete-record-button';
 import { ReadinessBar } from './readiness-bar';
 import { InterviewsPanel } from './interviews-panel';
 
@@ -82,7 +83,10 @@ function CandidateEditor({ enquiryId, candidate: c }: { enquiryId: string; candi
             )}
           </div>
         </div>
-        <span className={cn('rounded px-2 py-0.5 text-xs font-medium', STATUS_STYLES[c.status])}>{t(`international.candidates.status.${c.status}`)}</span>
+        <span className="flex items-center gap-1">
+          <span className={cn('rounded px-2 py-0.5 text-xs font-medium', STATUS_STYLES[c.status])}>{t(`international.candidates.status.${c.status}`)}</span>
+          <DeleteRecordButton compact path={`/international/candidates/${c.id}`} label={t('overseasAdmin.candidate.remove')} title={t('overseasAdmin.candidate.removeTitle', { name: c.fullName })} body={t('overseasAdmin.candidate.removeBody')} />
+        </span>
       </div>
       <InterviewsPanel enquiryId={enquiryId} candidate={c} />
       {c.offer && (

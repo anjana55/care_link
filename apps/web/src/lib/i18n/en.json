@@ -20,7 +20,8 @@
     "payouts": "Payouts",
     "assistant": "Assistant",
     "international": "Overseas",
-    "dataTransfer": "Import & export"
+    "dataTransfer": "Import & export",
+    "training": "Training"
   },
   "login": {
     "title": "Sign in",
@@ -2325,7 +2326,7 @@
   },
   "international": {
     "title": "Overseas",
-    "subtitle": "Enquiries from employers abroad, caregivers' shared profiles waiting for review, and training programmes.",
+    "subtitle": "Employers abroad and their enquiries, the vacancy board, interviews and offers, placements and welfare, and caregivers' shared profiles.",
     "waitingCount": "{count} waiting",
     "tabs": {
       "enquiries": "Employer enquiries",
@@ -3215,5 +3216,75 @@
     "confirmSetBody": "The current password for {email} stops working straight away and they're signed out on every device.",
     "noEmail": "This account has no email address, so it can't use a password. It signs in with WhatsApp or Google/Microsoft/Facebook. Add an email address first if they need a password.",
     "accountInactive": "This account is deactivated, so it can't sign in until it is activated again."
+  },
+  "training": {
+    "title": "Training",
+    "deleteProgrammeTitle": "Delete this programme?",
+    "deleteProgrammeBody": "\"{title}\" will be removed. A programme that anyone has signed up for can't be deleted - make it inactive instead.",
+    "removeSignUp": "Remove sign-up",
+    "removeSignUpTitle": "Remove this sign-up?",
+    "removeSignUpBody": "{name} will be taken off this programme, as if they never signed up. To keep the record, mark them Withdrawn instead.",
+    "enrol": "Sign up a caregiver",
+    "findCaregiver": "Find a caregiver",
+    "findPlaceholder": "Name, registration no. or phone",
+    "noMatches": "No caregivers match.",
+    "alreadySignedUp": "Already signed up",
+    "signUp": "Sign up"
+  },
+  "overseasAdmin": {
+    "chooseCountry": "Choose a country",
+    "newEnquiry": {
+      "button": "New enquiry",
+      "title": "Record an enquiry",
+      "hint": "For an enquiry that came in by phone, email or in person. It starts In progress, with no alert to staff, and opens once saved. Only record an employer who asked to be contacted.",
+      "message": "What they asked for",
+      "save": "Save enquiry"
+    },
+    "deleteEnquiry": {
+      "title": "Delete enquiry {reference}?",
+      "body": "It will be removed for good. An enquiry with candidates, vacancies, offers, placements or invoices can't be deleted - close it instead."
+    },
+    "employer": {
+      "add": "Add employer",
+      "addTitle": "Add an employer account",
+      "editTitle": "Edit employer",
+      "edit": "Edit employer",
+      "signInEmail": "Sign-in email",
+      "emailHint": "Changing it changes the address they sign in with.",
+      "startAs": "Start as",
+      "sendLink": "Email them a link to set a password",
+      "sendLinkHint": "Valid for 24 hours. Leave it off to send one later.",
+      "create": "Create account",
+      "created": "The employer account was created.",
+      "createdLinkSent": "The employer account was created, and a link to set a password was sent to {email}.",
+      "saved": "Saved.",
+      "deleteTitle": "Delete {name}?",
+      "deleteBody": "The account and its sign-in will be removed for good. An employer with enquiries, vacancies, offers, placements or invoices can't be deleted - suspend it instead."
+    },
+    "candidate": {
+      "remove": "Remove from enquiry",
+      "removeTitle": "Remove {name} from this enquiry?",
+      "removeBody": "Their interviews for this enquiry go too, and a vacancy application they came from goes back to Applied. Not possible once there is an offer or a placement - mark them Not proceeding instead."
+    },
+    "vacancy": {
+      "deleteTitle": "Delete vacancy {reference}?",
+      "deleteBody": "It will be removed from the board and from here for good. A vacancy with applications can't be deleted - close it instead."
+    },
+    "offer": {
+      "deleteTitle": "Delete offer {reference}?",
+      "deleteBody": "For an offer made by mistake. It disappears for the employer and the caregiver. An accepted offer is a signed agreement and can't be deleted."
+    },
+    "interview": {
+      "deleteTitle": "Delete round {n}?",
+      "deleteBody": "For an interview entered by mistake. A real interview that didn't happen should be marked Cancelled or No-show instead."
+    },
+    "placement": {
+      "deleteTitle": "Delete this placement?",
+      "deleteBody": "For a placement opened by mistake. Its check-ins and departure checklist go too, and the candidate goes back to Selected. Not possible once there is an invoice or a welfare report - record how it ended instead."
+    },
+    "welfare": {
+      "deleteTitle": "Delete report {reference}?",
+      "deleteBody": "The report and its messages will be removed for good. Only resolved reports can be deleted."
+    }
   }
 }
