@@ -148,5 +148,9 @@ export interface BusinessInsights {
     documentsPending: number;
     clientsPendingReview: number;
     caregiversAwaitingVerification: number;
+    /** Care-plan items on critical activities the client marked Not done, last 7 days. */
+    careCriticalNotDone: number;
+    /** Care-plan items on critical activities nobody confirmed (filled in at midnight), last 7 days. */
+    careCriticalUnconfirmed: number;
   };
 }

@@ -97,7 +97,7 @@ export default function ClientsListPage() {
       <div className="mb-2 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ink">{t('clients.title')}</h1>
         {user?.role === 'ADMIN' && (
-          <Link href="/data-transfer?type=clients">
+          <Link href="/settings/import-export?type=clients">
             <Button variant="secondary">
               <ArrowDownUp size={16} />
               {t('dataTransfer.button')}

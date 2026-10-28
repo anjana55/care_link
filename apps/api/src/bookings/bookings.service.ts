@@ -24,6 +24,7 @@ import {
   bookingShifts,
   bookingEvents,
   bookingIssueReports,
+  careActivityRecords,
   careRequests,
   careRequestEvents,
   caregivers,
@@ -44,6 +45,7 @@ import {
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { PublicSearchService } from '../public-search/public-search.service';
 import { BookingNotifier } from './booking-notifier.service';
+import { CarePlansService } from '../care-plans/care-plans.service';
 import { buildLines } from '../billing/line-builder';
 import { planRoster } from './roster-plan';
 import {
@@ -128,6 +130,7 @@ export class BookingsService {
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly publicSearch: PublicSearchService,
     private readonly notifier: BookingNotifier,
+    private readonly carePlans: CarePlansService,
   ) {}
 
   // --- pattern ---------------------------------------------------------------
@@ -158,6 +161,13 @@ export class BookingsService {
     // Bookings a client or caregiver has reported a problem on that staff have not answered yet.
     if (query.hasOpenIssues) {
       conditions.push(sql`EXISTS (SELECT 1 FROM ${bookingIssueReports} WHERE ${bookingIssueReports.bookingId} = ${bookings.id} AND ${bookingIssueReports.status} = 'OPEN')`);
+    }
+    // Critical care-plan items marked Not done, or filled in at midnight unconfirmed, in the last week.
+    if (query.hasCareAlerts) {
+      const since = addDays(colomboToday(), -7);
+      conditions.push(
+        sql`EXISTS (SELECT 1 FROM ${careActivityRecords} WHERE ${careActivityRecords.bookingId} = ${bookings.id} AND ${careActivityRecords.isCritical} = true AND ${careActivityRecords.dueDate} >= ${since} AND (${careActivityRecords.status} = 'NOT_DONE' OR (${careActivityRecords.status} = 'DONE' AND ${careActivityRecords.source} = 'AUTO')))`,
+      );
     }
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
@@ -1335,6 +1345,8 @@ export class BookingsService {
       )
       .orderBy(asc(bookingShifts.startsAt))
       .limit(200);
+    // Which shifts' care plans the caregiver can open now (a day before the shift until its cut-off).
+    const withPlan = await this.carePlans.caregiverPlanShiftIds(user.caregiverId, rows.map((r) => r.id));
     return rows.map((r) => ({
       id: r.id,
       startsAt: new Date(r.startsAt).toISOString(),
@@ -1344,6 +1356,7 @@ export class BookingsService {
       bookingReference: r.reference,
       scheduleType: r.scheduleType,
       area: [r.city, r.district].filter(Boolean).join(', ') || null,
+      hasCarePlan: withPlan.has(r.id),
     }));
   }
 }

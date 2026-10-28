@@ -163,10 +163,11 @@ export interface BookingAmendmentView {
 
 // --- issue reports: clients and caregivers flagging a problem -------------------------
 
-export type IssueReportCategory = 'TIMES' | 'DID_NOT_HAPPEN' | 'WRONG_CAREGIVER' | 'CHARGE' | 'PAY' | 'OTHER';
+export type IssueReportCategory = 'TIMES' | 'DID_NOT_HAPPEN' | 'WRONG_CAREGIVER' | 'CHARGE' | 'PAY' | 'CARE_PLAN' | 'OTHER';
 export type IssueReportStatus = 'OPEN' | 'RESOLVED' | 'DISMISSED';
 /** What a client may report (pay is the caregiver's business), and what a caregiver may. */
-export const CLIENT_ISSUE_CATEGORIES: IssueReportCategory[] = ['TIMES', 'DID_NOT_HAPPEN', 'WRONG_CAREGIVER', 'CHARGE', 'OTHER'];
+/** CARE_PLAN: a care-plan record the client can no longer change (past its cut-off) is wrong. */
+export const CLIENT_ISSUE_CATEGORIES: IssueReportCategory[] = ['TIMES', 'DID_NOT_HAPPEN', 'WRONG_CAREGIVER', 'CHARGE', 'CARE_PLAN', 'OTHER'];
 export const CAREGIVER_ISSUE_CATEGORIES: IssueReportCategory[] = ['TIMES', 'DID_NOT_HAPPEN', 'PAY', 'OTHER'];
 export const MAX_ISSUE_MESSAGE = 1000;
 
