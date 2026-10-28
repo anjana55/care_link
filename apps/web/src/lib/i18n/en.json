@@ -21,7 +21,8 @@
     "assistant": "Assistant",
     "international": "Overseas",
     "dataTransfer": "Import & export",
-    "training": "Training"
+    "training": "Training",
+    "carePlans": "Care plans"
   },
   "login": {
     "title": "Sign in",
@@ -121,7 +122,9 @@
       "draftBookings": "Draft bookings to confirm",
       "caregiversAwaiting": "Caregivers awaiting verification",
       "documentsPending": "Documents to review",
-      "clientsPending": "New clients to review"
+      "clientsPending": "New clients to review",
+      "careCriticalNotDone": "Critical care items marked Not done (7 days)",
+      "careCriticalUnconfirmed": "Critical care items nobody confirmed (7 days)"
     },
     "severity": {
       "act": "Act today",
@@ -1357,7 +1360,8 @@
       "COMPLETED": "Completed",
       "CANCELLED": "Cancelled",
       "all": "All",
-      "issues": "Reported issues"
+      "issues": "Reported issues",
+      "care": "Care alerts"
     },
     "status": {
       "DRAFT": "Draft",
@@ -1511,7 +1515,9 @@
       "RESCHEDULED": "Booking rescheduled",
       "AMENDED": "Booking corrected",
       "ISSUE_REPORTED": "Issue reported",
-      "ISSUE_CLOSED": "Issue answered"
+      "ISSUE_CLOSED": "Issue answered",
+      "CARE_PLAN_SET": "Care plan created",
+      "CARE_PLAN_CHANGED": "Care plan changed"
     },
     "shiftRateUnit": {
       "HOURLY": "per hour",
@@ -1651,6 +1657,7 @@
         "WRONG_CAREGIVER": "A different caregiver came",
         "CHARGE": "The charge is wrong",
         "PAY": "The pay is wrong",
+        "CARE_PLAN": "A care plan record is wrong",
         "OTHER": "Something else"
       },
       "status": {
@@ -3285,6 +3292,154 @@
     "welfare": {
       "deleteTitle": "Delete report {reference}?",
       "deleteBody": "The report and its messages will be removed for good. Only resolved reports can be deleted."
+    }
+  },
+  "carePlans": {
+    "saved": "Saved",
+    "critical": "Critical",
+    "category": {
+      "PERSONAL_CARE": "Personal care",
+      "MEDICATION": "Medication",
+      "MOBILITY": "Mobility",
+      "NUTRITION": "Food and fluids",
+      "VITAL_SIGNS": "Vital signs",
+      "HOUSEHOLD": "Household",
+      "COMPANIONSHIP": "Companionship",
+      "OTHER": "Other"
+    },
+    "timing": {
+      "ANY": "Any time in the shift",
+      "SLOT": "Part of the day",
+      "AT_TIMES": "At set times"
+    },
+    "slot": {
+      "MORNING": "Morning (06:00–12:00)",
+      "AFTERNOON": "Afternoon (12:00–17:00)",
+      "EVENING": "Evening (17:00–21:00)",
+      "NIGHT": "Night (21:00–06:00)"
+    },
+    "slotShort": {
+      "MORNING": "Morning",
+      "AFTERNOON": "Afternoon",
+      "EVENING": "Evening",
+      "NIGHT": "Night"
+    },
+    "problem": {
+      "category": "Choose a category.",
+      "title": "Give it a title in at least one language.",
+      "timing": "Choose when it is done.",
+      "slot": "Choose the part of the day.",
+      "times": "Enter times as HH:MM, separated by commas, each once.",
+      "daysOfWeek": "Choose at least one day, or every shift."
+    },
+    "outcome": {
+      "open": "Not marked",
+      "done": "Done",
+      "auto": "Done (auto)",
+      "notDone": "Not done"
+    },
+    "editor": {
+      "activities": "Activities",
+      "textIn": "Writing in",
+      "language": {
+        "en": "English",
+        "si": "Sinhala",
+        "ta": "Tamil"
+      },
+      "textHint": "A language left blank shows the text from another language.",
+      "empty": "No activities yet. Add the first one below.",
+      "title": "Activity",
+      "titlePlaceholder": "e.g. Give morning tablets",
+      "category": "Category",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "remove": "Remove activity",
+      "timing": "When",
+      "slot": "Part of the day",
+      "times": "Times",
+      "critical": "Critical",
+      "days": "Which days",
+      "everyShift": "Every shift",
+      "instructions": "Instructions",
+      "instructionsPlaceholder": "How to do it, what to watch for (optional)",
+      "add": "Add activity"
+    },
+    "templates": {
+      "title": "Care plan templates",
+      "new": "New template",
+      "subtitle": "Ready-made lists of what a caregiver does on each shift. Apply one to a booking and tailor it to the client - changing a template never changes a plan already made from it.",
+      "tabs": {
+        "ACTIVE": "Active",
+        "ARCHIVED": "Archived"
+      },
+      "empty": "No templates yet. Create one for each common routine - an elderly client at home, post-operative care, dementia care.",
+      "emptyArchived": "No archived templates.",
+      "activityCount": "{count} activities",
+      "criticalCount": "{count} critical",
+      "updated": "Updated {when}",
+      "duplicate": "Duplicate",
+      "notFound": "Template not found",
+      "back": "Back to templates",
+      "editHint": "Staff can apply this template when starting a booking's care plan.",
+      "archive": "Archive",
+      "restore": "Restore",
+      "archivedBanner": "This template is archived: it can no longer be applied. Plans already made from it are not affected.",
+      "name": "Template name",
+      "namePlaceholder": "e.g. Elderly care at home",
+      "nameRequired": "Give the template a name.",
+      "description": "Description",
+      "careTypes": "Suits these kinds of care",
+      "careTypesHint": "Templates for the booking's kind of care are offered first. Leave all unticked for any.",
+      "create": "Create template"
+    },
+    "plan": {
+      "title": "Care plan",
+      "edit": "Change plan",
+      "none": "No care plan on this booking.",
+      "fromTemplate": "Started from template",
+      "pendingFrom": "The plan below takes effect from {date}. Until then the earlier version applies (see History).",
+      "history": "History ({count} earlier activities)",
+      "ranUntil": "from {from} to {to}",
+      "noActivities": "No activities on the plan.",
+      "startHint": "Set out what the caregiver does on each shift. The client ticks each item off; anything left unmarked by midnight counts as done.",
+      "startFrom": "Start from",
+      "blank": "A blank plan",
+      "templates": "Templates",
+      "copyFrom": "Copy this client's plan from booking",
+      "create": "Create care plan",
+      "noTemplates": "There are no templates yet.",
+      "effectiveFrom": "Takes effect from",
+      "effectiveHint": "Earlier days keep the plan as it was. Earliest possible: {min}.",
+      "notes": "Notes for every caregiver",
+      "notesPlaceholder": "Allergies, routines, who to call…",
+      "notesHint": "Shown to the caregiver and the client with each day's checklist.",
+      "saveFrom": "Save - effective {date}",
+      "saveAsTemplate": "Save as template",
+      "savedAsTemplate": "Saved as template \"{name}\""
+    },
+    "log": {
+      "title": "Care log",
+      "from": "From",
+      "to": "To",
+      "totals": {
+        "due": "Due",
+        "done": "Done",
+        "notDone": "Not done",
+        "auto": "Done (auto)",
+        "open": "Not marked"
+      },
+      "criticalNotConfirmed": "{count} critical not confirmed by the client",
+      "empty": "No shifts with a care plan in these dates.",
+      "cover": "(cover)",
+      "closed": "Closed",
+      "openUntil": "Client can mark until midnight, {day}",
+      "nothingDue": "Nothing due on this shift.",
+      "correct": "Correct",
+      "reason": "Why? (required)",
+      "source": {
+        "CLIENT": "Marked by the client",
+        "STAFF": "Corrected by staff"
+      }
     }
   }
 }

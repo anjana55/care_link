@@ -28,6 +28,7 @@ import {
   payoutStatements,
 } from '../database/schema';
 import { fold, median, periodFor, ratio, round2, type DailyValue } from './periods';
+import { CarePlansService } from '../care-plans/care-plans.service';
 
 /** A UTC datetime column as its Asia/Colombo calendar day (Sri Lanka has no DST). */
 const colomboDay = (col: AnyMySqlColumn | SQL) => sql<string>`DATE_FORMAT(DATE_ADD(${col}, INTERVAL 330 MINUTE), '%Y-%m-%d')`;
@@ -66,7 +67,10 @@ const AGING_KEYS: InsightAgingBucket['key'][] = ['current', 'd1_30', 'd31_60', '
  */
 @Injectable()
 export class InsightsService {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly carePlans: CarePlansService,
+  ) {}
 
   async overview(range: InsightRange, localeInput?: string): Promise<BusinessInsights> {
     const locale = resolveLocale(localeInput);
@@ -452,6 +456,7 @@ export class InsightsService {
       [docs],
       [clients],
       [awaiting],
+      care,
     ] = await Promise.all([
       this.db.select({ n: count() }).from(careRequests).where(and(eq(careRequests.status, 'NEW'), lt(careRequests.createdAt, dayAgo))),
       this.db
@@ -482,6 +487,7 @@ export class InsightsService {
         .select({ n: count() })
         .from(caregivers)
         .where(and(inArray(caregivers.status, ['DOCUMENTS_PENDING', 'UNDER_VERIFICATION']), isNull(caregivers.deletedAt))),
+      this.carePlans.attention(today),
     ]);
 
     const unbilledRows = (Array.isArray(unbilledResult) ? unbilledResult[0] : unbilledResult) as unknown as { n: unknown }[];
@@ -500,6 +506,8 @@ export class InsightsService {
       documentsPending: num(docs?.n),
       clientsPendingReview: num(clients?.n),
       caregiversAwaitingVerification: num(awaiting?.n),
+      careCriticalNotDone: care.criticalNotDone,
+      careCriticalUnconfirmed: care.criticalUnconfirmed,
     };
   }
 }

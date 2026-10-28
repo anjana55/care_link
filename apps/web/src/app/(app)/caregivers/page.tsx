@@ -83,7 +83,7 @@ export default function CaregiversListPage() {
         <h1 className="text-xl font-semibold text-ink">{t('caregivers.title')}</h1>
         <div className="flex items-center gap-2">
           {user?.role === 'ADMIN' && (
-            <Link href="/data-transfer">
+            <Link href="/settings/import-export">
               <Button variant="secondary">
                 <ArrowDownUp size={16} />
                 {t('dataTransfer.button')}

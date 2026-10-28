@@ -215,4 +215,6 @@ export interface CaregiverShift extends PortalShift {
   scheduleType: ScheduleType;
   /** Where the care is, as a city/district - the address is shared by staff. */
   area: string | null;
+  /** The booking has a care plan the caregiver can open for this shift (GET /me/shifts/:id/care). */
+  hasCarePlan: boolean;
 }

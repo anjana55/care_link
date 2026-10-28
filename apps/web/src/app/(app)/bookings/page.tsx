@@ -15,9 +15,12 @@ import { cn } from '@/lib/utils';
 import type { BookingStatus } from '@/lib/api/types';
 import { useInitialParam } from '@/lib/use-initial-param';
 
-/** 'issues': bookings a client or caregiver has reported a problem on that staff have not answered. */
-type Tab = BookingStatus | 'all' | 'issues';
-const TABS: Tab[] = ['CONFIRMED', 'DRAFT', 'COMPLETED', 'CANCELLED', 'all', 'issues'];
+/**
+ * 'issues': bookings a client or caregiver has reported a problem on that staff have not answered.
+ * 'care': bookings where a critical care-plan item was marked Not done, or nobody confirmed it, in the last 7 days.
+ */
+type Tab = BookingStatus | 'all' | 'issues' | 'care';
+const TABS: Tab[] = ['CONFIRMED', 'DRAFT', 'COMPLETED', 'CANCELLED', 'all', 'issues', 'care'];
 
 /** Every booking, active ones first. ADMIN and STAFF. */
 export default function BookingsPage() {
@@ -36,7 +39,7 @@ export default function BookingsPage() {
 
   const { data: summary } = useBookingSummary(allowed);
   const { data, isLoading } = useBookings(
-    { status: tab === 'all' || tab === 'issues' ? undefined : tab, hasOpenIssues: tab === 'issues' || undefined, search: search.trim() || undefined, page, pageSize: 20 },
+    { status: tab === 'all' || tab === 'issues' || tab === 'care' ? undefined : tab, hasOpenIssues: tab === 'issues' || undefined, hasCareAlerts: tab === 'care' || undefined, search: search.trim() || undefined, page, pageSize: 20 },
     allowed,
   );
 
@@ -69,7 +72,7 @@ export default function BookingsPage() {
             )}
           >
             {t(`bookings.tabs.${key}`)}
-            {summary && key !== 'all' && key !== 'issues' && <span className="rounded-full bg-paper px-1.5 text-xs tabular-nums text-ink/60">{summary.byStatus[key]}</span>}
+            {summary && key !== 'all' && key !== 'issues' && key !== 'care' && <span className="rounded-full bg-paper px-1.5 text-xs tabular-nums text-ink/60">{summary.byStatus[key]}</span>}
             {summary && key === 'issues' && summary.openIssues > 0 && <span className="rounded-full bg-accent-light px-1.5 text-xs tabular-nums text-accent">{summary.openIssues}</span>}
           </button>
         ))}

@@ -10,6 +10,7 @@ import { LoadingState, ErrorState } from '@/components/common/states';
 import { CaregiverSummary } from '@/components/care/caregiver-summary';
 import { ShiftList } from '@/components/care/shift-list';
 import { IssueReportList, ReportIssueForm } from '@/components/care/report-issue';
+import { TodaysCare } from '@/components/care/todays-care';
 
 const TONE: Record<BookingStatus, string> = {
   DRAFT: 'bg-paper text-ink/60',
@@ -21,7 +22,8 @@ const TONE: Record<BookingStatus, string> = {
 /**
  * The client's confirmed bookings: caregiver (public profile), dates, agreed
  * rate and shifts - and, on each, a way to tell us something is not right,
- * with the reports they have sent and our answers.
+ * with the reports they have sent and our answers. Above them, Today's care:
+ * the care-plan checklist the client ticks off.
  */
 export default function MyBookingsPage() {
   const { t, locale } = useTranslation();
@@ -33,6 +35,8 @@ export default function MyBookingsPage() {
       <h1 className="text-xl font-semibold text-ink">{t('account.bookings.title')}</h1>
       <p className="mt-1 text-sm text-ink/60">{t('account.bookings.subtitle')}</p>
       <div className="mt-6">
+        {/* The care-plan checklist for today, when any booking has a plan. */}
+        <TodaysCare />
         {isLoading && <LoadingState label={t('common.loading')} />}
         {isError && <ErrorState onRetry={() => refetch()} />}
         {data && data.length === 0 && (

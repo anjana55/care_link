@@ -39,6 +39,7 @@ import { CareRequestsModule } from './care-requests/care-requests.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { BillingModule } from './billing/billing.module';
 import { CorrectionsModule } from './corrections/corrections.module';
+import { CarePlansModule } from './care-plans/care-plans.module';
 import { InsightsModule } from './insights/insights.module';
 import { BrandingModule } from './branding/branding.module';
 import { AdsModule } from './ads/ads.module';
@@ -93,6 +94,7 @@ import { InternationalModule } from './international/international.module';
     BookingsModule,
     BillingModule,
     CorrectionsModule,
+    CarePlansModule,
     InsightsModule,
     AiModule,
   ],

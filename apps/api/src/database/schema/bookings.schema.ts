@@ -161,6 +161,9 @@ export const bookingEventTypeEnum = [
   'AMENDED',
   'ISSUE_REPORTED',
   'ISSUE_CLOSED',
+  // Care plan: created (from a template, another plan or blank), or changed from a date.
+  'CARE_PLAN_SET',
+  'CARE_PLAN_CHANGED',
 ] as const;
 export type BookingEventType = (typeof bookingEventTypeEnum)[number];
 
@@ -215,7 +218,7 @@ export const bookingAmendments = mysqlTable(
  * - RESOLVED   a correction was made, or staff fixed it another way.
  * - DISMISSED  nothing needed changing; the note says why.
  */
-export const issueReportCategoryEnum = ['TIMES', 'DID_NOT_HAPPEN', 'WRONG_CAREGIVER', 'CHARGE', 'PAY', 'OTHER'] as const;
+export const issueReportCategoryEnum = ['TIMES', 'DID_NOT_HAPPEN', 'WRONG_CAREGIVER', 'CHARGE', 'PAY', 'CARE_PLAN', 'OTHER'] as const;
 export const issueReportStatusEnum = ['OPEN', 'RESOLVED', 'DISMISSED'] as const;
 export type IssueReportCategory = (typeof issueReportCategoryEnum)[number];
 

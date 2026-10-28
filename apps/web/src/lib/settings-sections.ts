@@ -24,6 +24,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { href: '/settings/skills', key: 'nav.skills', roles: ALL_STAFF },
   { href: '/settings/languages', key: 'nav.languages', roles: ALL_STAFF },
   { href: '/settings/locations', key: 'nav.locations', roles: ALL_STAFF },
+  // Spreadsheet import/export: exports hold every NIC and phone number, so admins only.
+  { href: '/settings/import-export', key: 'nav.dataTransfer', roles: ADMIN },
   { href: '/settings/audit-log', key: 'nav.auditLog', roles: ADMIN },
 ];
 

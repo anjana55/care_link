@@ -119,6 +119,7 @@ export const CATEGORY_EN: Record<IssueReportCategory, string> = {
   WRONG_CAREGIVER: 'A different caregiver came',
   CHARGE: 'The charge is wrong',
   PAY: 'The pay is wrong',
+  CARE_PLAN: 'A care plan record is wrong',
   OTHER: 'Something else',
 };
 

@@ -26,6 +26,8 @@ export interface BookingFilters {
   careRequestId?: string;
   /** Only bookings with a client or caregiver report waiting for staff. */
   hasOpenIssues?: boolean;
+  /** Only bookings with a critical care-plan item marked Not done, or unconfirmed, in the last 7 days. */
+  hasCareAlerts?: boolean;
   page?: number;
   pageSize?: number;
 }

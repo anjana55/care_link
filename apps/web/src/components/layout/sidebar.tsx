@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2, ArrowDownUp, GraduationCap } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2, GraduationCap, ClipboardList } from 'lucide-react';
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
 import { useAiStatus } from '@/lib/hooks/use-ai';
 import { useInternationalSummary } from '@/lib/hooks/use-international';
@@ -32,6 +32,8 @@ const OVERSEAS_ITEM = { href: '/international', key: 'nav.international', icon: 
 // Training programmes and sign-ups: ADMIN + STAFF, like Overseas, which it used to sit under.
 const TRAINING_ITEM = { href: '/training', key: 'nav.training', icon: GraduationCap };
 const BOOKINGS_ITEM = { href: '/bookings', key: 'nav.bookings', icon: CalendarDays };
+// The care plan template library sits with the bookings it is applied to: ADMIN + STAFF.
+const CARE_PLANS_ITEM = { href: '/care-plans', key: 'nav.carePlans', icon: ClipboardList };
 // Billing follows the work it bills: ADMIN + STAFF, like Bookings.
 const INVOICES_ITEM = { href: '/invoices', key: 'nav.invoices', icon: ReceiptText };
 const PAYOUTS_ITEM = { href: '/payouts', key: 'nav.payouts', icon: Wallet };
@@ -40,11 +42,8 @@ const PAYOUTS_ITEM = { href: '/payouts', key: 'nav.payouts', icon: Wallet };
 const ASSISTANT_ITEM = { href: '/assistant', key: 'nav.assistant', icon: Bot };
 
 // Admin-only: rendered separately from ITEMS so they never show for STAFF/VERIFIER.
-const ADMIN_ITEMS = [
-  { href: '/users', key: 'nav.users', icon: ShieldCheck },
-  // Spreadsheet import/export: exports hold every NIC and phone number, so admins only.
-  { href: '/data-transfer', key: 'nav.dataTransfer', icon: ArrowDownUp },
-];
+// Spreadsheet import/export lives in Settings > Import & export (admins only).
+const ADMIN_ITEMS = [{ href: '/users', key: 'nav.users', icon: ShieldCheck }];
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -59,7 +58,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   // Requests lead for the roles that work them: it is the day's worklist.
   // Clients sit straight after Caregivers, the list they mirror.
   const base = canSeeClients
-    ? [ITEMS[0], REQUESTS_ITEM, OVERSEAS_ITEM, TRAINING_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM]
+    ? [ITEMS[0], REQUESTS_ITEM, OVERSEAS_ITEM, TRAINING_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, CARE_PLANS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM]
     : ITEMS;
   const items = [...base, ...(user?.role === 'ADMIN' ? ADMIN_ITEMS : []), SETTINGS_ITEM];
 

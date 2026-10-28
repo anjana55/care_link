@@ -5,6 +5,7 @@ import { useTranslation } from '@/lib/i18n';
 import { useMyShiftIssues, useMyShifts, useReportShiftIssue } from '@/lib/hooks/use-caregiver-portal';
 import { ShiftList } from './shift-list';
 import { IssueReportList, ReportIssueForm } from './report-issue';
+import { ShiftCarePlan } from './shift-care-plan';
 
 /**
  * The caregiver's confirmed work, read-only: staff arrange bookings and any
@@ -14,6 +15,9 @@ import { IssueReportList, ReportIssueForm } from './report-issue';
  * Each shift that has started (or was cancelled) has "Something's not right?"
  * - times, whether it happened, or the pay - which goes to our team as a
  * report; their reports and our answers are listed underneath.
+ *
+ * A shift on a booking with a care plan has "Care plan" from a day before it
+ * starts until its day ends: what to do, when, and anything the family marked.
  */
 export function BookedShifts() {
   const { t } = useTranslation();
@@ -21,6 +25,7 @@ export function BookedShifts() {
   const { data: reports } = useMyShiftIssues();
   const report = useReportShiftIssue();
   const [reporting, setReporting] = useState<string | null>(null);
+  const [planFor, setPlanFor] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const now = Date.now();
 
@@ -44,39 +49,56 @@ export function BookedShifts() {
                 {s.area && ` · ${s.area}`}
               </>
             )}
-            action={(s) =>
-              (new Date(s.startsAt).getTime() <= now || s.status === 'CANCELLED') && reporting !== s.id ? (
-                <button
-                  type="button"
-                  className="text-xs font-medium text-brand hover:underline"
-                  onClick={() => {
-                    setSent(false);
-                    setReporting(s.id);
-                  }}
-                >
-                  {t('issues.reportShort')}
-                </button>
-              ) : null
-            }
+            action={(s) => (
+              <>
+                {s.hasCarePlan && (
+                  <button
+                    type="button"
+                    aria-expanded={planFor === s.id}
+                    className="text-xs font-medium text-brand hover:underline"
+                    onClick={() => setPlanFor(planFor === s.id ? null : s.id)}
+                  >
+                    {planFor === s.id ? t('carePlan.hidePlan') : t('carePlan.showPlan')}
+                  </button>
+                )}
+                {(new Date(s.startsAt).getTime() <= now || s.status === 'CANCELLED') && reporting !== s.id ? (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-brand hover:underline"
+                    onClick={() => {
+                      setSent(false);
+                      setReporting(s.id);
+                    }}
+                  >
+                    {t('issues.reportShort')}
+                  </button>
+                ) : null}
+              </>
+            )}
             below={(s) =>
-              reporting === s.id ? (
-                <ReportIssueForm
-                  role="CAREGIVER"
-                  pending={report.isPending}
-                  error={report.error}
-                  onCancel={() => setReporting(null)}
-                  onSubmit={(body) =>
-                    report.mutate(
-                      { ...body, shiftId: s.id },
-                      {
-                        onSuccess: () => {
-                          setReporting(null);
-                          setSent(true);
-                        },
-                      },
-                    )
-                  }
-                />
+              planFor === s.id || reporting === s.id ? (
+                <>
+                  {planFor === s.id && <ShiftCarePlan shiftId={s.id} />}
+                  {reporting === s.id && (
+                    <ReportIssueForm
+                      role="CAREGIVER"
+                      pending={report.isPending}
+                      error={report.error}
+                      onCancel={() => setReporting(null)}
+                      onSubmit={(body) =>
+                        report.mutate(
+                          { ...body, shiftId: s.id },
+                          {
+                            onSuccess: () => {
+                              setReporting(null);
+                              setSent(true);
+                            },
+                          },
+                        )
+                      }
+                    />
+                  )}
+                </>
               ) : null
             }
           />

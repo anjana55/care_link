@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, datetime, date, index, int, mysqlEnum, smallint, text } from 'drizzle-orm/mysql-core';
+import { mysqlTable, varchar, datetime, date, index, int, mysqlEnum, smallint, text, boolean } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
 // Both are leaf schema modules - caregivers.schema imports only ./locations.schema
 // and drizzle-orm - so this is not a cycle. Sharing one constant means a future
@@ -139,6 +139,9 @@ export const patients = mysqlTable(
     alternatePhone: varchar('alternate_phone', { length: 20 }),
     preferredContactMethod: mysqlEnum('preferred_contact_method', contactMethodEnum),
     preferredContactTime: mysqlEnum('preferred_contact_time', contactTimeEnum),
+    // The client asked for an evening reminder when care-plan items are still
+    // unmarked that day (Today's care, /account/bookings). Off unless they opt in.
+    careRemindersEnabled: boolean('care_reminders_enabled').notNull().default(false),
 
     // --- Where care is needed --------------------------------------------
     // Reuses the district_id/city_id pair declared above, so a client can be

@@ -323,6 +323,12 @@ export class BookingQueryDto {
   @IsBoolean()
   hasOpenIssues?: boolean;
 
+  @ApiPropertyOptional({ description: 'Only bookings with a critical care-plan item marked Not done, or unconfirmed, in the last 7 days' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  hasCareAlerts?: boolean;
+
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @Type(() => Number)

@@ -11,6 +11,9 @@ import type {
   CreateIssueReportBody,
   MyIssueReport,
   PayhereCheckout,
+  CareChecklistShift,
+  CareRecordInput,
+  ClientCareDay,
 } from '@care-platform/shared';
 import { api } from '../api/client';
 import { useAuth } from '../api/auth-context';
@@ -164,5 +167,43 @@ export function useMyInvoice(id: string, poll = false) {
 export function useStartOnlinePayment(id: string) {
   return useMutation({
     mutationFn: (email?: string) => api.post<PayhereCheckout>(`/me/invoices/${id}/payhere`, email ? { email } : {}),
+  });
+}
+
+// --- care plan: the daily checklist ------------------------------------------------------
+
+/** One day's care-plan checklist across the client's bookings (GET /me/care?date=). Today when no date. */
+export function useMyCareDay(date: string | null) {
+  const client = useIsClient();
+  const { locale } = useTranslation();
+  const key = useClientKey();
+  return useQuery({
+    queryKey: [...key, 'care', date ?? 'today', locale],
+    queryFn: () => api.get<ClientCareDay>(`/me/care${date ? `?date=${date}` : ''}`),
+    enabled: Boolean(client),
+  });
+}
+
+/** Mark one item Done or Not done; the day's list is updated from the shift the API returns. */
+export function useMarkCareItem(date: string | null) {
+  const queryClient = useQueryClient();
+  const { locale } = useTranslation();
+  const key = useClientKey();
+  return useMutation({
+    mutationFn: (body: CareRecordInput) => api.put<CareChecklistShift>('/me/care/records', body),
+    onSuccess: (shift) =>
+      queryClient.setQueryData<ClientCareDay>([...key, 'care', date ?? 'today', locale], (day) =>
+        day ? { ...day, shifts: day.shifts.map((s) => (s.shiftId === shift.shiftId ? shift : s)) } : day,
+      ),
+  });
+}
+
+/** The evening reminder about unmarked items: on or off. */
+export function useSetCareReminders() {
+  const queryClient = useQueryClient();
+  const key = useClientKey();
+  return useMutation({
+    mutationFn: (enabled: boolean) => api.put<{ reminders: boolean }>('/me/care/reminders', { enabled }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...key, 'care'] }),
   });
 }

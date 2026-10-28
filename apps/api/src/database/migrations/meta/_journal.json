@@ -169,6 +169,13 @@
       "when": 1793118802267,
       "tag": "0023_password_reset",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1793160335653,
+      "tag": "0024_care_plans",
+      "breakpoints": true
     }
   ]
 }
