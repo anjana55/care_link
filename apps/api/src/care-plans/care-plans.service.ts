@@ -510,7 +510,15 @@ export class CarePlansService {
       )
     ).filter((s) => shiftCareDate(s.startsAt) === day || (day === today && careCutOff(s.endsAt) > now));
     const [p] = await this.db.select({ reminders: patients.careRemindersEnabled }).from(patients).where(eq(patients.id, patientId)).limit(1);
-    return { date: day, today, reminders: Boolean(p?.reminders), shifts: await this.checklists(shifts, 'CLIENT', locale, now) };
+    const [any] = shifts.length
+      ? [{ id: 'x' }]
+      : await this.db
+          .select({ id: carePlans.id })
+          .from(carePlans)
+          .innerJoin(bookings, eq(bookings.id, carePlans.bookingId))
+          .where(and(eq(bookings.patientId, patientId), ne(bookings.status, 'DRAFT')))
+          .limit(1);
+    return { date: day, today, reminders: Boolean(p?.reminders), hasCarePlans: Boolean(any), shifts: await this.checklists(shifts, 'CLIENT', locale, now) };
   }
 
   /** The client marks one item Done or Not done - only on their own booking, once the shift has started, until its cut-off. */

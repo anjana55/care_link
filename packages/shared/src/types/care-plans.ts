@@ -355,6 +355,8 @@ export interface ClientCareDay {
   today: string;
   /** Whether the client gets an evening reminder about unmarked items. */
   reminders: boolean;
+  /** Any of the client's bookings has a care plan - otherwise the page leaves the checklist out. */
+  hasCarePlans: boolean;
   shifts: CareChecklistShift[];
 }
 

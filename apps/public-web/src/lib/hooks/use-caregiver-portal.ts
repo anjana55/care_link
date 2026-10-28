@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CaregiverPayout, CaregiverShift, CreateIssueReportBody, MyIssueReport } from '@care-platform/shared';
+import type { CareChecklistShift, CaregiverPayout, CaregiverShift, CreateIssueReportBody, MyIssueReport } from '@care-platform/shared';
 import { api } from '../api/client';
 import { useAuth } from '../api/auth-context';
 import type {
@@ -196,5 +196,15 @@ export function useReportShiftIssue() {
   return useMutation({
     mutationFn: ({ shiftId, ...body }: CreateIssueReportBody & { shiftId: string }) => api.post<MyIssueReport>(`/me/shifts/${shiftId}/issues`, body),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', id, 'issues'] }),
+  });
+}
+
+/** The care plan for one of the caregiver's own shifts - read-only, from a day before it until its day ends. */
+export function useShiftCarePlan(shiftId: string | null) {
+  const id = useCaregiverId();
+  return useQuery({
+    queryKey: ['portal', id, 'shift-care', shiftId],
+    queryFn: () => api.get<CareChecklistShift>(`/me/shifts/${shiftId}/care`),
+    enabled: Boolean(id && shiftId),
   });
 }

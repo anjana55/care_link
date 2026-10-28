@@ -32,6 +32,8 @@ import { RelatedInvoices } from '@/components/billing/related-invoices';
 import { EditBookingPanel } from '@/components/bookings/edit-booking-panel';
 import { CorrectBookingPanel } from '@/components/bookings/correct-booking-panel';
 import { BookingCorrections } from '@/components/bookings/booking-corrections';
+import { BookingCarePlan } from '@/components/bookings/booking-care-plan';
+import { BookingCareLog } from '@/components/bookings/booking-care-log';
 import {
   emptyShiftRates,
   ShiftRateChips,
@@ -198,6 +200,12 @@ export default function BookingPage() {
       </div>
 
       <Roster booking={booking} />
+
+      {/* What the caregiver does on each shift, and what the client ticked off. */}
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <BookingCarePlan bookingId={booking.id} editable={open} />
+        {booking.status !== 'DRAFT' && <BookingCareLog bookingId={booking.id} />}
+      </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="space-y-4">

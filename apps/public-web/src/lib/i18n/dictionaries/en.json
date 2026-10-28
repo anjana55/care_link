@@ -1406,6 +1406,7 @@
       "WRONG_CAREGIVER": "A different caregiver came",
       "CHARGE": "I was charged the wrong amount",
       "PAY": "My pay is wrong",
+      "CARE_PLAN": "Something on the care checklist is wrong",
       "OTHER": "Something else"
     },
     "status": {
@@ -2183,5 +2184,45 @@
     "doneTitle": "Password saved",
     "doneBody": "Your new password is ready. Sign in with your email address and the new password.",
     "signIn": "Sign in"
+  },
+  "carePlan": {
+    "todayTitle": "Today's care",
+    "dayTitle": "Care on {date}",
+    "today": "Today",
+    "previousDay": "Previous day",
+    "nextDay": "Next day",
+    "intro": "Tick off what the caregiver did today. Anything you leave unmarked by midnight is counted as done.",
+    "leftToReview": "Left to review before midnight: {count}",
+    "nothingThisDay": "Nothing on the care plan for this day.",
+    "nothingDue": "Nothing due on this shift.",
+    "closed": "Closed - report a problem if something is wrong",
+    "openUntil": "You can mark these until midnight, {day}",
+    "notStarted": "Not started yet",
+    "anyTime": "Any time",
+    "slot": {
+      "MORNING": "Morning",
+      "AFTERNOON": "Afternoon",
+      "EVENING": "Evening",
+      "NIGHT": "Night"
+    },
+    "important": "Important",
+    "done": "Done",
+    "notDone": "Not done",
+    "reasonPlaceholder": "What happened? (optional)",
+    "saveReason": "Save",
+    "outcome": {
+      "open": "Not marked",
+      "done": "Done",
+      "auto": "Done (not reviewed)",
+      "staff": "Updated by our team",
+      "notDone": "Not done"
+    },
+    "reminders": "Remind me at 8 pm if anything is still unmarked",
+    "remindersHint": "By email or WhatsApp, whichever you prefer.",
+    "loadError": "Today's care could not be loaded.",
+    "retry": "Try again",
+    "showPlan": "Care plan",
+    "hidePlan": "Hide care plan",
+    "caregiverTitle": "Care plan for this shift"
   }
 }
