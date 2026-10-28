@@ -8,6 +8,7 @@ import { useInterviewActions } from '@/lib/hooks/use-international';
 import { Button } from '@/components/ui/button';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { DeleteRecordButton } from '@/components/overseas-admin/delete-record-button';
 
 /** Zones staff most often book in: ours, and the employers'. */
 export const INTERVIEW_ZONES = [
@@ -132,6 +133,7 @@ function InterviewRow({ enquiryId, interview: i }: { enquiryId: string; intervie
           {t(`international.interviews.mode.${i.mode}`)} · {t('international.interviews.minutes', { n: i.durationMinutes })}
         </span>
         <span className={cn('ml-auto rounded px-2 py-0.5 text-xs font-medium', STATUS_STYLES[i.status])}>{t(`international.interviews.status.${i.status}`)}</span>
+        <DeleteRecordButton compact path={`/international/interviews/${i.id}`} title={t('overseasAdmin.interview.deleteTitle', { n: i.round })} body={t('overseasAdmin.interview.deleteBody')} />
       </div>
       {i.meetingLink && (
         <a href={i.meetingLink} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-brand-dark hover:underline">

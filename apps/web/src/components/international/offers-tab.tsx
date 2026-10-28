@@ -9,6 +9,7 @@ import { useReviewOffer, useStaffOffers } from '@/lib/hooks/use-international';
 import { Button } from '@/components/ui/button';
 import { Select, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { DeleteRecordButton } from '@/components/overseas-admin/delete-record-button';
 import { countryName, day, money } from './shared';
 
 export const OFFER_STYLES: Record<OfferStatus, string> = {
@@ -87,6 +88,11 @@ function OfferRow({ offer: o, initiallyOpen }: { offer: StaffJobOffer; initially
       {open && (
         <div className="space-y-4 border-t border-border px-4 py-4">
           <TermsTable terms={o} />
+          {o.status !== 'ACCEPTED' && (
+            <div className="flex justify-end">
+              <DeleteRecordButton path={`/international/offers/${o.id}`} title={t('overseasAdmin.offer.deleteTitle', { reference: o.reference })} body={t('overseasAdmin.offer.deleteBody')} />
+            </div>
+          )}
           <div className="grid gap-2 text-sm sm:grid-cols-2">
             <Signature label={t('international.offers.employerSigned')} signature={o.employerSignature} />
             <Signature label={t('international.offers.caregiverSigned')} signature={o.caregiverSignature} />

@@ -47,10 +47,10 @@ export function ConfirmDialog({
         {children}
         {error && <p className="mb-4 rounded bg-danger-light px-3 py-2 text-xs text-danger">{error}</p>}
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
+          <Button type="button" variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
             {t('common.cancel')}
           </Button>
-          <Button variant={tone} size="sm" disabled={pending} onClick={onConfirm}>
+          <Button type="button" variant={tone} size="sm" disabled={pending} onClick={onConfirm}>
             {pending ? t('common.loading') : (confirmLabel ?? t('common.confirm'))}
           </Button>
         </div>

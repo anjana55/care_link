@@ -8,7 +8,6 @@ import { useInternationalSummary } from '@/lib/hooks/use-international';
 import { useInitialParam } from '@/lib/use-initial-param';
 import { EnquiriesTab } from '@/components/international/enquiries-tab';
 import { SharedProfilesTab } from '@/components/international/shared-profiles-tab';
-import { TrainingTab } from '@/components/international/training-tab';
 import { EmployersTab } from '@/components/international/employers-tab';
 import { TalentPoolTab } from '@/components/international/talent-pool-tab';
 import { InterviewRequestsTab } from '@/components/international/interview-requests-tab';
@@ -22,7 +21,7 @@ import { ResultsTab } from '@/components/international/results-tab';
 import { ReportsTab } from '@/components/international/reports-tab';
 import { cn } from '@/lib/utils';
 
-const TABS = ['enquiries', 'interviews', 'offers', 'vacancies', 'placements', 'welfare', 'invoices', 'employers', 'pool', 'results', 'expiring', 'profiles', 'training', 'reports'] as const;
+const TABS = ['enquiries', 'interviews', 'offers', 'vacancies', 'placements', 'welfare', 'invoices', 'employers', 'pool', 'results', 'expiring', 'profiles', 'reports'] as const;
 type Tab = (typeof TABS)[number];
 
 /**
@@ -31,8 +30,8 @@ type Tab = (typeof TABS)[number];
  * vacancy board and its applicants, placements with their welfare check-ins,
  * welfare reports and SOS from caregivers abroad, placement-fee invoices,
  * employer accounts to verify, the talent pool, test results to verify,
- * expiring passports and documents, shared profiles waiting for review,
- * training programmes, and reports.
+ * expiring passports and documents, shared profiles waiting for review, and
+ * reports. Training has its own page (/training).
  * ADMIN and STAFF, like Requests.
  */
 export default function InternationalPage() {
@@ -41,6 +40,11 @@ export default function InternationalPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('enquiries');
   useInitialParam('tab', TABS, setTab);
+
+  // Training moved to its own menu; old links (?tab=training) still land there.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') === 'training') router.replace('/training');
+  }, [router]);
 
   useEffect(() => {
     if (loading) return;
@@ -107,7 +111,6 @@ export default function InternationalPage() {
       {tab === 'employers' && <EmployersTab />}
       {tab === 'pool' && <TalentPoolTab />}
       {tab === 'profiles' && <SharedProfilesTab />}
-      {tab === 'training' && <TrainingTab />}
       {tab === 'offers' && <OffersTab />}
       {tab === 'welfare' && <WelfareTab />}
       {tab === 'results' && <ResultsTab />}

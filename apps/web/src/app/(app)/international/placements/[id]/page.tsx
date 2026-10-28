@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { DeleteRecordButton } from '@/components/overseas-admin/delete-record-button';
 import { countryName, day, money } from '@/components/international/shared';
 import { PLACEMENT_STYLES } from '@/components/international/placements-tab';
 import { INVOICE_STYLES } from '@/components/international/invoices-tab';
@@ -61,6 +62,9 @@ export default function PlacementPage() {
             · {p.organisationName}
           </h1>
           <span className={cn('rounded px-2 py-0.5 text-xs font-medium', PLACEMENT_STYLES[p.status])}>{t(`international.placements.status.${p.status}`)}</span>
+          <span className="ml-auto">
+            <DeleteRecordButton path={`/international/placements/${p.id}`} title={t('overseasAdmin.placement.deleteTitle')} body={t('overseasAdmin.placement.deleteBody')} onDeleted={() => router.push('/international?tab=placements')} />
+          </span>
         </div>
         <p className="mt-1 text-sm text-ink/60">
           {countryName(p.country, locale)}

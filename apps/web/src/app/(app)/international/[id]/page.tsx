@@ -15,6 +15,7 @@ import { EnquiryStatusBadge, countryName } from '@/components/international/shar
 import { CandidatesCard } from '@/components/international/candidates-card';
 import { EnquiryVacanciesCard } from '@/components/international/enquiry-vacancies-card';
 import { EditEnquiryForm } from '@/components/international/edit-enquiry-form';
+import { DeleteRecordButton } from '@/components/overseas-admin/delete-record-button';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -86,10 +87,18 @@ export default function EmployerEnquiryPage() {
           </h1>
           <EnquiryStatusBadge status={enquiry.status} />
           {user?.role === 'ADMIN' && !editing && (
-            <Button size="sm" variant="secondary" className="ml-auto" onClick={() => setEditing(true)}>
-              <Pencil size={14} aria-hidden className="mr-1.5" />
-              {t('international.edit.button')}
-            </Button>
+            <div className="ml-auto flex gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
+                <Pencil size={14} aria-hidden className="mr-1.5" />
+                {t('international.edit.button')}
+              </Button>
+              <DeleteRecordButton
+                path={`/international/enquiries/${enquiry.id}`}
+                title={t('overseasAdmin.deleteEnquiry.title', { reference: enquiry.reference })}
+                body={t('overseasAdmin.deleteEnquiry.body')}
+                onDeleted={() => router.push('/international')}
+              />
+            </div>
           )}
         </div>
         <p className="mt-1 text-sm text-ink/60">{t('international.detail.received', { date: new Date(enquiry.createdAt).toLocaleString() })}</p>

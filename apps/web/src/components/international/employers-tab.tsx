@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ExternalLink, MailWarning } from 'lucide-react';
+import { ExternalLink, MailWarning, Pencil, Plus } from 'lucide-react';
+import { useAuth } from '@/lib/api/auth-context';
+import { EmployerForm } from '@/components/overseas-admin/employer-form';
+import { DeleteRecordButton } from '@/components/overseas-admin/delete-record-button';
 import type { EmployerAdminRow } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useEmployerAccounts, useReviewEmployer } from '@/lib/hooks/use-international';
@@ -29,11 +32,41 @@ export function EmployersTab() {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('PENDING_REVIEW');
   const { data = [], isLoading } = useEmployerAccounts(filter);
+  const { user } = useAuth();
+  const [adding, setAdding] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   return (
     <div>
+      {adding && (
+        <div className="mb-4">
+          <EmployerForm
+            onDone={(message) => {
+              setAdding(false);
+              setNotice(message ?? null);
+            }}
+          />
+        </div>
+      )}
+      {notice && (
+        <p role="status" className="mb-4 rounded border border-brand/40 bg-brand-light/40 p-3 text-sm text-ink">
+          {notice}
+        </p>
+      )}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-ink/60">{t('international.employers.hint')}</p>
+        <div className="flex flex-wrap gap-2">
+        {user?.role === 'ADMIN' && !adding && (
+          <Button
+            onClick={() => {
+              setNotice(null);
+              setAdding(true);
+            }}
+          >
+            <Plus size={16} aria-hidden />
+            {t('overseasAdmin.employer.add')}
+          </Button>
+        )}
         <Select className="sm:w-56" value={filter} onChange={(e) => setFilter(e.target.value as (typeof FILTERS)[number])} aria-label={t('international.employers.filter')}>
           {FILTERS.map((f) => (
             <option key={f} value={f}>
@@ -41,6 +74,7 @@ export function EmployersTab() {
             </option>
           ))}
         </Select>
+        </div>
       </div>
       {isLoading && <p className="py-8 text-center text-sm text-ink/50">{t('common.loading')}</p>}
       {!isLoading && data.length === 0 && (
@@ -57,6 +91,8 @@ export function EmployersTab() {
 
 function EmployerCard({ employer: e }: { employer: EmployerAdminRow }) {
   const { t, locale } = useTranslation();
+  const { user } = useAuth();
+  const [editing, setEditing] = useState(false);
   const review = useReviewEmployer();
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +103,8 @@ function EmployerCard({ employer: e }: { employer: EmployerAdminRow }) {
   };
   const website = e.website ? (/^https?:\/\//.test(e.website) ? e.website : `https://${e.website}`) : null;
 
+  if (editing) return <EmployerForm employer={e} onDone={() => setEditing(false)} />;
+
   return (
     <article className="rounded-lg border border-border bg-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -76,7 +114,15 @@ function EmployerCard({ employer: e }: { employer: EmployerAdminRow }) {
             {t(`international.employerTypes.${e.organisationType}`)} · {countryName(e.country, locale)}
           </p>
         </div>
-        <span className={cn('rounded px-2 py-0.5 text-xs font-medium', STATUS_STYLES[e.status])}>{t(`international.employers.status.${e.status}`)}</span>
+        <div className="flex items-center gap-1">
+          <span className={cn('rounded px-2 py-0.5 text-xs font-medium', STATUS_STYLES[e.status])}>{t(`international.employers.status.${e.status}`)}</span>
+          {user?.role === 'ADMIN' && (
+            <Button size="sm" variant="ghost" className="p-1.5" aria-label={t('overseasAdmin.employer.edit')} title={t('overseasAdmin.employer.edit')} onClick={() => setEditing(true)}>
+              <Pencil size={15} aria-hidden />
+            </Button>
+          )}
+          <DeleteRecordButton compact path={`/international/employers/${e.id}`} title={t('overseasAdmin.employer.deleteTitle', { name: e.organisationName })} body={t('overseasAdmin.employer.deleteBody')} />
+        </div>
       </div>
       <dl className="mt-3 grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1 text-sm">
         <dt className="text-ink/50">{t('international.detail.contact')}</dt>

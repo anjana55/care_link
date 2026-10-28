@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Pencil, Plus, Users } from 'lucide-react';
+import { Pencil, Plus, UserPlus, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import {
   trainingCategoryValues,
   trainingEnrolmentStatusValues,
@@ -17,6 +18,10 @@ import { useRevokeCertificate, useSaveTrainingProgramme, useTrainingEnrolments, 
 import { Button } from '@/components/ui/button';
 import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api/client';
+import type { CaregiverListResponse } from '@/lib/api/types';
+import { useEnrolCaregiver } from '@/lib/hooks/use-overseas-admin';
+import { DeleteRecordButton } from '@/components/overseas-admin/delete-record-button';
 
 const EMPTY: TrainingProgrammeInput = {
   category: 'ENGLISH',
@@ -41,7 +46,7 @@ const EMPTY: TrainingProgrammeInput = {
  * the programme on their shared profile - so it is staff, not the caregiver,
  * who records it.
  */
-export function TrainingTab() {
+export function TrainingProgrammes() {
   const { t } = useTranslation();
   const { data: programmes = [], isLoading } = useTrainingProgrammes();
   const [editing, setEditing] = useState<{ id?: string; values: TrainingProgrammeInput } | null>(null);
@@ -89,6 +94,13 @@ export function TrainingTab() {
                 <Button size="sm" variant="ghost" onClick={() => setEditing({ id: p.id, values: toInput(p) })} aria-label={t('international.training.edit')}>
                   <Pencil size={14} aria-hidden />
                 </Button>
+                <DeleteRecordButton
+                  compact
+                  path={`/international/training/programmes/${p.id}`}
+                  title={t('training.deleteProgrammeTitle')}
+                  body={t('training.deleteProgrammeBody', { title: p.titleEn })}
+                  onDeleted={() => setSelected((s) => (s === p.id ? null : s))}
+                />
               </div>
             </div>
             {selected === p.id && <Enrolments programmeId={p.id} passMark={p.passMark} />}
@@ -215,11 +227,12 @@ function Enrolments({ programmeId, passMark }: { programmeId: string; passMark: 
   const { data = [], isLoading } = useTrainingEnrolments(programmeId);
 
   if (isLoading) return <p className="mt-3 text-sm text-ink/50">{t('common.loading')}</p>;
-  if (!data.length) return <p className="mt-3 text-sm text-ink/50">{t('international.training.noSignUps')}</p>;
 
   return (
-    <div className="mt-4 border-t border-border pt-3">
-      {passMark !== null && <p className="mb-2 text-xs text-ink/60">{t('international.training.passMarkIs', { n: passMark })}</p>}
+    <div className="mt-4 space-y-3 border-t border-border pt-3">
+      <EnrolCaregiver programmeId={programmeId} enrolledIds={data.map((e) => e.caregiverId)} />
+      {!data.length && <p className="text-sm text-ink/50">{t('international.training.noSignUps')}</p>}
+      {passMark !== null && data.length > 0 && <p className="mb-2 text-xs text-ink/60">{t('international.training.passMarkIs', { n: passMark })}</p>}
       <ul className="divide-y divide-border">
         {data.map((e) => (
           <EnrolmentRow key={`${e.id}-${e.status}-${e.score}-${e.progressPercent}`} programmeId={programmeId} enrolment={e} />
@@ -279,6 +292,7 @@ function EnrolmentRow({ programmeId, enrolment: e }: { programmeId: string; enro
       <Button size="sm" disabled={!dirty || update.isPending} onClick={() => update.mutate({ id: e.id, status, progressPercent: num(progress), score: num(score) })}>
         {t('common.save')}
       </Button>
+      <DeleteRecordButton compact path={`/international/training/enrolments/${e.id}`} label={t('training.removeSignUp')} title={t('training.removeSignUpTitle')} body={t('training.removeSignUpBody', { name: e.fullName })} />
       {cert && (
         <div className="basis-full text-xs">
           <span className={cert.revoked ? 'text-ink/50 line-through' : 'font-medium text-brand-dark'}>{t('international.training.certificate', { number: cert.number })}</span>
@@ -305,5 +319,89 @@ function EnrolmentRow({ programmeId, enrolment: e }: { programmeId: string; enro
         <p className="basis-full text-xs text-danger">{(update.error ?? revoke.error) instanceof Error ? (update.error ?? revoke.error)!.message : t('common.actionFailed')}</p>
       )}
     </li>
+  );
+}
+
+/**
+ * Staff signing a caregiver up themselves - someone who asked in person or on
+ * the phone, rather than from their own account. Search by name,
+ * registration number or phone.
+ */
+function EnrolCaregiver({ programmeId, enrolledIds }: { programmeId: string; enrolledIds: string[] }) {
+  const { t } = useTranslation();
+  const enrol = useEnrolCaregiver(programmeId);
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<'ENROLLED' | 'INTERESTED'>('ENROLLED');
+  const term = search.trim();
+  const { data, isFetching } = useQuery({
+    queryKey: ['caregivers', 'enrol-search', term],
+    queryFn: () => api.get<CaregiverListResponse>('/caregivers', { search: term, pageSize: 8 }),
+    enabled: open && term.length >= 2,
+  });
+
+  if (!open) {
+    return (
+      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+        <UserPlus size={14} aria-hidden />
+        {t('training.enrol')}
+      </Button>
+    );
+  }
+  return (
+    <div className="space-y-3 rounded border border-brand/40 bg-paper/60 p-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-56 flex-1">
+          <Label htmlFor={`enrol-${programmeId}`}>{t('training.findCaregiver')}</Label>
+          <Input id={`enrol-${programmeId}`} value={search} onChange={(ev) => setSearch(ev.target.value)} placeholder={t('training.findPlaceholder')} autoFocus />
+        </div>
+        <div>
+          <Label htmlFor={`enrol-status-${programmeId}`}>{t('international.training.statusLabel')}</Label>
+          <Select id={`enrol-status-${programmeId}`} className="w-40" value={status} onChange={(ev) => setStatus(ev.target.value as 'ENROLLED' | 'INTERESTED')}>
+            {(['ENROLLED', 'INTERESTED'] as const).map((s) => (
+              <option key={s} value={s}>
+                {t(`international.training.enrolment.${s}`)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setOpen(false);
+            setSearch('');
+            enrol.reset();
+          }}
+        >
+          {t('common.cancel')}
+        </Button>
+      </div>
+      {term.length >= 2 && (
+        <ul className="divide-y divide-border rounded border border-border bg-white">
+          {isFetching && !data && <li className="px-3 py-2 text-sm text-ink/50">{t('common.loading')}</li>}
+          {data?.items.length === 0 && <li className="px-3 py-2 text-sm text-ink/50">{t('training.noMatches')}</li>}
+          {data?.items.map((c) => {
+            const already = enrolledIds.includes(c.id);
+            return (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                <span>
+                  <span className="font-medium text-ink">{c.fullName}</span>
+                  <span className="ml-2 text-xs tabular-nums text-ink/50">{c.registrationNumber}</span>
+                </span>
+                {already ? (
+                  <span className="text-xs text-ink/50">{t('training.alreadySignedUp')}</span>
+                ) : (
+                  <Button size="sm" disabled={enrol.isPending} onClick={() => enrol.mutate({ caregiverId: c.id, status }, { onSuccess: () => setSearch('') })}>
+                    {t('training.signUp')}
+                  </Button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {enrol.isError && <p className="text-xs text-danger">{enrol.error instanceof Error ? enrol.error.message : t('common.actionFailed')}</p>}
+    </div>
   );
 }

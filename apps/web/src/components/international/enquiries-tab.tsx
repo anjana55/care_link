@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search, UserRound } from 'lucide-react';
+import { Plus, Search, UserRound } from 'lucide-react';
+import { useAuth } from '@/lib/api/auth-context';
+import { NewEnquiryForm } from '@/components/overseas-admin/new-enquiry-form';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useEmployerEnquiries } from '@/lib/hooks/use-international';
 import { Input, Select } from '@/components/ui/input';
@@ -19,9 +21,12 @@ export function EnquiriesTab() {
   const [page, setPage] = useState(1);
   const { data, isLoading } = useEmployerEnquiries({ status: status || undefined, search: search.trim() || undefined, page });
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const { user } = useAuth();
+  const [adding, setAdding] = useState(false);
 
   return (
     <div>
+      {adding && <NewEnquiryForm onCancel={() => setAdding(false)} />}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
@@ -50,6 +55,12 @@ export function EnquiriesTab() {
             </option>
           ))}
         </Select>
+        {user?.role === 'ADMIN' && !adding && (
+          <Button onClick={() => setAdding(true)}>
+            <Plus size={16} aria-hidden />
+            {t('overseasAdmin.newEnquiry.button')}
+          </Button>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border bg-white">

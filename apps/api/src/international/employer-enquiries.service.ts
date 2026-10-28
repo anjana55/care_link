@@ -5,6 +5,7 @@ import type { EmployerEnquiry, EmployerEnquiryList, EmployerEnquiryReceipt, Empl
 import { DRIZZLE, type Database } from '../database/database.module';
 import { caregivers, employerEnquiries, employers, jobOffers, overseasVacancies, placements, sharedProfiles, users } from '../database/schema';
 import { CreateEmployerEnquiryDto, EditEnquiryDetailsDto, EmployerAccountEnquiryDto, EmployerEnquiryQueryDto, UpdateEmployerEnquiryDto } from './dto/international.dto';
+import type { StaffEnquiryDto } from './dto/admin.dto';
 import { SharedProfilesService } from './shared-profiles.service';
 import { InternationalNotifier } from './international-notifier.service';
 
@@ -138,6 +139,41 @@ export class EmployerEnquiriesService {
       },
       { notify: false },
     );
+  }
+
+  /**
+   * Staff recording an enquiry that came in by phone, email or in person.
+   * No staff alert: the person recording it is already handling it.
+   */
+  async createByStaff(dto: StaffEnquiryDto): Promise<EmployerEnquiry> {
+    if (dto.employerId) {
+      const [exists] = await this.db.select({ id: employers.id }).from(employers).where(eq(employers.id, dto.employerId)).limit(1);
+      if (!exists) throw new NotFoundException('Employer not found');
+    }
+    const { id } = await this.insert(
+      {
+        organisationName: dto.organisationName,
+        organisationType: dto.organisationType,
+        country: dto.country,
+        contactName: dto.contactName,
+        email: dto.email.toLowerCase(),
+        phone: dto.phone ?? null,
+        website: dto.website ?? null,
+        rolesCount: dto.rolesCount,
+        careSettings: [...new Set(dto.careSettings)],
+        languages: dto.languages ?? null,
+        startTimeframe: dto.startTimeframe ?? null,
+        visaSponsorship: dto.visaSponsorship,
+        message: dto.message ?? null,
+        caregiverId: null,
+        employerId: dto.employerId ?? null,
+        staffNote: dto.staffNote ?? null,
+        status: 'IN_PROGRESS',
+        language: 'en',
+      },
+      { notify: false },
+    );
+    return this.findOne(id);
   }
 
   private async insert(values: EnquiryValues, { notify = true } = {}): Promise<{ id: string; reference: string }> {
