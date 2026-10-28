@@ -114,7 +114,10 @@ export class PatientsService {
         accountPhone: users.phone,
         isActive: users.isActive,
         emailVerifiedAt: users.emailVerifiedAt,
+        phoneVerifiedAt: users.phoneVerifiedAt,
         lastLoginAt: users.lastLoginAt,
+        // Whether email + password sign-in is set up; never the hash itself.
+        hasPassword: sql<number>`${users.passwordHash} is not null`.mapWith(Boolean),
       })
       .from(patients)
       .innerJoin(users, eq(patients.userId, users.id))

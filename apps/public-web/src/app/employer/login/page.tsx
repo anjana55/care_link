@@ -55,6 +55,11 @@ export default function EmployerLoginPage() {
             <div>
               <Label htmlFor="password">{t('login.password')}</Label>
               <PasswordInput id="password" autoComplete="current-password" {...register('password', { required: true })} />
+              <div className="mt-1.5 text-right">
+                <Link href="/forgot-password?for=employer" className="text-xs font-medium text-brand-dark hover:underline">
+                  {t('passwordReset.forgotLink')}
+                </Link>
+              </div>
             </div>
             {serverError && (
               <div>

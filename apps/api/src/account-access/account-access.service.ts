@@ -8,6 +8,8 @@ import type { AuthenticatedUser } from '../common/decorators/current-user.decora
 import { normalizePhone, phoneVariants } from '../common/utils/phone.util';
 import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
 import { AuthService } from '../auth/auth.service';
+import { PasswordResetService } from '../auth/password-reset.service';
+import type { AdminPasswordResetDto } from '../auth/dto/password-reset.dto';
 import { ClaimCodesService } from './claim-codes.service';
 import { loadAccountState, voidOutstandingCredentials, type SignInMethods } from './identity.util';
 import type { ResetSignInDto } from './dto/reset-sign-in.dto';
@@ -40,6 +42,7 @@ export class AccountAccessService {
     private readonly config: ConfigService,
     private readonly whatsappSettings: WhatsappSettingsService,
     private readonly auth: AuthService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   async getSignInMethods(caregiverId: string): Promise<SignInMethods> {
@@ -275,6 +278,21 @@ export class AccountAccessService {
   private claimUrl(): string {
     const base = (this.config.get<string>('PUBLIC_WEB_URL') ?? 'http://localhost:3002').replace(/\/+$/, '');
     return `${base}/caregiver/claim`;
+  }
+
+  /**
+   * Admin password help: email the caregiver a link to set a new password, or
+   * set one to hand over. Either way the old password stops working only when
+   * the new one is set.
+   */
+  async passwordHelp(caregiverId: string, dto: AdminPasswordResetDto, adminId: string) {
+    const caregiver = await this.findLiveCaregiver(caregiverId);
+    if (!caregiver.userId) throw new BadRequestException('This person has no sign-in account yet.');
+    const result =
+      dto.mode === 'SEND_LINK'
+        ? { mode: dto.mode, ...(await this.passwordReset.sendLinkFor(caregiver.userId, adminId)) }
+        : { mode: dto.mode, ...(await this.passwordReset.setPasswordFor(caregiver.userId, dto.newPassword)) };
+    return { result, methods: await this.getSignInMethods(caregiverId) };
   }
 
   private async findLiveCaregiver(caregiverId: string) {

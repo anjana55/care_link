@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@ne
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { EmailSettingsService, type ResolvedEmailSettings } from './email-settings.service';
+import { passwordResetEmail } from './templates/password-reset-email';
 import { verificationEmail } from './templates/verification-email';
 import { claimCodeEmail } from './templates/claim-code-email';
 import { testEmail } from './templates/test-email';
@@ -161,6 +162,12 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
   async sendVerificationEmail(to: string, verificationUrl: string, audience: 'CAREGIVER' | 'PATIENT_GUARDIAN' | 'EMPLOYER'): Promise<void> {
     const message = verificationEmail({ verificationUrl, audience, expiresInHours: VERIFICATION_TOKEN_TTL_HOURS, brand: await this.brand() });
     await this.deliver(to, message, 'verification email', `Verification link for ${to}: ${verificationUrl}`);
+  }
+
+  /** A one-time link to set a new password (PasswordResetService). Never throws, like the others. */
+  async sendPasswordResetEmail(to: string, params: { resetUrl: string; name: string; expiresIn: string; byStaff: boolean; firstPassword: boolean }): Promise<void> {
+    const message = passwordResetEmail({ ...params, brand: await this.brand() });
+    await this.deliver(to, message, 'password reset email', `Password reset link for ${to}: ${params.resetUrl}`);
   }
 
   /** The six-digit code for finishing an unsecured caregiver account (AccountClaimService). */

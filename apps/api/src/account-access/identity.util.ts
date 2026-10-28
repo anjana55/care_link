@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import type { Database } from '../database/database.module';
 import {
+  passwordResetTokens,
   accountClaimCodes,
   authHandoffCodes,
   caregivers,
@@ -36,6 +37,11 @@ export async function voidOutstandingCredentials(
       .update(emailVerificationTokens)
       .set({ usedAt: now })
       .where(and(eq(emailVerificationTokens.userId, params.userId), isNull(emailVerificationTokens.usedAt)));
+    // An outstanding "set a new password" link would hand back what a reset just took away.
+    await db
+      .update(passwordResetTokens)
+      .set({ usedAt: now })
+      .where(and(eq(passwordResetTokens.userId, params.userId), isNull(passwordResetTokens.usedAt)));
   }
   await db
     .update(accountClaimCodes)

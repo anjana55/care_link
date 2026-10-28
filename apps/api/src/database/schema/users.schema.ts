@@ -76,3 +76,29 @@ export const emailVerificationTokens = mysqlTable(
     userIdx: index('email_verification_tokens_user_idx').on(table.userId),
   }),
 );
+
+/**
+ * One-time links for setting a new password ("Forgot password?" on the public
+ * site, or an admin sending one). Only the SHA-256 of the token is stored;
+ * the token itself is in the email. Issuing a new link voids the older ones,
+ * and using one voids the rest, so at most one ever works.
+ *
+ * requestedBy is the admin who sent it, or null when the person asked for it
+ * themselves.
+ */
+export const passwordResetTokens = mysqlTable(
+  'password_reset_tokens',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    userId: varchar('user_id', { length: 36 }).notNull(),
+    tokenHash: varchar('token_hash', { length: 255 }).notNull(),
+    expiresAt: datetime('expires_at').notNull(),
+    usedAt: datetime('used_at'),
+    requestedBy: varchar('requested_by', { length: 36 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    userIdx: index('password_reset_tokens_user_idx').on(table.userId),
+    tokenIdx: index('password_reset_tokens_token_idx').on(table.tokenHash),
+  }),
+);

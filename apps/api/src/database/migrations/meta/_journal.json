@@ -162,6 +162,13 @@
       "when": 1793075590644,
       "tag": "0022_international_phase_4",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1793118802267,
+      "tag": "0023_password_reset",
+      "breakpoints": true
     }
   ]
 }
