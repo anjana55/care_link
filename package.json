@@ -11,7 +11,8 @@
     "typecheck": "npm run typecheck -w @care-platform/shared",
     "dev:api": "npm run build:shared && npm run start:dev -w @care-platform/api",
     "dev:web": "npm run build:shared && npm run dev -w @care-platform/web",
-    "dev:public-web": "npm run build:shared && npm run dev -w @care-platform/public-web"
+    "dev:public-web": "npm run build:shared && npm run dev -w @care-platform/public-web",
+    "dev:mobile": "npm run build:shared && npm run start -w @care-platform/mobile"
   },
   "overrides": {
     "esbuild": "^0.25.4",

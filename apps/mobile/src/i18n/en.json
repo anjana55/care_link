@@ -1,0 +1,16 @@
+{
+  "welcome": {
+    "tagline": "Find the right caregiver",
+    "findCare": "Find a caregiver",
+    "joinAsCaregiver": "Join as a caregiver",
+    "language": "Language"
+  },
+  "signIn": {
+    "client": "Sign in to your account",
+    "caregiver": "Sign in as a caregiver",
+    "back": "Back to home"
+  },
+  "app": {
+    "name": "{brand}"
+  }
+}
