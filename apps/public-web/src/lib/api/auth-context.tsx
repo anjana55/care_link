@@ -1,25 +1,17 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { decodePublicAuthUser, isTokenExpired, type AuthUser, type PublicLoginPortal } from '@care-platform/shared';
 import { api, ApiError, clearTokens, getStoredTokens, refreshSession, SESSION_EXPIRED_EVENT, storeTokens, type Tokens } from './client';
 
-export interface AuthUser {
-  userId: string;
-  /** Null for customers who signed up with WhatsApp instead of an email address. */
-  email: string | null;
-  phone?: string;
-  /**
-   * Caregivers are a separate category from office staff, but both have a
-   * legitimate presence on the public site: patients search and book, and
-   * caregivers register and then manage their own profile, documents and shifts. Office-staff
-   * roles are deliberately absent - they belong to the /staff app.
-   */
-  role: 'PATIENT_GUARDIAN' | 'CAREGIVER' | 'EMPLOYER';
-  patientId?: string;
-  caregiverId?: string;
-  /** Overseas employers (international path): the organisation this login owns. */
-  employerId?: string;
-}
+/**
+ * The signed-in person (packages/shared/src/types/auth.ts). Caregivers are a
+ * separate category from office staff, but both have a legitimate presence on
+ * the public site: patients search and book, and caregivers register and then
+ * manage their own profile, documents and shifts. Office-staff roles are
+ * deliberately absent - they belong to the /staff app.
+ */
+export type { AuthUser };
 
 /**
  * Where each role lands after signing in. Mirrors apps/web's postLoginPath,
@@ -29,44 +21,15 @@ export function postLoginPath(user: AuthUser): string {
   return user.role === 'CAREGIVER' ? '/caregiver/dashboard' : user.role === 'EMPLOYER' ? '/employer' : '/';
 }
 
-function jwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    const binary = atob(part.padEnd(part.length + ((4 - (part.length % 4)) % 4), '='));
-    // UTF-8 safe (a name in Sinhala or Tamil): bytes -> %XX -> text.
-    return JSON.parse(decodeURIComponent(Array.from(binary, (c) => `%${c.charCodeAt(0).toString(16).padStart(2, '0')}`).join('')));
-  } catch {
-    return null;
-  }
-}
-
 /** Whether an access token is past its expiry (with a little slack for clock drift). */
-function isExpired(token: string): boolean {
-  const exp = jwtPayload(token)?.exp;
-  return typeof exp === 'number' && exp * 1000 < Date.now() + 5000;
-}
+const isExpired = (token: string): boolean => isTokenExpired(token);
 
-function decodeJwt(token: string): AuthUser | null {
-  try {
-    const payload = jwtPayload(token) as Record<string, any> | null;
-    if (!payload) return null;
-    // An allowlist, not a deleted check. Widening it to "accept anything but
-    // patients" would let an ADMIN/STAFF/VERIFIER token sign someone in on the
-    // public site, where there is nothing for them to see.
-    if (payload.role !== 'PATIENT_GUARDIAN' && payload.role !== 'CAREGIVER' && payload.role !== 'EMPLOYER') return null;
-    return {
-      userId: payload.sub,
-      email: payload.email ?? null,
-      phone: payload.phone,
-      role: payload.role,
-      patientId: payload.patientId,
-      caregiverId: payload.caregiverId,
-      employerId: payload.employerId,
-    };
-  } catch {
-    return null;
-  }
-}
+/**
+ * The person an access token belongs to, or null for any role that has no
+ * business on the public site - every staff role included. The allowlist is
+ * shared with the mobile app so the two can't drift.
+ */
+const decodeJwt = (token: string): AuthUser | null => decodePublicAuthUser(token);
 
 /**
  * What /auth/login says for a wrong email or password. The API now refuses an
@@ -77,7 +40,7 @@ function decodeJwt(token: string): AuthUser | null {
 export const INVALID_CREDENTIALS_MESSAGE = 'Invalid credentials';
 
 /** The sign-in screens on this site. The API refuses credentials that belong to another one. */
-export type LoginPortal = 'caregiver' | 'customer' | 'employer';
+export type LoginPortal = PublicLoginPortal;
 
 interface AuthContextValue {
   user: AuthUser | null;

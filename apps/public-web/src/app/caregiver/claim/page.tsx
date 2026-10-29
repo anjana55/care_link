@@ -9,6 +9,7 @@ import { Input, Label } from '@/components/ui/input';
 import { CaregiverRegisterShell } from '@/components/caregivers/caregiver-register-layout';
 import { ProviderChoices } from '@/components/caregivers/provider-choices';
 import { isRegistrationNumber, normaliseRegistrationNumber } from '@/lib/registration-number';
+import type { ClaimStartResult, ClaimVerifyResult, SocialProviderName } from '@care-platform/shared';
 
 /**
  * "Finish setting up your account", for a caregiver who filled in the
@@ -25,21 +26,10 @@ import { isRegistrationNumber, normaliseRegistrationNumber } from '@/lib/registr
  * a code is on its way".
  */
 
-type Provider = 'GOOGLE' | 'MICROSOFT' | 'FACEBOOK';
-
-interface StartResponse {
-  message: string;
-  resendAfterSeconds: number;
-  /** Only outside production, when WhatsApp/email delivery is a console stub. */
-  devCode?: string;
-}
-
-interface VerifyResponse {
-  registrationNumber: string;
-  pendingToken: string;
-  pendingTokenExpiresInSeconds: number;
-  providers: Record<Provider, boolean>;
-}
+type Provider = SocialProviderName;
+// What the claim endpoints return (packages/shared/src/types/auth.ts).
+type StartResponse = ClaimStartResult;
+type VerifyResponse = ClaimVerifyResult;
 
 type Step = 'number' | 'code' | 'providers';
 

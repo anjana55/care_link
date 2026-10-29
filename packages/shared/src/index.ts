@@ -31,3 +31,5 @@ export * from './types/ai';
 export * from './types/insights';
 export * from './types/international';
 export * from './types/international-phase4';
+export * from './types/caregivers';
+export * from './types/auth';

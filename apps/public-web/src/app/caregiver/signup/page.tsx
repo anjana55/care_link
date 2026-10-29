@@ -17,6 +17,7 @@ import {
   type UnifiedSignupValues,
 } from '@/lib/schemas/caregiver-unified-signup';
 import { useLocationTree } from '@/lib/hooks/use-public-search';
+import type { UnifiedCaregiverRegistration } from '@care-platform/shared';
 
 /**
  * The one caregiver registration form.
@@ -32,14 +33,8 @@ import { useLocationTree } from '@/lib/hooks/use-public-search';
  * screen behind a client-side step that a refresh would lose.
  */
 
-interface RegisterResponse {
-  caregiverId: string;
-  registrationNumber: string;
-  message: string;
-  pendingToken: string;
-  pendingTokenExpiresInSeconds: number;
-  providers: Record<'GOOGLE' | 'MICROSOFT' | 'FACEBOOK', boolean>;
-}
+// POST /auth/register-caregiver/unified (packages/shared/src/types/auth.ts).
+type RegisterResponse = UnifiedCaregiverRegistration;
 
 /** `primaryPhone` is omitted because this page renders its own `phone` input. */
 const OMIT = new Set(['primaryPhone']);

@@ -1,18 +1,10 @@
 import { mysqlTable, varchar, int, date, datetime, mysqlEnum, index } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
+import { documentTypeValues } from '@care-platform/shared';
 import { verificationStatusEnum } from './qualifications.schema';
 
-export const documentTypeEnum = [
-  'NIC',
-  'PASSPORT',
-  'GRAMA_NILADHARI_CERTIFICATE',
-  'POLICE_CLEARANCE',
-  'CAREGIVER_CERTIFICATE',
-  'NVQ_CERTIFICATE',
-  'NURSING_CERTIFICATE',
-  'CV',
-  'OTHER',
-] as const;
+// The list lives in packages/shared/src/types/caregivers.ts, so every client knows these values.
+export const documentTypeEnum = documentTypeValues;
 export type DocumentType = (typeof documentTypeEnum)[number];
 
 export const caregiverDocuments = mysqlTable(

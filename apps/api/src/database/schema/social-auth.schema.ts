@@ -1,12 +1,13 @@
 import { mysqlTable, varchar, datetime, mysqlEnum, uniqueIndex, index, boolean, text } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
+import { socialProviderValues } from '@care-platform/shared';
 
 /**
  * The identity providers a caregiver can secure their account with. The values
  * are what appears in the API path (`/auth/social/:provider/start`) and in the
  * frontend's provider registry, so renaming one is a breaking change.
  */
-export const socialProviderEnum = ['GOOGLE', 'MICROSOFT', 'FACEBOOK'] as const;
+export const socialProviderEnum = socialProviderValues; // packages/shared/src/types/auth.ts
 export type SocialProvider = (typeof socialProviderEnum)[number];
 
 /**

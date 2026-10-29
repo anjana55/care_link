@@ -1,7 +1,9 @@
 import { mysqlTable, varchar, boolean, int, date, datetime, decimal, mysqlEnum } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
+import { shiftPreferenceValues } from '@care-platform/shared';
 
-export const shiftPreferenceEnum = ['DAY', 'NIGHT', 'TWENTY_FOUR_HOUR_LIVE_IN', 'FLEXIBLE'] as const;
+// The list lives in packages/shared/src/types/caregivers.ts, so every client knows these values.
+export const shiftPreferenceEnum = shiftPreferenceValues;
 export type ShiftPreference = (typeof shiftPreferenceEnum)[number];
 
 export const availability = mysqlTable('availability', {

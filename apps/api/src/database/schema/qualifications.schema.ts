@@ -1,15 +1,10 @@
 import { mysqlTable, varchar, text, date, datetime, mysqlEnum, index } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
+import { qualificationTypeValues, verificationStatusValues } from '@care-platform/shared';
 
-export const qualificationTypeEnum = [
-  'NVQ',
-  'NURSING_DIPLOMA',
-  'NURSING_DEGREE',
-  'CAREGIVER_CERTIFICATE',
-  'FIRST_AID',
-  'OTHER',
-] as const;
-export const verificationStatusEnum = ['PENDING', 'IN_PROGRESS', 'VERIFIED', 'REJECTED'] as const;
+// The lists live in packages/shared/src/types/caregivers.ts, so every client knows these values.
+export const qualificationTypeEnum = qualificationTypeValues;
+export const verificationStatusEnum = verificationStatusValues;
 
 export type QualificationType = (typeof qualificationTypeEnum)[number];
 export type VerificationStatus = (typeof verificationStatusEnum)[number];

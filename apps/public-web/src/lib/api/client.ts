@@ -20,10 +20,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 export const apiUrl = (path: string) => `${API_URL}${path}`;
 const TOKEN_KEY = 'care-platform-patient-tokens';
 
-export interface Tokens {
-  accessToken: string;
-  refreshToken: string;
-}
+import type { Tokens } from '@care-platform/shared';
+export type { Tokens };
 
 export function getStoredTokens(): Tokens | null {
   if (typeof window === 'undefined') return null;
