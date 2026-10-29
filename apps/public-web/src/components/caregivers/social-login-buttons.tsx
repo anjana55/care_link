@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { api, ApiError } from '@/lib/api/client';
 import { useSocialProviders, type SocialProviderName } from '@/lib/hooks/use-social-providers';
+import { hardNavigate } from '@/lib/navigation';
 
 const ORDER: SocialProviderName[] = ['GOOGLE', 'MICROSOFT', 'FACEBOOK'];
 
@@ -46,7 +47,7 @@ export function SocialLoginButtons({ children }: { children?: React.ReactNode })
       window.sessionStorage.setItem(LOGIN_NONCE_KEY, nonce);
       const { url } = await api.get<{ url: string }>(`/auth/social/${provider.toLowerCase()}/login-url`, { nonce });
       // A full navigation: the caregiver is leaving this app for the provider.
-      window.location.assign(url);
+      hardNavigate(url);
     } catch (err) {
       setPending(null);
       setError(err instanceof ApiError ? err.message : t('caregiverSignup.providerError'));

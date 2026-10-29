@@ -8,6 +8,7 @@ import { BrandMark } from '@/components/layout/brand-mark';
 import { useAuth } from '@/lib/api/auth-context';
 import { accountHome } from '@/lib/account-home';
 import { cn } from '@/lib/utils';
+import { hardNavigate } from '@/lib/navigation';
 
 interface SiteHeaderProps {
   /**
@@ -95,7 +96,7 @@ export function SiteHeader({
                 type="button"
                 onClick={() => {
                   logout();
-                  window.location.assign('/');
+                  hardNavigate('/');
                 }}
                 className="whitespace-nowrap text-sm font-medium text-ink/60 transition-colors hover:text-ink"
               >

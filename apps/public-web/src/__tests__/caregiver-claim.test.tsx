@@ -3,6 +3,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CaregiverClaimPage from '@/app/caregiver/claim/page';
 import { I18nProvider } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
+import { hardNavigate } from '@/lib/navigation';
+
+// Full page loads go through hardNavigate; jsdom can neither perform them nor,
+// since jsdom 26, let window.location be replaced to watch for them.
+jest.mock('@/lib/navigation', () => ({ hardNavigate: jest.fn() }));
 
 /**
  * "Finish setting up your account": registration number -> code -> the same
@@ -68,7 +73,7 @@ it('walks from registration number to code to the provider buttons', async () =>
   expect(post).toHaveBeenCalledWith('/auth/caregiver/claim/verify', { registrationNumber: 'CG-2026-123456', code: '482915' });
 
   const assign = jest.fn();
-  Object.defineProperty(window, 'location', { value: { ...window.location, assign }, writable: true });
+  jest.mocked(hardNavigate).mockImplementation(assign);
   fireEvent.click(google);
   await waitFor(() => expect(get).toHaveBeenCalledWith('/auth/social/google/authorize-url', { token: 'pending-abc' }));
 });

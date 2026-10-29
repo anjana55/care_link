@@ -4,6 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CaregiverSignupPage from '@/app/caregiver/signup/page';
 import { ProviderChoices } from '@/components/caregivers/provider-choices';
 import { I18nProvider } from '@/lib/i18n';
+import { hardNavigate } from '@/lib/navigation';
+
+// Full page loads go through hardNavigate; jsdom can neither perform them nor,
+// since jsdom 26, let window.location be replaced to watch for them.
+jest.mock('@/lib/navigation', () => ({ hardNavigate: jest.fn() }));
 
 /**
  * The unified caregiver form, and the two things it exists to fix.
@@ -165,7 +170,7 @@ describe('the provider choice screen', () => {
     const assign = jest.fn();
     // jsdom refuses real navigation, and this component uses a full-page
     // assign on purpose (the caregiver is leaving the app and coming back).
-    Object.defineProperty(window, 'location', { value: { assign }, writable: true });
+    jest.mocked(hardNavigate).mockImplementation(assign);
 
     renderPage(
       <ProviderChoices pendingToken="tok" providers={providers} expiresInSeconds={900} />,

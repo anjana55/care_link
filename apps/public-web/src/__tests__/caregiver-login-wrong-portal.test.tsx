@@ -4,6 +4,11 @@ import CaregiverLoginPage from '@/app/caregiver/login/page';
 import LoginPage from '@/app/login/page';
 import { AuthProvider } from '@/lib/api/auth-context';
 import { I18nProvider } from '@/lib/i18n';
+import { hardNavigate } from '@/lib/navigation';
+
+// Full page loads go through hardNavigate; jsdom can neither perform them nor,
+// since jsdom 26, let window.location be replaced to watch for them.
+jest.mock('@/lib/navigation', () => ({ hardNavigate: jest.fn() }));
 
 /**
  * Signing in on the public site with credentials that belong to another portal.
@@ -56,7 +61,7 @@ beforeEach(() => {
   post.mockReset();
   push.mockReset();
   assign = jest.fn();
-  Object.defineProperty(window, 'location', { value: { assign }, writable: true });
+  jest.mocked(hardNavigate).mockImplementation(assign);
   get.mockImplementation((path: string) =>
     Promise.resolve(path === '/auth/whatsapp/config' ? { enabled: false, caregiver: { register: false, login: false, recovery: false }, customer: { register: false, login: false, recovery: false } } : {}),
   );

@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/api/auth-context';
 import { api, ApiError, type Tokens } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { LOGIN_NONCE_KEY } from '@/components/caregivers/social-login-buttons';
+import { hardNavigate } from '@/lib/navigation';
 
 /**
  * Where the provider sends the caregiver back to.
@@ -88,7 +89,7 @@ function CallbackInner() {
         // The role check is the same one the WhatsApp page does. A token that
         // is valid but not a caregiver's would send them to a page they have
         // no claim on.
-        window.location.assign(user?.role === 'CAREGIVER' ? '/caregiver/dashboard' : '/caregiver/login');
+        hardNavigate(user?.role === 'CAREGIVER' ? '/caregiver/dashboard' : '/caregiver/login');
       })
       .catch((err) => {
         setError(err instanceof ApiError ? t('caregiverSignup.errors.exchangeFailed') : t('caregiverSignup.errors.generic'));

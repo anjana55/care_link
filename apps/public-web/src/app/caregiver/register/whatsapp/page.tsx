@@ -21,6 +21,7 @@ import { makePersonalInfoSchema, requiredFieldsOf } from '@/lib/schemas/personal
 import { useLocationTree } from '@/lib/hooks/use-public-search';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
 import type { WhatsappRegistration } from '@care-platform/shared';
+import { hardNavigate } from '@/lib/navigation';
 
 /**
  * Where a caregiver lands once the OTP verifies: their own area in this app.
@@ -85,9 +86,9 @@ export default function CaregiverRegisterWhatsappPage() {
     // us to a login page we have not reached yet - so go to ours instead.
     const user = applyTokens(tokens);
     if (user?.role === 'CAREGIVER') {
-      window.location.assign(POST_VERIFY_PATH);
+      hardNavigate(POST_VERIFY_PATH);
     } else {
-      window.location.assign('/caregiver/login');
+      hardNavigate('/caregiver/login');
     }
   };
 

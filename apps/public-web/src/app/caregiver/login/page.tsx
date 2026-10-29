@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Label, RequiredLegend } from '@/components/ui/input';
 import { SocialLoginButtons } from '@/components/caregivers/social-login-buttons';
 import { takeReturnTo } from '@/lib/return-to';
+import { hardNavigate } from '@/lib/navigation';
 
 /**
  * Caregiver sign-in, the counterpart to /caregiver/signup.
@@ -47,7 +48,7 @@ export default function CaregiverLoginPage() {
       // Back to where they set out from - a vacancy they wanted to apply for -
       // but never to a client's "contact this caregiver" flow.
       const next = takeReturnTo('/caregiver/dashboard');
-      window.location.assign(next.startsWith('/caregivers/') ? '/caregiver/dashboard' : next);
+      hardNavigate(next.startsWith('/caregivers/') ? '/caregiver/dashboard' : next);
     } catch (err) {
       // Surface the server's actual message. The API returns one message for
       // both "no such user" and "wrong password", so this leaks nothing about

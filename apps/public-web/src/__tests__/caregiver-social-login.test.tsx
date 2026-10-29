@@ -4,6 +4,11 @@ import CaregiverLoginPage from '@/app/caregiver/login/page';
 import CaregiverSocialCallbackPage from '@/app/caregiver/social/callback/page';
 import { LOGIN_NONCE_KEY } from '@/components/caregivers/social-login-buttons';
 import { I18nProvider } from '@/lib/i18n';
+import { hardNavigate } from '@/lib/navigation';
+
+// Full page loads go through hardNavigate; jsdom can neither perform them nor,
+// since jsdom 26, let window.location be replaced to watch for them.
+jest.mock('@/lib/navigation', () => ({ hardNavigate: jest.fn() }));
 
 /**
  * Returning-caregiver sign-in with Google / Microsoft / Facebook.
@@ -96,7 +101,7 @@ describe('caregiver login page', () => {
   it('stores a nonce, sends it to the API, and navigates to the provider', async () => {
     mockConfig(ALL);
     const assign = jest.fn();
-    Object.defineProperty(window, 'location', { value: { assign }, writable: true });
+    jest.mocked(hardNavigate).mockImplementation(assign);
     renderNode(<CaregiverLoginPage />);
 
     fireEvent.click(await screen.findByRole('button', { name: /continue with google/i }));
@@ -119,7 +124,7 @@ describe('social callback page, sign-in flow', () => {
   const assign = jest.fn();
   beforeEach(() => {
     assign.mockReset();
-    Object.defineProperty(window, 'location', { value: { assign }, writable: true });
+    jest.mocked(hardNavigate).mockImplementation(assign);
     applyTokens.mockReturnValue({ role: 'CAREGIVER' });
     post.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' });
   });
