@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 // The one definition of a locale: `types/locale.ts` also carries
 // `resolveLocale`, which the API uses to narrow a client-supplied locale before
 // it can reach the database as a column name. Re-exported rather than
@@ -25,6 +25,94 @@ export interface I18nContextValue {
   fontClass: string;
   /** The languages this deployment offers (Settings > Branding), in display order. */
   availableLocales: Locale[];
+  /**
+   * False until the saved language has been read. In a browser that is the
+   * first effect, so it barely matters; with asynchronous storage (the mobile
+   * app's AsyncStorage) the first frames show `defaultLocale`, and the app
+   * keeps its splash screen up until this is true rather than flashing English
+   * at a Sinhala or Tamil reader on every launch.
+   */
+  ready: boolean;
+}
+
+/**
+ * Where the chosen language is remembered. Either kind of storage fits: the
+ * browser's synchronous localStorage, or the mobile app's AsyncStorage, whose
+ * methods return promises. A failed read or write (storage blocked, quota,
+ * private mode) is never an error for the reader - the language just isn't
+ * remembered.
+ */
+export interface LocaleStorage {
+  getItem(key: string): string | null | Promise<string | null>;
+  setItem(key: string, value: string): void | Promise<void>;
+}
+
+export interface CreateI18nOptions {
+  /** Defaults to the browser's localStorage, and to no storage where there is none. */
+  storage?: LocaleStorage;
+  /**
+   * Told the language whenever it is settled or changed, including the first
+   * time the saved choice is read. Defaults to setting `<html lang>`. The mobile
+   * app passes its own instead: it has no document, and its API client cannot
+   * read AsyncStorage synchronously per request the way the web client reads
+   * localStorage, so it keeps the language this hands it.
+   */
+  onLocaleChange?: (locale: Locale) => void;
+}
+
+/**
+ * The browser's localStorage, read through guards. `window` alone is not
+ * enough to go on: React Native defines a global `window` with no
+ * localStorage on it, and server rendering has no `window` at all. In both,
+ * nothing is remembered here and nothing throws.
+ */
+export const browserLocaleStorage: LocaleStorage = {
+  getItem(key) {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    return window.localStorage.getItem(key);
+  },
+  setItem(key, value) {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    window.localStorage.setItem(key, value);
+  },
+};
+
+/** The default `onLocaleChange`: `<html lang>`, so screen readers and fonts follow. Does nothing without a document. */
+export function setDocumentLang(locale: Locale): void {
+  if (typeof document !== 'undefined' && document.documentElement) document.documentElement.lang = locale;
+}
+
+function isPromise<T>(value: unknown): value is Promise<T> {
+  return typeof (value as Promise<T> | null)?.then === 'function';
+}
+
+/**
+ * Reads the saved value and hands it to `apply` - straight away when the
+ * storage is synchronous, so the web apps settle their language in the same
+ * effect they always did, and when the promise settles otherwise. A throw or
+ * a rejection is handed over as "nothing saved".
+ */
+function readSaved(storage: LocaleStorage, key: string, apply: (value: string | null) => void): void {
+  let result: string | null | Promise<string | null>;
+  try {
+    result = storage.getItem(key);
+  } catch {
+    result = null;
+  }
+  if (isPromise<string | null>(result)) {
+    result.then(apply, () => apply(null));
+  } else {
+    apply(result);
+  }
+}
+
+function writeSaved(storage: LocaleStorage, key: string, value: string): void {
+  try {
+    const result = storage.setItem(key, value);
+    if (isPromise<void>(result)) result.catch(() => undefined);
+  } catch {
+    /* storage blocked - the choice holds until the app or page is closed */
+  }
 }
 
 export interface I18nProviderProps {
@@ -76,6 +164,7 @@ export function createI18n(
   storageKey: string,
   /** Placeholders filled when the provider is given none, e.g. `{ brand: 'CareLink' }`. */
   defaultVars: Record<string, string | number> = {},
+  { storage = browserLocaleStorage, onLocaleChange = setDocumentLang }: CreateI18nOptions = {},
 ) {
   const I18nContext = createContext<I18nContextValue | null>(null);
 
@@ -87,39 +176,42 @@ export function createI18n(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [defaultLocale, (enabledLocales ?? LOCALES).join(',')]);
     const [locale, setLocaleState] = useState<Locale>(defaultLocale);
+    const [ready, setReady] = useState(false);
+    // Counts the reader's own choices. A read that started before one of them
+    // must not land after it: with AsyncStorage, tapping a language while the
+    // saved one is still loading would otherwise be undone a moment later.
+    const choices = useRef(0);
 
     useEffect(() => {
-      let stored: Locale | null = null;
-      try {
-        stored = window.localStorage.getItem(storageKey) as Locale | null;
-      } catch {
-        /* storage blocked - use the default */
-      }
-      const chosen = stored && offered.includes(stored) ? stored : defaultLocale;
-      setLocaleState(chosen);
-      if (stored && stored !== chosen) {
-        // A language the operator has switched off: forget it, so API calls stop asking for it too.
-        try {
-          window.localStorage.setItem(storageKey, chosen);
-        } catch {
-          /* ignore */
+      let current = true;
+      const choicesAtStart = choices.current;
+      readSaved(storage, storageKey, (value) => {
+        if (!current) return;
+        if (choices.current !== choicesAtStart) {
+          // The reader chose while this was loading; setLocale already applied and saved that.
+          setReady(true);
+          return;
         }
-      }
-      if (typeof document !== 'undefined') document.documentElement.lang = chosen;
+        const stored = value as Locale | null;
+        const chosen = stored && offered.includes(stored) ? stored : defaultLocale;
+        setLocaleState(chosen);
+        // A language the operator has switched off: forget it, so API calls stop asking for it too.
+        if (stored && stored !== chosen) writeSaved(storage, storageKey, chosen);
+        onLocaleChange(chosen);
+        setReady(true);
+      });
+      return () => {
+        current = false;
+      };
     }, [offered, defaultLocale]);
 
     const setLocale = useCallback(
       (next: Locale) => {
         if (!offered.includes(next)) return;
+        choices.current += 1;
         setLocaleState(next);
-        try {
-          window.localStorage.setItem(storageKey, next);
-        } catch {
-          /* ignore */
-        }
-        if (typeof document !== 'undefined') {
-          document.documentElement.lang = next;
-        }
+        writeSaved(storage, storageKey, next);
+        onLocaleChange(next);
       },
       [offered],
     );
@@ -135,8 +227,8 @@ export function createI18n(
     );
 
     const value = useMemo(
-      () => ({ locale, setLocale, t, fontClass: FONT_CLASS[locale], availableLocales: offered }),
-      [locale, setLocale, t, offered],
+      () => ({ locale, setLocale, t, fontClass: FONT_CLASS[locale], availableLocales: offered, ready }),
+      [locale, setLocale, t, offered, ready],
     );
 
     return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
