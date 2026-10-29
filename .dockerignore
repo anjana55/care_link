@@ -9,6 +9,10 @@
 # The Dockerfiles install dependencies and build everything themselves, so
 # nothing below is needed inside an image.
 
+# The mobile app is built by Expo (EAS), never by these images, and no
+# Dockerfile copies it.
+apps/mobile
+
 # Dependencies and build output - rebuilt inside the image
 **/node_modules
 **/.next

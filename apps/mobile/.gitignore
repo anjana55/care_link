@@ -1,0 +1,17 @@
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native projects are generated from app.config.ts (`npx expo prebuild`, or
+# EAS Build in the cloud) and never committed, so the config stays the only
+# source of truth for both platforms.
+/ios
+/android
+
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
