@@ -108,11 +108,13 @@ Tick these off. Don't move to Part 2 until every box is true.
 - [ ] **This app's source code**, either as the `.zip` you were given, or
       as a link to its git repository.
 - [ ] **Enough memory and disk.** 4 GB of RAM (e.g. EC2 `t3.medium`) and a
-      20 GB disk is comfortable. A 1-2 GB server (`t3.micro`, `t3.small`)
-      works too, but only with swap: `setup.sh` adds it automatically and
-      builds more slowly; by hand, see Part 17.14 *before* Part 9. Either
-      way, give it a 20 GB disk - EC2's default 8 GB is too tight for the
-      images.
+      20 GB disk works well **with swap**. Later updates build while the
+      site keeps running, and a 4 GB server with no swap can run out of
+      memory and have MySQL killed mid-update (Part 17.16). `setup.sh` adds
+      swap on any server with under 6 GB of RAM. A 1-2 GB server
+      (`t3.micro`, `t3.small`) works too, building more slowly; by hand, see
+      Part 17.14 *before* Part 9. Either way, give it a 20 GB disk - EC2's
+      default 8 GB is too tight for the images.
 - [ ] About **45-60 minutes**, mostly spent waiting for downloads/builds,
       not typing.
 
@@ -1118,6 +1120,7 @@ gunzip -c backups/db-YYYYMMDD-HHMMSS-before-<commit>.sql.gz \
 | Back up the database even without migrations | `./update.sh --backup` |
 | Keep more (or fewer) database backups | `./update.sh --keep-backups=10` (default 5) |
 | Leave a failed release running to debug it | `./update.sh --no-auto-rollback` |
+| Build even with too little memory + swap (risky - see 17.16) | `./update.sh --allow-low-memory` |
 | Skip the "Deploy?" question | `./update.sh -y` |
 | Watch a running update, or the last one's log | `./update.sh --follow` |
 | Run in this terminal instead of the background | `./update.sh --foreground` (stops if the terminal disconnects) |
@@ -1654,9 +1657,11 @@ about 1.3 GB on its own, `docker compose build` runs all three images at the
 same time, and EC2's Ubuntu images come with **no swap**. On 1-2 GB of RAM the
 kernel spends all its time paging instead of building.
 
-**Fix:** `setup.sh` now handles this by itself on servers with under 4 GB:
-it adds a swap file (so memory + swap reaches about 4 GB), builds the images
-one at a time, and runs MySQL without `performance_schema` (saves ~250 MB).
+**Fix:** `setup.sh` now handles this by itself. On servers with under 6 GB
+of RAM it adds a swap file (so memory + swap reaches about 6 GB, enough for
+later updates that build beside the running site) and builds the images one
+at a time; under 4 GB it also runs MySQL without `performance_schema` (saves
+~250 MB).
 If a run is stuck right now, press `Ctrl+C` (or reboot the instance from the
 EC2 console if SSH won't respond), then just re-run `./setup.sh` - it is safe
 to re-run.
@@ -1718,3 +1723,57 @@ sudo du -xh / --max-depth=2 2>/dev/null | sort -h | tail -20
 The usual suspects are `/var/lib/docker` (above) and a `/swapfile`
 (`setup.sh` makes one on small servers; it is needed). The best fix is to
 grow the EBS volume to 20 GB, as in Part 17.14.
+
+### 17.16 `update.sh` stops with `mysql isn't healthy`, and the site is down
+
+**Symptom:** the images build, then the update stops at "Starting the new
+release" with `error: mysql isn't healthy`. The site shows errors or doesn't
+load, and running `./update.sh` again stops in the same place.
+
+**Cause:** almost always the server ran out of memory during the build. The
+build runs while the live site keeps running, so MySQL, the API and both
+Next.js servers are using memory at the same time. When it runs out, the
+kernel kills the biggest process to make room, and that is MySQL. A server
+with 4 GB of RAM and **no swap** is the classic case, usually on an update
+that rebuilds all three apps (any change to `package.json` or
+`package-lock.json` does). Confirm it:
+
+```bash
+sudo dmesg -T | grep -i 'killed process'    # "Killed process ... (mysqld)" = this
+free -h                                     # Swap: 0B = no swap
+```
+
+(If `docker` or `.env.production` gives `permission denied`, put `sudo` in
+front of the commands, or see 17.3.)
+
+**Fix:**
+
+```bash
+C="sudo docker compose -f docker-compose.prod.yml --env-file .env.production"
+
+# 1. Add swap - 4 GB, kept across reboots (check 'df -h /' has room first)
+sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h                 # Swap: should now show about 4.0Gi
+
+# 2. Start MySQL again and wait for "(healthy)"
+$C up -d mysql
+$C ps mysql
+
+# 3. Re-run the update
+./update.sh
+```
+
+Starting MySQL again is safe: its data lives in the `mysql-data` volume and
+InnoDB recovers by itself after being killed. If it won't become healthy,
+look at `$C logs --tail=100 mysql` before doing anything else, and **never**
+run `docker compose down -v` or `docker volume prune` - they delete that
+volume. Every update that migrates the database leaves a backup in
+`backups/` first.
+
+Newer versions of `update.sh` guard against this. On a server with under
+6 GB of RAM they build one image at a time and refuse to build at all
+without swap, before anything has changed (`--allow-low-memory` overrides
+that). If MySQL isn't healthy they start it once, then print its state, the
+memory situation and its last log lines.

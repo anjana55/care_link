@@ -63,15 +63,77 @@ cl_default_build_cache_gb() {
   if [ -n "$total_gb" ] && [ "$total_gb" -lt 18 ]; then echo 1; else echo 3; fi
 }
 
-# Memory, for deciding whether to build one image at a time (see setup.sh 1b).
-cl_detect_memory() {
-  CL_MEM_MB="$(awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)"
-  CL_LOW_MEMORY=0
-  if [ "${CL_MEM_MB:-0}" -gt 0 ] && [ "$CL_MEM_MB" -lt 3800 ]; then CL_LOW_MEMORY=1; fi
+# Memory, for deciding how to build (see setup.sh 1b).
+#
+# The three image builds side by side need ~4 GB. That used to be the whole
+# test (under 3.8 GB of RAM: one at a time), which holds for setup.sh's first
+# build on an empty server - but update.sh builds while the live site keeps
+# running, and MySQL, the API and both Next.js servers hold another ~1-1.5 GB
+# meanwhile. On a "4 GB" server with no swap a parallel build then runs the
+# machine out of memory, and the kernel's OOM killer picks the biggest process:
+# mysqld. The site goes down mid-update and update.sh stops at "mysql isn't
+# healthy". So builds run side by side only with room for both: 6 GB of RAM.
+CL_PARALLEL_BUILD_MIN_MB=6144
+# Below this much RAM + swap even one build at a time beside the running site
+# can run out. It is "4 GB" allowing for sizes that read a little short: a
+# nominal 2 GB server with a 2 GB swap file reports just under 4096 MB.
+# setup.sh brings small servers comfortably above it.
+CL_BUILD_MIN_MEM_SWAP_MB=3840
+
+# Is there enough memory to build beside the running site? Under 6 GB of RAM a
+# server needs some swap whatever the total - a "4 GB" server with none is the
+# one that ran out - and RAM + swap of at least CL_BUILD_MIN_MEM_SWAP_MB.
+cl_build_memory_ok() {
+  cl_detect_memory
+  [ "${CL_MEM_MB:-0}" -gt 0 ] || return 0   # can't tell: don't block
+  [ "$CL_MEM_MB" -ge "$CL_PARALLEL_BUILD_MIN_MB" ] && return 0
+  [ "${CL_SWAP_MB:-0}" -gt 0 ] && [ "$(( CL_MEM_MB + CL_SWAP_MB ))" -ge "$CL_BUILD_MIN_MEM_SWAP_MB" ]
 }
 
-# Build the given services. On a small server one at a time, with a Node heap
-# limit that can use swap - all three side by side need ~4 GB.
+# CL_MEMINFO stands in for /proc/meminfo in tests.
+cl_detect_memory() {
+  CL_MEM_MB="$(awk '/^MemTotal:/ {print int($2/1024)}' "${CL_MEMINFO:-/proc/meminfo}" 2>/dev/null || echo 0)"
+  CL_SWAP_MB="$(awk '/^SwapTotal:/ {print int($2/1024)}' "${CL_MEMINFO:-/proc/meminfo}" 2>/dev/null || echo 0)"
+  CL_LOW_MEMORY=0
+  if [ "${CL_MEM_MB:-0}" -gt 0 ] && [ "$CL_MEM_MB" -lt "$CL_PARALLEL_BUILD_MIN_MB" ]; then CL_LOW_MEMORY=1; fi
+}
+
+# The commands that add an N MB swap file and keep it across reboots.
+cl_swap_howto() {
+  local mb="${1:-4096}"
+  printf '%s\n' \
+    "  sudo fallocate -l ${mb}M /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile" \
+    "  sudo swapon /swapfile" \
+    "  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab" \
+    "  (if /swapfile already exists, just: sudo swapon /swapfile)"
+}
+
+# Why a service isn't healthy, printed where the operator is already looking
+# instead of leaving them to find the right `docker compose logs` invocation.
+cl_explain_unhealthy() {
+  local service="$1" cid oom
+  cid="$(compose ps -aq "$service" 2>/dev/null | head -1)"
+  if [ -n "$cid" ]; then
+    docker inspect -f "  $service: {{.State.Status}}{{if .State.Health}} ({{.State.Health.Status}}){{end}}, exit code {{.State.ExitCode}}, restarted {{.RestartCount}} times{{if .State.OOMKilled}}, killed for running out of memory{{end}}" "$cid" 2>/dev/null || true
+  else
+    echo "  $service: no container"
+  fi
+  cl_detect_memory
+  echo "  memory: ${CL_MEM_MB} MB RAM, ${CL_SWAP_MB} MB swap"
+  # dmesg is often root-only; say how to look rather than show nothing.
+  oom="$(dmesg -T 2>/dev/null | grep -iE 'out of memory: killed process' | tail -3 || true)"
+  if [ -n "$oom" ]; then
+    echo "  The kernel has killed processes for lack of memory:"
+    printf '%s\n' "$oom" | sed 's/^/    /'
+  else
+    echo "  (to see whether the kernel killed it for lack of memory: sudo dmesg -T | grep -i 'killed process')"
+  fi
+  echo "  Last log lines:"
+  compose logs --no-color --tail=25 "$service" 2>&1 | sed 's/^/    /' || true
+}
+
+# Build the given services. On a smaller server one at a time, with a Node
+# heap limit that can use swap.
 cl_build() {
   [ "$#" -gt 0 ] || return 0
   cl_detect_memory

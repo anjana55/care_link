@@ -77,9 +77,10 @@ Options:
   --skip-tls              Deploy over plain HTTP and don't attempt a certificate.
                            Use this when the domain isn't pointing at this server
                            yet; re-run later without it to add HTTPS.
-  --skip-swap             Don't create a swap file on a small server (under 4 GB
-                           of RAM). Only use this if you manage swap yourself -
-                           without enough memory the image build stalls.
+  --skip-swap             Don't create a swap file on a server with under 6 GB of
+                           RAM. Only use this if you manage swap yourself - without
+                           enough memory a build can stall, or run the server out
+                           of memory and take MySQL down during a later update.
   --build-cache=GB        Build cache to keep after the deploy so the next build is
                            quick (default 1 on a disk under 18 GB, else 3). 0 clears
                            it all - smallest disk use,
@@ -188,14 +189,20 @@ BUILD_CACHE_GB="${BUILD_CACHE_GB:-$(cl_default_build_cache_gb)}"
 # making progress, and SSH barely responds: the script just looks stuck in
 # the middle. MySQL 8 then wants another ~400 MB on top at runtime.
 #
-# So on a server with under 4 GB of RAM this:
-#   - adds a swap file so memory + swap reaches ~4 GB (persisted in fstab),
-#   - builds the images one at a time instead of all together,
+# Later updates are harder on memory than this first build: update.sh builds
+# while the live site keeps running, so MySQL, the API and both Next.js
+# servers hold another ~1-1.5 GB on top. A "4 GB" server with no swap ran out
+# during a full rebuild, and the kernel killed mysqld - taking the site down.
+#
+# So on a server with under 6 GB of RAM this:
+#   - adds a swap file so memory + swap reaches ~6 GB (persisted in fstab),
+#   - builds the images one at a time instead of all together (deploy/lib.sh),
 #   - gives the Next.js builds an explicit heap limit that uses that swap
 #     (Node otherwise sizes its heap from physical RAM and dies with
-#     "JavaScript heap out of memory"), and
+#     "JavaScript heap out of memory"),
+# and on one with under 4 GB it also
 #   - runs MySQL without performance_schema, which saves ~250 MB.
-# A larger server is left exactly as it was.
+# A server with 6 GB or more is left exactly as it was.
 # ---------------------------------------------------------------------------
 SUDO=""
 if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
@@ -203,7 +210,8 @@ if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
 fi
 
 LOW_MEMORY=0
-BUILD_TARGET_MB=4096
+# Memory + swap to aim for: enough for a later update to build beside the live site.
+BUILD_TARGET_MB=6144
 MEM_MB="$(awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)"
 SWAP_MB="$(awk '/^SwapTotal:/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)"
 if [ "${MEM_MB:-0}" -gt 0 ] && [ "$MEM_MB" -lt 3800 ]; then
@@ -211,8 +219,8 @@ if [ "${MEM_MB:-0}" -gt 0 ] && [ "$MEM_MB" -lt 3800 ]; then
 fi
 
 ensure_swap() {
-  [ "$LOW_MEMORY" -eq 1 ] || return 0
-  log "Small server detected (${MEM_MB} MB RAM, ${SWAP_MB} MB swap) - preparing it for the build"
+  [ "${MEM_MB:-0}" -gt 0 ] && [ "$MEM_MB" -lt "$BUILD_TARGET_MB" ] || return 0
+  log "Server with ${MEM_MB} MB RAM and ${SWAP_MB} MB swap - making sure builds (now and in later updates) have room"
 
   local need_mb=$(( BUILD_TARGET_MB - MEM_MB - SWAP_MB ))
   if [ "$need_mb" -le 0 ]; then
@@ -221,7 +229,7 @@ ensure_swap() {
   fi
   if [ "$SKIP_SWAP" -eq 1 ]; then
     warn "--skip-swap given, but this server has only $(( MEM_MB + SWAP_MB )) MB of memory + swap."
-    warn "The image build needs about ${BUILD_TARGET_MB} MB and may stall without more swap."
+    warn "Builds want about ${BUILD_TARGET_MB} MB; without more swap a later update can run out of memory and take MySQL down."
     return 0
   fi
 
@@ -229,7 +237,7 @@ ensure_swap() {
   local size_mb=$(( (need_mb + 1023) / 1024 * 1024 ))
   [ "$size_mb" -lt 1024 ] && size_mb=1024
   local swapfile="/swapfile"
-  local how_to="Add swap yourself (e.g. a ${size_mb} MB file: sudo fallocate -l ${size_mb}M /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile), or use an instance with at least 4 GB of RAM, then re-run. See DEPLOYMENT.md Part 17.14."
+  local how_to="Add swap yourself (e.g. a ${size_mb} MB file: sudo fallocate -l ${size_mb}M /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile), or use an instance with at least 6 GB of RAM, then re-run. See DEPLOYMENT.md Part 17.14."
 
   if [ "$(id -u)" -ne 0 ] && [ -z "$SUDO" ]; then
     warn "Can't create a swap file without root or sudo. $how_to"
@@ -538,11 +546,12 @@ fi
 # is short, clear what a previous run left first instead of only warning.
 cl_make_room 6144 "$IMAGE_TAG" "$PREV_IMAGE_TAG"
 
-if [ "$LOW_MEMORY" -eq 1 ]; then
-  # One image at a time (see 1b): three builds side by side need ~4 GB, one
-  # at a time fits in RAM + swap. Slower, but it finishes. The heap limit
-  # lets Node use that swap instead of aborting at its RAM-based default.
-  log "Building images one at a time for this small server (allow 15-30 minutes the first time)"
+cl_detect_memory
+if [ "$CL_LOW_MEMORY" -eq 1 ]; then
+  # One image at a time (see 1b and deploy/lib.sh): three builds side by side
+  # need ~4 GB, one at a time fits in RAM + swap. Slower, but it finishes. The
+  # heap limit lets Node use that swap instead of aborting at its RAM-based default.
+  log "Building images one at a time on this ${CL_MEM_MB} MB server (allow 15-30 minutes the first time)"
 else
   log "Building images (this can take 5-15 minutes the first time)"
 fi
