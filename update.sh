@@ -50,6 +50,7 @@ BACKUP="auto"
 KEEP_BACKUPS=5
 BUILD_CACHE_GB=""
 AUTO_ROLLBACK=1
+ALLOW_LOW_MEMORY=0
 ASSUME_YES=0
 FOREGROUND=0
 FOLLOW=0
@@ -79,6 +80,9 @@ Options:
                      18 GB, else 3; 0 = none).
   --no-auto-rollback If the new release isn't healthy, leave it running for
                      debugging instead of putting the previous one back.
+  --allow-low-memory Build even with under 4 GB of memory + swap. The build can run
+                     the server out of memory and take MySQL - and the site - down
+                     with it; add swap instead if you can.
   --dry-run          Show the plan and change nothing.
   -y, --yes          Don't ask before deploying.
   --foreground       Run in this terminal instead of the background (the update
@@ -107,6 +111,7 @@ for arg in "$@"; do
     --keep-backups=*) KEEP_BACKUPS="${arg#*=}"; [[ "$KEEP_BACKUPS" =~ ^[0-9]+$ ]] || die "--keep-backups takes a number" ;;
     --build-cache=*) BUILD_CACHE_GB="${arg#*=}"; [[ "$BUILD_CACHE_GB" =~ ^[0-9]+$ ]] || die "--build-cache takes a whole number of GB" ;;
     --no-auto-rollback) AUTO_ROLLBACK=0 ;;
+    --allow-low-memory) ALLOW_LOW_MEMORY=1 ;;
     --dry-run) DRY_RUN=1 ;;
     -y|--yes) ASSUME_YES=1 ;;
     --foreground) FOREGROUND=1 ;;
@@ -375,7 +380,22 @@ echo "  Unchanged:  ${TO_REUSE[*]:-nothing} (left running - same image, tagged a
 echo "  Migrations: ${MIGRATIONS:-none new}"
 echo "  DB backup:  $([ "$DO_BACKUP" -eq 1 ] && echo "yes, into $BACKUP_DIR/ before migrating" || echo no)"
 echo "  nginx:      $([ "$RESTART_NGINX" -eq 1 ] && echo "config changed - recreated" || echo "reloaded")"
+if [ "${#TO_BUILD[@]}" -gt 0 ]; then
+  cl_detect_memory
+  echo "  Memory:     ${CL_MEM_MB} MB RAM + ${CL_SWAP_MB} MB swap - $([ "$CL_LOW_MEMORY" -eq 1 ] && echo "building one image at a time" || echo "building side by side")"
+fi
 for n in "${NOTES[@]}"; do warn "$n"; done
+# The build runs beside the live site. Short of memory, the kernel kills the
+# biggest process to make room - MySQL - and the site is down before anything
+# has been deployed. Refuse here, while nothing has changed.
+if [ "${#TO_BUILD[@]}" -gt 0 ] && [ "$ALLOW_LOW_MEMORY" -eq 0 ] && ! cl_build_memory_ok; then
+  warn "This server has ${CL_MEM_MB} MB of RAM and ${CL_SWAP_MB} MB of swap. Building beside the running site"
+  warn "needs swap on a server under 6 GB of RAM, and about 4 GB of RAM + swap together - otherwise"
+  warn "the kernel can kill MySQL to make room, and the site goes down mid-update."
+  echo "  Add a swap file (it uses disk space - check 'df -h /' first), then run this again:" >&2
+  cl_swap_howto 4096 >&2
+  die "Not enough memory to build safely. Nothing was changed. (--allow-low-memory builds anyway.)"
+fi
 if git merge-base --is-ancestor "$TARGET" "$CURRENT_COMMIT" 2>/dev/null && [ "$CURRENT_COMMIT" != "$TARGET" ]; then
   warn "$LABEL is OLDER than what is running. Deploying it doesn't undo database migrations - prefer --rollback."
 fi
@@ -451,7 +471,19 @@ switch_to() {
 is_built() { [ -n "${BUILD[$1]:-}" ]; }
 
 log "Starting the new release"
-cl_wait_healthy mysql 120 || die "mysql isn't healthy - check: docker compose -f $COMPOSE_FILE --env-file $ENV_FILE logs mysql"
+if ! cl_wait_healthy mysql 120; then
+  # Most often it isn't running at all: stopped by hand, or killed for lack of
+  # memory and not yet back. Starting it is safe - its data lives in the
+  # mysql-data volume - and saves a second run of this script.
+  warn "mysql isn't healthy - starting it"
+  compose up -d --no-build mysql >/dev/null 2>&1 || true
+  if ! cl_wait_healthy mysql 180; then
+    cl_explain_unhealthy mysql >&2
+    restore_checkout
+    die "mysql isn't healthy, so nothing was deployed - the current release (${CURRENT_COMMIT:0:12}) is unchanged. See above; full logs: docker compose -f $COMPOSE_FILE --env-file $ENV_FILE logs mysql"
+  fi
+  echo "  mysql: healthy again"
+fi
 # Migrations and reference data run first, in a throwaway container on the new
 # image, while the current release keeps serving. They used to run inside the
 # freshly started API with `exec`: when that API crash-looped, MySQL was left
@@ -495,6 +527,7 @@ for s in "${CL_BUILT_SERVICES[@]}"; do
 done
 if [ "${#UNHEALTHY[@]}" -gt 0 ]; then
   warn "Not healthy: ${UNHEALTHY[*]}. Logs: docker compose -f $COMPOSE_FILE --env-file $ENV_FILE logs --tail=100 ${UNHEALTHY[*]}"
+  for s in "${UNHEALTHY[@]}"; do cl_explain_unhealthy "$s" >&2; done
   if [ "$AUTO_ROLLBACK" -eq 1 ] && [ -n "$CURRENT_TAG" ]; then
     warn "Putting the previous release (${CURRENT_COMMIT:0:12}) back."
     switch_to "$CURRENT_TAG" api web public-web
