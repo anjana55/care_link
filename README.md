@@ -124,6 +124,8 @@ see it (ADMIN/STAFF yes; VERIFIER and clients no), what a registration stores an
 are shown, search, every filter, pagination, auditing, and clients that predate the intake
 fields.
 The customer app has its own component tests: `cd apps/public-web && npx jest`.
+The mobile app (`apps/mobile`, Expo) has its own too: `cd apps/mobile && npm test` - see
+`apps/mobile/README.md`.
 
 ## 5. Database
 
