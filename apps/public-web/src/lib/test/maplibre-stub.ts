@@ -91,3 +91,12 @@ export class Popup {
 }
 
 export class NavigationControl {}
+
+/** MapLibre 6: where the worker is loaded from (the component points it at public/). */
+export let workerUrl = '';
+export function setWorkerUrl(url: string) {
+  workerUrl = url;
+}
+export function getVersion() {
+  return '6.0.0-stub';
+}
