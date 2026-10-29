@@ -14,6 +14,7 @@ import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
 import { Button } from '@/components/ui/button';
 import { Input, Label, RequiredLegend } from '@/components/ui/input';
 import type { OtpRequestResult } from '@care-platform/shared';
+import { hardNavigate } from '@/lib/navigation';
 
 
 /**
@@ -61,7 +62,7 @@ function WhatsappCaregiverLoginInner() {
     // caregiver URL should land on their own home, not be pushed into the
     // caregiver wizard. Both destinations need a full navigation today.
     const user = applyTokens(tokens);
-    window.location.assign(user?.role === 'CAREGIVER' ? '/caregiver/dashboard' : '/');
+    hardNavigate(user?.role === 'CAREGIVER' ? '/caregiver/dashboard' : '/');
   }
 
   return (

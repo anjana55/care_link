@@ -11,6 +11,11 @@ import { LanguageSwitcher } from '@/components/common/language-switcher';
 import en from '@/lib/i18n/dictionaries/en.json';
 import si from '@/lib/i18n/dictionaries/si.json';
 import ta from '@/lib/i18n/dictionaries/ta.json';
+import { hardNavigate } from '@/lib/navigation';
+
+// Full page loads go through hardNavigate; jsdom can neither perform them nor,
+// since jsdom 26, let window.location be replaced to watch for them.
+jest.mock('@/lib/navigation', () => ({ hardNavigate: jest.fn() }));
 
 /**
  * The signed-in caregiver's area: who may see it, and what each page does with
@@ -196,7 +201,7 @@ describe('who may see the area', () => {
 
   it('signs out and returns to the sign-in page', () => {
     const assign = jest.fn();
-    Object.defineProperty(window, 'location', { value: { assign }, writable: true });
+    jest.mocked(hardNavigate).mockImplementation(assign);
     renderPage(<PortalLayout><p>inside</p></PortalLayout>);
 
     fireEvent.click(screen.getByRole('button', { name: /sign out/i }));

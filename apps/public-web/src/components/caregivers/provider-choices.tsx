@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { api, ApiError } from '@/lib/api/client';
+import { hardNavigate } from '@/lib/navigation';
 
 const PROVIDERS = ['GOOGLE', 'MICROSOFT', 'FACEBOOK'] as const;
 type Provider = (typeof PROVIDERS)[number];
@@ -57,7 +58,7 @@ export function ProviderChoices({
       // A full navigation, not a client-side route change: the caregiver is
       // leaving this app for the provider and coming back, and this container
       // holds no route for their return.
-      window.location.assign(url);
+      hardNavigate(url);
     } catch (err) {
       setPending(null);
       setError(err instanceof ApiError ? err.message : t('caregiverSignup.providerError'));

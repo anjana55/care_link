@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { BrandMark } from '@/components/layout/brand-mark';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
 import { rememberReturnTo } from '@/lib/return-to';
+import { hardNavigate } from '@/lib/navigation';
 
 const SECTIONS = [
   { href: '/employer', key: 'employer.nav.overview' },
@@ -63,7 +64,7 @@ export default function EmployerAreaLayout({ children }: { children: React.React
               size="sm"
               onClick={() => {
                 logout();
-                window.location.assign('/employer/login');
+                hardNavigate('/employer/login');
               }}
             >
               {t('nav.signOut')}

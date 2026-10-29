@@ -8,6 +8,7 @@ import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { BrandMark } from '@/components/layout/brand-mark';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
+import { hardNavigate } from '@/lib/navigation';
 
 const SECTIONS = [
   { href: '/caregiver/dashboard', key: 'portal.nav.overview' },
@@ -65,7 +66,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               size="sm"
               onClick={() => {
                 logout();
-                window.location.assign('/caregiver/login');
+                hardNavigate('/caregiver/login');
               }}
             >
               {t('caregiverDashboard.signOut')}

@@ -48,6 +48,8 @@ ENV HOSTNAME=0.0.0.0
 # not at the copy's root.
 COPY --from=builder /repo/apps/public-web/.next/standalone ./
 COPY --from=builder /repo/apps/public-web/.next/static ./apps/public-web/.next/static
+# public/ holds the map's worker (copied in by `npm run build`'s prebuild step).
+COPY --from=builder /repo/apps/public-web/public ./apps/public-web/public
 
 USER app
 EXPOSE 3000

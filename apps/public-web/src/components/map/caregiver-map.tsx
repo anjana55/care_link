@@ -9,6 +9,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { GeoJSONSource, LngLatBoundsLike, Map as MapLibreMap, Marker, PaddingOptions } from 'maplibre-gl';
 import type { CaregiverHomeLocation, GeoPoint, MapCityPoint, SearchOrigin, ServiceAreaCity } from '@care-platform/shared';
 
+/** The app's basePath ('/staff' for the staff app), where its public/ files are served. */
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+
 /**
  * OpenFreeMap: open-source vector tiles, no API key, no usage limits, MIT
  * licensed and self-hostable. Override per deployment (e.g. a self-hosted
@@ -143,6 +146,13 @@ export function CaregiverMap({
     (async () => {
       try {
         const maplibre = await import('maplibre-gl');
+        // MapLibre 6 looks for its worker next to its own file, which Next.js has
+        // renamed and moved, so it would 404 and no tiles or GeoJSON would ever draw.
+        // The build copies the worker to public/maplibre/<version>/
+        // (packages/shared/scripts/copy-maplibre-worker.mjs).
+        maplibre.setWorkerUrl(
+          new URL(`${BASE_PATH}/maplibre/${maplibre.getVersion()}/maplibre-gl-worker.mjs`, window.location.origin).href,
+        );
         if (cancelled || !container.current) return;
         lib.current = maplibre;
         const instance = new maplibre.Map({

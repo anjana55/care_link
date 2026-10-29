@@ -16,6 +16,8 @@ storage/caregiver-documents/**
 # substituted for __DOMAIN__. Per-deployment, so it stays out of the repo.
 deploy/nginx.local.conf
 .DS_Store
+# MapLibre's worker, copied in by each web app's predev/prebuild step.
+apps/*/public/maplibre/
 # Written by setup.sh / update.sh on the server: database backups taken
 # before migrations, and which commit and image tag are deployed.
 backups/
