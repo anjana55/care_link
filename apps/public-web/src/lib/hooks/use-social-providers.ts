@@ -3,7 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 
-export type SocialProviderName = 'GOOGLE' | 'MICROSOFT' | 'FACEBOOK';
+import type { SocialProviderName } from '@care-platform/shared';
+export type { SocialProviderName };
 
 /**
  * Which of Google / Microsoft / Facebook this environment has credentials for.

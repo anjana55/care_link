@@ -20,6 +20,7 @@ import { WhatsappOtpForm } from '@/components/auth/whatsapp-otp-form';
 import { makePersonalInfoSchema, requiredFieldsOf } from '@/lib/schemas/personal-info';
 import { useLocationTree } from '@/lib/hooks/use-public-search';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
+import type { WhatsappRegistration } from '@care-platform/shared';
 
 /**
  * Where a caregiver lands once the OTP verifies: their own area in this app.
@@ -28,14 +29,8 @@ import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
  */
 const POST_VERIFY_PATH = '/caregiver/dashboard';
 
-interface RegisterResponse {
-  caregiverId: string;
-  registrationNumber: string;
-  message: string;
-  otpSent: boolean;
-  resendAfterSeconds: number;
-  devOtp?: string;
-}
+// POST /auth/whatsapp/register-caregiver (packages/shared/src/types/auth.ts).
+type RegisterResponse = WhatsappRegistration & { caregiverId: string; registrationNumber: string };
 
 /**
  * Caregiver sign-up for someone with no email address. The personal-information

@@ -12,26 +12,19 @@ import {
   boolean,
 } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
+import { caregiverStatusValues, civilStatusValues, contactMethodValues, genderValues } from '@care-platform/shared';
 
-export const genderEnum = ['MALE', 'FEMALE', 'OTHER'] as const;
+// The value lists live in packages/shared/src/types/caregivers.ts, so the
+// public site and the mobile app know exactly the values the database holds.
+export const genderEnum = genderValues;
 /**
  * How a person wants to be reached first. Shared by caregivers and clients
  * (patients.schema re-exports it) so the two can never drift. EMAIL is only
  * valid for an account that has an email address.
  */
-export const contactMethodEnum = ['PHONE_CALL', 'WHATSAPP', 'EMAIL'] as const;
-export const civilStatusEnum = ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED', 'OTHER'] as const;
-export const caregiverStatusEnum = [
-  'DRAFT',
-  'REGISTERED',
-  'DOCUMENTS_PENDING',
-  'UNDER_VERIFICATION',
-  'VERIFIED',
-  'ACTIVE',
-  'INACTIVE',
-  'SUSPENDED',
-  'REJECTED',
-] as const;
+export const contactMethodEnum = contactMethodValues;
+export const civilStatusEnum = civilStatusValues;
+export const caregiverStatusEnum = caregiverStatusValues;
 
 export type Gender = (typeof genderEnum)[number];
 export type CivilStatus = (typeof civilStatusEnum)[number];

@@ -1,4 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common';
+import { loginPortalValues } from '@care-platform/shared';
 import type { UserRole } from '../../database/schema';
 
 /**
@@ -11,7 +12,8 @@ import type { UserRole } from '../../database/schema';
  * handed a session the screen cannot use, and it stops a login page from being
  * used to learn that a given email and password are valid for another area.
  */
-export const LOGIN_PORTALS = ['staff', 'caregiver', 'customer', 'employer'] as const;
+// The list lives in packages/shared/src/types/auth.ts, which the public site and mobile app sign in with.
+export const LOGIN_PORTALS = loginPortalValues;
 export type LoginPortal = (typeof LOGIN_PORTALS)[number];
 
 export const PORTAL_ROLES: Record<LoginPortal, readonly UserRole[]> = {

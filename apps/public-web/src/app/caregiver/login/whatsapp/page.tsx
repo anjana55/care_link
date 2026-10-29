@@ -13,11 +13,8 @@ import { api, ApiError, type Tokens } from '@/lib/api/client';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
 import { Button } from '@/components/ui/button';
 import { Input, Label, RequiredLegend } from '@/components/ui/input';
+import type { OtpRequestResult } from '@care-platform/shared';
 
-interface OtpRequestResult {
-  resendAfterSeconds: number;
-  devOtp?: string;
-}
 
 /**
  * WhatsApp sign-in and password recovery for caregivers. Structurally the same
