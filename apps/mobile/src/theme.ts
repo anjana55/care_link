@@ -10,6 +10,7 @@ const neutrals = {
   brandText: '#FFFFFF',
   ink: '#111827',
   muted: '#4B5563',
+  danger: '#B91C1C',
   border: '#D1D5DB',
   surface: '#FFFFFF',
   background: '#F8FAFC',

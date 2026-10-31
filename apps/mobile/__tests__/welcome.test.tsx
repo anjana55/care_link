@@ -1,19 +1,16 @@
-import type { ReactElement, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { QueryClientProvider } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
 import { DEFAULT_BRANDING, type PublicBranding } from '@care-platform/shared';
 import en from '../src/i18n/en.json';
 import si from '../src/i18n/si.json';
 import ta from '../src/i18n/ta.json';
-import { I18nProvider, currentLanguage } from '@/i18n';
-import { BrandingProvider } from '@/branding/BrandingProvider';
+import { currentLanguage } from '@/i18n';
 import RootLayout from '../app/_layout';
 import Welcome from '../app/index';
-import SignIn from '../app/(auth)/sign-in';
 import { json } from '../test-utils/helpers';
-import { createQueryClient } from '@/api/query-client';
+import { mockRouter } from '../test-utils/router';
+import { AppProviders } from '../test-utils/app';
 
 /**
  * The welcome flow on the real screens and the real root layout: the shared
@@ -26,21 +23,7 @@ jest.mock('expo-splash-screen', () => ({
   hideAsync: jest.fn(() => Promise.resolve()),
 }));
 
-let mockParams: { role?: string } = {};
-jest.mock('expo-router', () => {
-  const React = require('react');
-  return {
-    Link: ({ href, children }: { href: string | { pathname: string; params?: { role?: string } }; children: ReactElement<{ style?: unknown }> }) => {
-      // The real <Link asChild> (expo-router's Slot) throws on an array of styles.
-      if (Array.isArray(children.props.style)) throw new Error('[expo-router]: You are passing an array of styles to a child of <Slot>.');
-      return React.cloneElement(children, {
-        testID: typeof href === 'string' ? `link:${href}` : `link:${href.pathname}?role=${href.params?.role}`,
-      });
-    },
-    Stack: () => React.createElement(require('../app/index').default),
-    useLocalSearchParams: () => mockParams,
-  };
-});
+jest.mock('expo-router', () => require('../test-utils/router').expoRouterMock());
 
 const LOCALE_KEY = 'carelink-locale';
 const BRANDING_KEY = 'carelink.branding';
@@ -60,17 +43,6 @@ function serveBranding(branding: PublicBranding) {
   ) as never;
 }
 
-function Providers({ children }: { children: ReactNode }) {
-  const client = createQueryClient();
-  return (
-    <QueryClientProvider client={client}>
-      <BrandingProvider>
-        <I18nProvider>{children}</I18nProvider>
-      </BrandingProvider>
-    </QueryClientProvider>
-  );
-}
-
 let restoreGetItem: (() => void) | null = null;
 afterEach(() => {
   restoreGetItem?.();
@@ -80,7 +52,7 @@ afterEach(() => {
 beforeEach(async () => {
   await AsyncStorage.clear();
   jest.clearAllMocks();
-  mockParams = {};
+  mockRouter.reset();
 });
 
 describe('launch', () => {
@@ -137,9 +109,9 @@ describe('launch', () => {
 describe('welcome screen', () => {
   const renderWelcome = () =>
     render(
-      <Providers>
+      <AppProviders>
         <Welcome />
-      </Providers>,
+      </AppProviders>,
     );
 
   it('switches language, saves the choice, and tells the API client', async () => {
@@ -177,18 +149,3 @@ describe('welcome screen', () => {
   });
 });
 
-describe('sign-in placeholder', () => {
-  it.each([
-    ['caregiver', en.signIn.caregiver],
-    ['client', en.signIn.client],
-  ])('shows the %s title', async (role, title) => {
-    mockParams = { role };
-    await render(
-      <Providers>
-        <SignIn />
-      </Providers>,
-    );
-    expect(await screen.findByText(title)).toBeTruthy();
-    expect(screen.getByTestId('link:/')).toHaveTextContent(en.signIn.back);
-  });
-});
