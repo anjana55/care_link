@@ -1,14 +1,17 @@
 import { useCallback, useState } from 'react';
 import { roundCoordinate, type DeviceLocation, type DeviceLocationError, type NearestCity } from '@care-platform/shared';
 import { api, ApiError } from '@/api';
+import { hasNativeModule } from '@/native';
 
 type LocationModule = typeof import('expo-location');
 
 /**
  * expo-location, or null in a build made before it was added (it's a native
- * module): "Use my location" then says the phone can't share it.
+ * module): "Use my location" then says the phone can't share it. Checked
+ * before loading, so a build without it never even tries.
  */
 function locationModule(): LocationModule | null {
+  if (!hasNativeModule('ExpoLocation')) return null;
   try {
     return require('expo-location') as LocationModule;
   } catch {
