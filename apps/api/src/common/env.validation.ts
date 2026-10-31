@@ -72,6 +72,16 @@ class EnvironmentVariables {
   @IsBooleanString()
   AUTH_REQUIRE_LOGIN_PORTAL?: string;
 
+  // Push notifications to the mobile app (PushService). On unless "false".
+  @IsOptional()
+  @IsBooleanString()
+  PUSH_ENABLED?: string;
+
+  // Only needed when the Expo project has "enhanced push security" turned on.
+  @IsOptional()
+  @IsString()
+  EXPO_ACCESS_TOKEN?: string;
+
   @IsOptional()
   @IsBooleanString()
   WHATSAPP_ENABLED?: string;

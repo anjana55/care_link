@@ -50,11 +50,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     userInterfaceStyle: 'automatic',
     ios: { bundleIdentifier: brand.bundleId, supportsTablet: false },
     android: { package: brand.bundleId },
-    plugins: ['expo-router'],
+    plugins: ['expo-router', 'expo-notifications'],
     extra: {
       brand: key,
       brandName: brand.name,
       apiUrl: process.env.EXPO_PUBLIC_API_URL ?? brand.apiUrl,
+      // Push needs the Expo (EAS) project's id; until it is set (Phase 1d) the app simply doesn't register for push.
+      ...(process.env.EAS_PROJECT_ID ? { eas: { projectId: process.env.EAS_PROJECT_ID } } : {}),
     },
   };
 };

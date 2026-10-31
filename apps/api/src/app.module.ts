@@ -46,6 +46,7 @@ import { AdsModule } from './ads/ads.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AiCoreModule, AiModule } from './ai/ai.module';
 import { InternationalModule } from './international/international.module';
+import { PushModule } from './push/push.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { InternationalModule } from './international/international.module';
     AuditModule,
     StorageModule,
     BrandingModule,
+    PushModule,
     AdsModule,
     AnalyticsModule,
     AiCoreModule,
