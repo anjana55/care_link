@@ -27,7 +27,7 @@ const show = (ui: React.ReactElement) => render(<AppProviders>{ui}</AppProviders
 beforeEach(() => mockRouter.reset());
 
 describe('signing in with email', () => {
-  it('signs a client in on the client portal and goes to their home', async () => {
+  it('signs a client in on the client portal and takes them to Find', async () => {
     const tokens = tokensFor('PATIENT_GUARDIAN', { patientId: 'p-1' });
     const calls = serveApi({
       'GET /auth/whatsapp/config': () => ({ status: 200, body: { ...whatsappConfig({ caregiver: false, customer: false }), enabled: false } }),
@@ -41,7 +41,7 @@ describe('signing in with email', () => {
     await fireEvent.changeText(screen.getByLabelText(en.signIn.password), 'secret-pass');
     await fireEvent.press(screen.getByRole('button', { name: en.signIn.submit }));
 
-    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/home'));
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/find'));
     const login = calls.find((c) => c.route === 'POST /auth/login')!;
     expect(login.body).toEqual({ email: 'amaya@example.lk', password: 'secret-pass', portal: 'customer' });
     expect(login.headers.Authorization).toBeUndefined();

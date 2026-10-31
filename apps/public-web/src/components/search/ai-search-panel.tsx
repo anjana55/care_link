@@ -3,7 +3,19 @@
 import { useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Loader2, SendHorizontal, Sparkles } from 'lucide-react';
-import { careTypeValues, type AiMissingField, type CareType, type ExtractedRequirements, type SearchRequest } from '@care-platform/shared';
+import {
+  AI_FIRST_MAX,
+  AI_REPLY_MAX,
+  EMPTY_AI_SUMMARY,
+  careTypeValues,
+  combineTurns,
+  lacksCareDetail,
+  missingOf,
+  understoodNothingIn,
+  type CareType,
+  type ExtractedRequirements,
+  type SearchRequest,
+} from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { publicSearchApi } from '@/lib/api/public-search';
 import { ApiError } from '@/lib/api/client';
@@ -32,57 +44,11 @@ type Entry =
   | { role: 'assistant'; kind: 'ask-location'; retry: boolean; understoodNothing: boolean; summary?: ExtractedRequirements['summary'] }
   | { role: 'assistant'; kind: 'results'; summary?: ExtractedRequirements['summary']; suggestMore: boolean };
 
-const QUERY_MAX = 1000;
-const FIRST_MAX = 800;
-const REPLY_MAX = 200;
-
-/**
- * Everything the visitor has said, one message per line, within the API's
- * 1000-character limit. The first description matters most, so when the total
- * is too long the oldest follow-ups are the ones dropped.
- */
-export function combineTurns(turns: string[]): string {
-  if (!turns.length) return '';
-  const [first, ...rest] = turns;
-  const kept = [...rest];
-  let text = [first, ...kept].join('\n');
-  while (text.length > QUERY_MAX && kept.length) {
-    kept.shift();
-    text = [first, ...kept].join('\n');
-  }
-  return text.slice(0, QUERY_MAX);
-}
-
-/** Required inputs still unknown. The API says so; older APIs did not, so fall back to looking. */
-function missingOf(extracted: ExtractedRequirements): AiMissingField[] {
-  const missing: AiMissingField[] = extracted.missing
-    ? [...extracted.missing]
-    : extracted.requirements.location?.districtId
-      ? []
-      : ['location'];
-  // Older APIs did not ask for the care type; it is required either way.
-  if (!extracted.requirements.careType && !missing.includes('careType')) missing.unshift('careType');
-  return extracted.requirements.careType ? missing.filter((m) => m !== 'careType') : missing;
-}
-
-/** Nothing about the care itself - the results are by area only, and a sentence more would rank them far better. */
-function lacksCareDetail(r: SearchRequest): boolean {
-  return !r.mandatorySkillIds?.length && !r.optionalSkillIds?.length && !r.patient?.medicalConditions?.length && !r.shift;
-}
-
-/** The description gave nothing usable at all (a defaulted start date does not count) - ask more openly. */
-function understoodNothingIn(extracted: ExtractedRequirements): boolean {
-  const assumedDate = extracted.assumed?.includes('desiredStartDate') ?? false;
-  return Object.entries(extracted.requirements).every(
-    ([key, value]) =>
-      ['page', 'pageSize', 'locale'].includes(key) ||
-      (key === 'desiredStartDate' && assumedDate) ||
-      value === undefined ||
-      (Array.isArray(value) && value.length === 0),
-  );
-}
-
-const EMPTY_SUMMARY: ExtractedRequirements['summary'] = { patient: [], location: [], care: [], preferences: [] };
+// The conversation's rules are shared with the mobile app (@care-platform/shared, ai-search.ts).
+const FIRST_MAX = AI_FIRST_MAX;
+const REPLY_MAX = AI_REPLY_MAX;
+const EMPTY_SUMMARY = EMPTY_AI_SUMMARY;
+export { combineTurns };
 
 /**
  * AI Search as a short conversation whose only goal is to get caregivers on

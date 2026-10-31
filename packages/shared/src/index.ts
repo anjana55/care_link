@@ -18,6 +18,7 @@ export * from './types/locale';
 export * from './types/care-types';
 export * from './types/geo';
 export * from './types/public-search';
+export * from './types/ai-search';
 export * from './types/whatsapp';
 export * from './types/care-requests';
 export * from './types/bookings';

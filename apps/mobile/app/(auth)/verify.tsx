@@ -5,7 +5,7 @@ import type { OtpRequestResult, Tokens } from '@care-platform/shared';
 import { api } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
 import { messageFor } from '@/auth/messages';
-import { portalFor, sideFrom } from '@/auth/sides';
+import { portalFor, sideFrom, homeFor } from '@/auth/sides';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button, Field, FormError, Screen } from '@/ui/controls';
@@ -43,7 +43,8 @@ export default function Verify() {
         { phone, purpose: 'LOGIN', portal: portalFor(side), code: code.trim() },
         { anonymous: true },
       );
-      if (await signIn(result.tokens)) router.replace('/home');
+      const signedIn = await signIn(result.tokens);
+      if (signedIn) router.replace(homeFor(signedIn));
       else setError(t('otp.error'));
     } catch (err) {
       setError(messageFor(err, t('otp.error')));

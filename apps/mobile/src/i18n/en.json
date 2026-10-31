@@ -48,7 +48,10 @@
     "error": "Something went wrong. Please try again.",
     "retry": "Try again",
     "showPassword": "Show password",
-    "hidePassword": "Hide password"
+    "hidePassword": "Hide password",
+    "requiredField": "Required field",
+    "language": "Language",
+    "cancel": "Cancel"
   },
   "update": {
     "requiredTitle": "Please update the app",
@@ -57,5 +60,217 @@
     "availableBody": "Update {brand} to get the latest improvements.",
     "update": "Update",
     "notNow": "Not now"
+  },
+  "searchMode": {
+    "normal": "Normal Search",
+    "ai": "AI Search",
+    "aiUnavailable": "AI Search is temporarily unavailable — try Normal Search instead."
+  },
+  "normalSearch": {
+    "patientSection": "About the patient (optional)",
+    "age": "Age",
+    "gender": "Gender",
+    "genderMale": "Male",
+    "genderFemale": "Female",
+    "medicalConditions": "Medical conditions",
+    "medicalConditionsPlaceholder": "e.g. Parkinson's, Diabetes — press Enter to add",
+    "locationSection": "Location",
+    "district": "District",
+    "city": "City",
+    "anyDistrict": "Any district",
+    "anyCity": "Any city",
+    "careSection": "Care requirements",
+    "mandatorySkills": "Must-have skills",
+    "optionalSkills": "Nice-to-have skills",
+    "preferredGender": "Preferred caregiver gender",
+    "genderAny": "No preference",
+    "languages": "Preferred languages",
+    "shift": "Required shift",
+    "shiftDay": "Day duty",
+    "shiftNight": "Night duty",
+    "shiftLiveIn": "24-hour live-in",
+    "shiftFlexible": "Flexible",
+    "startDate": "Desired start date",
+    "minimumExperience": "Minimum experience (years)",
+    "submit": "Search caregivers",
+    "reset": "Clear filters",
+    "startDateHint": "Required. Availability matching is not live yet, so this does not change results today.",
+    "errors": {
+      "districtRequired": "Please select a district.",
+      "startDateRequired": "Please choose a desired start date.",
+      "invalidValue": "Please check this value.",
+      "careTypeRequired": "Please choose the type of care you need."
+    },
+    "locationsUnavailable": "Districts and cities could not be loaded. Please refresh the page or try again shortly.",
+    "careType": "Type of care needed"
+  },
+  "aiSearch": {
+    "label": "Describe the care you need",
+    "placeholder": "Describe the care you need...",
+    "example": "e.g. \"I need a female caregiver in Colombo for my 78 year old mother who has Parkinson's. She needs night care and help with medication and bathing.\"",
+    "extractedTitle": "Here's what we understood",
+    "unavailable": "AI search is not available right now. Please use Normal Search instead.",
+    "failed": "We couldn't read your description just now. Please try again, or use Normal Search.",
+    "findCaregivers": "Find caregivers",
+    "askLocation": "Thanks! Where is the care needed? Tell me the town or district.",
+    "askLocationEmpty": "Happy to help. Where is the care needed? Tell me the town or district, and anything you can about the person who needs care.",
+    "askLocationRetry": "I couldn't work out the area from that. Could you name the nearest town, or choose a district below?",
+    "showingMatches": "Here are caregivers who match. You can fine-tune the results any time.",
+    "adjustFilters": "Adjust filters",
+    "suggestMore": "Want better matches? Tell me about the person's condition or the help they need, and I'll put the best fits first.",
+    "filtersAdjusted": "You've adjusted the filters below the results.",
+    "useNormalSearch": "Use Normal Search",
+    "replyLabel": "Your answer",
+    "replyPlaceholder": "Type the town or district...",
+    "moreDetailsLabel": "Add more details",
+    "moreDetailsPlaceholder": "Add more details, e.g. needs help with bathing, speaks Tamil...",
+    "send": "Send",
+    "orPickDistrict": "Or choose a district:",
+    "pickDistrict": "Choose a district",
+    "startOver": "Start over",
+    "refineTitle": "Refine your search",
+    "refineHint": "Change any filter and update the results.",
+    "updateResults": "Update results",
+    "askCareType": "What kind of care do you need? Choose one below, or tell me in your own words.",
+    "careTypeReplyPlaceholder": "For example: someone to live with my mother"
+  },
+  "results": {
+    "title": "Caregivers matching your search",
+    "recommendedMatch": "Recommended match",
+    "whyThisMatches": "Why this matches",
+    "verifiedQualification": "Verified Qualification",
+    "yearsExperience": "{years} years experience",
+    "viewProfile": "View profile",
+    "page": "Page {page} of {totalPages}",
+    "previous": "Previous",
+    "next": "Next",
+    "approxAge": "{age} years",
+    "aiRankedNote": "Every caregiver here meets your requirements; AI has ordered them by how well they fit your description.",
+    "aiReason": "Why AI suggests this caregiver",
+    "verified": "Verified",
+    "verifiedHint": "Our team has checked this caregiver's identity and documents"
+  },
+  "empty": {
+    "title": "No caregivers matched those filters",
+    "subtitle": "Try widening the location, or removing a must-have skill.",
+    "action": "Clear filters"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "subtitle": "We couldn't complete that search. Please try again.",
+    "retry": "Try again"
+  },
+  "loading": {
+    "searching": "Searching for caregivers...",
+    "extracting": "Understanding your request..."
+  },
+  "profile": {
+    "backToResults": "Back to results",
+    "anonymousId": "Caregiver {id}",
+    "district": "District",
+    "city": "City",
+    "preferredLocations": "Preferred work locations",
+    "languages": "Languages",
+    "skills": "Skills",
+    "relevantExperience": "Relevant experience",
+    "availability": "Availability",
+    "qualifications": "Qualifications",
+    "contactCta": "Sign up to contact this caregiver",
+    "saveCta": "Sign up to save this caregiver",
+    "notFound": "This caregiver profile isn't available.",
+    "availabilityDay": "Day duty",
+    "availabilityNight": "Night duty",
+    "availabilityLiveIn": "24-hour live-in",
+    "careTypes": "Types of care"
+  },
+  "careTypes": {
+    "HOME_SHIFT": "Care at home (shift basis)",
+    "LIVE_IN": "Live-in caregiver",
+    "HOSPITAL": "Care at a hospital",
+    "NURSING_HOME": "Nursing home for the elderly",
+    "RETIREMENT_HOME": "Retirement home for the elderly"
+  },
+  "nav": {
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "myAccount": "My account",
+    "signOut": "Sign out"
+  },
+  "map": {
+    "kmAway": "{km} km away",
+    "travelsHere": "Works in {place}, {km} km away"
+  },
+  "account": {
+    "navLabel": "Account sections",
+    "nav": {
+      "requests": "My requests",
+      "saved": "Saved caregivers",
+      "bookings": "Bookings",
+      "invoices": "Invoices"
+    },
+    "findCaregivers": "Find caregivers",
+    "requests": {
+      "title": "My requests",
+      "subtitle": "Caregivers you asked us to contact. Our team speaks to you and the caregiver, and keeps you updated here.",
+      "empty": "You haven't contacted a caregiver yet.",
+      "emptyCta": "Find a caregiver",
+      "reference": "Reference {reference}",
+      "sentOn": "Sent {date}",
+      "cancel": "Cancel request",
+      "cancelConfirm": "Cancel this request? Our team will stop working on it.",
+      "cancelYes": "Yes, cancel it",
+      "cancelNo": "Keep it",
+      "unavailable": "This caregiver is no longer listed.",
+      "viewProfile": "View profile",
+      "status": {
+        "NEW": "Sent",
+        "IN_PROGRESS": "Our team is on it",
+        "INTRODUCED": "Introduced",
+        "CLOSED": "Closed",
+        "CANCELLED": "Cancelled"
+      },
+      "statusHelp": {
+        "NEW": "We have your request and will call you soon.",
+        "IN_PROGRESS": "We are talking to you and the caregiver.",
+        "INTRODUCED": "We have put you in touch with the caregiver.",
+        "CLOSED": "This request is closed. You can contact another caregiver at any time.",
+        "CANCELLED": "You cancelled this request."
+      },
+      "notOnline": "This caregiver's profile isn't shown online. Our team will tell you about them.",
+      "noCaregiverLabel": "Caregiver",
+      "matching": "Our team is finding a caregiver for you",
+      "newRequest": "Find a caregiver for me",
+      "startsOn": "Starting {date}"
+    },
+    "saved": {
+      "title": "Saved caregivers",
+      "subtitle": "Caregivers you've saved to compare or contact later.",
+      "empty": "You haven't saved any caregivers yet.",
+      "remove": "Remove",
+      "savedOn": "Saved {date}",
+      "unavailable": "This caregiver is no longer listed."
+    },
+    "bookings": {
+      "title": "Bookings",
+      "subtitle": "Care our team has arranged for you, with every scheduled shift in Sri Lanka time. If something is not right, tell us below - or call us and quote the reference.",
+      "empty": "No bookings yet. Once our team arranges care, it will appear here.",
+      "reference": "Reference",
+      "dates": "Dates",
+      "rate": "Agreed rate",
+      "shifts": "Shifts",
+      "noShifts": "No upcoming shifts.",
+      "cover": "(another caregiver covering)",
+      "status": {
+        "DRAFT": "Draft",
+        "CONFIRMED": "Confirmed",
+        "COMPLETED": "Completed",
+        "CANCELLED": "Cancelled"
+      },
+      "rateUnit": {
+        "HOURLY": "per hour",
+        "DAILY": "per day",
+        "MONTHLY": "per month"
+      }
+    }
   }
 }

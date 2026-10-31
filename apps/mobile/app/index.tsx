@@ -2,14 +2,13 @@ import { useMemo, useState } from 'react';
 import { Link, Redirect } from 'expo-router';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation, type Locale } from '@/i18n';
+import { useTranslation } from '@/i18n';
+import { homeFor } from '@/auth/sides';
+import { LanguagePicker } from '@/ui/LanguagePicker';
 import { useBranding } from '@/branding/BrandingProvider';
 import { useAuth } from '@/auth/AuthProvider';
 import { useColors, type Colors } from '@/theme';
 import { Text } from '@/ui/Text';
-
-/** Each language in its own script - the one label every reader can find. */
-const LANGUAGE_NAMES: Record<Locale, string> = { en: 'English', si: 'සිංහල', ta: 'தமிழ்' };
 
 /**
  * First screen: language, then which side of the app this person is on.
@@ -17,7 +16,7 @@ const LANGUAGE_NAMES: Record<Locale, string> = { en: 'English', si: 'සිං�
  * sign-in (caregiver or customer), so the API's portal rule still applies.
  */
 export default function Welcome() {
-  const { t, locale, setLocale, availableLocales } = useTranslation();
+  const { t } = useTranslation();
   const { branding, logoUrl } = useBranding();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -26,7 +25,7 @@ export default function Welcome() {
   const { user } = useAuth();
 
   // Already signed in: straight to their area.
-  if (user) return <Redirect href="/home" />;
+  if (user) return <Redirect href={homeFor(user)} />;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -45,29 +44,11 @@ export default function Welcome() {
         <Text style={styles.tagline}>{t('welcome.tagline')}</Text>
       </View>
 
-      {availableLocales.length > 1 && (
-        <View accessibilityRole="radiogroup" accessibilityLabel={t('welcome.language')} style={styles.languages}>
-          {availableLocales.map((code) => {
-            const selected = code === locale;
-            return (
-              <Pressable
-                key={code}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                onPress={() => setLocale(code)}
-                style={[styles.language, selected && styles.languageSelected]}
-              >
-                <Text lang={code} style={[styles.languageText, selected && styles.languageTextSelected]}>
-                  {LANGUAGE_NAMES[code]}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
+      <LanguagePicker />
 
       <View style={styles.actions}>
-        <Link href={{ pathname: '/sign-in', params: { role: 'client' } }} asChild>
+        {/* Searching needs no account: a client signs in when they contact or save someone. */}
+        <Link href="/find" asChild>
           <Pressable accessibilityRole="button" style={styles.primaryButton}>
             <Text style={[styles.buttonText, styles.primaryText]}>{t('welcome.findCare')}</Text>
           </Pressable>
@@ -105,19 +86,6 @@ const makeStyles = (colors: Colors) =>
     logo: { width: 180, height: 56, alignSelf: 'flex-start' },
     appName: { fontSize: 34, fontWeight: '700', color: colors.brand },
     tagline: { fontSize: 22, lineHeight: 34, color: colors.ink },
-    languages: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-    language: {
-      minHeight: 44,
-      paddingHorizontal: 16,
-      justifyContent: 'center',
-      borderRadius: 22,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-    languageSelected: { backgroundColor: colors.brand, borderColor: colors.brand },
-    languageText: { fontSize: 16, color: colors.ink },
-    languageTextSelected: { color: colors.brandText, fontWeight: '600' },
     actions: { gap: 12, marginBottom: 32 },
     // One flat style each: expo-router's <Link asChild> refuses an array of styles on its child.
     primaryButton: { ...button, backgroundColor: colors.brand },
