@@ -67,6 +67,72 @@ describe('signing in with email', () => {
   });
 });
 
+describe('the password box', () => {
+  it('can show what was typed, and hide it again', async () => {
+    serveApi({ 'GET /auth/whatsapp/config': () => ({ status: 200, body: { enabled: false } }) });
+    mockRouter.params = { role: 'client' };
+    await show(<SignIn />);
+    const box = await screen.findByLabelText(en.signIn.password);
+    await fireEvent.changeText(box, 'Secret-pass1');
+
+    expect(box).toHaveProp('secureTextEntry', true);
+    // The keyboard must never change what's typed.
+    expect(box).toHaveProp('autoCapitalize', 'none');
+    expect(box).toHaveProp('autoCorrect', false);
+    await fireEvent.press(screen.getByRole('button', { name: en.common.showPassword }));
+    expect(screen.getByLabelText(en.signIn.password)).toHaveProp('secureTextEntry', false);
+    expect(screen.getByLabelText(en.signIn.password)).toHaveProp('value', 'Secret-pass1');
+    await fireEvent.press(screen.getByRole('button', { name: en.common.hidePassword }));
+    expect(screen.getByLabelText(en.signIn.password)).toHaveProp('secureTextEntry', true);
+  });
+});
+
+describe('a refused email sign-in', () => {
+  it('offers the other side’s sign-in, since the same refusal covers an account on that side', async () => {
+    serveApi({
+      'GET /auth/whatsapp/config': () => ({ status: 200, body: { enabled: false } }),
+      'POST /auth/login': () => ({ status: 401, body: { message: 'Invalid credentials' } }),
+    });
+    mockRouter.params = { role: 'client' };
+    await show(<SignIn />);
+    await fireEvent.changeText(await screen.findByLabelText(en.signIn.email), 'nimal@example.lk');
+    await fireEvent.changeText(screen.getByLabelText(en.signIn.password), 'right-password');
+    await fireEvent.press(screen.getByRole('button', { name: en.signIn.submit }));
+
+    await fireEvent.press(await screen.findByRole('link', { name: en.signIn.caregiver }));
+    expect(mockRouter.replace).toHaveBeenCalledWith({ pathname: '/sign-in', params: { role: 'caregiver' } });
+  });
+
+  it('recognises the refusal in Sinhala too', async () => {
+    serveApi({
+      'GET /auth/whatsapp/config': () => ({ status: 200, body: { enabled: false } }),
+      'POST /auth/login': () => ({ status: 401, body: { message: 'පිවිසුම් අක්තපත්‍ර වලංගු නැත' } }),
+    });
+    mockRouter.params = { role: 'client' };
+    await show(<SignIn />);
+    await fireEvent.changeText(await screen.findByLabelText(en.signIn.email), 'nimal@example.lk');
+    await fireEvent.changeText(screen.getByLabelText(en.signIn.password), 'whatever1');
+    await fireEvent.press(screen.getByRole('button', { name: en.signIn.submit }));
+    expect(await screen.findByText(en.signIn.unverifiedHint)).toBeTruthy();
+  });
+
+  it('shows the API’s own reason when the email isn’t verified yet', async () => {
+    const reason = 'Please verify your email before logging in - check your inbox for the verification link.';
+    serveApi({
+      'GET /auth/whatsapp/config': () => ({ status: 200, body: { enabled: false } }),
+      'POST /auth/login': () => ({ status: 401, body: { message: reason } }),
+    });
+    mockRouter.params = { role: 'caregiver' };
+    await show(<SignIn />);
+    await fireEvent.changeText(await screen.findByLabelText(en.signIn.email), 'nimal@example.lk');
+    await fireEvent.changeText(screen.getByLabelText(en.signIn.password), 'right-password');
+    await fireEvent.press(screen.getByRole('button', { name: en.signIn.submit }));
+
+    expect(await screen.findByText(reason)).toBeTruthy();
+    expect(screen.queryByText(en.signIn.emailError)).toBeNull();
+  });
+});
+
 describe('signing in with WhatsApp', () => {
   it('offers WhatsApp first when it is on for this side, and sends the code on the caregiver portal', async () => {
     const calls = serveApi({
