@@ -65,10 +65,16 @@ export async function getPushToken(): Promise<string | null> {
 
 /**
  * Where a tapped notification goes. The API sends the screen it is about
- * (/bookings/{id}, /shifts, /invoices/{id}, ...); until those screens exist
- * (Phases 2 and 3) everything opens home.
+ * (/bookings/{id}, /care, /requests/{id}, /shifts, /invoices/{id}, ...).
+ * Bookings and the 8 pm care reminder open Bookings, requests open My
+ * requests; the rest open home (a client's home is Find) until their screens
+ * exist (2d, Phase 3).
  */
-const SCREENS = ['/home'];
+const SCREENS: [RegExp, string][] = [
+  [/^\/(bookings(\/[^/]+)?|care)$/, '/bookings'],
+  [/^\/requests(\/[^/]+)?$/, '/requests'],
+];
 export function screenFor(path: unknown): string {
-  return typeof path === 'string' && SCREENS.includes(path) ? path : '/home';
+  if (typeof path !== 'string') return '/home';
+  return SCREENS.find(([re]) => re.test(path))?.[1] ?? '/home';
 }

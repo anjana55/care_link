@@ -6,8 +6,8 @@ import { fontFamilyFor } from '@/ui/fonts';
 
 /**
  * The client side of the app. Find works for anyone, signed in or not; Saved
- * and Requests ask a client to sign in, and the Account tab does. Bookings and
- * invoices join these tabs as they're built (Phase 2c-2d).
+ * and Requests ask a client to sign in, and the Account tab does. Invoices join
+ * these tabs in Phase 2d.
  */
 export default function ClientLayout() {
   const { t, locale } = useTranslation();
@@ -27,6 +27,13 @@ export default function ClientLayout() {
         options={{
           tabBarLabel: t('account.findCaregivers'),
           tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color as string} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="bookings"
+        options={{
+          tabBarLabel: t('account.nav.bookings'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color as string} size={size} />,
         }}
       />
       <Tabs.Screen

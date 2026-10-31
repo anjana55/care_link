@@ -102,8 +102,8 @@ describe('tapping a notification', () => {
     serveApi({});
     await showApp(async () => null);
     await act(async () => mockTapListeners.forEach((fn) => fn(tap('/bookings/b-1'))));
-    // The booking screens come in Phase 3; until then everything opens home.
-    expect(mockRouter.push).toHaveBeenCalledWith('/home');
+    // A booking notice opens the Bookings tab.
+    expect(mockRouter.push).toHaveBeenCalledWith('/bookings');
   });
 
   it('opens it too when the tap started the app', async () => {
@@ -123,9 +123,13 @@ describe('where push works', () => {
     expect(pushSupported()).toBe(false);
   });
 
-  it('only opens screens the app has', () => {
+  it('opens the screen a notice is about, and only screens the app has', () => {
     const { screenFor } = jest.requireActual('../src/push/notifications');
     expect(screenFor('/home')).toBe('/home');
+    expect(screenFor('/bookings/b-1')).toBe('/bookings');
+    expect(screenFor('/care')).toBe('/bookings');
+    expect(screenFor('/requests/r-1')).toBe('/requests');
+    expect(screenFor('/bookings/b-1/../../admin')).toBe('/home');
     expect(screenFor('/invoices/9')).toBe('/home');
     expect(screenFor(undefined)).toBe('/home');
   });

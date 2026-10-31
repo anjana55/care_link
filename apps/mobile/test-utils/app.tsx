@@ -18,22 +18,23 @@ export function AppProviders({ children }: { children: ReactNode }) {
   );
 }
 
-type Handler = (body: Record<string, unknown>) => { status: number; body?: unknown } | Promise<{ status: number; body?: unknown }>;
+type Handler = (body: Record<string, unknown>, query: Record<string, string>) => { status: number; body?: unknown } | Promise<{ status: number; body?: unknown }>;
 
 /**
  * Answers API calls by path ("POST /auth/login"); anything else has no network.
  * Returns the calls made, with their parsed bodies, for assertions.
  */
 export function serveApi(routes: Record<string, Handler>) {
-  const calls: { route: string; body: Record<string, unknown>; headers: Record<string, string> }[] = [];
+  const calls: { route: string; body: Record<string, unknown>; headers: Record<string, string>; query: Record<string, string> }[] = [];
   globalThis.fetch = jest.fn(async (url: string, init: RequestInit = {}) => {
-    const path = new URL(String(url)).pathname.replace(/^\/api/, '');
+    const parsed = new URL(String(url));
+    const path = parsed.pathname.replace(/^\/api/, '');
     const route = `${init.method ?? 'GET'} ${path}`;
     const body = init.body ? JSON.parse(String(init.body)) : {};
-    calls.push({ route, body, headers: (init.headers ?? {}) as Record<string, string> });
+    calls.push({ route, body, headers: (init.headers ?? {}) as Record<string, string>, query: Object.fromEntries(parsed.searchParams) });
     const handler = routes[route];
     if (!handler) throw new TypeError(`Network request failed (no route for ${route})`);
-    const answer = await handler(body);
+    const answer = await handler(body, Object.fromEntries(parsed.searchParams));
     return new Response(answer.body === undefined ? null : JSON.stringify(answer.body), {
       status: answer.status,
       headers: { 'content-type': 'application/json' },
