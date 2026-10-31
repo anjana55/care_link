@@ -5,6 +5,7 @@ import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { WrongPortalException } from '../common/auth/login-portal';
+import { PushService } from '../push/push.service';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterCaregiverDto } from './dto/register-caregiver.dto';
 import { RegisterPatientDto } from './dto/register-patient.dto';
@@ -24,6 +25,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly auditService: AuditService,
     private readonly passwordReset: PasswordResetService,
+    private readonly push: PushService,
   ) {}
 
   @Public()
@@ -149,6 +151,9 @@ export class AuthController {
   @Post('logout')
   async logout(@CurrentUser() user: AuthenticatedUser) {
     await this.authService.logout(user.userId);
+    // Sign-out ends every session, so no phone keeps getting this person's
+    // alerts - on a shared phone, the next person signs in and registers it again.
+    await this.push.revokeAllForUser(user.userId);
     await this.auditService.record({ userId: user.userId, action: 'LOGOUT', entityType: 'User', entityId: user.userId });
     return { success: true };
   }

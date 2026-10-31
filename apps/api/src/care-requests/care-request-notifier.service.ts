@@ -18,6 +18,7 @@ import {
   clientNotice,
   clientNoticeFor,
 } from './notification-messages';
+import { PushService, fromBlocks, fromNotice } from '../push/push.service';
 
 /** Everything a notice needs about one request, read fresh at send time. */
 interface NoticeContext {
@@ -25,6 +26,7 @@ interface NoticeContext {
   reference: string;
   language: CareRequestLanguage;
   client: {
+    userId: string | null;
     email: string | null;
     phone: string | null; // E.164, best effort
     preferredContactMethod: 'PHONE_CALL' | 'WHATSAPP' | 'EMAIL' | null;
@@ -32,6 +34,7 @@ interface NoticeContext {
   };
   /** Null while no caregiver is attached (a phone request staff will match later). */
   caregiver: {
+    userId: string | null;
     email: string | null;
     phone: string | null; // E.164, best effort
     registrationNumber: string;
@@ -90,6 +93,7 @@ export class CareRequestNotifier {
     private readonly emailSettings: EmailSettingsService,
     private readonly whatsappSettings: WhatsappSettingsService,
     private readonly whatsapp: WhatsappProviderService,
+    private readonly push: PushService,
   ) {}
 
   /**
@@ -214,6 +218,7 @@ export class CareRequestNotifier {
       reference: row.reference,
       language: row.language,
       client: {
+        userId: row.patientUserId ?? null,
         email: clientAccount?.email ?? null,
         // users.phone is the verified WhatsApp identity, already E.164; the
         // profile phone is free text and is normalised as a fallback.
@@ -223,6 +228,7 @@ export class CareRequestNotifier {
       },
       caregiver: row.registrationNumber
         ? {
+            userId: row.caregiverUserId ?? null,
             email: caregiverAccount?.email ?? null,
             phone: caregiverAccount?.phone ?? normalizePhone(row.caregiverPhone, cc),
             registrationNumber: row.registrationNumber,
@@ -307,6 +313,8 @@ export class CareRequestNotifier {
   private async notifyClient(ctx: NoticeContext, notice: Parameters<typeof clientNotice>[0]) {
     const lang = ctx.language;
     const text = clientNotice(notice, lang, ctx.reference);
+    // Push to the app as well - in addition to the message below, never instead of it.
+    this.push.notify([ctx.client.userId], (l) => fromNotice(clientNotice(notice, l, ctx.reference)), `/requests/${ctx.id}`, `client update ${ctx.reference}`);
     const wa = await this.whatsappSettings.getResolved();
     const channel = chooseClientChannel({
       hasEmail: Boolean(ctx.client.email),
@@ -338,6 +346,7 @@ export class CareRequestNotifier {
     const caregiver = ctx.caregiver;
     if (!caregiver) return null;
     const msg = caregiverNotice(notice, ctx.reference);
+    this.push.notify([caregiver.userId], (l) => fromBlocks(msg.blocks, l), `/requests/${ctx.id}`, `caregiver update ${ctx.reference}`);
     const wa = await this.whatsappSettings.getResolved();
     const channel = chooseClientChannel({
       hasEmail: Boolean(caregiver.email),

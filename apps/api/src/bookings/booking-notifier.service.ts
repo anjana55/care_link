@@ -11,6 +11,7 @@ import { normalizePhone } from '../common/utils/phone.util';
 import { chooseClientChannel } from '../care-requests/care-request-notifier.service';
 import { CLIENT_CTA, CLIENT_FOOTER } from '../care-requests/notification-messages';
 import { bookingCaregiverNotice, bookingClientNotice } from './booking-messages';
+import { PushService, fromBlocks, fromNotice } from '../push/push.service';
 
 /**
  * Tells the client and the caregiver(s) when a booking is confirmed,
@@ -28,6 +29,7 @@ export class BookingNotifier {
     private readonly email: EmailService,
     private readonly whatsappSettings: WhatsappSettingsService,
     private readonly whatsapp: WhatsappProviderService,
+    private readonly push: PushService,
   ) {}
 
   bookingConfirmed(id: string) {
@@ -93,6 +95,15 @@ export class BookingNotifier {
       const wa = await this.whatsappSettings.getResolved();
       const cc = await this.whatsappSettings.getDefaultCountryCode();
       const canWa = (phone: string | null) => Boolean(phone) && this.whatsapp.canSendUpdates(wa);
+
+      // Push to whoever also has the app - in addition to the message below, never instead of it.
+      this.push.notify([b.patientUserId], (lang) => fromNotice(bookingClientNotice(notice, lang, vars)), `/bookings/${id}`, `booking ${notice.toLowerCase()} ${b.reference}`);
+      this.push.notify(
+        cgs.map((c) => c.userId),
+        (lang) => fromBlocks(bookingCaregiverNotice(notice, vars).blocks, lang),
+        '/shifts',
+        `caregiver booking ${notice.toLowerCase()} ${b.reference}`,
+      );
 
       // Client.
       const clientEmail = account(b.patientUserId)?.email ?? null;

@@ -92,6 +92,10 @@ services:
       WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
       WHATSAPP_TEMPLATE_NAME: ${WHATSAPP_TEMPLATE_NAME:-carelink_otp}
       WHATSAPP_TEMPLATE_LANGUAGE: ${WHATSAPP_TEMPLATE_LANGUAGE:-en}
+      # Push notifications to the mobile app, sent through Expo in addition to
+      # WhatsApp/email - see .env.production.example.
+      PUSH_ENABLED: ${PUSH_ENABLED:-true}
+      EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
     volumes:
       # Caregiver-uploaded documents (qualifications, ID scans, etc).
       # Persisted on a named volume, not the image, and must be part of

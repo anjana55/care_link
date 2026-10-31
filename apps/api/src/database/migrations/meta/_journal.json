@@ -183,6 +183,13 @@
       "when": 1793168600134,
       "tag": "0025_care_plan_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1793421056673,
+      "tag": "0026_device_tokens",
+      "breakpoints": true
     }
   ]
 }
