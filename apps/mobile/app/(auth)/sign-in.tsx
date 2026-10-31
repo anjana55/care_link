@@ -1,17 +1,21 @@
+import { useMemo } from 'react';
 import { Link, useLocalSearchParams } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from '@/i18n';
-import { colors } from '@/theme';
+import { useColors, type Colors } from '@/theme';
+import { Text } from '@/ui/Text';
 
 /**
- * Placeholder for Phase 1, where WhatsApp OTP, email and (Phase 4) social
- * sign-in arrive. It exists now so routing and the role parameter are wired:
- * `role` becomes the `portal` the API is told on sign-in.
+ * Placeholder until the sign-in screens arrive (Phase 1b): WhatsApp OTP, email
+ * and the caregiver claim; social sign-in in Phase 4. It exists so routing and
+ * the role parameter are wired: `role` becomes the `portal` the API is told.
  */
 export default function SignIn() {
   const { t } = useTranslation();
   const { role } = useLocalSearchParams<{ role?: 'client' | 'caregiver' }>();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -27,10 +31,11 @@ export default function SignIn() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 24 },
-  body: { flex: 1, justifyContent: 'center' },
-  title: { fontSize: 26, lineHeight: 36, fontWeight: '700', color: colors.ink },
-  back: { minHeight: 48, justifyContent: 'center', marginBottom: 24 },
-  backText: { fontSize: 16, color: colors.brand, fontWeight: '600' },
-});
+const makeStyles = (colors: Colors) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 24 },
+    body: { flex: 1, justifyContent: 'center' },
+    title: { fontSize: 26, lineHeight: 38, fontWeight: '700', color: colors.ink },
+    back: { minHeight: 48, justifyContent: 'center', marginBottom: 24 },
+    backText: { fontSize: 16, color: colors.brand, fontWeight: '600' },
+  });

@@ -35,6 +35,18 @@ npm run bundle:check   # Metro bundles for iOS and Android, as a release build w
 npx expo-doctor        # Expo's own health checks (needs internet)
 ```
 
+## How it's put together
+
+| Where | What |
+|---|---|
+| `src/api/client.ts` | The API client: language on every request, one shared token refresh, `SessionExpiredError` / `SessionCheckFailedError` / `NetworkError`. Same behaviour as the public site's client. |
+| `src/api/token-store.ts` | The session, in the phone's encrypted storage (Keychain / Keystore), this device only. |
+| `src/auth/AuthProvider.tsx` | Who is signed in. Caregiver and client accounts only; staff and employer sessions are refused. Stays signed in with no signal. |
+| `src/branding/BrandingProvider.tsx` | Name, colours, logo and languages from `GET /branding`, cached on the phone for the first frame and offline. |
+| `src/ui/Text.tsx`, `src/ui/fonts.ts` | Text in the reader's language and font: bundled Noto Sans Sinhala / Tamil, system font for English. Use this `Text`, not React Native's. |
+| `src/theme.ts` | `useColors()`: brand colours from branding, plus the app's neutrals. |
+| `app/_layout.tsx` | Providers, and the splash screen held until language, session and fonts are ready. |
+
 ## Rules that keep it working
 
 - **Versions come from the Expo SDK.** Add or update native packages with
