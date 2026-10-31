@@ -22,3 +22,13 @@ export const registerUrl = (side: Side): string =>
  */
 export const homeFor = (user: { role: string } | null | undefined): '/find' | '/home' =>
   user?.role === 'CAREGIVER' ? '/home' : '/find';
+
+/**
+ * Where to go after signing in: back to `returnTo` (the profile someone was
+ * looking at when they tapped Contact) if it's a path inside the app, else
+ * their area. Never another site: only "/..." and not "//...".
+ */
+export function afterSignIn(user: { role: string }, returnTo: unknown): string {
+  const back = typeof returnTo === 'string' && /^\/(?!\/)/.test(returnTo) ? returnTo : null;
+  return back && user.role !== 'CAREGIVER' ? back : homeFor(user);
+}

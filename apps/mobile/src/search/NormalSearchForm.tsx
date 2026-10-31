@@ -18,6 +18,20 @@ export function addDays(date: string, n: number): string {
 /** The next two weeks as one-tap start dates - a date picker would need a native module this build doesn't have. */
 const START_DAYS = 14;
 
+/** The start-date choices from `today`, labelled in the app's language. */
+export function startDateChoices(today: string, locale: string) {
+  return Array.from({ length: START_DAYS }, (_, i) => {
+    const date = addDays(today, i);
+    const label = new Date(`${date}T00:00:00Z`).toLocaleDateString(locale === 'en' ? 'en-GB' : locale, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    });
+    return { value: date, label };
+  });
+}
+
 /**
  * Normal Search, as on the website: the type of care, the district and the
  * start date are required; city, caregiver gender and must-have skills narrow it.
@@ -37,14 +51,6 @@ export function NormalSearchForm({ initial, onSearch }: { initial?: SearchReques
   const districts = useDistricts(locale);
   const cities = useCities(districtId, locale);
   const { data: skills = [] } = useSkills();
-
-  const dateLabel = (date: string) =>
-    new Date(`${date}T00:00:00Z`).toLocaleDateString(locale === 'en' ? 'en-GB' : locale, {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      timeZone: 'UTC',
-    });
 
   const submit = () => {
     setTried(true);
@@ -91,10 +97,7 @@ export function NormalSearchForm({ initial, onSearch }: { initial?: SearchReques
 
       <Chips
         label={t('normalSearch.startDate')}
-        choices={Array.from({ length: START_DAYS }, (_, i) => {
-          const date = addDays(today, i);
-          return { value: date, label: dateLabel(date) };
-        })}
+        choices={startDateChoices(today, locale)}
         selected={[startDate]}
         onToggle={setStartDate}
       />

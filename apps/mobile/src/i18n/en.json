@@ -272,5 +272,63 @@
         "MONTHLY": "per month"
       }
     }
+  },
+  "care": {
+    "contactCta": "Contact this caregiver",
+    "save": "Save",
+    "saved": "Saved",
+    "saveAria": "Save caregiver {id}",
+    "unsaveAria": "Remove caregiver {id} from your saved list",
+    "requestSent": "Request sent · {reference}",
+    "viewRequests": "View my requests",
+    "caregiverAccountNote": "You're signed in as a caregiver. Sign in with a client account to contact or save caregivers.",
+    "actionError": "Something went wrong. Please try again.",
+    "dialog": {
+      "title": "Contact this caregiver",
+      "intro": "Our team will call you to talk about your care needs and arrange an introduction. Your contact details and the caregiver's stay private - we connect you.",
+      "messageLabel": "Anything we should know? (optional)",
+      "messagePlaceholder": "For example: the best times to call you, or anything about the care needed",
+      "charsLeft": "{count} characters left",
+      "send": "Send request",
+      "sending": "Sending…",
+      "cancel": "Cancel",
+      "successTitle": "Request sent",
+      "successBody": "Thank you. Our team will contact you soon. Your reference is {reference}.",
+      "close": "Close",
+      "error": "We couldn't send your request. Please try again."
+    },
+    "savedOnDevice": "Saved on this device. Sign in or create an account to keep your shortlist.",
+    "findForMe": {
+      "title": "Can't find the right caregiver?",
+      "body": "Tell us what you need and our team will find someone for you and call you.",
+      "cta": "Ask us to find a caregiver",
+      "notFound": "Not the right match?"
+    },
+    "findDialog": {
+      "title": "Find a caregiver for me",
+      "intro": "Tell us what you need. Our team will look for a suitable caregiver and call you to talk it through - there is nothing to pay to ask.",
+      "messageLabel": "Anything else we should know? (optional)",
+      "messagePlaceholder": "For example: who needs care, their condition, the best times to call you",
+      "send": "Send request",
+      "successTitle": "Request sent",
+      "successBody": "Thank you. Our team will start looking and contact you soon. Your reference is {reference}.",
+      "choose": "Choose…",
+      "careTypeRequired": "Please choose the type of care you need.",
+      "districtRequired": "Please choose the district where care is needed."
+    }
+  },
+  "registrationGate": {
+    "title": "Tell us how to reach you",
+    "body": "Our team will call you to arrange an introduction to this caregiver. Verify your number or email once and we'll bring you straight back here.",
+    "reuseNote": "You won't be asked for these again.",
+    "continueWhatsapp": "Continue with WhatsApp",
+    "continueEmail": "Continue with email",
+    "haveAccount": "Already have an account?",
+    "signIn": "Sign in",
+    "signInWhatsapp": "Sign in with WhatsApp",
+    "cancel": "Not now",
+    "sessionEndedTitle": "Please sign in again",
+    "sessionEndedBody": "Your session has ended, so your request was not sent. Sign in and we'll bring you back here to send it.",
+    "bodyFind": "Our team will look for a caregiver for you and call you to talk it through. Verify your number or email once and we'll take you straight to your request."
   }
 }

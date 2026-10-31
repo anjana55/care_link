@@ -11,6 +11,9 @@ import { useCaregiverSearch, useSearchConfig } from '@/search/api';
 import { AiSearchPanel } from '@/search/AiSearchPanel';
 import { NormalSearchForm } from '@/search/NormalSearchForm';
 import { ResultCard } from '@/search/ResultCard';
+import { rememberSearch } from '@/care/last-search';
+import { RequestSheet } from '@/care/RequestSheet';
+import { useClient } from '@/care/api';
 
 type Mode = 'ai' | 'normal';
 
@@ -31,6 +34,11 @@ export default function Find() {
   const [aiQuery, setAiQuery] = useState<string | null>(null);
   // Bumped to clear the AI conversation when switching modes.
   const [panelKey, setPanelKey] = useState(0);
+  const client = useClient();
+  const [findForMe, setFindForMe] = useState(false);
+  /** "Ask us to find a caregiver": the request sheet for a client, sign-in first for anyone else. */
+  const askUs = () =>
+    client ? setFindForMe(true) : router.push({ pathname: '/sign-in', params: { role: 'client', returnTo: '/requests' } });
 
   const results = useCaregiverSearch(request, mode === 'ai' ? aiQuery : null, locale);
   const items = results.data?.pages.flatMap((p) => p.items) ?? [];
@@ -75,6 +83,7 @@ export default function Find() {
           onSearch={(r, q) => {
             setAiQuery(q);
             setRequest(r);
+            rememberSearch(r);
           }}
           onUseNormalSearch={() => switchMode('normal')}
           onReset={() => {
@@ -83,7 +92,14 @@ export default function Find() {
           }}
         />
       ) : (
-        <NormalSearchForm key={panelKey} initial={request} onSearch={setRequest} />
+        <NormalSearchForm
+          key={panelKey}
+          initial={request}
+          onSearch={(r) => {
+            setRequest(r);
+            rememberSearch(r);
+          }}
+        />
       )}
 
       {request ? (
@@ -113,6 +129,11 @@ export default function Find() {
     <View style={styles.state}>
       <Text style={[styles.stateTitle, { color: colors.ink }]}>{t('empty.title')}</Text>
       <Text style={{ color: colors.muted, textAlign: 'center' }}>{t('empty.subtitle')}</Text>
+      <View style={[styles.askUs, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+        <Text style={[styles.stateTitle, { color: colors.ink }]}>{t('care.findForMe.title')}</Text>
+        <Text style={{ color: colors.muted, fontSize: 15, lineHeight: 22 }}>{t('care.findForMe.body')}</Text>
+        <Button label={t('care.findForMe.cta')} onPress={askUs} />
+      </View>
     </View>
   ) : results.hasNextPage ? (
     <View style={styles.more}>
@@ -134,6 +155,14 @@ export default function Find() {
           <ResultCard caregiver={item} onOpen={() => router.push({ pathname: '/caregivers/[publicId]', params: { publicId: item.publicId } })} />
         )}
       />
+      <RequestSheet
+        visible={findForMe}
+        onClose={() => setFindForMe(false)}
+        onViewRequests={() => {
+          setFindForMe(false);
+          router.navigate('/requests');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -149,4 +178,5 @@ const styles = StyleSheet.create({
   state: { alignItems: 'center', gap: 10, paddingVertical: 24 },
   stateTitle: { fontSize: 18, fontWeight: '700' },
   more: { marginTop: 16 },
+  askUs: { alignSelf: 'stretch', borderWidth: 1, borderRadius: 14, padding: 16, gap: 10, marginTop: 12 },
 });
