@@ -19,6 +19,8 @@ export default function Home() {
   const { user, signOut } = useAuth();
 
   if (!user) return <Redirect href="/" />;
+  // Clients' area is Find; this placeholder is the caregiver's home until Phase 3.
+  if (user.role !== 'CAREGIVER') return <Redirect href="/find" />;
 
   return (
     <Screen>

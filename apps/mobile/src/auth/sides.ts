@@ -15,3 +15,10 @@ export const portalFor = (side: Side): PublicLoginPortal => (side === 'caregiver
 /** Registration happens on the website until the app has its own forms. */
 export const registerUrl = (side: Side): string =>
   `${config.siteUrl}${side === 'caregiver' ? '/caregiver/join' : '/register'}`;
+
+/**
+ * Where a signed-in person's area starts: clients on Find, caregivers on their
+ * home (today's shift, from Phase 3). Anyone else isn't signed in to the app.
+ */
+export const homeFor = (user: { role: string } | null | undefined): '/find' | '/home' =>
+  user?.role === 'CAREGIVER' ? '/home' : '/find';

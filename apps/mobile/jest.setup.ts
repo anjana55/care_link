@@ -22,11 +22,11 @@ jest.mock('expo-secure-store', () => {
 // Fonts load instantly; the font files themselves aren't the subject of these tests.
 jest.mock('expo-font', () => ({ ...jest.requireActual('expo-font'), useFonts: () => [true, null] }));
 
-// React Query's cache-expiry timers (5 minutes) would keep Jest running long
+// React Query's cache-expiry timers (5 minutes, for queries and mutations) would keep Jest running long
 // after the tests finish: tests get a client that never expires its cache.
 jest.mock('@/api/query-client', () => {
   const { QueryClient } = jest.requireActual('@tanstack/react-query');
-  return { createQueryClient: () => new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } }) };
+  return { createQueryClient: () => new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } }) };
 });
 
 // Node has a real fetch: never let a test reach the live API. Tests that need

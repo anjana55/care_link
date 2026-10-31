@@ -140,18 +140,18 @@ describe('welcome screen', () => {
     expect(screen.getByText(si.welcome.findCare)).toHaveStyle({ fontFamily: 'NotoSansSinhala_700Bold', fontWeight: 'normal' });
   });
 
-  it('offers both sides of the app, each going to sign-in with its role', async () => {
+  it('lets anyone start searching, and sends caregivers to sign-in', async () => {
     await renderWelcome();
     await screen.findByText(en.welcome.tagline);
 
-    const [findCare, clientSignIn] = screen.getAllByTestId('link:/sign-in?role=client');
+    // Searching needs no account.
+    expect(screen.getByTestId('link:/find')).toHaveTextContent(en.welcome.findCare);
     const [join, caregiverSignIn] = screen.getAllByTestId('link:/sign-in?role=caregiver');
-    expect(findCare).toHaveTextContent(en.welcome.findCare);
     expect(join).toHaveTextContent(en.welcome.joinAsCaregiver);
 
     // People who already have an account can see where to sign in.
     expect(screen.getByText(en.welcome.haveAccount)).toBeTruthy();
-    expect(clientSignIn).toHaveTextContent(en.signIn.client);
+    expect(screen.getByTestId('link:/sign-in?role=client')).toHaveTextContent(en.signIn.client);
     expect(caregiverSignIn).toHaveTextContent(en.signIn.caregiver);
   });
 });

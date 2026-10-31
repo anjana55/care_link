@@ -6,7 +6,7 @@ import type { OtpRequestResult, Tokens, WhatsappPublicConfig } from '@care-platf
 import { api } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
 import { isInvalidCredentials, messageFor } from '@/auth/messages';
-import { portalFor, registerUrl, sideFrom } from '@/auth/sides';
+import { portalFor, registerUrl, sideFrom, homeFor } from '@/auth/sides';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button, Field, FormError, PasswordField, Screen } from '@/ui/controls';
@@ -63,7 +63,8 @@ export default function SignIn() {
     setShowUnverifiedHint(false);
     try {
       const tokens = await api.post<Tokens>('/auth/login', { email: email.trim(), password, portal }, { anonymous: true });
-      if (await signIn(tokens)) router.replace('/home');
+      const signedIn = await signIn(tokens);
+      if (signedIn) router.replace(homeFor(signedIn));
       else setError(t('signIn.emailError'));
     } catch (err) {
       // A wrong password, an unknown email and another side's account all come
