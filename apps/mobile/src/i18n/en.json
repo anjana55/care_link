@@ -49,5 +49,13 @@
     "retry": "Try again",
     "showPassword": "Show password",
     "hidePassword": "Hide password"
+  },
+  "update": {
+    "requiredTitle": "Please update the app",
+    "requiredBody": "This version of {brand} is no longer supported. Update to the latest version to carry on.",
+    "availableTitle": "A new version is available",
+    "availableBody": "Update {brand} to get the latest improvements.",
+    "update": "Update",
+    "notNow": "Not now"
   }
 }

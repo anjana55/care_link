@@ -15,3 +15,7 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+
+# Firebase config for Android push: provided to EAS Build as a file variable, never committed.
+google-services.json
+GoogleService-Info.plist

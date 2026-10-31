@@ -138,6 +138,12 @@ const ENTRIES: Triple[] = [
   ['File exceeds the maximum allowed size of {bytes} bytes.', 'ගොනුව අවසර ඇති උපරිම ප්‍රමාණය වන බයිට් {bytes} ඉක්මවා ඇත.', 'கோப்பு அனுமதிக்கப்பட்ட அதிகபட்ச அளவான {bytes} பைட்டுகளைத் தாண்டியுள்ளது.'],
   ['The file content does not match its type. Upload a real PDF, JPG, PNG or WEBP file.', 'ගොනුවේ අන්තර්ගතය එහි වර්ගයට නොගැළපේ. සැබෑ PDF, JPG, PNG හෝ WEBP ගොනුවක් උඩුගත කරන්න.', 'கோப்பின் உள்ளடக்கம் அதன் வகையுடன் பொருந்தவில்லை. உண்மையான PDF, JPG, PNG அல்லது WEBP கோப்பைப் பதிவேற்றவும்.'],
   ['Choose a file to upload.', 'උඩුගත කිරීමට ගොනුවක් තෝරන්න.', 'பதிவேற்ற ஒரு கோப்பைத் தேர்ந்தெடுக்கவும்.'],
+  // Settings > Mobile app ({platform} is iOS or Android).
+  ['{platform}: enter versions as numbers separated by dots, e.g. 1.4.2', '{platform}: අනුවාද තිත් වලින් වෙන් කළ අංක ලෙස ඇතුළත් කරන්න, උදා. 1.4.2', '{platform}: பதிப்புகளைப் புள்ளிகளால் பிரிக்கப்பட்ட எண்களாக உள்ளிடவும், எ.கா. 1.4.2'],
+  ["{platform}: the minimum version can't be newer than the latest version", '{platform}: අවම අනුවාදය නවතම අනුවාදයට වඩා අලුත් විය නොහැක', '{platform}: குறைந்தபட்சப் பதிப்பு சமீபத்திய பதிப்பை விடப் புதியதாக இருக்க முடியாது'],
+  ['{platform}: add the store link before setting a minimum version, so people can update', '{platform}: අවම අනුවාදයක් සැකසීමට පෙර, යාවත්කාලීන කළ හැකි වන පරිදි store සබැඳිය එක් කරන්න', '{platform}: குறைந்தபட்சப் பதிப்பை அமைக்கும் முன், மக்கள் புதுப்பிக்கக்கூடிய வகையில் store இணைப்பைச் சேர்க்கவும்'],
+  ['iOS: the store link must be an https://apps.apple.com/... address', 'iOS: store සබැඳිය https://apps.apple.com/... ලිපිනයක් විය යුතුය', 'iOS: store இணைப்பு https://apps.apple.com/... முகவரியாக இருக்க வேண்டும்'],
+  ['Android: the store link must be an https://play.google.com/... address', 'Android: store සබැඳිය https://play.google.com/... ලිපිනයක් විය යුතුය', 'Android: store இணைப்பு https://play.google.com/... முகவரியாக இருக்க வேண்டும்'],
   ['You can keep at most {n} documents. Remove one first.', 'ඔබට තබා ගත හැක්කේ උපරිම ලේඛන {n}ක් පමණි. මුලින් එකක් ඉවත් කරන්න.', 'நீங்கள் அதிகபட்சம் {n} ஆவணங்களை மட்டுமே வைத்திருக்கலாம். முதலில் ஒன்றை நீக்கவும்.'],
   ['Document not found', 'ලේඛනය හමු නොවීය', 'ஆவணம் கிடைக்கவில்லை'],
   ['Document file not found on disk', 'ලේඛන ගොනුව ගබඩාවේ හමු නොවීය', 'ஆவணக் கோப்பு சேமிப்பகத்தில் கிடைக்கவில்லை'],

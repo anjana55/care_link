@@ -11,6 +11,7 @@ import { BrandingProvider, useBranding } from '@/branding/BrandingProvider';
 import { FONT_ASSETS } from '@/ui/fonts';
 import { createQueryClient } from '@/api/query-client';
 import { PushRegistration } from '@/push/PushRegistration';
+import { UpdateGate } from '@/app-config/UpdateGate';
 
 // Kept up until the saved language, the session and the fonts are all ready,
 // so nobody sees an English or signed-out flash, or Sinhala in a fallback font.
@@ -54,7 +55,9 @@ export default function RootLayout() {
               <ShowWhenReady>
                 <StatusBar style="auto" />
                 <PushRegistration />
-                <Stack screenOptions={{ headerShown: false }} />
+                <UpdateGate>
+                  <Stack screenOptions={{ headerShown: false }} />
+                </UpdateGate>
               </ShowWhenReady>
             </AuthProvider>
           </BrandedI18n>
