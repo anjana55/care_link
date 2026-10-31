@@ -46,6 +46,8 @@
   "common": {
     "loading": "Loading...",
     "error": "Something went wrong. Please try again.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   }
 }

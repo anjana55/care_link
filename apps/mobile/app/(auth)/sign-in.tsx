@@ -3,13 +3,13 @@ import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import type { OtpRequestResult, Tokens, WhatsappPublicConfig } from '@care-platform/shared';
-import { api, ApiError } from '@/api';
+import { api } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
-import { messageFor } from '@/auth/messages';
+import { isInvalidCredentials, messageFor } from '@/auth/messages';
 import { portalFor, registerUrl, sideFrom } from '@/auth/sides';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
-import { Button, Field, FormError, Screen } from '@/ui/controls';
+import { Button, Field, FormError, PasswordField, Screen } from '@/ui/controls';
 import { Text } from '@/ui/Text';
 
 /**
@@ -24,6 +24,7 @@ export default function SignIn() {
   const { signIn } = useAuth();
   const side = sideFrom(useLocalSearchParams<{ role?: string }>().role);
   const portal = portalFor(side);
+  const otherSide = side === 'caregiver' ? 'client' : 'caregiver';
 
   const whatsapp = useQuery({
     queryKey: ['whatsapp-config'],
@@ -65,9 +66,10 @@ export default function SignIn() {
       if (await signIn(tokens)) router.replace('/home');
       else setError(t('signIn.emailError'));
     } catch (err) {
-      // A wrong password, an unverified email and another side's account all
-      // come back as 401 "Invalid credentials": say it the reader's way.
-      const refused = err instanceof ApiError && err.status === 401;
+      // A wrong password, an unknown email and another side's account all come
+      // back as 401 "Invalid credentials": say that the reader's way. Any other
+      // 401 (an email not yet verified) carries its own message, so show it.
+      const refused = isInvalidCredentials(err);
       setError(refused ? t('signIn.emailError') : messageFor(err, t('common.error')));
       setShowUnverifiedHint(refused);
     } finally {
@@ -104,19 +106,29 @@ export default function SignIn() {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
               autoComplete="email"
               textContentType="username"
             />
-            <Field
+            <PasswordField
               label={t('signIn.password')}
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
               autoComplete="current-password"
               textContentType="password"
             />
             <FormError message={error} />
-            {showUnverifiedHint ? <Text style={[styles.subtitle, { color: colors.muted }]}>{t('signIn.unverifiedHint')}</Text> : null}
+            {showUnverifiedHint ? (
+              <>
+                <Text style={[styles.subtitle, { color: colors.muted }]}>{t('signIn.unverifiedHint')}</Text>
+                {/* The same refusal comes back for an account on the other side of the app. */}
+                <Button
+                  variant="link"
+                  label={t(otherSide === 'caregiver' ? 'signIn.caregiver' : 'signIn.client')}
+                  onPress={() => router.replace({ pathname: '/sign-in', params: { role: otherSide } })}
+                />
+              </>
+            ) : null}
             <Button label={t('signIn.submit')} onPress={signInWithEmail} busy={busy} disabled={!email.trim() || !password} />
             {whatsappOn ? (
               <Button variant="link" label={t('signIn.useWhatsapp')} onPress={() => (setChosen('whatsapp'), setError(null))} />
