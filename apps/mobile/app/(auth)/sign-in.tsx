@@ -1,41 +1,144 @@
-import { useMemo } from 'react';
-import { Link, useLocalSearchParams } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+import type { OtpRequestResult, Tokens, WhatsappPublicConfig } from '@care-platform/shared';
+import { api, ApiError } from '@/api';
+import { useAuth } from '@/auth/AuthProvider';
+import { messageFor } from '@/auth/messages';
+import { portalFor, registerUrl, sideFrom } from '@/auth/sides';
 import { useTranslation } from '@/i18n';
-import { useColors, type Colors } from '@/theme';
+import { useColors } from '@/theme';
+import { Button, Field, FormError, Screen } from '@/ui/controls';
 import { Text } from '@/ui/Text';
 
 /**
- * Placeholder until the sign-in screens arrive (Phase 1b): WhatsApp OTP, email
- * and the caregiver claim; social sign-in in Phase 4. It exists so routing and
- * the role parameter are wired: `role` becomes the `portal` the API is told.
+ * Sign-in for one side of the app. WhatsApp first when this deployment has it
+ * switched on for that side (Settings > WhatsApp), with email as the
+ * alternative; email only otherwise. Registering happens on the website for now.
  */
 export default function SignIn() {
   const { t } = useTranslation();
-  const { role } = useLocalSearchParams<{ role?: 'client' | 'caregiver' }>();
   const colors = useColors();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const router = useRouter();
+  const { signIn } = useAuth();
+  const side = sideFrom(useLocalSearchParams<{ role?: string }>().role);
+  const portal = portalFor(side);
+
+  const whatsapp = useQuery({
+    queryKey: ['whatsapp-config'],
+    queryFn: () => api.get<WhatsappPublicConfig>('/auth/whatsapp/config'),
+  });
+  const whatsappOn = Boolean(whatsapp.data?.enabled && whatsapp.data[side === 'caregiver' ? 'caregiver' : 'customer']?.login);
+  const [chosen, setChosen] = useState<'whatsapp' | 'email' | null>(null);
+  const mode = chosen ?? (whatsappOn ? 'whatsapp' : 'email');
+
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showUnverifiedHint, setShowUnverifiedHint] = useState(false);
+
+  async function sendCode() {
+    setBusy(true);
+    setError(null);
+    try {
+      const sent = await api.post<OtpRequestResult>('/auth/whatsapp/request-otp', { phone, purpose: 'LOGIN', portal }, { anonymous: true });
+      router.push({
+        pathname: '/verify',
+        params: { role: side, phone, resendAfter: String(sent.resendAfterSeconds ?? 60), devOtp: sent.devOtp ?? '' },
+      });
+    } catch (err) {
+      setError(messageFor(err, t('signIn.sendError')));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signInWithEmail() {
+    setBusy(true);
+    setError(null);
+    setShowUnverifiedHint(false);
+    try {
+      const tokens = await api.post<Tokens>('/auth/login', { email: email.trim(), password, portal }, { anonymous: true });
+      if (await signIn(tokens)) router.replace('/home');
+      else setError(t('signIn.emailError'));
+    } catch (err) {
+      // A wrong password, an unverified email and another side's account all
+      // come back as 401 "Invalid credentials": say it the reader's way.
+      const refused = err instanceof ApiError && err.status === 401;
+      setError(refused ? t('signIn.emailError') : messageFor(err, t('common.error')));
+      setShowUnverifiedHint(refused);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.body}>
-        <Text style={styles.title}>{t(role === 'caregiver' ? 'signIn.caregiver' : 'signIn.client')}</Text>
-      </View>
-      <Link href="/" asChild>
-        <Pressable accessibilityRole="link" style={styles.back}>
-          <Text style={styles.backText}>{t('signIn.back')}</Text>
-        </Pressable>
-      </Link>
-    </SafeAreaView>
+    <Screen>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.title, { color: colors.ink }]}>{t(side === 'caregiver' ? 'signIn.caregiver' : 'signIn.client')}</Text>
+
+        {mode === 'whatsapp' ? (
+          <View style={styles.form}>
+            <Text style={[styles.subtitle, { color: colors.muted }]}>{t('signIn.whatsappSubtitle')}</Text>
+            <Field
+              label={t('signIn.phone')}
+              hint={t('signIn.phoneHint')}
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+            />
+            <FormError message={error} />
+            <Button label={t('signIn.sendCode')} onPress={sendCode} busy={busy} disabled={phone.trim().length < 7} />
+            <Button variant="link" label={t('signIn.useEmail')} onPress={() => (setChosen('email'), setError(null))} />
+          </View>
+        ) : (
+          <View style={styles.form}>
+            <Field
+              label={t('signIn.email')}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              textContentType="username"
+            />
+            <Field
+              label={t('signIn.password')}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoComplete="current-password"
+              textContentType="password"
+            />
+            <FormError message={error} />
+            {showUnverifiedHint ? <Text style={[styles.subtitle, { color: colors.muted }]}>{t('signIn.unverifiedHint')}</Text> : null}
+            <Button label={t('signIn.submit')} onPress={signInWithEmail} busy={busy} disabled={!email.trim() || !password} />
+            {whatsappOn ? (
+              <Button variant="link" label={t('signIn.useWhatsapp')} onPress={() => (setChosen('whatsapp'), setError(null))} />
+            ) : null}
+          </View>
+        )}
+
+        <View style={styles.signUp}>
+          <Text style={{ color: colors.muted, fontSize: 15 }}>{t('signIn.noAccount')}</Text>
+          <Button variant="link" label={t('signIn.signUp')} onPress={() => Linking.openURL(registerUrl(side))} />
+        </View>
+      </ScrollView>
+
+      <Button variant="link" label={t('signIn.back')} onPress={() => router.replace('/')} />
+    </Screen>
   );
 }
 
-const makeStyles = (colors: Colors) =>
-  StyleSheet.create({
-    screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 24 },
-    body: { flex: 1, justifyContent: 'center' },
-    title: { fontSize: 26, lineHeight: 38, fontWeight: '700', color: colors.ink },
-    back: { minHeight: 48, justifyContent: 'center', marginBottom: 24 },
-    backText: { fontSize: 16, color: colors.brand, fontWeight: '600' },
-  });
+const styles = StyleSheet.create({
+  body: { paddingTop: 48, paddingBottom: 24, gap: 20 },
+  title: { fontSize: 26, lineHeight: 38, fontWeight: '700' },
+  subtitle: { fontSize: 15, lineHeight: 22 },
+  form: { gap: 16 },
+  signUp: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+});

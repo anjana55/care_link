@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'expo-router';
+import { Link, Redirect } from 'expo-router';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation, type Locale } from '@/i18n';
 import { useBranding } from '@/branding/BrandingProvider';
+import { useAuth } from '@/auth/AuthProvider';
 import { useColors, type Colors } from '@/theme';
 import { Text } from '@/ui/Text';
 
@@ -22,6 +23,10 @@ export default function Welcome() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   // React Native can't draw an SVG logo (the API accepts them): fall back to the name.
   const [logoFailed, setLogoFailed] = useState(false);
+  const { user } = useAuth();
+
+  // Already signed in: straight to their area.
+  if (user) return <Redirect href="/home" />;
 
   return (
     <SafeAreaView style={styles.screen}>

@@ -8,9 +8,43 @@
   "signIn": {
     "client": "Sign in to your account",
     "caregiver": "Sign in as a caregiver",
-    "back": "Back to home"
+    "back": "Back to home",
+    "whatsappSubtitle": "We'll send a one-time code to your WhatsApp number.",
+    "phone": "WhatsApp number",
+    "phoneHint": "e.g. 0771234567 or +94771234567",
+    "sendCode": "Send code",
+    "sendError": "Could not send the code. Please try again.",
+    "useEmail": "Sign in with email instead",
+    "useWhatsapp": "Sign in with WhatsApp",
+    "email": "Email address",
+    "password": "Password",
+    "submit": "Sign in",
+    "emailError": "Invalid email or password.",
+    "unverifiedHint": "If you haven't verified your email yet, check your inbox for the verification link.",
+    "noAccount": "Don't have an account?",
+    "signUp": "Sign up"
   },
   "app": {
     "name": "{brand}"
+  },
+  "otp": {
+    "sentTo": "Enter the code sent to",
+    "code": "Verification code",
+    "devCode": "Development mode - code (not sent over WhatsApp)",
+    "verify": "Verify",
+    "error": "That code didn't work. Please try again.",
+    "resent": "A new code has been requested.",
+    "changeNumber": "Change number",
+    "resendIn": "Send a new code in",
+    "resend": "Send a new code"
+  },
+  "home": {
+    "welcome": "Welcome back",
+    "signOut": "Sign out"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong. Please try again.",
+    "retry": "Try again"
   }
 }
