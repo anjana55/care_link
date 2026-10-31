@@ -8,7 +8,7 @@ import { HIDDEN_TAB } from '@/ui/tabs';
 /**
  * The caregiver side of the app: Today (status, the next shifts and today's
  * care plan), Shifts, Payments and Me. Documents opens from Me and from
- * Today's "documents needed"; the profile joins Me in Phase 3c.
+ * Today's "documents needed"; Profile opens from Me.
  */
 export default function CaregiverLayout() {
   const { t, locale } = useTranslation();
@@ -32,6 +32,7 @@ export default function CaregiverLayout() {
       <Tabs.Screen name="payments" options={{ tabBarLabel: t('portal.nav.payments'), tabBarIcon: icon('wallet-outline') }} />
       <Tabs.Screen name="me" options={{ tabBarLabel: t('nav.myAccount'), tabBarIcon: icon('person-circle-outline') }} />
       <Tabs.Screen name="documents" options={HIDDEN_TAB} />
+      <Tabs.Screen name="profile" options={HIDDEN_TAB} />
     </Tabs>
   );
 }

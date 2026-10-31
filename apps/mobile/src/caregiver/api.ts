@@ -6,8 +6,11 @@ import type {
   CaregiverShift,
   CreateIssueReportBody,
   DocumentType,
+  Experience,
   MyIssueReport,
+  NamedItem,
   OwnCaregiver,
+  Qualification,
 } from '@care-platform/shared';
 import { api, tokenStore } from '@/api';
 import { config } from '@/config';
@@ -159,5 +162,59 @@ export function useOpenDocument(open: typeof openDocument = openDocument) {
         await open(url, headers(renewed.accessToken), doc);
       }
     },
+  });
+}
+
+// --- profile -----------------------------------------------------------------
+
+const caregiverPath = (caregiverId: string) => `/caregivers/${encodeURIComponent(caregiverId)}`;
+
+/** Saves the caregiver's own details (a partial update: only what changed). */
+export function useUpdateOwnProfile() {
+  const queryClient = useQueryClient();
+  const me = useCaregiver();
+  return useMutation({
+    mutationFn: (changes: Record<string, unknown>) => api.patch<OwnCaregiver>(`${caregiverPath(me!.caregiverId)}/profile`, changes),
+    onSuccess: (saved) => {
+      queryClient.setQueryData([...key(me?.userId), 'record'], saved);
+      return queryClient.invalidateQueries({ queryKey: [...key(me?.userId), 'record'] });
+    },
+  });
+}
+
+/** Every skill or language there is to choose from. */
+export function useCatalog(kind: 'skills' | 'languages') {
+  const me = useCaregiver();
+  return useQuery({
+    queryKey: ['catalog', kind],
+    queryFn: async () => (await api.get<NamedItem[]>(`/${kind}`)).sort((a, b) => a.name.localeCompare(b.name)),
+    enabled: Boolean(me),
+    staleTime: 60 * 60_000,
+  });
+}
+
+/**
+ * Ticks or unticks one skill or language, saved straight away as on the
+ * website. The list then shows what the API holds, so a failed save unticks itself.
+ */
+export function useToggleAssignment(kind: 'skills' | 'languages') {
+  const queryClient = useQueryClient();
+  const me = useCaregiver();
+  return useMutation({
+    mutationFn: ({ itemId, assigned }: { itemId: string; assigned: boolean }) =>
+      assigned
+        ? api.delete(`${caregiverPath(me!.caregiverId)}/${kind}/${encodeURIComponent(itemId)}`)
+        : api.post(`${caregiverPath(me!.caregiverId)}/${kind}`, kind === 'skills' ? { skillId: itemId } : { languageId: itemId }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...key(me?.userId), 'record'] }),
+  });
+}
+
+/** Qualifications or work history, to show; they are added and changed on the website. */
+export function useMyRecords<T extends Qualification | Experience>(kind: 'qualifications' | 'experiences') {
+  const me = useCaregiver();
+  return useQuery({
+    queryKey: [...key(me?.userId), kind],
+    queryFn: () => api.get<T[]>(`${caregiverPath(me!.caregiverId)}/${kind}`),
+    enabled: Boolean(me),
   });
 }
