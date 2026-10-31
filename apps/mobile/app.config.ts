@@ -23,6 +23,15 @@ interface Brand {
    */
   bundleId: string;
   apiUrl: string;
+  /**
+   * The brand's Expo (EAS) project: the account that owns it and the project
+   * id `eas init` prints. Needed for builds, push and over-the-air updates;
+   * see BUILDING.md. Empty until Vivanti Health's Expo account is set up -
+   * the app runs without them, just without push. EAS_PROJECT_ID / EXPO_OWNER
+   * override them.
+   */
+  owner: string;
+  easProjectId: string;
 }
 
 const BRANDS: Record<string, Brand> = {
@@ -32,6 +41,8 @@ const BRANDS: Record<string, Brand> = {
     scheme: 'carelink',
     bundleId: 'com.vivantihealth.carelink',
     apiUrl: 'https://find.caregivers.lk/api',
+    owner: '',
+    easProjectId: '',
   },
 };
 
@@ -39,24 +50,36 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const key = process.env.BRAND ?? 'carelink';
   const brand = BRANDS[key];
   if (!brand) throw new Error(`Unknown BRAND "${key}". Known: ${Object.keys(BRANDS).join(', ')}`);
+  const projectId = process.env.EAS_PROJECT_ID || brand.easProjectId;
+  const owner = process.env.EXPO_OWNER || brand.owner;
+  // Android push goes through Firebase: EAS Build provides this file from the
+  // GOOGLE_SERVICES_JSON file variable (BUILDING.md, step 4). Never committed.
+  const googleServicesFile = process.env.GOOGLE_SERVICES_JSON;
 
   return {
     ...config,
     name: brand.name,
     slug: brand.slug,
     scheme: brand.scheme,
+    ...(owner ? { owner } : {}),
+    // The store version people see (1.2.0). Raise it for each store release;
+    // Settings > Mobile app compares against it. Build numbers are kept by EAS.
     version: '0.1.0',
+    // Over-the-air updates only reach builds of the same version, so a JS
+    // update never lands in an app without the native code it needs.
+    runtimeVersion: { policy: 'appVersion' },
+    ...(projectId ? { updates: { url: `https://u.expo.dev/${projectId}` } } : {}),
     orientation: 'portrait',
     userInterfaceStyle: 'automatic',
     ios: { bundleIdentifier: brand.bundleId, supportsTablet: false },
-    android: { package: brand.bundleId },
+    android: { package: brand.bundleId, ...(googleServicesFile ? { googleServicesFile } : {}) },
     plugins: ['expo-router', 'expo-notifications'],
     extra: {
       brand: key,
       brandName: brand.name,
       apiUrl: process.env.EXPO_PUBLIC_API_URL ?? brand.apiUrl,
-      // Push needs the Expo (EAS) project's id; until it is set (Phase 1d) the app simply doesn't register for push.
-      ...(process.env.EAS_PROJECT_ID ? { eas: { projectId: process.env.EAS_PROJECT_ID } } : {}),
+      // Push needs the Expo (EAS) project's id; without it the app simply doesn't register for push.
+      ...(projectId ? { eas: { projectId } } : {}),
     },
   };
 };

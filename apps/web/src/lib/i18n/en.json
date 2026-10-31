@@ -1051,7 +1051,8 @@
     "subtitleStaff": "Reference data used across the app. Only administrators can change it.",
     "ai": "AI",
     "ads": "Ads",
-    "analytics": "Analytics"
+    "analytics": "Analytics",
+    "mobileApp": "Mobile app"
   },
   "brandingAdmin": {
     "companyTitle": "Company",
@@ -3453,5 +3454,27 @@
       "atTimeShort": "reminder at the time",
       "beforeShort": "reminder {minutes} min before"
     }
+  },
+  "mobileAppAdmin": {
+    "title": "Mobile app",
+    "subtitle": "Which versions of the CareLink app may still be used, and where people update it. The app checks this every time it opens.",
+    "statusOff": "No version checks are set: every version of the app can be used.",
+    "statusOn": "Version checks are on.",
+    "ios": "iPhone (iOS)",
+    "android": "Android",
+    "minimumVersion": "Minimum version",
+    "minimumHint": "Older versions stop and must be updated before they can be used. Leave empty for no minimum.",
+    "latestVersion": "Latest version",
+    "latestHint": "Older versions are offered an update but can carry on. Usually the version now in the store.",
+    "storeUrl": "Store link",
+    "storeUrlHintIos": "The app’s App Store page, e.g. https://apps.apple.com/app/id1234567890",
+    "storeUrlHintAndroid": "The app’s Play Store page, e.g. https://play.google.com/store/apps/details?id=com.vivantihealth.carelink",
+    "versionInvalid": "Enter numbers separated by dots, e.g. 1.4.2",
+    "minAboveLatest": "The minimum version can’t be newer than the latest version.",
+    "storeUrlInvalid": "This isn’t a link to the right store.",
+    "minNeedsStore": "Add the store link first, so people who must update have somewhere to go.",
+    "raiseWarning": "Raising the minimum stops everyone on an older version the next time they open the app. Make sure the new version is live in the store first.",
+    "saved": "Saved.",
+    "saveError": "Could not save the settings. Please try again."
   }
 }

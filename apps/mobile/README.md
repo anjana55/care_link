@@ -16,8 +16,9 @@ npm run dev:mobile     # builds packages/shared, then starts Expo
 
 Scan the QR code with **Expo Go** on a phone (same Wi-Fi), or press `a` / `i`
 for an Android emulator / iOS simulator. Expo Go works while the app only uses
-modules Expo Go ships with. From Phase 1 (push notifications, sign-in
-redirects), use a development build instead: `npx eas build --profile development`.
+modules Expo Go ships with. Push notifications need a development build
+instead (Expo Go on Android can't receive them): see **BUILDING.md**, which
+also covers test builds, store releases and over-the-air updates.
 
 By default the app talks to the live API. For a local one:
 
@@ -45,6 +46,8 @@ npx expo-doctor        # Expo's own health checks (needs internet)
 | `src/branding/BrandingProvider.tsx` | Name, colours, logo and languages from `GET /branding`, cached on the phone for the first frame and offline. |
 | `src/ui/Text.tsx`, `src/ui/fonts.ts` | Text in the reader's language and font: bundled Noto Sans Sinhala / Tamil, system font for English. Use this `Text`, not React Native's. |
 | `src/theme.ts` | `useColors()`: brand colours from branding, plus the app's neutrals. |
+| `src/push/` | Push: registers the phone after sign-in (in the app's language), opens the app on a tap. Skipped where push can't work. |
+| `src/app-config/UpdateGate.tsx` | Stops a build below the minimum version and offers newer ones (Settings > Mobile app). Never blocks when the check can't be made. |
 | `app/_layout.tsx` | Providers, and the splash screen held until language, session and fonts are ready. |
 
 ## Rules that keep it working
@@ -63,4 +66,6 @@ npx expo-doctor        # Expo's own health checks (needs internet)
 - **Native folders aren't committed.** `ios/` and `android/` are generated from
   `app.config.ts` (`npx expo prebuild`, or EAS Build in the cloud).
 - **Translations are reused, not invented.** Strings come from the public
-  site's reviewed Sinhala and Tamil dictionaries wherever possible.
+  site's reviewed Sinhala and Tamil dictionaries wherever possible. The few
+  that had no equivalent (the update prompts, `update.*`) were drafted for
+  the app and want a native speaker's review.
