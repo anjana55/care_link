@@ -73,7 +73,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     userInterfaceStyle: 'automatic',
     ios: { bundleIdentifier: brand.bundleId, supportsTablet: false },
     android: { package: brand.bundleId, ...(googleServicesFile ? { googleServicesFile } : {}) },
-    plugins: ['expo-router', 'expo-notifications'],
+    plugins: [
+      'expo-router',
+      'expo-notifications',
+      // "Use my location" on Find: while the app is open only, never in the background.
+      ['expo-location', { locationWhenInUsePermission: `${brand.name} uses your location, only when you ask, to show caregivers near you.` }],
+    ],
+    // The iPhone permission message in Sinhala and Tamil (locales/*.json; English is above).
+    locales: { si: './locales/si.json', ta: './locales/ta.json' },
     extra: {
       brand: key,
       brandName: brand.name,

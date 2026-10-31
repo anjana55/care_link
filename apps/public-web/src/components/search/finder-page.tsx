@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { DEFAULT_SEARCH_RADIUS_KM, type MapCityPoint, type SearchOrigin, type SearchRequest } from '@care-platform/shared';
+import { DEFAULT_SEARCH_RADIUS_KM, withDeviceOrigin, withProfileOrigin, type MapCityPoint, type SearchOrigin, type SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { LoadingState, EmptyResultsState, ErrorState } from '@/components/common/states';
 import { SearchModeToggle, type SearchMode } from '@/components/search/search-mode-toggle';
@@ -34,36 +34,8 @@ import { useMediaQuery } from '@/lib/hooks/use-media-query';
 import { useIsClient } from '@/lib/hooks/use-client-care';
 import { loadSearch, rememberSearch } from '@/lib/care-intent';
 
-/**
- * Adds the signed-in client's profile city as the fallback origin - used only
- * when the search names no city and the visitor is not using their location.
- * Done at request time rather than stored, so it is always the current profile.
- */
-export function withProfileOrigin(request: SearchRequest, profileCityId: number | null | undefined): SearchRequest {
-  const hasDevice = typeof request.origin?.latitude === 'number' && typeof request.origin?.longitude === 'number';
-  if (hasDevice || request.location?.cityId || !profileCityId) return request;
-  return { ...request, origin: { cityId: profileCityId } };
-}
-
-/**
- * Where the visitor said they are, before they searched, carried into the
- * search they then run. Only fills in what the search left open: a search
- * that names its own place (the AI understood "Kandy", or the form has a
- * district) keeps it, and the visitor's position is then only the point
- * distances are measured from.
- */
-export function withDeviceOrigin(request: SearchRequest, here: DeviceLocation | null, radiusKm?: number): SearchRequest {
-  if (!here) return request;
-  const hasDevice = typeof request.origin?.latitude === 'number' && typeof request.origin?.longitude === 'number';
-  if (hasDevice) return request;
-  const named = Boolean(request.location?.districtId || request.location?.cityId);
-  return {
-    ...request,
-    ...(named ? {} : { location: { districtId: here.city.districtId, cityId: here.city.cityId } }),
-    ...(radiusKm && !request.radiusKm ? { radiusKm } : {}),
-    origin: { latitude: here.latitude, longitude: here.longitude },
-  };
-}
+// Shared with the mobile app (@care-platform/shared, search-origin.ts).
+export { withDeviceOrigin, withProfileOrigin };
 
 /** Desktop: the map fills the screen and the search floats over its left edge. */
 const DESKTOP = '(min-width: 1024px)';

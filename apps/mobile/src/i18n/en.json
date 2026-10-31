@@ -197,8 +197,51 @@
     "signOut": "Sign out"
   },
   "map": {
+    "title": "Caregivers near you",
+    "summaryOne": "1 caregiver lives or works within {radius} km of {place}",
+    "summaryOther": "{count} caregivers live or work within {radius} km of {place}",
+    "summaryDistrictOne": "1 caregiver lives or works in or near {place} district",
+    "summaryDistrictOther": "{count} caregivers live or work in or near {place} district",
+    "placeDevice": "your location",
+    "source": {
+      "device": "Distances are measured in a straight line from your current location.",
+      "searchCity": "Distances are measured in a straight line from {place}, the city you searched.",
+      "profileCity": "Distances are measured in a straight line from {place}, the city on your profile.",
+      "district": "Distances are measured in a straight line from the centre of {place} district. Choose a city or use your location for closer distances."
+    },
+    "radius": "Within",
+    "radiusOption": "{km} km",
+    "useMyLocation": "Use my location",
+    "locating": "Finding your location…",
+    "usingDevice": "Using your location near {place}",
+    "errors": {
+      "denied": "Location access is off for this app. Allow it in your phone's settings, or choose a city instead.",
+      "unavailable": "Your location could not be found. Please choose a city instead.",
+      "outside": "Your location is outside the area we cover. Please choose a city instead.",
+      "unsupported": "This phone can't share its location with the app. Please choose a city instead."
+    },
     "kmAway": "{km} km away",
-    "travelsHere": "Works in {place}, {km} km away"
+    "travelsHere": "Works in {place}, {km} km away",
+    "districtCentre": "District centre",
+    "showOnMap": "Show on map",
+    "hideFromMap": "Hide from map",
+    "pointOne": "1 caregiver in {place}, {km} km away",
+    "pointOther": "{count} caregivers in {place}, {km} km away",
+    "serviceCity": "Works in {place}, {km} km away",
+    "origin": "Search location",
+    "originDevice": "Your location",
+    "mapLabel": "Map of caregivers near the search location",
+    "failed": "The map could not be loaded. Each caregiver's distance is still shown below.",
+    "noneWithin": "No caregivers within {radius} km yet.",
+    "widen": "Search within {km} km",
+    "legendOrigin": "Search location",
+    "legendOriginDevice": "You",
+    "legendCaregivers": "Caregivers living there",
+    "legendServiceArea": "Also works in",
+    "coverageOne": "1 caregiver lives in {place}",
+    "coverageOther": "{count} caregivers live in {place}",
+    "coverageTotalOne": "1 caregiver on the map",
+    "coverageTotalOther": "{count} caregivers across {places} places"
   },
   "account": {
     "navLabel": "Account sections",
