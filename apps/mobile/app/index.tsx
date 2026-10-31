@@ -77,6 +77,20 @@ export default function Welcome() {
             <Text style={styles.buttonText}>{t('welcome.joinAsCaregiver')}</Text>
           </Pressable>
         </Link>
+
+        <View style={styles.signIn}>
+          <Text style={styles.signInLead}>{t('welcome.haveAccount')}</Text>
+          <Link href={{ pathname: '/sign-in', params: { role: 'client' } }} asChild>
+            <Pressable accessibilityRole="link" style={styles.signInLink}>
+              <Text style={styles.signInText}>{t('signIn.client')}</Text>
+            </Pressable>
+          </Link>
+          <Link href={{ pathname: '/sign-in', params: { role: 'caregiver' } }} asChild>
+            <Pressable accessibilityRole="link" style={styles.signInLink}>
+              <Text style={styles.signInText}>{t('signIn.caregiver')}</Text>
+            </Pressable>
+          </Link>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -110,4 +124,8 @@ const makeStyles = (colors: Colors) =>
     secondaryButton: { ...button, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.brand },
     buttonText: { fontSize: 17, fontWeight: '600', color: colors.brand, textAlign: 'center' },
     primaryText: { color: colors.brandText },
+    signIn: { marginTop: 12, alignItems: 'center' },
+    signInLead: { fontSize: 15, color: colors.muted },
+    signInLink: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
+    signInText: { fontSize: 17, fontWeight: '600', color: colors.brand, textDecorationLine: 'underline' },
   });

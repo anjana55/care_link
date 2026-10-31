@@ -144,8 +144,15 @@ describe('welcome screen', () => {
     await renderWelcome();
     await screen.findByText(en.welcome.tagline);
 
-    expect(screen.getByTestId('link:/sign-in?role=client')).toHaveTextContent(en.welcome.findCare);
-    expect(screen.getByTestId('link:/sign-in?role=caregiver')).toHaveTextContent(en.welcome.joinAsCaregiver);
+    const [findCare, clientSignIn] = screen.getAllByTestId('link:/sign-in?role=client');
+    const [join, caregiverSignIn] = screen.getAllByTestId('link:/sign-in?role=caregiver');
+    expect(findCare).toHaveTextContent(en.welcome.findCare);
+    expect(join).toHaveTextContent(en.welcome.joinAsCaregiver);
+
+    // People who already have an account can see where to sign in.
+    expect(screen.getByText(en.welcome.haveAccount)).toBeTruthy();
+    expect(clientSignIn).toHaveTextContent(en.signIn.client);
+    expect(caregiverSignIn).toHaveTextContent(en.signIn.caregiver);
   });
 });
 
