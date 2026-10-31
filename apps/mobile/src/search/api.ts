@@ -1,6 +1,8 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type {
   AiSearchResponse,
+  ClientSearchOrigin,
+  MapCityPoint,
   ExtractedRequirements,
   Locale,
   PublicCaregiverProfile,
@@ -35,6 +37,8 @@ export const searchApi = {
   // AI Search: the visitor's words -> requirements they can see, then a search the AI may re-order.
   aiExtract: (query: string, locale: Locale) => post<ExtractedRequirements>('/public/ai/extract', { query, locale }),
   aiSearch: (request: SearchRequest, query: string) => post<AiSearchResponse>('/public/ai/search', { request, query }),
+  // Where listed caregivers live, as city-level counts: the map before any search.
+  coverage: (locale: Locale) => get<MapCityPoint[]>('/public/meta/coverage', { locale }),
   caregiver: (publicId: string, locale: Locale) => get<PublicCaregiverProfile>(`/public/caregivers/${encodeURIComponent(publicId)}`, { locale }),
 };
 
@@ -88,5 +92,22 @@ export function useCaregiverProfile(publicId: string | null, locale: Locale) {
     queryKey: ['public-caregiver', publicId, locale],
     queryFn: () => searchApi.caregiver(publicId!, locale),
     enabled: Boolean(publicId),
+  });
+}
+
+export function useCoverage(locale: Locale) {
+  return useQuery({ queryKey: ['public-coverage', locale], queryFn: () => searchApi.coverage(locale), staleTime: RARELY_CHANGES });
+}
+
+/**
+ * A signed-in client's profile city: where distances are measured from when
+ * they search without naming a city and aren't using their location.
+ */
+export function useClientSearchOrigin(userId: string | null) {
+  return useQuery({
+    queryKey: ['client-care', userId ?? 'none', 'search-origin'],
+    queryFn: () => api.get<ClientSearchOrigin>('/me/search-origin'),
+    enabled: Boolean(userId),
+    staleTime: RARELY_CHANGES,
   });
 }

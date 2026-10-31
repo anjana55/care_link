@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import type { SearchRequest } from '@care-platform/shared';
+import { DEFAULT_SEARCH_RADIUS_KM, withDeviceOrigin, withProfileOrigin, type DeviceLocation, type SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
-import { useCaregiverSearch, useSearchConfig } from '@/search/api';
+import { useCaregiverSearch, useClientSearchOrigin, useCoverage, useSearchConfig } from '@/search/api';
+import { useDeviceLocation } from '@/search/location';
+import { Nearby } from '@/search/Nearby';
 import { AiSearchPanel } from '@/search/AiSearchPanel';
 import { NormalSearchForm } from '@/search/NormalSearchForm';
 import { ResultCard } from '@/search/ResultCard';
@@ -20,7 +22,9 @@ type Mode = 'ai' | 'normal';
 /**
  * Find a caregiver - for anyone, signed in or not. AI Search (a short
  * conversation) when it's switched on, Normal Search otherwise or on request;
- * the matches list below, a page at a time. Tapping one opens their profile.
+ * the matches list below, a page at a time, and the map of caregivers near the
+ * search location ("Use my location" measures from the phone). Tapping a match
+ * opens their profile.
  */
 export default function Find() {
   const { t, locale } = useTranslation();
@@ -40,7 +44,42 @@ export default function Find() {
   const askUs = () =>
     client ? setFindForMe(true) : router.push({ pathname: '/sign-in', params: { role: 'client', returnTo: '/requests' } });
 
-  const results = useCaregiverSearch(request, mode === 'ai' ? aiQuery : null, locale);
+  // "Use my location" before searching: the next search starts from there.
+  const [here, setHere] = useState<DeviceLocation | null>(null);
+  const [radiusKm, setRadiusKm] = useState<number>(DEFAULT_SEARCH_RADIUS_KM);
+  const device = useDeviceLocation(locale);
+  const { data: coverage = [] } = useCoverage(locale);
+  // A signed-in client's profile city is where distances fall back to, as on the website.
+  const { data: profileOrigin } = useClientSearchOrigin(client?.userId ?? null);
+  const effective = request ? withProfileOrigin(request, profileOrigin?.cityId) : null;
+
+  /** Every search goes through here: the person's location, if they gave it, comes along. */
+  const search = (next: SearchRequest, query: string | null = null) => {
+    const withHere = withDeviceOrigin(next, here, radiusKm);
+    setAiQuery(query);
+    setRequest(withHere);
+    rememberSearch(withHere);
+  };
+
+  /** Same search, a different reach - or, before searching, how far the next one looks. */
+  const changeRadius = (km: number) => {
+    setRadiusKm(km);
+    if (request) search({ ...request, radiusKm: km }, aiQuery);
+  };
+
+  /** With results showing, searches again around where the person is; before that, the next search starts there. */
+  const locateMe = async () => {
+    const found = await device.locate();
+    if (!found) return;
+    setHere(found);
+    if (request) {
+      const next = { ...request, location: { districtId: found.city.districtId, cityId: found.city.cityId }, origin: { latitude: found.latitude, longitude: found.longitude } };
+      setRequest(next);
+      rememberSearch(next);
+    }
+  };
+
+  const results = useCaregiverSearch(effective, mode === 'ai' ? aiQuery : null, locale);
   const items = results.data?.pages.flatMap((p) => p.items) ?? [];
   const total = results.data?.pages[0]?.total;
   const aiRanked = Boolean(results.data?.pages[0] && 'aiRanked' in results.data.pages[0] && results.data.pages[0].aiRanked);
@@ -80,11 +119,7 @@ export default function Find() {
       {mode === 'ai' ? (
         <AiSearchPanel
           key={panelKey}
-          onSearch={(r, q) => {
-            setAiQuery(q);
-            setRequest(r);
-            rememberSearch(r);
-          }}
+          onSearch={(r, q) => search(r, q)}
           onUseNormalSearch={() => switchMode('normal')}
           onReset={() => {
             setRequest(null);
@@ -95,12 +130,20 @@ export default function Find() {
         <NormalSearchForm
           key={panelKey}
           initial={request}
-          onSearch={(r) => {
-            setRequest(r);
-            rememberSearch(r);
-          }}
+          onSearch={(r) => search(r)}
         />
       )}
+
+      <Nearby
+        response={results.data?.pages[0] ?? null}
+        coverage={coverage}
+        radiusKm={radiusKm}
+        onRadiusChange={changeRadius}
+        onUseMyLocation={() => void locateMe()}
+        locating={device.locating}
+        usingDevicePlace={here?.city.name ?? null}
+        locationError={device.error}
+      />
 
       {request ? (
         <View style={styles.resultsHead} accessibilityLiveRegion="polite">

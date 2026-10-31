@@ -1,20 +1,13 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import type { NearestCity } from '@care-platform/shared';
+import { roundCoordinate, type DeviceLocation, type DeviceLocationError } from '@care-platform/shared';
 import { ApiError } from '../api/client';
 import { publicSearchApi } from '../api/public-search';
 
-export type DeviceLocationError = 'denied' | 'unavailable' | 'outside' | 'unsupported';
-
-/** The visitor's position plus the city it falls in. Coordinates are rounded to ~100 m before they leave the browser. */
-export interface DeviceLocation {
-  latitude: number;
-  longitude: number;
-  city: NearestCity;
-}
-
-const round3 = (value: number) => Math.round(value * 1000) / 1000;
+// The types are shared with the mobile app (@care-platform/shared, search-origin.ts).
+export type { DeviceLocation, DeviceLocationError };
+const round3 = roundCoordinate;
 
 function currentPosition(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) =>
