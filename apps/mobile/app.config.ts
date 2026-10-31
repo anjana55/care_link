@@ -78,6 +78,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-notifications',
       // "Use my location" on Find: while the app is open only, never in the background.
       ['expo-location', { locationWhenInUsePermission: `${brand.name} uses your location, only when you ask, to show caregivers near you.` }],
+      // Caregivers photograph their documents. Photos only - the microphone is never asked for.
+      [
+        'expo-image-picker',
+        {
+          cameraPermission: `${brand.name} uses your camera, only when you ask, to photograph your documents.`,
+          photosPermission: `${brand.name} opens your photos, only when you ask, so you can upload a document.`,
+          microphonePermission: false,
+        },
+      ],
     ],
     // The iPhone permission message in Sinhala and Tamil (locales/*.json; English is above).
     locales: { si: './locales/si.json', ta: './locales/ta.json' },

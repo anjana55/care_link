@@ -35,3 +35,7 @@ beforeEach(() => {
   globalThis.fetch = jest.fn(() => Promise.reject(new TypeError('Network request failed (no network in tests)'))) as never;
   (require('expo-secure-store') as { __reset(): void }).__reset();
 });
+
+// The phone's FormData, not Node's: on the phone a { uri, name, type } part is
+// the file itself, and that is what the app's uploads send.
+globalThis.FormData = require('react-native/Libraries/Network/FormData').default;

@@ -165,5 +165,6 @@ a store release.
 - [ ] Project id and owner filled in `app.config.ts`.
 - [ ] Firebase set up (steps 3.1 to 3.5) and a push received on an Android development build.
 - [ ] Apple push key created and a push received on an iPhone development build.
+- [ ] Caregiver documents tried on a real Android phone and iPhone: take a photo, choose a photo, choose a PDF, and open an uploaded one.
 - [ ] Store links filled in under Settings › Mobile app.
 - [ ] Store listings, privacy forms and screenshots: see the mobile app plan, section 7.

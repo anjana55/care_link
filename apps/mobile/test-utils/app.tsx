@@ -22,7 +22,7 @@ type Handler = (body: Record<string, unknown>, query: Record<string, string>) =>
 
 /**
  * Answers API calls by path ("POST /auth/login"); anything else has no network.
- * Returns the calls made, with their parsed bodies, for assertions.
+ * Returns the calls made, with their parsed bodies (or an upload's parts), for assertions.
  */
 export function serveApi(routes: Record<string, Handler>) {
   const calls: { route: string; body: Record<string, unknown>; headers: Record<string, string>; query: Record<string, string> }[] = [];
@@ -30,7 +30,9 @@ export function serveApi(routes: Record<string, Handler>) {
     const parsed = new URL(String(url));
     const path = parsed.pathname.replace(/^\/api/, '');
     const route = `${init.method ?? 'GET'} ${path}`;
-    const body = init.body ? JSON.parse(String(init.body)) : {};
+    // An upload's parts by name (a file part is its { uri, name, type }); anything else is JSON.
+    const form = init.body as unknown as { _parts?: [string, unknown][] } | undefined;
+    const body = form?._parts ? Object.fromEntries(form._parts) : init.body ? JSON.parse(String(init.body)) : {};
     calls.push({ route, body, headers: (init.headers ?? {}) as Record<string, string>, query: Object.fromEntries(parsed.searchParams) });
     const handler = routes[route];
     if (!handler) throw new TypeError(`Network request failed (no route for ${route})`);
