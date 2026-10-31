@@ -5,7 +5,7 @@ import type { OtpRequestResult, Tokens } from '@care-platform/shared';
 import { api } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
 import { messageFor } from '@/auth/messages';
-import { portalFor, sideFrom, homeFor } from '@/auth/sides';
+import { afterSignIn, portalFor, sideFrom } from '@/auth/sides';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button, Field, FormError, Screen } from '@/ui/controls';
@@ -17,7 +17,7 @@ export default function Verify() {
   const colors = useColors();
   const router = useRouter();
   const { signIn } = useAuth();
-  const params = useLocalSearchParams<{ role?: string; phone?: string; resendAfter?: string; devOtp?: string }>();
+  const params = useLocalSearchParams<{ role?: string; phone?: string; resendAfter?: string; devOtp?: string; returnTo?: string }>();
   const side = sideFrom(params.role);
   const phone = params.phone ?? '';
 
@@ -44,7 +44,12 @@ export default function Verify() {
         { anonymous: true },
       );
       const signedIn = await signIn(result.tokens);
-      if (signedIn) router.replace(homeFor(signedIn));
+      if (signedIn) {
+        const next = afterSignIn(signedIn, params.returnTo);
+        // Back to the screen they came from, closing the sign-in screens on the way.
+        if (next === params.returnTo) router.dismissTo(next as never);
+        else router.replace(next as never);
+      }
       else setError(t('otp.error'));
     } catch (err) {
       setError(messageFor(err, t('otp.error')));

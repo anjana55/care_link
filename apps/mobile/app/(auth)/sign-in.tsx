@@ -6,7 +6,7 @@ import type { OtpRequestResult, Tokens, WhatsappPublicConfig } from '@care-platf
 import { api } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
 import { isInvalidCredentials, messageFor } from '@/auth/messages';
-import { portalFor, registerUrl, sideFrom, homeFor } from '@/auth/sides';
+import { afterSignIn, portalFor, registerUrl, sideFrom } from '@/auth/sides';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button, Field, FormError, PasswordField, Screen } from '@/ui/controls';
@@ -22,7 +22,8 @@ export default function SignIn() {
   const colors = useColors();
   const router = useRouter();
   const { signIn } = useAuth();
-  const side = sideFrom(useLocalSearchParams<{ role?: string }>().role);
+  const { role, returnTo } = useLocalSearchParams<{ role?: string; returnTo?: string }>();
+  const side = sideFrom(role);
   const portal = portalFor(side);
   const otherSide = side === 'caregiver' ? 'client' : 'caregiver';
 
@@ -48,7 +49,7 @@ export default function SignIn() {
       const sent = await api.post<OtpRequestResult>('/auth/whatsapp/request-otp', { phone, purpose: 'LOGIN', portal }, { anonymous: true });
       router.push({
         pathname: '/verify',
-        params: { role: side, phone, resendAfter: String(sent.resendAfterSeconds ?? 60), devOtp: sent.devOtp ?? '' },
+        params: { role: side, phone, resendAfter: String(sent.resendAfterSeconds ?? 60), devOtp: sent.devOtp ?? '', ...(returnTo ? { returnTo } : {}) },
       });
     } catch (err) {
       setError(messageFor(err, t('signIn.sendError')));
@@ -64,7 +65,12 @@ export default function SignIn() {
     try {
       const tokens = await api.post<Tokens>('/auth/login', { email: email.trim(), password, portal }, { anonymous: true });
       const signedIn = await signIn(tokens);
-      if (signedIn) router.replace(homeFor(signedIn));
+      if (signedIn) {
+        const next = afterSignIn(signedIn, returnTo);
+        // Back to the screen they came from, closing the sign-in screens on the way.
+        if (next === returnTo) router.dismissTo(next as never);
+        else router.replace(next as never);
+      }
       else setError(t('signIn.emailError'));
     } catch (err) {
       // A wrong password, an unknown email and another side's account all come

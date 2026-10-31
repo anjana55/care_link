@@ -7,10 +7,11 @@ import { Button, Screen } from '@/ui/controls';
 import { Text } from '@/ui/Text';
 import { useCaregiverProfile } from '@/search/api';
 import { shortId } from '@/search/ResultCard';
+import { CaregiverActions } from '@/care/CaregiverActions';
 
 /**
  * A caregiver's public profile, as on the website: no name, photo or contact
- * details - those go through staff. Contacting and saving come in Phase 2b.
+ * details - those go through staff (Contact sends our team a request).
  */
 export default function CaregiverProfile() {
   const { t, locale } = useTranslation();
@@ -100,6 +101,8 @@ export default function CaregiverProfile() {
         {c.qualificationSummary.length ? (
           <Section title={t('profile.qualifications')}>{c.qualificationSummary.map((q, i) => <View key={i}>{body(`• ${q}`)}</View>)}</Section>
         ) : null}
+
+        <CaregiverActions publicId={c.publicId} />
       </ScrollView>
     </Screen>
   );
