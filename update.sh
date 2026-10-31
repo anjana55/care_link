@@ -385,6 +385,20 @@ if [ "${#TO_BUILD[@]}" -gt 0 ]; then
   echo "  Memory:     ${CL_MEM_MB} MB RAM + ${CL_SWAP_MB} MB swap - $([ "$CL_LOW_MEMORY" -eq 1 ] && echo "building one image at a time" || echo "building side by side")"
 fi
 for n in "${NOTES[@]}"; do warn "$n"; done
+# A package-lock.json that isn't valid JSON - nearly always a merge conflict
+# resolved by hand or in GitHub's web editor - makes every image's `npm ci`
+# stop with the misleading "can only install with an existing
+# package-lock.json". Check it here, before anything is built, with the same
+# Node the images build with (the server itself may have no Node at all).
+if [ "${#TO_BUILD[@]}" -gt 0 ]; then
+  if ! git show "$TARGET:package-lock.json" | docker run --rm -i node:20-alpine node -e '
+    let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      try { const l = JSON.parse(s); if (!l.lockfileVersion || !l.packages) throw new Error("no packages"); }
+      catch (e) { console.error(e.message); process.exit(1); }
+    });' >/dev/null; then
+    die "package-lock.json in ${TARGET_TAG} is not a valid lockfile (above), so every build would fail at 'npm ci'. This usually comes from a merge conflict resolved by hand or in GitHub's editor: take one side's lockfile, run 'npm install', and commit the result. Nothing was changed."
+  fi
+fi
 # The build runs beside the live site. Short of memory, the kernel kills the
 # biggest process to make room - MySQL - and the site is down before anything
 # has been deployed. Refuse here, while nothing has changed.
