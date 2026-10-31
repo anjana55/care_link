@@ -3,7 +3,8 @@
     "tagline": "Find the right caregiver",
     "findCare": "Find a caregiver",
     "joinAsCaregiver": "Join as a caregiver",
-    "language": "Language"
+    "language": "Language",
+    "haveAccount": "Already have an account?"
   },
   "signIn": {
     "client": "Sign in to your account",
