@@ -3,6 +3,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { fontFamilyFor } from '@/ui/fonts';
+import { HIDDEN_TAB } from '@/ui/tabs';
 
 /**
  * The client side of the app: Find (for anyone, signed in or not), Bookings,
@@ -44,8 +45,8 @@ export default function ClientLayout() {
         }}
       />
       {/* Reached from My account, with the tab bar still showing: four tabs stay readable on a phone. */}
-      <Tabs.Screen name="saved" options={{ href: null }} />
-      <Tabs.Screen name="invoices" options={{ href: null }} />
+      <Tabs.Screen name="saved" options={HIDDEN_TAB} />
+      <Tabs.Screen name="invoices" options={HIDDEN_TAB} />
       <Tabs.Screen
         name="account"
         options={{

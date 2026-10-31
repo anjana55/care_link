@@ -3,6 +3,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { fontFamilyFor } from '@/ui/fonts';
+import { HIDDEN_TAB } from '@/ui/tabs';
 
 /**
  * The caregiver side of the app: Today (status, the next shifts and today's
@@ -30,7 +31,7 @@ export default function CaregiverLayout() {
       <Tabs.Screen name="shifts" options={{ tabBarLabel: t('portal.nav.shifts'), tabBarIcon: icon('calendar-outline') }} />
       <Tabs.Screen name="payments" options={{ tabBarLabel: t('portal.nav.payments'), tabBarIcon: icon('wallet-outline') }} />
       <Tabs.Screen name="me" options={{ tabBarLabel: t('nav.myAccount'), tabBarIcon: icon('person-circle-outline') }} />
-      <Tabs.Screen name="documents" options={{ href: null }} />
+      <Tabs.Screen name="documents" options={HIDDEN_TAB} />
     </Tabs>
   );
 }
