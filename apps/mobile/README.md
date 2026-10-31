@@ -56,6 +56,10 @@ npx expo-doctor        # Expo's own health checks (needs internet)
   `npx expo install <package>`, never a bare `npm install`, so they match what
   this SDK was built and tested with. A mismatched native module compiles into
   the app and fails on the phone, not here.
+- **Shared code is read from source.** `@care-platform/shared` points React
+  Native at `src/` (its `react-native` export), so a change there shows up in
+  the app straight away - no `npm run build:shared` needed. The API and the
+  websites still use the compiled `dist/`.
 - **One React for the whole repo.** Expo pins an exact React; the web apps and
   the root `overrides` in `package.json` must name the same version. When the
   SDK moves, move all three together (PRs #45 and #49 show how).
