@@ -10,8 +10,8 @@ import { Text } from '@/ui/Text';
 
 /**
  * A client's account. Signed out: sign in or sign up (searching doesn't need
- * it; contacting and saving caregivers will). Signed in: who they are, the
- * app's language, and signing out.
+ * it; contacting and saving caregivers will). Signed in: who they are, their
+ * saved caregivers and invoices, the app's language, and signing out.
  */
 export default function Account() {
   const { t } = useTranslation();
@@ -40,6 +40,13 @@ export default function Account() {
             </View>
           </View>
         )}
+
+        {user ? (
+          <View style={styles.section}>
+            <Button variant="secondary" label={t('account.nav.saved')} onPress={() => router.navigate('/saved')} />
+            <Button variant="secondary" label={t('account.nav.invoices')} onPress={() => router.navigate('/invoices')} />
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={[styles.label, { color: colors.ink }]}>{t('common.language')}</Text>

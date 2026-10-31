@@ -67,14 +67,17 @@ export async function getPushToken(): Promise<string | null> {
  * Where a tapped notification goes. The API sends the screen it is about
  * (/bookings/{id}, /care, /requests/{id}, /shifts, /invoices/{id}, ...).
  * Bookings and the 8 pm care reminder open Bookings, requests open My
- * requests; the rest open home (a client's home is Find) until their screens
- * exist (2d, Phase 3).
+ * requests, an invoice opens that invoice; the rest open home (a client's home
+ * is Find) until the caregiver screens exist (Phase 3).
  */
 const SCREENS: [RegExp, string][] = [
   [/^\/(bookings(\/[^/]+)?|care)$/, '/bookings'],
   [/^\/requests(\/[^/]+)?$/, '/requests'],
 ];
+/** An invoice notice opens that invoice (ids are uuids: nothing else gets through). */
+const INVOICE = /^\/invoices\/[0-9a-fA-F-]{36}$/;
 export function screenFor(path: unknown): string {
   if (typeof path !== 'string') return '/home';
+  if (INVOICE.test(path)) return path;
   return SCREENS.find(([re]) => re.test(path))?.[1] ?? '/home';
 }

@@ -5,9 +5,9 @@ import { useColors } from '@/theme';
 import { fontFamilyFor } from '@/ui/fonts';
 
 /**
- * The client side of the app. Find works for anyone, signed in or not; Saved
- * and Requests ask a client to sign in, and the Account tab does. Invoices join
- * these tabs in Phase 2d.
+ * The client side of the app: Find (for anyone, signed in or not), Bookings,
+ * My requests and My account, which also opens Saved caregivers and Invoices.
+ * The others ask a client to sign in.
  */
 export default function ClientLayout() {
   const { t, locale } = useTranslation();
@@ -37,19 +37,15 @@ export default function ClientLayout() {
         }}
       />
       <Tabs.Screen
-        name="saved"
-        options={{
-          tabBarLabel: t('account.nav.saved'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="heart-outline" color={color as string} size={size} />,
-        }}
-      />
-      <Tabs.Screen
         name="requests"
         options={{
           tabBarLabel: t('account.nav.requests'),
           tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" color={color as string} size={size} />,
         }}
       />
+      {/* Reached from My account, with the tab bar still showing: four tabs stay readable on a phone. */}
+      <Tabs.Screen name="saved" options={{ href: null }} />
+      <Tabs.Screen name="invoices" options={{ href: null }} />
       <Tabs.Screen
         name="account"
         options={{
