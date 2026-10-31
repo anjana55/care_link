@@ -1,3 +1,5 @@
 {
-  "NSLocationWhenInUseUsageDescription": "ඔබට ආසන්නයේ සිටින සාත්තු සේවකයින් පෙන්වීමට, ඔබ ඉල්ලන විට පමණක්, CareLink ඔබේ ස්ථානය භාවිත කරයි."
+  "NSLocationWhenInUseUsageDescription": "ඔබට ආසන්නයේ සිටින සාත්තු සේවකයින් පෙන්වීමට, ඔබ ඉල්ලන විට පමණක්, CareLink ඔබේ ස්ථානය භාවිත කරයි.",
+  "NSCameraUsageDescription": "ඔබේ ලේඛන ඡායාරූප ගැනීමට, ඔබ ඉල්ලන විට පමණක්, CareLink ඔබේ කැමරාව භාවිත කරයි.",
+  "NSPhotoLibraryUsageDescription": "ලේඛනයක් උඩුගත කිරීමට, ඔබ ඉල්ලන විට පමණක්, CareLink ඔබේ ඡායාරූප විවෘත කරයි."
 }

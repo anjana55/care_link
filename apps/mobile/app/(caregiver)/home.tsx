@@ -1,15 +1,17 @@
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Redirect } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import type { CareChecklistShift } from '@care-platform/shared';
 import { api } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
+import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
 import { ShiftRow } from '@/ui/ShiftRow';
 import { useCaregiver, useMyShifts, useOwnCaregiver } from '@/caregiver/api';
+import { missingCore } from '@/caregiver/documents';
 import { ShiftCarePlan } from '@/caregiver/ShiftCarePlan';
 import { remindersFor, useCareReminders } from '@/caregiver/reminders';
 
@@ -20,7 +22,7 @@ const AHEAD_MS = 24 * 60 * 60_000;
 
 /**
  * A caregiver's home. Where their registration stands, their next shifts in
- * Sri Lanka time, and the care plan for any shift starting within a day -
+ * Sri Lanka time, the documents staff still need, and the care plan for any shift starting within a day -
  * read-only, as decided - with the plan's activity reminders set on the phone.
  */
 export default function Today() {
@@ -31,6 +33,7 @@ export default function Today() {
   const record = useOwnCaregiver();
   const shifts = useMyShifts();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const now = Date.now();
   const upcoming = (shifts.data ?? []).filter((s) => s.status !== 'CANCELLED' && new Date(s.endsAt).getTime() > now).slice(0, SHOWN);
@@ -59,6 +62,9 @@ export default function Today() {
   if (user.role !== 'CAREGIVER') return <Redirect href="/find" />;
 
   const c = record.data;
+  // What staff still need: the core documents not uploaded, and any sent back.
+  const missing = c ? missingCore(c.documents ?? []) : [];
+  const rejected = Boolean(c?.documents?.some((d) => d.verificationStatus === 'REJECTED'));
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
@@ -84,6 +90,27 @@ export default function Today() {
             <Text style={{ color: colors.danger }}>{t('portal.loadError')}</Text>
           ) : null}
         </View>
+
+        {c && (missing.length || rejected) ? (
+          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text accessibilityRole="header" style={[styles.section, { color: colors.ink }]}>
+              {t('portal.checklist.documents.title')}
+            </Text>
+            {rejected ? <Text style={{ fontSize: 15, lineHeight: 22, color: colors.danger }}>{t('portal.documents.rejectedHint')}</Text> : null}
+            {missing.length ? (
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontSize: 15, lineHeight: 22, color: colors.ink }}>{t('portal.checklist.documents.hint')}</Text>
+                {missing.map((m) => (
+                  <Text key={m} style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>
+                    {'•  '}
+                    {t(`portal.documents.core.${m}`)}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+            <Button label={t('portal.documents.add')} onPress={() => router.navigate('/documents')} />
+          </View>
+        ) : null}
 
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
           <Text accessibilityRole="header" style={[styles.section, { color: colors.ink }]}>

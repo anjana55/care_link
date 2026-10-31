@@ -6,8 +6,8 @@ import { fontFamilyFor } from '@/ui/fonts';
 
 /**
  * The caregiver side of the app: Today (status, the next shifts and today's
- * care plan), Shifts, Payments and Me. Documents and the profile join Me in
- * Phase 3b-3c.
+ * care plan), Shifts, Payments and Me. Documents opens from Me and from
+ * Today's "documents needed"; the profile joins Me in Phase 3c.
  */
 export default function CaregiverLayout() {
   const { t, locale } = useTranslation();
@@ -30,6 +30,7 @@ export default function CaregiverLayout() {
       <Tabs.Screen name="shifts" options={{ tabBarLabel: t('portal.nav.shifts'), tabBarIcon: icon('calendar-outline') }} />
       <Tabs.Screen name="payments" options={{ tabBarLabel: t('portal.nav.payments'), tabBarIcon: icon('wallet-outline') }} />
       <Tabs.Screen name="me" options={{ tabBarLabel: t('nav.myAccount'), tabBarIcon: icon('person-circle-outline') }} />
+      <Tabs.Screen name="documents" options={{ href: null }} />
     </Tabs>
   );
 }
