@@ -2,7 +2,7 @@ import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { toColombo, type ClientBooking, type PortalShift } from '@care-platform/shared';
+import { toColombo, type ClientBooking, type MyIssueReport, type PortalShift } from '@care-platform/shared';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
@@ -12,12 +12,14 @@ import { useClient } from '@/care/api';
 import { useMyBookings } from '@/care/bookings-api';
 import { SignInPrompt } from '@/care/SignInPrompt';
 import { TodaysCare } from '@/care/TodaysCare';
+import { BookingIssues } from '@/care/BookingIssues';
+import { useMyIssues } from '@/care/billing-api';
 import { shortId } from '@/search/ResultCard';
 
 /**
  * The client's bookings, as on the website: today's care checklist first, then
  * each booking with its caregiver, dates, agreed rate and shifts in Sri Lanka
- * time. Pull down to refresh.
+ * time, and "Something's not right?" on each. Pull down to refresh.
  */
 export default function Bookings() {
   const { t } = useTranslation();
@@ -25,6 +27,7 @@ export default function Bookings() {
   const router = useRouter();
   const client = useClient();
   const bookings = useMyBookings();
+  const issues = useMyIssues();
   const queryClient = useQueryClient();
   // Pulling down refreshes the bookings and the day's checklist together.
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['client-care', client?.userId ?? 'none'] });
@@ -63,13 +66,13 @@ export default function Bookings() {
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         refreshControl={client ? <RefreshControl refreshing={bookings.isRefetching} onRefresh={refresh} /> : undefined}
-        renderItem={({ item }) => <BookingCard booking={item} />}
+        renderItem={({ item }) => <BookingCard booking={item} reports={(issues.data ?? []).filter((r) => r.bookingId === item.id)} />}
       />
     </SafeAreaView>
   );
 }
 
-function BookingCard({ booking: b }: { booking: ClientBooking }) {
+function BookingCard({ booking: b, reports }: { booking: ClientBooking; reports: MyIssueReport[] }) {
   const { t, locale } = useTranslation();
   const colors = useColors();
   const router = useRouter();
@@ -106,6 +109,7 @@ function BookingCard({ booking: b }: { booking: ClientBooking }) {
       ) : (
         b.shifts.map((s) => <ShiftRow key={s.id} shift={s} />)
       )}
+      <BookingIssues booking={b} reports={reports} />
     </View>
   );
 }
