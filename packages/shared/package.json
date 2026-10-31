@@ -11,6 +11,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "react-native": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./i18n": "./src/i18n/create-i18n.tsx"
