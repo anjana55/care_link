@@ -528,5 +528,472 @@
       "RESOLVED": "Put right",
       "DISMISSED": "Checked - no change"
     }
+  },
+  "portal": {
+    "nav": {
+      "label": "Your caregiver area",
+      "overview": "Overview",
+      "profile": "Profile",
+      "documents": "Documents",
+      "shifts": "Shifts",
+      "payments": "Payments",
+      "workAbroad": "Work abroad"
+    },
+    "loadError": "We could not load this page. Please refresh and try again.",
+    "saveError": "We could not save that. Please try again.",
+    "saved": "Saved",
+    "welcome": "Welcome back",
+    "registrationNumber": "Registration number",
+    "requiredField": "This field is required",
+    "edit": "Edit",
+    "remove": "Remove",
+    "editResetsVerification": "This entry has been verified. Changing it sends it back to staff to be checked again.",
+    "status": {
+      "DRAFT": "Draft",
+      "REGISTERED": "Submitted",
+      "DOCUMENTS_PENDING": "Documents needed",
+      "UNDER_VERIFICATION": "Being verified",
+      "VERIFIED": "Verified",
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive",
+      "SUSPENDED": "Suspended",
+      "REJECTED": "Not accepted"
+    },
+    "statusHelp": {
+      "DRAFT": "Your registration is not submitted yet. Complete the steps below, then submit it for review.",
+      "REGISTERED": "Thank you - your registration has been submitted. Our staff will review it and ask for anything missing.",
+      "DOCUMENTS_PENDING": "We need more documents from you before we can continue. Please check the Documents page.",
+      "UNDER_VERIFICATION": "Our staff are checking your details and documents. You will be contacted if anything is needed.",
+      "VERIFIED": "Your details have been verified. We will contact you when your profile goes live.",
+      "ACTIVE": "Your profile is live and families can find you.",
+      "INACTIVE": "Your profile is currently hidden. Contact us if you would like to be listed again.",
+      "SUSPENDED": "Your account has been suspended. Please contact us for details.",
+      "REJECTED": "We were not able to accept this registration. Please contact us if you think this is a mistake."
+    },
+    "verification": {
+      "PENDING": "Pending",
+      "IN_PROGRESS": "Being checked",
+      "VERIFIED": "Verified",
+      "REJECTED": "Rejected"
+    },
+    "checklist": {
+      "title": "Getting your profile ready",
+      "review": "Review",
+      "start": "Start",
+      "profile": {
+        "title": "Skills and languages",
+        "hint": "Choose the care skills you have and the languages you speak."
+      },
+      "documents": {
+        "title": "Documents",
+        "hint": "Upload your ID and the certificates staff need to verify you."
+      },
+      "shifts": {
+        "title": "Shifts",
+        "hint": "Tell us which shifts you can work and when you can start."
+      }
+    },
+    "submit": {
+      "ready": "Everything is in place. Submit your registration and our staff will start reviewing it.",
+      "notReady": "Finish the steps above, then you can submit your registration for review.",
+      "button": "Submit for review"
+    },
+    "shifts": {
+      "title": "Shifts",
+      "subtitle": "Families searching for care see you for the shifts you choose here.",
+      "canWork": "Shifts I can work",
+      "dayDuty": "Day shifts",
+      "dayDutyHint": "Work during the day and go home at night.",
+      "nightDuty": "Night shifts",
+      "nightDutyHint": "Overnight care.",
+      "liveIn24h": "24-hour live-in",
+      "liveIn24hHint": "Stay with the family for the whole day.",
+      "noneSelected": "No shift is selected, so families will not be able to find you. Choose at least one.",
+      "preferred": "Preferred shift",
+      "availableFrom": "Available from",
+      "terms": "Pay and leave (optional)",
+      "dailyRate": "Expected daily rate (LKR)",
+      "monthlyRate": "Expected monthly rate (LKR)",
+      "leaveDays": "Leave days per month",
+      "leavePattern": "Preferred leave pattern",
+      "termsHint": "Only shown to our staff. Leave anything blank that you would rather discuss later.",
+      "invalidAmount": "Enter an amount using digits only, for example 6500",
+      "invalidDays": "Enter a whole number of days",
+      "preference": {
+        "DAY": "Day",
+        "NIGHT": "Night",
+        "TWENTY_FOUR_HOUR_LIVE_IN": "24-hour live-in",
+        "FLEXIBLE": "Flexible"
+      },
+      "availabilityTitle": "When you can work",
+      "bookedTitle": "Your booked shifts",
+      "bookedSubtitle": "Shifts our team has confirmed for you, in Sri Lanka time. To change one, call us.",
+      "noBooked": "No booked shifts yet. Our team will call you when a family books you.",
+      "cover": "(cover)",
+      "careTypesTitle": "Types of care you take on",
+      "careTypesHint": "Families search by the type of care they need. Untick anything you don't do and you won't be shown for it.",
+      "careTypesRequired": "Choose at least one type of care."
+    },
+    "documents": {
+      "title": "Your documents",
+      "subtitle": "Staff check these before your profile can go live. Only you and our verification team can see them.",
+      "needed": "What we need",
+      "core": {
+        "identity": "Proof of identity (NIC or passport)",
+        "police": "Police clearance report",
+        "gn": "Grama Niladhari certificate"
+      },
+      "haveIt": "Uploaded",
+      "missing": "Not uploaded yet",
+      "add": "Upload a document",
+      "type": "Document type",
+      "file": "File",
+      "upload": "Upload",
+      "fileHint": "PDF, JPG, PNG or WEBP, up to 10 MB. Make sure the whole document is clear and readable.",
+      "badType": "That file type is not supported. Choose a PDF, JPG, PNG or WEBP file.",
+      "tooLarge": "That file is larger than 10 MB. Choose a smaller one.",
+      "chooseFile": "Choose a file first.",
+      "uploaded": "Document uploaded.",
+      "removed": "Document removed.",
+      "openError": "We could not open that file. Please try again.",
+      "confirmRemove": "Remove this document?",
+      "yours": "Uploaded documents",
+      "none": "You have not uploaded anything yet.",
+      "rejectedHint": "This document was not accepted. Please upload a clearer or corrected copy.",
+      "view": "View",
+      "remove": "Remove",
+      "types": {
+        "NIC": "National ID card (NIC)",
+        "PASSPORT": "Passport",
+        "GRAMA_NILADHARI_CERTIFICATE": "Grama Niladhari certificate",
+        "POLICE_CLEARANCE": "Police clearance",
+        "CAREGIVER_CERTIFICATE": "Caregiver certificate",
+        "NVQ_CERTIFICATE": "NVQ certificate",
+        "NURSING_CERTIFICATE": "Nursing certificate",
+        "CV": "CV",
+        "OTHER": "Other"
+      },
+      "pick": {
+        "identity": "Proof of identity (NIC or passport)",
+        "police": "Police clearance report",
+        "gn": "Grama Niladhari certificate",
+        "other": "Other"
+      },
+      "idKind": "Which ID is it?",
+      "idKinds": {
+        "NIC": "National ID card (NIC)",
+        "PASSPORT": "Passport"
+      },
+      "expiresOn": "Expiry date (if it has one)",
+      "expiresHint": "We'll remind you before it runs out.",
+      "expires": "Expires {date}"
+    },
+    "profile": {
+      "title": "Your profile",
+      "subtitle": "Keep your details up to date. Changes you make here are what staff and families see.",
+      "personal": "Personal details",
+      "loginPhone": "Phone number (used to sign in)",
+      "loginPhoneHint": "To change this number, please contact our staff.",
+      "identityLocked": "Your name, date of birth, gender and ID numbers are locked while we verify your registration. Contact our staff if one of them needs correcting.",
+      "skills": "Care skills",
+      "skillsHint": "Tick everything you can do. This is saved as you tick.",
+      "languages": "Languages",
+      "languagesHint": "Tick the languages you can speak with a client."
+    },
+    "qualifications": {
+      "title": "Qualifications",
+      "add": "Add a qualification",
+      "none": "No qualifications added yet.",
+      "confirmRemove": "Remove this qualification?",
+      "fields": {
+        "name": "Qualification",
+        "type": "Type",
+        "institution": "Institution",
+        "certificateNumber": "Certificate number",
+        "issueDate": "Issued on",
+        "expiryDate": "Expires on"
+      },
+      "types": {
+        "NVQ": "NVQ",
+        "NURSING_DIPLOMA": "Nursing diploma",
+        "NURSING_DEGREE": "Nursing degree",
+        "CAREGIVER_CERTIFICATE": "Caregiver certificate",
+        "FIRST_AID": "First aid",
+        "OTHER": "Other"
+      }
+    },
+    "experience": {
+      "title": "Work experience",
+      "add": "Add experience",
+      "none": "No experience added yet.",
+      "confirmRemove": "Remove this experience?",
+      "present": "present",
+      "fields": {
+        "employerOrClient": "Employer or client",
+        "role": "Role",
+        "country": "Country",
+        "location": "Location",
+        "startDate": "Started",
+        "endDate": "Ended",
+        "description": "What you did"
+      }
+    },
+    "payments": {
+      "title": "Payments",
+      "subtitle": "What you are paid for the shifts you worked. Our team prepares these and lets you know when the money is sent.",
+      "empty": "No payments yet. They appear here once our team has approved them.",
+      "paidOn": "paid {date}",
+      "status": {
+        "APPROVED": "Approved",
+        "PAID": "Paid"
+      },
+      "reference": "Transfer reference: {reference}",
+      "approvedHint": "Approved - the payment will be sent soon."
+    },
+    "workAbroad": {
+      "title": "Work abroad",
+      "intro": "Tell us if you want to work abroad, join our training, and choose whether to share your profile with overseas employers.",
+      "save": "Save",
+      "readiness": {
+        "title": "Working abroad",
+        "intro": "Our team uses this to find jobs that suit you. It is not shown publicly unless you share your profile.",
+        "open": "I am interested in working abroad",
+        "openHint": "You can change this at any time.",
+        "countries": "Countries I would like to work in (up to {max})",
+        "addCountry": "Add a country",
+        "removeCountry": "Remove {country}",
+        "passport": "Do you have a passport?",
+        "yes": "Yes",
+        "no": "No",
+        "passportExpiry": "Passport expiry date",
+        "availableFrom": "I could start from",
+        "passportNote": "We never ask for your passport number here, and it is never shown publicly."
+      },
+      "training": {
+        "title": "Training",
+        "intro": "Choose the courses you are interested in. Our team will contact you with dates and details.",
+        "interested": "I'm interested",
+        "withdraw": "Withdraw",
+        "interestedHint": "Thank you - our team will contact you about this course.",
+        "status": {
+          "INTERESTED": "Interested",
+          "ENROLLED": "Enrolled",
+          "COMPLETED": "Completed"
+        },
+        "progress": "{n}% done",
+        "score": "Final score: {n} / 100",
+        "certificate": "Your certificate"
+      },
+      "share": {
+        "title": "Share your profile with employers",
+        "intro": "Your shared profile shows your first name, photo and a short introduction alongside your checked skills, languages and training. Employers ask our team about you - they never see your contact details.",
+        "state": {
+          "live": "Your profile is live",
+          "liveHint": "Employers can see it at your link and in our list of caregivers ready to work abroad.",
+          "pending": "Waiting for review",
+          "pendingHint": "Our team is checking your profile. It will go live once it is approved.",
+          "rejected": "Changes needed",
+          "rejectedHint": "Please update your profile and share it again.",
+          "paused": "Sharing is paused",
+          "pausedHint": "Your profile is hidden. Switch sharing back on whenever you like.",
+          "notListed": "Approved, but not visible yet",
+          "notListedHint": "Your profile will be visible once your registration is complete.",
+          "draft": "Not shared",
+          "draftHint": "Fill in your details, read the consent below, and share when you are ready."
+        },
+        "reviewNote": "Our team says:",
+        "addPhoto": "Add a photo",
+        "changePhoto": "Change photo",
+        "removePhoto": "Remove photo",
+        "photoAlt": "Your profile photo",
+        "photoUploaded": "Photo uploaded",
+        "photoTooLarge": "That photo is too large. Please choose one under 8 MB.",
+        "firstName": "First name",
+        "firstNameHint": "Only your first name is shown - never your surname.",
+        "headline": "Headline",
+        "headlinePlaceholder": "e.g. Caregiver with 8 years of elderly care",
+        "bio": "About you",
+        "bioPlaceholder": "Your experience, the care you enjoy giving, and why you want to work abroad.",
+        "bioHint": "Do not include your phone number, email or address.",
+        "reReview": "Saving changes sends your profile to our team for review again. It is hidden until then.",
+        "saveDetails": "Save details",
+        "saveFirst": "Save your details first.",
+        "consentTitle": "Before you share",
+        "consent1": "Your first name, photo, headline and introduction will be shown publicly on this website, at your link and in our list of caregivers ready to work abroad.",
+        "consent2": "Your checked skills, languages, qualifications, completed training, approximate age, years of experience and the countries you chose will be shown with them.",
+        "consent3": "Your surname, phone number, email, address, NIC, passport number and documents will never be shown.",
+        "consent4": "Employers contact our team about you, not you directly. Our team will contact you before any introduction.",
+        "consent5": "You can pause sharing or withdraw your consent at any time. Withdrawing deletes your photo and takes your profile offline.",
+        "consentAgree": "I have read this and I agree to share my profile.",
+        "share": "Share my profile",
+        "resume": "Turn sharing back on",
+        "sharedNotice": "Thank you - your profile has been sent to our team.",
+        "yourLink": "Your profile link",
+        "view": "View",
+        "linkNotLive": "This link will work once your profile is approved.",
+        "pause": "Pause sharing",
+        "pausedNotice": "Sharing paused - your profile is hidden.",
+        "newLink": "Get a new link",
+        "newLinkConfirm": "Your old link will stop working straight away. Continue?",
+        "newLinkNotice": "You have a new link. The old one no longer works.",
+        "withdraw": "Withdraw my consent and delete my photo",
+        "withdrawConfirm": "This takes your profile offline, deletes your photo and removes your consent. Continue?",
+        "withdrawnNotice": "Consent withdrawn. Your profile is offline and your photo has been deleted."
+      },
+      "checklist": {
+        "title": "Ready to work abroad?",
+        "progress": "{done} of {total} done",
+        "done": "done",
+        "todo": "not done yet",
+        "note": "These are general steps, not for any one country. Our team checks each one.",
+        "items": {
+          "registrationVerified": "Your registration is verified",
+          "openToOverseas": "You told us where you would like to work",
+          "passportValid": "Passport valid for at least 6 months after you could start",
+          "policeClearance": "Police clearance verified",
+          "english": "English course completed, or fluent English",
+          "caregiving": "Caregiving course or a verified qualification",
+          "sharedProfile": "Your profile is shared with employers"
+        },
+        "hints": {
+          "registrationVerified": "Upload your documents",
+          "openToOverseas": "Add your countries below",
+          "passportValid": "Add your passport details below",
+          "policeClearance": "Upload your police clearance",
+          "english": "Join the English course",
+          "caregiving": "Join the caregiving course",
+          "sharedProfile": "Share your profile below"
+        }
+      },
+      "interest": {
+        "title": "Employers interested in you",
+        "intro": "Our team will call you before anything is arranged. We never give employers your phone number or address.",
+        "who": "{type} in {country}",
+        "status": {
+          "PROPOSED": "Our team suggested you",
+          "INTERVIEW_REQUESTED": "The employer would like to interview you",
+          "INTERVIEW_SCHEDULED": "Interview arranged",
+          "SELECTED": "The employer would like to hire you",
+          "PLACED": "Started work",
+          "NOT_PROCEEDING": "Not proceeding"
+        }
+      },
+      "applications": {
+        "title": "Your applications",
+        "intro": "Vacancies you applied for, and where each stands.",
+        "browse": "Browse vacancies",
+        "none": "You haven't applied for any vacancies yet.",
+        "closed": "Vacancy closed",
+        "withdraw": "Withdraw"
+      },
+      "dated": {
+        "title": "Passport and documents",
+        "intro": "Most countries need a passport valid for at least six months to issue a work visa.",
+        "valid": "Valid",
+        "expired": "Expired",
+        "daysLeft": "{days} days left",
+        "renew": "Renew it in good time and upload the new one.",
+        "upload": "Upload a document"
+      },
+      "placement": {
+        "title": "Your job abroad",
+        "departure": "Departure",
+        "arrived": "Arrived",
+        "contractStart": "Contract start",
+        "contractEnd": "Contract end",
+        "help": "Our team will call you after you arrive, and again during your contract. If you need help at any time, contact us.",
+        "status": {
+          "PRE_DEPARTURE": "Getting ready to travel",
+          "DEPLOYED": "Working",
+          "COMPLETED": "Contract completed",
+          "ENDED_EARLY": "Ended early"
+        }
+      },
+      "offers": {
+        "title": "Job offers",
+        "intro": "Offers employers have made you.",
+        "introWaiting": "An employer has made you a job offer. Read it carefully, then accept or decline it here.",
+        "answerBy": "Please answer by {date}.",
+        "accept": "Accept the offer",
+        "decline": "Decline",
+        "talkFirst": "Not sure? Call our team before you answer - we will go through it with you.",
+        "inPrinciple": "Accepting is an agreement in principle. You will sign the full employment contract later, with our help, before your visa application.",
+        "readTerms": "I have read the terms above and I want this job.",
+        "signLabel": "Type your full name to sign",
+        "signHint": "As it is written on your passport.",
+        "signAccept": "Sign and accept",
+        "reasonLabel": "Why are you declining? (optional - it helps our team find you a better match)",
+        "confirmDecline": "Decline the offer",
+        "yourReason": "Your reason: {reason}"
+      },
+      "interviews": {
+        "title": "Your interviews",
+        "intro": "Times are shown in your phone's time zone. Our team will call you before each interview to help you prepare."
+      },
+      "departure": {
+        "title": "Getting ready to go",
+        "intro": "What has to be done before you travel. Our team ticks each step off with you.",
+        "progress": "{done} of {total} done",
+        "done": "done",
+        "todo": "still to do",
+        "due": "by {date}",
+        "flight": "Your flight:",
+        "contactTitle": "Where we can reach you abroad",
+        "contactIntro": "Keep this up to date, so our team can reach you quickly. Your employer does not see it.",
+        "phone": "Phone number abroad",
+        "address": "Address abroad",
+        "saved": "Saved"
+      },
+      "welfare": {
+        "title": "Help while you are abroad",
+        "intro": "Tell us if something is wrong, or ask us anything. Only our team reads it - never your employer.",
+        "localNumbers": "In danger right now? Call the police in {country} on {police}, or an ambulance on {ambulance}.",
+        "localGeneric": "In danger right now? Call the local emergency number first - 112 works from most mobile phones.",
+        "sos": "SOS - I need help now",
+        "sosConfirm": "Send an SOS to our whole team now? We will call you straight away.",
+        "sosSend": "Yes, send SOS",
+        "sosHint": "For when you are not safe. Our whole team is alerted at once, with your phone number and address abroad.",
+        "sosSent": "Your SOS has been sent. Our team is calling you now. Keep your phone with you.",
+        "sent": "Sent. Our team will reply here and call you if needed.",
+        "reportTitle": "Tell us something",
+        "how": "How serious is it?",
+        "about": "What is it about?",
+        "message": "What is happening?",
+        "private": "Write in Sinhala, Tamil or English.",
+        "send": "Send to our team",
+        "yours": "Your messages to our team",
+        "ourTeam": "Our team",
+        "you": "You",
+        "reply": "Write a reply",
+        "sendReply": "Send reply"
+      },
+      "results": {
+        "title": "Test results",
+        "intro": "English tests and other results. Our team checks the original before a result counts - then it can show on your shared profile.",
+        "none": "No results yet.",
+        "add": "Add a result",
+        "kind": "What was tested",
+        "provider": "Test",
+        "testName": "Name of the test",
+        "testNamePlaceholder": "IELTS General Training",
+        "score": "Score or grade",
+        "cefr": "Level (CEFR)",
+        "cefrUnknown": "Not shown on the result",
+        "takenOn": "Date taken",
+        "validUntilLabel": "Valid until",
+        "validUntil": "valid until {date}",
+        "bringOriginal": "Bring or send the original result to our office, so we can verify it.",
+        "save": "Save result",
+        "verified": "Verified",
+        "waiting": "Waiting for our team",
+        "remove": "Remove {title}"
+      },
+      "certificate": {
+        "back": "Back to Work abroad",
+        "print": "Print or save as PDF",
+        "missing": "This certificate is not available.",
+        "englishNote": "The certificate is in English, for employers abroad."
+      }
+    }
   }
 }

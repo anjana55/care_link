@@ -24,13 +24,21 @@ export function projectId(): string | undefined {
 
 let loaded: NotificationsModule | null | undefined;
 
-/** expo-notifications, or null where push can't work (see pushSupported). */
-export function notifications(): NotificationsModule | null {
+/**
+ * expo-notifications on a real phone - for notifications the app sets itself
+ * (the caregiver's activity reminders), which need no push service or project id.
+ */
+export function localNotifications(): NotificationsModule | null {
   if (loaded === undefined) {
-    loaded = pushSupported() ? (require('expo-notifications') as NotificationsModule) : null;
+    loaded = Device.isDevice ? (require('expo-notifications') as NotificationsModule) : null;
     if (loaded) configure(loaded);
   }
   return loaded;
+}
+
+/** expo-notifications, or null where push can't work (see pushSupported). */
+export function notifications(): NotificationsModule | null {
+  return pushSupported() ? localNotifications() : null;
 }
 
 function configure(n: NotificationsModule) {
@@ -67,12 +75,16 @@ export async function getPushToken(): Promise<string | null> {
  * Where a tapped notification goes. The API sends the screen it is about
  * (/bookings/{id}, /care, /requests/{id}, /shifts, /invoices/{id}, ...).
  * Bookings and the 8 pm care reminder open Bookings, requests open My
- * requests, an invoice opens that invoice; the rest open home (a client's home
- * is Find) until the caregiver screens exist (Phase 3).
+ * requests, an invoice opens that invoice, shifts and payouts open the
+ * caregiver's Shifts and Payments; the rest open home (a client's home is
+ * Find, a caregiver's is Today).
  */
 const SCREENS: [RegExp, string][] = [
   [/^\/(bookings(\/[^/]+)?|care)$/, '/bookings'],
   [/^\/requests(\/[^/]+)?$/, '/requests'],
+  // The caregiver's side: shift changes and new shifts, and payouts.
+  [/^\/shifts$/, '/shifts'],
+  [/^\/payments$/, '/payments'],
 ];
 /** An invoice notice opens that invoice (ids are uuids: nothing else gets through). */
 const INVOICE = /^\/invoices\/[0-9a-fA-F-]{36}$/;

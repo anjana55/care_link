@@ -3,7 +3,8 @@ import { Linking } from 'react-native';
 import en from '../src/i18n/en.json';
 import SignIn from '../app/(auth)/sign-in';
 import Verify from '../app/(auth)/verify';
-import Home from '../app/home';
+import Home from '../app/(caregiver)/home';
+import Me from '../app/(caregiver)/me';
 import Welcome from '../app/index';
 import { AppProviders, serveApi } from '../test-utils/app';
 import { mockRouter } from '../test-utils/router';
@@ -232,16 +233,16 @@ describe('signing in with WhatsApp', () => {
 });
 
 describe('signed in', () => {
-  it('opens on the home screen, and signs out back to the welcome screen', async () => {
+  it('opens a caregiver on their home, and signs out from My account back to the welcome screen', async () => {
     await tokenStore.set(tokensFor('CAREGIVER', { phone: '+94771234567' }));
     const calls = serveApi({ 'POST /auth/logout': () => ({ status: 200, body: { success: true } }) });
 
     await show(<Welcome />);
     expect(await screen.findByText('redirect:/home')).toBeTruthy();
 
-    await act(async () => void (await show(<Home />)));
+    await act(async () => void (await show(<Me />)));
     expect(await screen.findByText('+94771234567')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: en.home.signOut }));
+    await fireEvent.press(screen.getByRole('button', { name: en.nav.signOut }));
 
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/'));
     expect(calls.some((c) => c.route === 'POST /auth/logout')).toBe(true);
