@@ -4,7 +4,7 @@ import en from '../src/i18n/en.json';
 import Find from '../app/(client)/find';
 import Account from '../app/(client)/account';
 import CaregiverProfile from '../app/caregivers/[publicId]';
-import Home from '../app/home';
+import Home from '../app/(caregiver)/home';
 import Welcome from '../app/index';
 import { AppProviders, serveApi } from '../test-utils/app';
 import { mockRouter } from '../test-utils/router';

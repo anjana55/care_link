@@ -2,12 +2,13 @@ import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { toColombo, type ClientBooking, type MyIssueReport, type PortalShift } from '@care-platform/shared';
+import type { ClientBooking, MyIssueReport } from '@care-platform/shared';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
-import { fmtDay, fmtTime, formatDate } from '@/ui/dates';
+import { formatDate } from '@/ui/dates';
+import { ShiftRow } from '@/ui/ShiftRow';
 import { useClient } from '@/care/api';
 import { useMyBookings } from '@/care/bookings-api';
 import { SignInPrompt } from '@/care/SignInPrompt';
@@ -107,7 +108,7 @@ function BookingCard({ booking: b, reports }: { booking: ClientBooking; reports:
       {b.shifts.length === 0 ? (
         <Text style={{ color: colors.muted }}>{t('account.bookings.noShifts')}</Text>
       ) : (
-        b.shifts.map((s) => <ShiftRow key={s.id} shift={s} />)
+        b.shifts.map((s) => <ShiftRow key={s.id} shift={s} coverLabel={t('account.bookings.cover')} />)
       )}
       <BookingIssues booking={b} reports={reports} />
     </View>
@@ -124,29 +125,6 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ShiftRow({ shift: s }: { shift: PortalShift }) {
-  const { t, locale } = useTranslation();
-  const colors = useColors();
-  const past = new Date(s.endsAt).getTime() < Date.now();
-  const nextDay = toColombo(s.endsAt).date !== toColombo(s.startsAt).date;
-  const tone = s.status === 'MISSED' ? colors.danger : s.status === 'SCHEDULED' ? colors.brand : colors.muted;
-  return (
-    <View style={[styles.shift, { borderColor: colors.border, opacity: past ? 0.6 : 1 }]}>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 15, fontWeight: '600', color: colors.ink }}>{fmtDay(s.startsAt, locale)}</Text>
-        <Text style={{ fontSize: 15, color: colors.ink }}>
-          {fmtTime(s.startsAt)}–{fmtTime(s.endsAt)}
-          {nextDay ? <Text style={{ color: colors.muted }}> (+1)</Text> : null}
-          {s.isCover ? <Text style={{ color: colors.muted }}> {t('account.bookings.cover')}</Text> : null}
-        </Text>
-      </View>
-      <Text style={[styles.badge, { color: tone, borderColor: tone, textDecorationLine: s.status === 'CANCELLED' ? 'line-through' : 'none' }]}>
-        {t(`bookings.shiftStatus.${s.status}`)}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   list: { paddingHorizontal: 20, paddingBottom: 32 },
   head: { gap: 10, paddingTop: 16, paddingBottom: 16 },
@@ -155,5 +133,4 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   label: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
   badge: { fontSize: 12, fontWeight: '700', borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },
-  shift: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },
 });
