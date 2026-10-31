@@ -63,12 +63,12 @@ export default function Welcome() {
 
       <View style={styles.actions}>
         <Link href={{ pathname: '/sign-in', params: { role: 'client' } }} asChild>
-          <Pressable accessibilityRole="button" style={[styles.button, styles.primary]}>
+          <Pressable accessibilityRole="button" style={styles.primaryButton}>
             <Text style={[styles.buttonText, styles.primaryText]}>{t('welcome.findCare')}</Text>
           </Pressable>
         </Link>
         <Link href={{ pathname: '/sign-in', params: { role: 'caregiver' } }} asChild>
-          <Pressable accessibilityRole="button" style={[styles.button, styles.secondary]}>
+          <Pressable accessibilityRole="button" style={styles.secondaryButton}>
             <Text style={styles.buttonText}>{t('welcome.joinAsCaregiver')}</Text>
           </Pressable>
         </Link>
@@ -76,6 +76,8 @@ export default function Welcome() {
     </SafeAreaView>
   );
 }
+
+const button = { minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 } as const;
 
 const makeStyles = (colors: Colors) =>
   StyleSheet.create({
@@ -98,9 +100,9 @@ const makeStyles = (colors: Colors) =>
     languageText: { fontSize: 16, color: colors.ink },
     languageTextSelected: { color: colors.brandText, fontWeight: '600' },
     actions: { gap: 12, marginBottom: 32 },
-    button: { minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-    primary: { backgroundColor: colors.brand },
-    secondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.brand },
+    // One flat style each: expo-router's <Link asChild> refuses an array of styles on its child.
+    primaryButton: { ...button, backgroundColor: colors.brand },
+    secondaryButton: { ...button, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.brand },
     buttonText: { fontSize: 17, fontWeight: '600', color: colors.brand, textAlign: 'center' },
     primaryText: { color: colors.brandText },
   });

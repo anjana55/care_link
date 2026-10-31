@@ -30,10 +30,13 @@ let mockParams: { role?: string } = {};
 jest.mock('expo-router', () => {
   const React = require('react');
   return {
-    Link: ({ href, children }: { href: string | { pathname: string; params?: { role?: string } }; children: ReactElement }) =>
-      React.cloneElement(children, {
+    Link: ({ href, children }: { href: string | { pathname: string; params?: { role?: string } }; children: ReactElement<{ style?: unknown }> }) => {
+      // The real <Link asChild> (expo-router's Slot) throws on an array of styles.
+      if (Array.isArray(children.props.style)) throw new Error('[expo-router]: You are passing an array of styles to a child of <Slot>.');
+      return React.cloneElement(children, {
         testID: typeof href === 'string' ? `link:${href}` : `link:${href.pathname}?role=${href.params?.role}`,
-      }),
+      });
+    },
     Stack: () => React.createElement(require('../app/index').default),
     useLocalSearchParams: () => mockParams,
   };
