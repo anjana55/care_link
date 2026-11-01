@@ -9,6 +9,9 @@ The plan, decisions and phases are in the CareLink project:
 
 ## Run it
 
+Use Node 24 (`nvm use` in the repo root reads `.nvmrc`); odd releases such as
+Node 25 aren't supported by Expo SDK 58.
+
 ```bash
 npm install            # from the repo root - one install for every app
 npm run dev:mobile     # builds packages/shared, then starts Expo

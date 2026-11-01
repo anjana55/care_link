@@ -45,16 +45,28 @@ care-platform/
 
 ## 2. Prerequisites
 
-- Node.js 20+ and npm
+- Node.js **24** (the LTS line) and npm. `.nvmrc` says so: run `nvm use` in the
+  repo. The mobile app's tools (Expo SDK 58, React Native 0.88) support Node
+  22.13+, 24.3+ and 26+, but not odd-numbered releases such as 25, which npm
+  reports as `EBADENGINE` warnings. The servers' Docker images bring their own Node.
 - Docker Desktop / Docker Engine (for MySQL via Compose) **or** a local MySQL 8 install
 - Windows, macOS or Linux
 
-Both apps currently sit at **0 `npm audit` findings** on a fresh install
-(`apps/api`: NestJS v11.2.5-line, `bcrypt` v6, `multer` v2.4; `apps/web`: Next.js
-16.3.5). See IMPLEMENTATION_REPORT.md §15 if you're wondering why it's v11 rather than
+`npm audit` findings, as of Nov 2026, are all in development tools or the
+browser - none in what the API runs:
+
+- Jest, the Expo command line and the Nest command line (`glob`, `minimatch`,
+  `deepmerge`). npm's suggested fixes are downgrades (Expo 51, older Jest), so
+  don't run `npm audit fix --force`; they clear as those tools release updates.
+- `zod` 3 (high: memory on oversized input). It only checks what a person types
+  into the websites' forms, in their own browser; the API validates with
+  class-validator. Moving to zod 4 means reworking the form schemas, so it's left
+  for a planned upgrade.
+
+The API itself: NestJS v11.2.5-line, `bcrypt` v6, `multer` v2.4; `apps/web`: Next.js
+16.3.5. See IMPLEMENTATION_REPORT.md §15 if you're wondering why it's v11 rather than
 the latest NestJS major — the short version is that v12 is ESM-only and breaks this
-project's CommonJS-based test tooling, while the latest v11 patch releases are already
-clean of every vulnerability that was originally flagged.
+project's CommonJS-based test tooling.
 
 ## 3. First-time setup
 
