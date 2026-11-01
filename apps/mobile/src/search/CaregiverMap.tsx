@@ -8,8 +8,14 @@ import { Text } from '@/ui/Text';
 
 /** The same map as the website: MapLibre with OpenFreeMap tiles - open source, no API key, no usage limits. */
 export const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
-/** The website's MapLibre version (apps/public-web), loaded inside the map page. */
-const MAPLIBRE = 'https://unpkg.com/maplibre-gl@6.16.0/dist';
+/**
+ * The website's MapLibre version (apps/public-web), loaded inside the map page.
+ * MapLibre 6 ships JavaScript modules only - there is no maplibre-gl.js any
+ * more - so the page imports maplibre-gl.mjs. MapLibre then starts its worker
+ * from maplibre-gl-worker.mjs beside it, wrapping it itself because unpkg is
+ * another site than the page.
+ */
+export const MAPLIBRE = 'https://unpkg.com/maplibre-gl@6.16.0/dist';
 
 /** What the map page draws: everything as data, so the page itself never changes. */
 export interface MapScene {
@@ -27,22 +33,22 @@ export interface MapScene {
  * only as counts on the city they live in - never an address or a single pin -
  * and the origin carries the search radius as a circle.
  */
-export function mapHtml(styleUrl: string): string {
+export function mapHtml(styleUrl: string, maplibre: string = MAPLIBRE): string {
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<link rel="stylesheet" href="${MAPLIBRE}/maplibre-gl.css">
+<link rel="stylesheet" href="${maplibre}/maplibre-gl.css">
 <style>html,body,#map{margin:0;height:100%;font-family:sans-serif}
 .dot{border-radius:999px;color:#fff;font:600 13px sans-serif;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;padding:0 6px;box-shadow:0 1px 4px rgba(0,0,0,.3);border:2px solid #fff}
 .me{width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,.25)}</style></head>
 <body><div id="map"></div>
-<script src="${MAPLIBRE}/maplibre-gl.js"></script>
-<script>
-(function(){
-  var send=function(m){window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify(m));};
-  if(!window.maplibregl){send({type:'failed'});return;}
+<script type="module">
+var send=function(m){window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify(m));};
+import(${JSON.stringify(`${maplibre}/maplibre-gl.mjs`)}).then(start,function(){send({type:'failed'});});
+function start(maplibregl){
   var map=new maplibregl.Map({container:'map',style:${JSON.stringify(styleUrl)},bounds:[[79.55,5.9],[81.9,9.85]],attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false});
   map.touchZoomRotate.disableRotation();
   var markers=[],pending=null,loaded=false;
-  map.on('error',function(e){if(!loaded)send({type:'failed'});});
+  // Only the map itself failing counts: a missing tile or icon (an error with a source or tile) still leaves a usable map.
+  map.on('error',function(e){if(!loaded&&!e.sourceId&&!e.tile)send({type:'failed'});});
   function circle(c,km){var lat=km/110.574,lng=km/(111.32*Math.cos(c.latitude*Math.PI/180)),r=[];for(var i=0;i<=64;i++){var a=i/64*2*Math.PI;r.push([c.longitude+lng*Math.cos(a),c.latitude+lat*Math.sin(a)]);}return r;}
   function draw(s){
     if(!loaded){pending=s;return;}
@@ -65,7 +71,7 @@ export function mapHtml(styleUrl: string): string {
   }
   window.draw=draw;
   map.on('load',function(){loaded=true;send({type:'ready'});if(pending)draw(pending);});
-})();
+}
 </script></body></html>`;
 }
 
