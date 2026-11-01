@@ -28,7 +28,9 @@ export const mockRouter = {
 };
 
 const describeHref = (href: Href) =>
-  typeof href === 'string' ? href : `${href.pathname}${href.params?.role ? `?role=${href.params.role}` : ''}`;
+  typeof href === 'string'
+    ? href
+    : `${href.pathname}${href.params?.role ? `?role=${href.params.role}` : ''}${href.params?.returnTo ? `&returnTo=${href.params.returnTo}` : ''}`;
 
 export function expoRouterMock() {
   return {

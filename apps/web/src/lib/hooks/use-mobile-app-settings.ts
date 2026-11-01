@@ -1,14 +1,16 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AppConfig, AppPlatform } from '@care-platform/shared';
+import type { AndroidAppLinks, AppConfig, AppPlatform } from '@care-platform/shared';
 import { api } from '../api/client';
 
 /** Settings > Mobile app as the admin sees it. */
-export type MobileAppSettings = AppConfig & { updatedAt: string };
+export type MobileAppSettings = AppConfig & { appLinks: { android: AndroidAppLinks }; updatedAt: string };
 
 /** Per platform: what the form sends back. An empty string clears a field. */
-export type MobileAppSettingsInput = Partial<Record<AppPlatform, { minimumVersion?: string; latestVersion?: string; storeUrl?: string }>>;
+export type MobileAppSettingsInput = Partial<Record<AppPlatform, { minimumVersion?: string; latestVersion?: string; storeUrl?: string }>> & {
+  appLinks?: { android?: { packageName?: string; certFingerprints?: string[] } };
+};
 
 const KEY = ['mobile-app-settings'] as const;
 

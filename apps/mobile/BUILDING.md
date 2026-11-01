@@ -96,6 +96,43 @@ That needs a D-U-N-S number, so start early. Once you have it:
 Android needs nothing from Google Play until a store release, so you can
 start testing on Android first.
 
+### 5. Android: links that open the app
+
+Links to the website in emails and WhatsApp messages (a booking, an
+invoice, a caregiver's shifts or payments, a caregiver's profile) can open
+the app instead of the browser. Android allows this only when the website
+vouches for the app, with the app's package name and the **SHA-256
+fingerprint of the certificate it is signed with**. The app already asks
+for these links (`APP_LINK_PATHS` in `app.config.ts`); the website
+publishes its side at `https://find.caregivers.lk/.well-known/assetlinks.json`
+from what you enter in the staff app.
+
+1. Get the fingerprints:
+   - **For development and test builds:** run `eas credentials`, choose
+     **Android** and the profile, and copy the **SHA256 Fingerprint** of the
+     keystore.
+   - **For the Play Store:** once the app is on Google Play, open
+     **Play Console › your app › Test and release › App integrity › Play
+     app signing › Settings** and copy the **SHA-256 certificate
+     fingerprint** of both the **App signing key certificate** (Google
+     signs store installs with this one) and the **Upload key
+     certificate**.
+2. In the staff app, go to **Settings › Mobile app › App links (Android)**.
+   Enter the package name `com.vivantihealth.carelink` and paste the
+   fingerprints, one per line (with or without colons). Save.
+3. Check it: open `https://find.caregivers.lk/.well-known/assetlinks.json`
+   in a browser. It should show the package and the fingerprints.
+4. Install a build made after this was set up (the links are part of the
+   app, so an older build doesn't have them). Android checks the website
+   when the app is installed. To check a phone, connect it and run
+   `adb shell pm get-app-links com.vivantihealth.carelink`: the website
+   should show as `verified`. If it isn't, re-check the fingerprint and run
+   `adb shell pm verify-app-links --re-verify com.vivantihealth.carelink`.
+
+Until this is done, nothing breaks: links simply open in the browser.
+Links to sign in, confirm an email, reset a password, register or delete
+an account always stay on the website.
+
 ---
 
 ## Everyday use
@@ -167,4 +204,5 @@ a store release.
 - [ ] Apple push key created and a push received on an iPhone development build.
 - [ ] Caregiver documents tried on a real Android phone and iPhone: take a photo, choose a photo, choose a PDF, and open an uploaded one.
 - [ ] Store links filled in under Settings › Mobile app.
+- [ ] App links set up (step 5) with the Play **app signing** fingerprint, and a link in an email opening the store build.
 - [ ] Store listings, privacy forms and screenshots: see the mobile app plan, section 7.

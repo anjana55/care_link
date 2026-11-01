@@ -23,12 +23,30 @@ export const registerUrl = (side: Side): string =>
 export const homeFor = (user: { role: string } | null | undefined): '/find' | '/home' =>
   user?.role === 'CAREGIVER' ? '/home' : '/find';
 
+/** The caregiver side's screens; everything else is the client side's. */
+export const CAREGIVER_SCREENS = ['/home', '/shifts', '/payments', '/me', '/documents', '/profile'] as const;
+export type CaregiverScreen = (typeof CAREGIVER_SCREENS)[number];
+const isCaregiverScreen = (path: string) => (CAREGIVER_SCREENS as readonly string[]).includes(path);
+
 /**
- * Where to go after signing in: back to `returnTo` (the profile someone was
- * looking at when they tapped Contact) if it's a path inside the app, else
- * their area. Never another site: only "/..." and not "//...".
+ * Where to go after signing in: back to `returnTo` - the profile someone was
+ * looking at when they tapped Contact, or the screen a link opened - if it's
+ * a path inside the app on this person's side, else their area. Never another
+ * site: only "/..." and not "//...".
  */
 export function afterSignIn(user: { role: string }, returnTo: unknown): string {
   const back = typeof returnTo === 'string' && /^\/(?!\/)/.test(returnTo) ? returnTo : null;
-  return back && user.role !== 'CAREGIVER' ? back : homeFor(user);
+  if (!back) return homeFor(user);
+  return isCaregiverScreen(back) === (user.role === 'CAREGIVER') ? back : homeFor(user);
+}
+
+/**
+ * Who may see a caregiver screen: someone not signed in is sent to the
+ * caregiver sign-in, which brings them back here (a link from an email can
+ * open any of these); a client goes to their own area. Null: stay.
+ */
+export function caregiverOnly(user: { role: string } | null | undefined, here: CaregiverScreen) {
+  if (!user) return { pathname: '/sign-in', params: { role: 'caregiver', returnTo: here } } as const;
+  if (user.role !== 'CAREGIVER') return '/find' as const;
+  return null;
 }

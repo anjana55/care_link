@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { APP_PLATFORMS, APP_VERSION_RE, compareAppVersions, isStoreUrl, type AppPlatform } from '@care-platform/shared';
+import {
+  ANDROID_PACKAGE_RE,
+  APP_PLATFORMS,
+  APP_VERSION_RE,
+  MAX_CERT_FINGERPRINTS,
+  compareAppVersions,
+  isStoreUrl,
+  parseCertFingerprints,
+  type AppPlatform,
+} from '@care-platform/shared';
 import { useAuth } from '@/lib/api/auth-context';
 import { useTranslation } from '@/lib/i18n/provider';
 import { ApiError } from '@/lib/api/client';
@@ -13,10 +22,12 @@ import {
 } from '@/lib/hooks/use-mobile-app-settings';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input, Label } from '@/components/ui/input';
+import { Input, Label, Textarea } from '@/components/ui/input';
 
 type PlatformDraft = { minimumVersion: string; latestVersion: string; storeUrl: string };
-type Draft = Record<AppPlatform, PlatformDraft>;
+/** Android app links: the package, and the fingerprints one per line. */
+type LinksDraft = { packageName: string; certFingerprints: string };
+type Draft = Record<AppPlatform, PlatformDraft> & { links: LinksDraft };
 
 function toDraft(s: MobileAppSettings): Draft {
   const one = (p: AppPlatform): PlatformDraft => ({
@@ -24,7 +35,21 @@ function toDraft(s: MobileAppSettings): Draft {
     latestVersion: s[p].latestVersion ?? '',
     storeUrl: s[p].storeUrl ?? '',
   });
-  return { ios: one('ios'), android: one('android') };
+  return {
+    ios: one('ios'),
+    android: one('android'),
+    links: { packageName: s.appLinks.android.packageName ?? '', certFingerprints: s.appLinks.android.certFingerprints.join('\n') },
+  };
+}
+
+/** What's wrong with the app-link fields - the same rules the API enforces. */
+function linkProblems(d: LinksDraft) {
+  const pkg = d.packageName.trim();
+  const { fingerprints, invalid } = parseCertFingerprints(d.certFingerprints);
+  return {
+    packageName: pkg && !ANDROID_PACKAGE_RE.test(pkg) ? 'packageInvalid' : null,
+    certFingerprints: invalid.length ? 'fingerprintInvalid' : fingerprints.length > MAX_CERT_FINGERPRINTS ? 'fingerprintTooMany' : null,
+  } as const;
 }
 
 /** What's wrong with one platform's fields, by field - the same rules the API enforces. */
@@ -48,7 +73,9 @@ function problems(platform: AppPlatform, d: PlatformDraft) {
  * Settings > Mobile app (admin): per platform, the minimum version that may
  * still be used (older builds stop and must update), the latest version (older
  * builds are offered an update) and the store link they update from. The app
- * reads this every time it opens (GET /public/app-config).
+ * reads this every time it opens (GET /public/app-config). Also the Android
+ * app links: the package and signing fingerprints the website publishes so
+ * links to it open the app.
  */
 export default function MobileAppSettingsPage() {
   const { t } = useTranslation();
@@ -80,7 +107,14 @@ export default function MobileAppSettingsPage() {
   };
 
   const issues = { ios: problems('ios', draft.ios), android: problems('android', draft.android) };
-  const valid = APP_PLATFORMS.every((p) => Object.values(issues[p]).every((v) => !v));
+  const linkIssues = linkProblems(draft.links);
+  const valid = APP_PLATFORMS.every((p) => Object.values(issues[p]).every((v) => !v)) && Object.values(linkIssues).every((v) => !v);
+  const linksOn = Boolean(settings.appLinks.android.packageName && settings.appLinks.android.certFingerprints.length);
+  const setLinks = (key: keyof LinksDraft, value: string) => {
+    setSaved(false);
+    setError(null);
+    setDraft({ ...draft, links: { ...draft.links, [key]: value } });
+  };
   const dirty = JSON.stringify(draft) !== JSON.stringify(toDraft(settings));
   const anyCheck = APP_PLATFORMS.some((p) => settings[p].minimumVersion || settings[p].latestVersion);
   // Saving a higher minimum than before stops people the next time they open the app.
@@ -91,12 +125,17 @@ export default function MobileAppSettingsPage() {
   });
 
   const submit = () => {
-    const body = Object.fromEntries(
-      APP_PLATFORMS.map((p) => [
-        p,
-        { minimumVersion: draft[p].minimumVersion.trim(), latestVersion: draft[p].latestVersion.trim(), storeUrl: draft[p].storeUrl.trim() },
-      ]),
-    );
+    const body = {
+      ...Object.fromEntries(
+        APP_PLATFORMS.map((p) => [
+          p,
+          { minimumVersion: draft[p].minimumVersion.trim(), latestVersion: draft[p].latestVersion.trim(), storeUrl: draft[p].storeUrl.trim() },
+        ]),
+      ),
+      appLinks: {
+        android: { packageName: draft.links.packageName.trim(), certFingerprints: parseCertFingerprints(draft.links.certFingerprints).fingerprints },
+      },
+    };
     save.mutate(body, {
       onSuccess: (data) => {
         setDraft(toDraft(data));
@@ -167,6 +206,54 @@ export default function MobileAppSettingsPage() {
             </Card>
           );
         })}
+
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('mobileAppAdmin.appLinks.title')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-ink/60">{t('mobileAppAdmin.appLinks.intro')}</p>
+            <p role="status" className={`text-sm ${linksOn ? 'text-brand-dark' : 'text-ink/60'}`}>
+              {linksOn ? t('mobileAppAdmin.appLinks.statusOn') : t('mobileAppAdmin.appLinks.statusOff')}
+            </p>
+            <div>
+              <Label htmlFor="links-package">{t('mobileAppAdmin.appLinks.packageName')}</Label>
+              <Input
+                id="links-package"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="com.vivantihealth.carelink"
+                value={draft.links.packageName}
+                aria-invalid={Boolean(linkIssues.packageName)}
+                aria-describedby="links-package-hint"
+                onChange={(e) => setLinks('packageName', e.target.value)}
+                className="max-w-xl"
+              />
+              <p id="links-package-hint" className={`mt-1 text-xs ${linkIssues.packageName ? 'text-danger' : 'text-ink/50'}`}>
+                {linkIssues.packageName ? t(`mobileAppAdmin.appLinks.${linkIssues.packageName}`) : t('mobileAppAdmin.appLinks.packageHint')}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="links-fingerprints">{t('mobileAppAdmin.appLinks.fingerprints')}</Label>
+              <Textarea
+                id="links-fingerprints"
+                rows={3}
+                spellCheck={false}
+                autoComplete="off"
+                placeholder="AB:CD:EF:…"
+                value={draft.links.certFingerprints}
+                aria-invalid={Boolean(linkIssues.certFingerprints)}
+                aria-describedby="links-fingerprints-hint"
+                onChange={(e) => setLinks('certFingerprints', e.target.value)}
+                className="max-w-xl font-mono text-xs"
+              />
+              <p id="links-fingerprints-hint" className={`mt-1 text-xs ${linkIssues.certFingerprints ? 'text-danger' : 'text-ink/50'}`}>
+                {linkIssues.certFingerprints ? t(`mobileAppAdmin.appLinks.${linkIssues.certFingerprints}`) : t('mobileAppAdmin.appLinks.fingerprintsHint')}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         {raising && dirty && (
           <p role="alert" className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">

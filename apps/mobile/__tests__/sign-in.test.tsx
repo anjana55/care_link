@@ -249,9 +249,9 @@ describe('signed in', () => {
     expect(tokenStore.get()).toBeNull();
   });
 
-  it('sends a signed-out visitor from home back to the welcome screen', async () => {
+  it('sends a signed-out visitor from home to the caregiver sign-in, which brings them back', async () => {
     await show(<Home />);
-    expect(await screen.findByText('redirect:/')).toBeTruthy();
+    expect(await screen.findByText('redirect:/sign-in?role=caregiver&returnTo=/home')).toBeTruthy();
   });
 
   it('opens registration on the website for now', async () => {

@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
 
 /** One platform's settings. An empty string clears a field; the rules are checked in the service. */
 export class AppPlatformSettingsDto {
@@ -17,6 +17,23 @@ export class AppPlatformSettingsDto {
   storeUrl?: string;
 }
 
+/** Android app links. An empty package or list clears it; the rules are checked in the service. */
+export class AndroidAppLinksDto {
+  @ApiPropertyOptional({ example: 'com.vivantihealth.carelink' })
+  @IsOptional() @IsString() @MaxLength(255)
+  packageName?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'SHA-256 signing-certificate fingerprints, AB:12:... (colons and case optional).' })
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(200, { each: true })
+  certFingerprints?: string[];
+}
+
+export class AppLinksDto {
+  @ApiPropertyOptional({ type: AndroidAppLinksDto })
+  @IsOptional() @ValidateNested() @Type(() => AndroidAppLinksDto)
+  android?: AndroidAppLinksDto;
+}
+
 /** Partial update - the admin form sends back what it has. */
 export class UpdateAppSettingsDto {
   @ApiPropertyOptional({ type: AppPlatformSettingsDto })
@@ -26,4 +43,8 @@ export class UpdateAppSettingsDto {
   @ApiPropertyOptional({ type: AppPlatformSettingsDto })
   @IsOptional() @ValidateNested() @Type(() => AppPlatformSettingsDto)
   android?: AppPlatformSettingsDto;
+
+  @ApiPropertyOptional({ type: AppLinksDto })
+  @IsOptional() @ValidateNested() @Type(() => AppLinksDto)
+  appLinks?: AppLinksDto;
 }

@@ -7,6 +7,9 @@ import { useColors } from '@/theme';
 import { Text } from '@/ui/Text';
 import { formatDate } from '@/ui/dates';
 import { useMyPayouts } from '@/caregiver/api';
+import { Redirect } from 'expo-router';
+import { useAuth } from '@/auth/AuthProvider';
+import { caregiverOnly } from '@/auth/sides';
 
 /**
  * The caregiver's payout statements, as on the website: what they're paid for
@@ -18,6 +21,10 @@ export default function Payments() {
   const colors = useColors();
   const payouts = useMyPayouts();
   const [open, setOpen] = useState<string | null>(null);
+  const { user } = useAuth();
+  // A link from an email can open this screen signed out, or on a client's phone.
+  const gate = caregiverOnly(user, '/payments');
+  if (gate) return <Redirect href={gate} />;
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>

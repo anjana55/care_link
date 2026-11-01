@@ -24,6 +24,12 @@ interface Brand {
   bundleId: string;
   apiUrl: string;
   /**
+   * The public website. Links to it (in emails and WhatsApp messages) open
+   * the app on Android once the site vouches for it - see BUILDING.md,
+   * "App links".
+   */
+  siteHost: string;
+  /**
    * The brand's Expo (EAS) project: the account that owns it and the project
    * id `eas init` prints. Needed for builds, push and over-the-air updates;
    * see BUILDING.md. Empty until Vivanti Health's Expo account is set up -
@@ -34,6 +40,24 @@ interface Brand {
   easProjectId: string;
 }
 
+/**
+ * Website paths the app opens instead of the browser: what the API's emails
+ * and messages link to, and caregiver profiles. src/links/app-links.ts maps
+ * each to its screen (a test keeps the two in step). Verifying an email,
+ * resetting a password, the social sign-in return, deleting an account and
+ * registering stay on the website.
+ */
+export const APP_LINK_PATHS = [
+  '/account',
+  '/caregiver/dashboard',
+  '/caregiver/shifts',
+  '/caregiver/payments',
+  '/caregiver/documents',
+  '/caregiver/profile',
+  '/caregivers/',
+  '/find',
+];
+
 const BRANDS: Record<string, Brand> = {
   carelink: {
     name: 'CareLink',
@@ -41,6 +65,7 @@ const BRANDS: Record<string, Brand> = {
     scheme: 'carelink',
     bundleId: 'com.vivantihealth.carelink',
     apiUrl: 'https://find.caregivers.lk/api',
+    siteHost: 'find.caregivers.lk',
     owner: '',
     easProjectId: '',
   },
@@ -72,7 +97,20 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     orientation: 'portrait',
     userInterfaceStyle: 'automatic',
     ios: { bundleIdentifier: brand.bundleId, supportsTablet: false },
-    android: { package: brand.bundleId, ...(googleServicesFile ? { googleServicesFile } : {}) },
+    android: {
+      package: brand.bundleId,
+      ...(googleServicesFile ? { googleServicesFile } : {}),
+      // Links to the website open the app (APP_LINK_PATHS above). Android checks
+      // the site's /.well-known/assetlinks.json when the app is installed.
+      intentFilters: [
+        {
+          action: 'VIEW',
+          autoVerify: true,
+          data: APP_LINK_PATHS.map((pathPrefix) => ({ scheme: 'https', host: brand.siteHost, pathPrefix })),
+          category: ['BROWSABLE', 'DEFAULT'],
+        },
+      ],
+    },
     plugins: [
       'expo-router',
       'expo-notifications',
@@ -94,6 +132,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       brand: key,
       brandName: brand.name,
       apiUrl: process.env.EXPO_PUBLIC_API_URL ?? brand.apiUrl,
+      appLinkHost: brand.siteHost,
       // Push needs the Expo (EAS) project's id; without it the app simply doesn't register for push.
       ...(projectId ? { eas: { projectId } } : {}),
     },

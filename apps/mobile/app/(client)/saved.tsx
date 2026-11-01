@@ -25,7 +25,7 @@ export default function Saved() {
         {t('account.saved.title')}
       </Text>
       <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('account.saved.subtitle')}</Text>
-      {!client ? <SignInPrompt body={t('profile.saveCta')} /> : null}
+      {!client ? <SignInPrompt body={t('profile.saveCta')} returnTo="/saved" /> : null}
     </View>
   );
 

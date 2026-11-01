@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { appUpdateStatus, compareAppVersions, normalizeAppConfig } from '@care-platform/shared';
+import { appUpdateStatus, assetLinksFor, compareAppVersions, normalizeAppConfig, normalizeCertFingerprint, parseCertFingerprints } from '@care-platform/shared';
 import { AppSettingsService } from './app-settings.service';
 
 /**
@@ -17,6 +17,8 @@ const EMPTY_ROW = {
   androidMinimumVersion: null,
   androidLatestVersion: null,
   androidStoreUrl: null,
+  androidPackage: null,
+  androidCertFingerprints: null,
   updatedBy: null,
 };
 const IOS_STORE = 'https://apps.apple.com/app/carelink/id1234567890';
@@ -120,6 +122,71 @@ describe('mobile app version control', () => {
         android: { minimumVersion: null, latestVersion: null, storeUrl: null },
       });
       expect(normalizeAppConfig(null).ios.minimumVersion).toBeNull();
+    });
+  });
+
+  describe('Android app links', () => {
+    const FP = '14:6D:E9:83:C5:73:06:50:D8:EE:B9:95:2F:34:FC:64:16:A0:83:42:E6:1D:BE:A8:8A:04:96:B2:3F:CF:44:E5';
+
+    it('read a fingerprint however it was pasted, and nothing that is not one', () => {
+      expect(normalizeCertFingerprint(FP)).toBe(FP);
+      expect(normalizeCertFingerprint(FP.replace(/:/g, '').toLowerCase())).toBe(FP);
+      expect(normalizeCertFingerprint(` ${FP.toLowerCase()} `)).toBe(FP);
+      expect(normalizeCertFingerprint(FP.slice(3))).toBeNull(); // 31 bytes
+      expect(normalizeCertFingerprint(`${FP}:00`)).toBeNull(); // 33 bytes
+      expect(normalizeCertFingerprint(FP.replace('14', 'G4'))).toBeNull();
+      expect(normalizeCertFingerprint('')).toBeNull();
+      expect(normalizeCertFingerprint(':::')).toBeNull();
+      // A SHA-1 fingerprint (what older guides print) is the wrong one.
+      expect(normalizeCertFingerprint('14:6D:E9:83:C5:73:06:50:D8:EE:B9:95:2F:34:FC:64:16:A0:83:42')).toBeNull();
+    });
+
+    it('split a box of them, dropping repeats and naming what could not be read', () => {
+      expect(parseCertFingerprints(`${FP}\n\n ${FP.toLowerCase()}, nope`)).toEqual({ fingerprints: [FP], invalid: ['nope'] });
+    });
+
+    it('publish nothing until both the package and a fingerprint are set', () => {
+      expect(assetLinksFor(null)).toEqual([]);
+      expect(assetLinksFor({ packageName: 'com.vivantihealth.carelink', certFingerprints: [] })).toEqual([]);
+      expect(assetLinksFor({ packageName: null, certFingerprints: [FP] })).toEqual([]);
+      expect(assetLinksFor({ packageName: 'carelink', certFingerprints: [FP] })).toEqual([]);
+      expect(assetLinksFor({ packageName: 'com.vivantihealth.carelink', certFingerprints: [FP, 'junk'] })).toEqual([
+        {
+          relation: ['delegate_permission/common.handle_all_urls'],
+          target: { namespace: 'android_app', package_name: 'com.vivantihealth.carelink', sha256_cert_fingerprints: [FP] },
+        },
+      ]);
+    });
+
+    it('are saved one per line, in Android form, and leave the version settings alone', async () => {
+      const { service, stored } = make({ androidLatestVersion: '1.2.0' });
+      const saved = await service.update({ appLinks: { android: { packageName: 'com.vivantihealth.carelink', certFingerprints: [FP.toLowerCase(), FP] } } }, 'admin-1');
+      expect(stored().androidCertFingerprints).toBe(FP);
+      expect(saved.appLinks.android).toEqual({ packageName: 'com.vivantihealth.carelink', certFingerprints: [FP] });
+      expect(saved.android.latestVersion).toBe('1.2.0');
+      expect(await service.getAndroidAssetLinks()).toHaveLength(1);
+
+      await service.update({ android: { latestVersion: '1.3.0' } }, 'admin-1');
+      expect(stored().androidCertFingerprints).toBe(FP);
+      await service.update({ appLinks: { android: { packageName: '', certFingerprints: [] } } }, 'admin-1');
+      expect(stored()).toMatchObject({ androidPackage: null, androidCertFingerprints: null });
+      expect(await service.getAndroidAssetLinks()).toEqual([]);
+    });
+
+    it.each([
+      [{ packageName: 'carelink' }, /package name/],
+      [{ packageName: '1com.x' }, /package name/],
+      [{ certFingerprints: ['AB:CD'] }, /isn't a SHA-256 fingerprint/],
+      [{ certFingerprints: Array.from({ length: 6 }, (_, i) => FP.slice(0, -2) + String(i).padStart(2, '0')) }, /at most 5/],
+    ])('refuse %j', async (android, message) => {
+      const { service, stored } = make({});
+      await expect(service.update({ appLinks: { android } } as never, 'admin-1')).rejects.toThrow(message);
+      expect(stored().updatedBy).toBeNull();
+    });
+
+    it("publish nothing when the settings can't be read", async () => {
+      const { service } = make(null, { broken: true });
+      expect(await service.getAndroidAssetLinks()).toEqual([]);
     });
   });
 });

@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Experience, OwnCaregiver, Qualification, VerificationStatus } from '@care-platform/shared';
 import { ApiError } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
+import { caregiverOnly } from '@/auth/sides';
 import { useCatalog, useMyRecords, useOwnCaregiver, useToggleAssignment, useUpdateOwnProfile } from '@/caregiver/api';
 import { changesBetween, CONTACT_METHODS, contactDetailsOf, identityLocked, problemsIn, type ContactDetails } from '@/caregiver/profile';
 import { config } from '@/config';
@@ -32,8 +33,8 @@ export default function Profile() {
   const { user } = useAuth();
   const record = useOwnCaregiver();
 
-  if (!user) return <Redirect href="/" />;
-  if (user.role !== 'CAREGIVER') return <Redirect href="/find" />;
+  const gate = caregiverOnly(user, '/profile');
+  if (gate) return <Redirect href={gate} />;
 
   const c = record.data;
   return (

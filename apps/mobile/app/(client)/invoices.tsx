@@ -26,7 +26,7 @@ export default function Invoices() {
         {t('invoices.title')}
       </Text>
       <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('invoices.subtitle')}</Text>
-      {!client ? <SignInPrompt body={t('invoices.empty')} /> : null}
+      {!client ? <SignInPrompt body={t('invoices.empty')} returnTo="/invoices" /> : null}
       {owing > 0 ? (
         <Text style={[styles.owing, { borderColor: colors.brand, color: colors.ink }]}>
           {t('invoices.owing')} <Text style={{ fontWeight: '700' }}>{formatLkr(owing.toFixed(2))}</Text>
