@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { useDeviceLocation } from '../src/search/location';
 import { chooseFile, choosePhoto, clearViewedDocuments, openDocument, takePhoto } from '../src/caregiver/document-files';
+import { phoneSocialDeps } from '../src/auth/social';
 import { AppProviders, serveApi } from '../test-utils/app';
 
 // A development build made before expo-location, expo-image-picker (and so on) were added: the native modules aren't there...
@@ -14,6 +15,14 @@ jest.mock('expo-location', () => {
 jest.mock('expo-image-picker', () => {
   mockLoads.count += 1;
   throw new Error("Cannot find native module 'ExponentImagePicker'");
+});
+jest.mock('expo-web-browser', () => {
+  mockLoads.count += 1;
+  throw new Error("Cannot find native module 'ExpoWebBrowser'");
+});
+jest.mock('expo-crypto', () => {
+  mockLoads.count += 1;
+  throw new Error("Cannot find native module 'ExpoCrypto'");
 });
 jest.mock('expo-file-system', () => {
   mockLoads.count += 1;
@@ -40,6 +49,11 @@ describe('a build without a native module', () => {
     expect(await chooseFile()).toEqual({ error: 'unsupported' });
     await expect(openDocument('https://x/file', {}, { id: 'd-1', mimeType: 'application/pdf', title: 'NIC' })).rejects.toThrow('unsupported');
     expect(() => clearViewedDocuments()).not.toThrow();
+    expect(mockLoads.count).toBe(0);
+  });
+
+  it('offers no Google, Microsoft or Facebook buttons without the sign-in browser, without loading it', () => {
+    expect(phoneSocialDeps()).toBeNull();
     expect(mockLoads.count).toBe(0);
   });
 });
