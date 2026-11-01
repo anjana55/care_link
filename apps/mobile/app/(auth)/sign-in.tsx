@@ -7,6 +7,7 @@ import { api } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
 import { isInvalidCredentials, messageFor } from '@/auth/messages';
 import { afterSignIn, portalFor, registerUrl, sideFrom } from '@/auth/sides';
+import { SocialButtons } from '@/auth/SocialButtons';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button, Field, FormError, PasswordField, Screen } from '@/ui/controls';
@@ -58,20 +59,24 @@ export default function SignIn() {
     }
   }
 
+  /** A session from email, WhatsApp's other screen or a provider: on to where they were going. */
+  async function finish(tokens: Tokens): Promise<boolean> {
+    const signedIn = await signIn(tokens);
+    if (!signedIn) return false;
+    const next = afterSignIn(signedIn, returnTo);
+    // Back to the screen they came from, closing the sign-in screens on the way.
+    if (next === returnTo) router.dismissTo(next as never);
+    else router.replace(next as never);
+    return true;
+  }
+
   async function signInWithEmail() {
     setBusy(true);
     setError(null);
     setShowUnverifiedHint(false);
     try {
       const tokens = await api.post<Tokens>('/auth/login', { email: email.trim(), password, portal }, { anonymous: true });
-      const signedIn = await signIn(tokens);
-      if (signedIn) {
-        const next = afterSignIn(signedIn, returnTo);
-        // Back to the screen they came from, closing the sign-in screens on the way.
-        if (next === returnTo) router.dismissTo(next as never);
-        else router.replace(next as never);
-      }
-      else setError(t('signIn.emailError'));
+      if (!(await finish(tokens))) setError(t('signIn.emailError'));
     } catch (err) {
       // A wrong password, an unknown email and another side's account all come
       // back as 401 "Invalid credentials": say that the reader's way. Any other
@@ -88,6 +93,8 @@ export default function SignIn() {
     <Screen>
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={[styles.title, { color: colors.ink }]}>{t(side === 'caregiver' ? 'signIn.caregiver' : 'signIn.client')}</Text>
+
+        <SocialButtons side={side} onSignedIn={finish} onWrongSide={() => router.replace({ pathname: '/sign-in', params: { role: otherSide } })} />
 
         {mode === 'whatsapp' ? (
           <View style={styles.form}>

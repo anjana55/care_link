@@ -23,7 +23,24 @@
     "emailError": "Invalid email or password.",
     "unverifiedHint": "If you haven't verified your email yet, check your inbox for the verification link.",
     "noAccount": "Don't have an account?",
-    "signUp": "Sign up"
+    "signUp": "Sign up",
+    "social": {
+      "continue": {
+        "GOOGLE": "Continue with Google",
+        "MICROSOFT": "Continue with Microsoft",
+        "FACEBOOK": "Continue with Facebook"
+      },
+      "orEmail": "or sign in with your email",
+      "errors": {
+        "notRegisteredClient": "No account is linked to that sign-in yet. Sign in with your email or phone, then link it under My account › Sign-in methods on our website. New here? Sign up first.",
+        "notRegisteredCaregiver": "No caregiver account is linked to that sign-in. Please register first.",
+        "wrongPortalClient": "That sign-in belongs to a caregiver account. Use the caregiver sign-in.",
+        "wrongPortalCaregiver": "That sign-in belongs to a client account. Use the client sign-in.",
+        "accountDisabled": "This account cannot be used to sign in. Please contact us.",
+        "expired": "Sign-in could not be completed. Please try again.",
+        "generic": "Sign-in could not be completed. Please try again."
+      }
+    }
   },
   "app": {
     "name": "{brand}"
