@@ -7,6 +7,7 @@ import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldC
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
 import { useAiStatus } from '@/lib/hooks/use-ai';
 import { useInternationalSummary } from '@/lib/hooks/use-international';
+import { useAccountDeletionSummary } from '@/lib/hooks/use-account-deletions';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { cn } from '@/lib/utils';
@@ -56,6 +57,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { data: summary } = useCareRequestSummary(canSeeClients);
   const { data: ai } = useAiStatus(canSeeClients);
   const { data: overseas } = useInternationalSummary(canSeeClients);
+  const { data: deletions } = useAccountDeletionSummary(canSeeClients);
   const overseasWaiting = overseas ? overseas.new + overseas.pendingProfiles + overseas.pendingEmployers + overseas.interviewRequests : 0;
   // Requests lead for the roles that work them: it is the day's worklist.
   // Clients sit straight after Caregivers, the list they mirror.
@@ -88,6 +90,14 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 aria-label={t('requests.newCount', { count: summary.new })}
               >
                 {summary.new}
+              </span>
+            )}
+            {item.href === '/account-deletions' && deletions && deletions.pending > 0 && (
+              <span
+                className="min-w-[1.25rem] rounded-full bg-accent px-1.5 text-center text-xs font-semibold tabular-nums text-white"
+                aria-label={t('accountDeletions.waitingCount', { count: deletions.pending })}
+              >
+                {deletions.pending}
               </span>
             )}
             {item.href === '/international' && overseasWaiting > 0 && (

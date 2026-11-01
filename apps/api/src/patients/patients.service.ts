@@ -28,6 +28,7 @@ import { normalizePhone } from '../common/utils/phone.util';
 import { resolveLocationRefs } from '../common/utils/location.util';
 import { assertWhatsappNumberAvailable } from '../auth/phone-accounts.util';
 import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
+import { assertNoPendingDeletion } from '../account-deletion/pending-deletion.util';
 
 /**
  * The columns a staff edit may write directly. Everything else is either set
@@ -407,6 +408,7 @@ export class PatientsService {
       );
     }
 
+    await assertNoPendingDeletion(this.db, { patientId: id });
     await this.db.update(patients).set({ status: dto.status }).where(eq(patients.id, id));
     return this.findOrThrow(id);
   }
@@ -419,6 +421,8 @@ export class PatientsService {
    */
   async setActive(id: string, isActive: boolean) {
     const target = await this.findOrThrow(id);
+    // Switching the sign-in back on would undo the lock of a pending deletion; switching it off is harmless.
+    if (isActive) await assertNoPendingDeletion(this.db, { patientId: id });
     await this.db.update(users).set({ isActive }).where(eq(users.id, target.userId));
 
     // An account that just lost access must not keep a live refresh token,

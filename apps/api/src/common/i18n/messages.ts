@@ -149,6 +149,8 @@ const ENTRIES: Triple[] = [
   ['App links: at most {n} fingerprints', 'යෙදුම් සබැඳි: උපරිම ඇඟිලි සලකුණු {n}යි', 'செயலி இணைப்புகள்: அதிகபட்சம் {n} கைரேகைகள்'],
   ['You can keep at most {n} documents. Remove one first.', 'ඔබට තබා ගත හැක්කේ උපරිම ලේඛන {n}ක් පමණි. මුලින් එකක් ඉවත් කරන්න.', 'நீங்கள் அதிகபட்சம் {n} ஆவணங்களை மட்டுமே வைத்திருக்கலாம். முதலில் ஒன்றை நீக்கவும்.'],
   ['Document not found', 'ලේඛනය හමු නොවීය', 'ஆவணம் கிடைக்கவில்லை'],
+  // Account deletion, while a request is pending
+  ['This person asked to delete their account. To restore it, cancel the request in Account deletions.', 'මෙම පුද්ගලයා තම ගිණුම මකා දැමීමට ඉල්ලා ඇත. එය යථා තත්ත්වයට පත් කිරීමට, ගිණුම් මකා දැමීම් හි ඉල්ලීම අවලංගු කරන්න.', 'இந்த நபர் தனது கணக்கை நீக்கக் கோரியுள்ளார். அதை மீட்டெடுக்க, கணக்கு நீக்கங்களில் கோரிக்கையை ரத்து செய்யவும்.'],
   // Sign-in from the mobile app
   ['Missing or invalid sign-in challenge', 'පුරනය වීමේ අභියෝගය නැත හෝ වලංගු නොවේ', 'உள்நுழைவுச் சவால் இல்லை அல்லது செல்லாது'],
   // Caregiver sign-up: email and password instead of a provider

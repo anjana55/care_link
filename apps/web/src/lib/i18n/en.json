@@ -3525,6 +3525,12 @@
     },
     "cancel": "Cancel deletion",
     "cancelTitle": "Cancel this deletion?",
-    "cancelMessage": "{name}'s account is unlocked and set back to how it was. They can sign in again."
+    "cancelMessage": "{name}'s account is unlocked and set back to how it was. They can sign in again.",
+    "banner": {
+      "title": "Asked to delete their account",
+      "body": "They asked on {asked}. The account is locked - they can't sign in - and it will be erased from {erase}, once nothing is still open. To restore it, cancel the request in Account deletions.",
+      "open": "Open Account deletions"
+    },
+    "waitingCount": "{count} waiting"
   }
 }

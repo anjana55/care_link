@@ -27,6 +27,8 @@ import { RelatedRequests } from '@/components/requests/related-requests';
 import { RelatedBookings } from '@/components/bookings/related-bookings';
 import { RelatedInvoices } from '@/components/billing/related-invoices';
 import { makeClientProfileSchema, UNSET_ID } from '@/lib/schemas/client-profile';
+import { usePendingAccountDeletion } from '@/lib/hooks/use-account-deletions';
+import { PendingDeletionBanner } from '@/components/accounts/pending-deletion-banner';
 
 /**
  * A client's page, laid out like a caregiver's: name and status in the header
@@ -51,6 +53,8 @@ export default function ClientDetailPage() {
 
   const isAdmin = user?.role === 'ADMIN';
   const canEdit = isAdmin || user?.role === 'STAFF';
+  // Asked to delete their account: say so, rather than just "Inactive". Restored only by cancelling the request.
+  const pendingDeletion = usePendingAccountDeletion({ patientId: id }, canEdit);
 
   // Same audit tab as a caregiver's: admin-only, matching @Roles on the
   // audit-logs endpoint. Status changes are recorded as UPDATE_CLIENT_STATUS.
@@ -149,6 +153,7 @@ export default function ClientDetailPage() {
         {t('clients.back')}
       </Link>
 
+      {pendingDeletion && <PendingDeletionBanner request={pendingDeletion} />}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-ink">{client.fullName}</h1>
@@ -172,7 +177,7 @@ export default function ClientDetailPage() {
           ) : (
             <>
               <StatusBadge status={client.status} label={t(`clients.status.${client.status}`)} />
-              {canEdit && <ClientStatusMove client={client} />}
+              {canEdit && !pendingDeletion && <ClientStatusMove client={client} />}
               {canEdit && (
                 <Link
                   href={`/requests/new?patientId=${client.id}`}

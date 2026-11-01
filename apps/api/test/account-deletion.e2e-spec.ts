@@ -23,6 +23,8 @@ import {
   users,
 } from '../src/database/schema';
 import { AccountDeletionService } from '../src/account-deletion/account-deletion.service';
+import { EmailService } from '../src/email/email.service';
+import { EmailSettingsService } from '../src/email/email-settings.service';
 import { STORAGE_SERVICE, type StorageService } from '../src/storage/storage.interface';
 import { SEED_PASSWORD } from './seed-password';
 
@@ -46,6 +48,8 @@ describe('Account deletion (e2e)', () => {
   let jwt: JwtService;
   let accessSecret: string;
   let staffToken: string;
+  let adminToken: string;
+  const mails: { to: string[]; subject: string; text: string; cta?: string }[] = [];
   let verifierToken: string;
   let deletion: AccountDeletionService;
   let storage: StorageService;
@@ -117,7 +121,18 @@ describe('Account deletion (e2e)', () => {
     const login = (email: string) => api().post('/auth/login').send({ email, password: SEED_PASSWORD });
     staffToken = (await login('staff@care-platform.local')).body.accessToken;
     verifierToken = (await login('verifier@care-platform.local')).body.accessToken;
-    expect(staffToken && verifierToken).toBeTruthy();
+    adminToken = (await login('admin@care-platform.local')).body.accessToken;
+    expect(staffToken && verifierToken && adminToken).toBeTruthy();
+    // Staff alerts: a fixed list, and the email captured rather than sent.
+    jest.spyOn(app.get(EmailSettingsService), 'staffAlertRecipients').mockResolvedValue(['ops@vivanti.example']);
+    jest.spyOn(app.get(EmailService), 'sendNotificationEmail').mockImplementation(async (to, params) => {
+      mails.push({
+        to: [to].flat(),
+        subject: params.subject,
+        text: params.blocks.flatMap((b) => [b.heading, ...b.paragraphs]).join('\n'),
+        cta: params.cta?.url,
+      });
+    });
 
     const tree = (await api().get('/public/meta/locations/tree?locale=en').expect(200)).body as { districts: { id: number }[] }[];
     const districtId = tree.flatMap((p) => p.districts)[0].id;
@@ -338,6 +353,92 @@ describe('Account deletion (e2e)', () => {
       // The payout keeps pointing at the caregiver's (erased) record.
       const [po] = await db.select().from(payoutStatements).where(eq(payoutStatements.id, payoutId));
       expect(po.caregiverId).toBe(cg.id);
+    });
+  });
+
+  describe('what staff are told', () => {
+    const auditOf = async (entityType: string, entityId: string) =>
+      (await api().get(`/audit-logs?entityType=${entityType}&entityId=${entityId}`).set(bearer(adminToken)).expect(200)).body as {
+        action: string;
+        userId: string | null;
+        metadata: Record<string, unknown>;
+      }[];
+    const pending = async () => (await api().get('/account-deletions/summary').set(bearer(staffToken)).expect(200)).body.pending as number;
+    const mailAbout = (text: string) => waitFor(() => mails.find((m) => m.text.includes(text) || m.subject.includes(text)));
+    async function waitFor<T>(find: () => T | undefined): Promise<T> {
+      for (let i = 0; i < 50; i++) {
+        const found = find();
+        if (found) return found;
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      throw new Error('not sent');
+    }
+
+    it('emails staff when a caregiver deletes their account, with what is still open', async () => {
+      const cg = await newCaregiver();
+      await db.insert(payoutStatements).values({ id: uuid(), reference: `PO-M${run}${++n}`.slice(0, 16), caregiverId: cg.id, periodStart: '2026-10-01', periodEnd: '2026-10-31', status: 'APPROVED' } as never);
+      const before = await pending();
+      await ask(cg.token).expect(200);
+
+      const mail = await mailAbout(cg.registrationNumber);
+      expect(mail.to).toEqual(['ops@vivanti.example']);
+      expect(mail.subject).toMatch(/^Account deleted by a caregiver: Nimali Silva/);
+      expect(mail.text).toContain(`(${cg.registrationNumber}) deleted their account`);
+      expect(mail.text).toContain('no longer appear in search');
+      expect(mail.text).toContain('Still open, to settle before it can be erased: 1 payout not yet paid.');
+      expect(mail.cta).toMatch(/\/account-deletions$/);
+      expect(await pending()).toBe(before + 1);
+
+      // Asking again (the website after the app) is the same request: no second email.
+      const sent = mails.length;
+      await ask(cg.token).expect(401); // already locked
+      expect(mails.length).toBe(sent);
+    });
+
+    it("shows on the record's Audit tab: the request, the cancellation, the erasure", async () => {
+      const cg = await newCaregiver();
+      await ask(cg.token).expect(200);
+      const entry = async (type: string, id: string, action: string) => (await auditOf(type, id)).find((a) => a.action === action)!;
+      const requested = await entry('Caregiver', cg.id, 'REQUEST_ACCOUNT_DELETION');
+      expect(requested).toMatchObject({ action: 'REQUEST_ACCOUNT_DELETION', userId: cg.userId });
+      expect(requested.metadata).toMatchObject({ accountUserId: cg.userId, role: 'CAREGIVER' });
+
+      const row = (await queue()).find((r) => r.caregiverId === cg.id)!;
+      await api().post(`/account-deletions/${row.id}/cancel`).set(bearer(staffToken)).expect(200);
+      const cancelled = await entry('Caregiver', cg.id, 'CANCEL_ACCOUNT_DELETION');
+      expect(cancelled).toMatchObject({ action: 'CANCEL_ACCOUNT_DELETION', metadata: expect.objectContaining({ requestId: row.id, restoredStatus: 'ACTIVE' }) });
+      expect(cancelled.userId).not.toBe(cg.userId);
+
+      const client = await newClient();
+      await ask(client.token).expect(200);
+      expect(await entry('Patient', client.patientId, 'REQUEST_ACCOUNT_DELETION')).toMatchObject({ userId: client.userId });
+      await mailAbout(client.email);
+      // Two erasure runs at once (two API instances): one erases, the other records nothing.
+      await Promise.all([deletion.eraseDue(new Date(Date.now() + 15 * DAY)), deletion.eraseDue(new Date(Date.now() + 15 * DAY))]);
+      const actions = (await auditOf('Patient', client.patientId)).map((a) => a.action);
+      expect(actions.filter((a) => a === 'ERASE_ACCOUNT')).toHaveLength(1);
+      // Erasing again later finds nothing to do, and records nothing.
+      await deletion.eraseDue(new Date(Date.now() + 16 * DAY));
+      expect((await auditOf('Patient', client.patientId)).filter((a) => a.action === 'ERASE_ACCOUNT')).toHaveLength(1);
+    });
+
+    it("won't let staff switch the account back on except by cancelling the request", async () => {
+      const cg = await newCaregiver();
+      await ask(cg.token).expect(200);
+      const refused = await api().patch(`/caregivers/${cg.id}/status`).set(bearer(adminToken)).send({ status: 'ACTIVE' }).expect(409);
+      expect(refused.body.message).toBe('This person asked to delete their account. To restore it, cancel the request in Account deletions.');
+      expect((await db.select().from(caregivers).where(eq(caregivers.id, cg.id)))[0].status).toBe('INACTIVE');
+
+      const client = await newClient();
+      await ask(client.token).expect(200);
+      await api().patch(`/patients/${client.patientId}/active`).set(bearer(adminToken)).send({ isActive: true }).expect(409);
+      expect((await db.select().from(users).where(eq(users.id, client.userId)))[0].isActive).toBe(false);
+      await api().patch(`/patients/${client.patientId}/status`).set(bearer(staffToken)).send({ status: 'ACTIVE' }).expect(409);
+
+      // Cancelling restores it, and the usual moves work again.
+      const row = (await queue()).find((r) => r.caregiverId === cg.id)!;
+      await api().post(`/account-deletions/${row.id}/cancel`).set(bearer(staffToken)).expect(200);
+      await api().patch(`/caregivers/${cg.id}/status`).set(bearer(adminToken)).send({ status: 'INACTIVE' }).expect(200);
     });
   });
 });
