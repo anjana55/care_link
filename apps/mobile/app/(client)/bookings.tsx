@@ -39,7 +39,7 @@ export default function Bookings() {
         {t('account.bookings.title')}
       </Text>
       <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('account.bookings.subtitle')}</Text>
-      {client ? <TodaysCare /> : <SignInPrompt body={t('account.bookings.empty')} />}
+      {client ? <TodaysCare /> : <SignInPrompt body={t('account.bookings.empty')} returnTo="/bookings" />}
     </View>
   );
 

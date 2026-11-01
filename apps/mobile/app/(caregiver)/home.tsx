@@ -5,6 +5,7 @@ import { useQueries, useQueryClient } from '@tanstack/react-query';
 import type { CareChecklistShift } from '@care-platform/shared';
 import { api } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
+import { caregiverOnly } from '@/auth/sides';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
@@ -57,9 +58,8 @@ export default function Today() {
       : null,
   );
 
-  if (!user) return <Redirect href="/" />;
-  // A client's area is Find.
-  if (user.role !== 'CAREGIVER') return <Redirect href="/find" />;
+  const gate = caregiverOnly(user, '/home');
+  if (gate) return <Redirect href={gate} />;
 
   const c = record.data;
   // What staff still need: the core documents not uploaded, and any sent back.
@@ -74,7 +74,7 @@ export default function Today() {
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
           <Text style={{ fontSize: 13, color: colors.muted }}>{t('portal.welcome')}</Text>
           <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-            {c?.fullName ?? user.phone ?? user.email ?? ''}
+            {c?.fullName ?? user?.phone ?? user?.email ?? ''}
           </Text>
           {c ? (
             <>

@@ -2,8 +2,15 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import {
   APP_PLATFORMS,
+  ANDROID_PACKAGE_RE,
   APP_VERSION_RE,
+  EMPTY_ANDROID_APP_LINKS,
   EMPTY_APP_CONFIG,
+  MAX_CERT_FINGERPRINTS,
+  assetLinksFor,
+  parseCertFingerprints,
+  type AndroidAppLinks,
+  type AssetLinkStatement,
   compareAppVersions,
   isStoreUrl,
   type AppConfig,
@@ -16,7 +23,7 @@ import type { UpdateAppSettingsDto } from './dto/update-app-settings.dto';
 const SETTINGS_ID = 'default';
 type Row = typeof appSettings.$inferSelect;
 
-export type AdminAppSettings = AppConfig & { updatedAt: Date };
+export type AdminAppSettings = AppConfig & { appLinks: { android: AndroidAppLinks }; updatedAt: Date };
 
 const COLUMNS = {
   ios: { minimumVersion: 'iosMinimumVersion', latestVersion: 'iosLatestVersion', storeUrl: 'iosStoreUrl' },
@@ -29,6 +36,13 @@ function toConfig(row: Row): AppConfig {
   return {
     ios: { minimumVersion: row.iosMinimumVersion, latestVersion: row.iosLatestVersion, storeUrl: row.iosStoreUrl },
     android: { minimumVersion: row.androidMinimumVersion, latestVersion: row.androidLatestVersion, storeUrl: row.androidStoreUrl },
+  };
+}
+
+function toAndroidLinks(row: Row): AndroidAppLinks {
+  return {
+    packageName: row.androidPackage,
+    certFingerprints: (row.androidCertFingerprints ?? '').split('\n').filter(Boolean),
   };
 }
 
@@ -63,7 +77,20 @@ export class AppSettingsService {
 
   async getForAdmin(): Promise<AdminAppSettings> {
     const row = await this.getRow();
-    return { ...toConfig(row), updatedAt: row.updatedAt };
+    return { ...toConfig(row), appLinks: { android: toAndroidLinks(row) }, updatedAt: row.updatedAt };
+  }
+
+  /**
+   * What the website publishes at /.well-known/assetlinks.json. Empty until
+   * both the package and a fingerprint are set, and when the settings can't
+   * be read: links then simply stay in the browser.
+   */
+  async getAndroidAssetLinks(): Promise<AssetLinkStatement[]> {
+    try {
+      return assetLinksFor(toAndroidLinks(await this.getRow()));
+    } catch {
+      return assetLinksFor(EMPTY_ANDROID_APP_LINKS);
+    }
   }
 
   async update(dto: UpdateAppSettingsDto, updatedBy: string): Promise<AdminAppSettings> {
@@ -100,10 +127,37 @@ export class AppSettingsService {
       set[cols.storeUrl] = next.storeUrl;
     }
 
+    const links = this.androidLinksFrom(dto);
+
     await this.db
       .update(appSettings)
-      .set({ ...set, updatedBy, updatedAt: new Date() })
+      .set({ ...set, ...links, updatedBy, updatedAt: new Date() })
       .where(eq(appSettings.id, SETTINGS_ID));
     return this.getForAdmin();
+  }
+
+  /** The app-link columns to save, if the form sent them. Fingerprints are kept in Android's form, one per line. */
+  private androidLinksFrom(dto: UpdateAppSettingsDto): Partial<Pick<Row, 'androidPackage' | 'androidCertFingerprints'>> {
+    const given = dto.appLinks?.android;
+    if (!given) return {};
+    const out: Partial<Pick<Row, 'androidPackage' | 'androidCertFingerprints'>> = {};
+    if (given.packageName !== undefined) {
+      const pkg = blank(given.packageName);
+      if (pkg && !ANDROID_PACKAGE_RE.test(pkg)) {
+        throw new BadRequestException('App links: the package name looks like com.example.app - letters, numbers and dots');
+      }
+      out.androidPackage = pkg;
+    }
+    if (given.certFingerprints !== undefined) {
+      const { fingerprints, invalid } = parseCertFingerprints(given.certFingerprints.join('\n'));
+      if (invalid.length) {
+        throw new BadRequestException(`App links: "${invalid[0]}" isn't a SHA-256 fingerprint (32 pairs of letters and numbers, e.g. AB:12:...)`);
+      }
+      if (fingerprints.length > MAX_CERT_FINGERPRINTS) {
+        throw new BadRequestException(`App links: at most ${MAX_CERT_FINGERPRINTS} fingerprints`);
+      }
+      out.androidCertFingerprints = fingerprints.length ? fingerprints.join('\n') : null;
+    }
+    return out;
   }
 }

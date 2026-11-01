@@ -144,6 +144,9 @@ const ENTRIES: Triple[] = [
   ['{platform}: add the store link before setting a minimum version, so people can update', '{platform}: අවම අනුවාදයක් සැකසීමට පෙර, යාවත්කාලීන කළ හැකි වන පරිදි store සබැඳිය එක් කරන්න', '{platform}: குறைந்தபட்சப் பதிப்பை அமைக்கும் முன், மக்கள் புதுப்பிக்கக்கூடிய வகையில் store இணைப்பைச் சேர்க்கவும்'],
   ['iOS: the store link must be an https://apps.apple.com/... address', 'iOS: store සබැඳිය https://apps.apple.com/... ලිපිනයක් විය යුතුය', 'iOS: store இணைப்பு https://apps.apple.com/... முகவரியாக இருக்க வேண்டும்'],
   ['Android: the store link must be an https://play.google.com/... address', 'Android: store සබැඳිය https://play.google.com/... ලිපිනයක් විය යුතුය', 'Android: store இணைப்பு https://play.google.com/... முகவரியாக இருக்க வேண்டும்'],
+  ['App links: the package name looks like com.example.app - letters, numbers and dots', 'යෙදුම් සබැඳි: පැකේජ නාමයක් com.example.app ලෙස පෙනේ - අකුරු, ඉලක්කම් සහ තිත්', 'செயலி இணைப்புகள்: தொகுப்பு பெயர் com.example.app போல இருக்கும் - எழுத்துகள், எண்கள் மற்றும் புள்ளிகள்'],
+  ['App links: "{value}" isn\'t a SHA-256 fingerprint (32 pairs of letters and numbers, e.g. AB:12:...)', 'යෙදුම් සබැඳි: "{value}" SHA-256 ඇඟිලි සලකුණක් නොවේ (අකුරු සහ ඉලක්කම් යුගල 32ක්, උදා. AB:12:...)', 'செயலி இணைப்புகள்: "{value}" ஒரு SHA-256 கைரேகை அல்ல (எழுத்து மற்றும் எண்களின் 32 ஜோடிகள், எ.கா. AB:12:...)'],
+  ['App links: at most {n} fingerprints', 'යෙදුම් සබැඳි: උපරිම ඇඟිලි සලකුණු {n}යි', 'செயலி இணைப்புகள்: அதிகபட்சம் {n} கைரேகைகள்'],
   ['You can keep at most {n} documents. Remove one first.', 'ඔබට තබා ගත හැක්කේ උපරිම ලේඛන {n}ක් පමණි. මුලින් එකක් ඉවත් කරන්න.', 'நீங்கள் அதிகபட்சம் {n} ஆவணங்களை மட்டுமே வைத்திருக்கலாம். முதலில் ஒன்றை நீக்கவும்.'],
   ['Document not found', 'ලේඛනය හමු නොවීය', 'ஆவணம் கிடைக்கவில்லை'],
   // Sign-in from the mobile app

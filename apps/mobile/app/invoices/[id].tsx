@@ -11,6 +11,8 @@ import { Button, Field, FormError, Screen } from '@/ui/controls';
 import { Text } from '@/ui/Text';
 import { formatDate } from '@/ui/dates';
 import { useMyInvoice, useStartOnlinePayment } from '@/care/billing-api';
+import { SignInPrompt } from '@/care/SignInPrompt';
+import { useClient } from '@/care/api';
 import { PayhereSheet, webViewAvailable, type PayhereOutcome } from '@/care/PayhereSheet';
 
 /** After a manual close, how long to keep checking whether a payment came through. */
@@ -29,6 +31,7 @@ export default function InvoiceScreen() {
   const colors = useColors();
   const router = useRouter();
   const { user } = useAuth();
+  const client = useClient();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const [payment, setPayment] = useState<PayhereOutcome | null>(null);
   const { data: invoice, isLoading, isError, refetch } = useMyInvoice(id ?? null, payment === 'return' || payment === 'closed');
@@ -45,6 +48,15 @@ export default function InvoiceScreen() {
 
   const back = <Button variant="link" label={`‹ ${t('invoices.back')}`} onPress={() => (router.canGoBack?.() ? router.back() : router.replace('/invoices'))} />;
 
+  // Opened from a link in an email by someone not signed in (as a client): sign in, then back here.
+  if (!client) {
+    return (
+      <Screen>
+        {back}
+        <SignInPrompt body={t('invoices.signInToView')} returnTo={`/invoices/${id ?? ''}`} />
+      </Screen>
+    );
+  }
   if (isLoading) {
     return (
       <Screen>

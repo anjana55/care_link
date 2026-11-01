@@ -3476,7 +3476,20 @@
     "minNeedsStore": "Add the store link first, so people who must update have somewhere to go.",
     "raiseWarning": "Raising the minimum stops everyone on an older version the next time they open the app. Make sure the new version is live in the store first.",
     "saved": "Saved.",
-    "saveError": "Could not save the settings. Please try again."
+    "saveError": "Could not save the settings. Please try again.",
+    "appLinks": {
+      "title": "App links (Android)",
+      "intro": "Lets links to the website - in emails, WhatsApp and text messages - open the app on Android phones that have it. The website publishes these at /.well-known/assetlinks.json; phones check them when the app is installed or updated.",
+      "statusOn": "App links are on.",
+      "statusOff": "App links are off: links open in the browser.",
+      "packageName": "Package name",
+      "packageHint": "The app's Android package, e.g. com.vivantihealth.carelink",
+      "fingerprints": "Signing certificate fingerprints (SHA-256)",
+      "fingerprintsHint": "One per line, from Play Console (App integrity › Play app signing) and eas credentials. Add both the app signing key and the upload key.",
+      "packageInvalid": "A package name looks like com.example.app - letters, numbers and dots.",
+      "fingerprintInvalid": "One of these isn't a SHA-256 fingerprint: 32 pairs of letters and numbers, e.g. AB:12:….",
+      "fingerprintTooMany": "At most 5 fingerprints."
+    }
   },
   "accountDeletions": {
     "title": "Account deletions",

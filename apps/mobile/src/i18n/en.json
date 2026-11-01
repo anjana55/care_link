@@ -514,7 +514,8 @@
       "CASH": "Cash",
       "BANK": "Bank",
       "ONLINE": "Online"
-    }
+    },
+    "signInToView": "Sign in to see this invoice."
   },
   "issues": {
     "report": "Something's not right? Tell us",

@@ -35,7 +35,7 @@ export default function Requests() {
       {client ? (
         <Button variant="secondary" label={t('account.requests.newRequest')} onPress={() => setFindForMe(true)} />
       ) : (
-        <SignInPrompt body={t('profile.contactCta')} />
+        <SignInPrompt body={t('profile.contactCta')} returnTo="/requests" />
       )}
     </View>
   );

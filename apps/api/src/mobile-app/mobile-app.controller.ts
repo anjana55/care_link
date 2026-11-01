@@ -45,3 +45,21 @@ export class AppConfigController {
     return this.settings.getPublic();
   }
 }
+
+/**
+ * The website's /.well-known/assetlinks.json (the website serves this answer
+ * there): which Android app may open links to the site. Public by design -
+ * Android fetches it, signed out, when the app is installed.
+ */
+@ApiTags('mobile-app')
+@Public()
+@Controller('public/app-links')
+export class AppLinksController {
+  constructor(private readonly settings: AppSettingsService) {}
+
+  @Get('android')
+  async android(@Res({ passthrough: true }) res: Response) {
+    res.set('Cache-Control', 'public, max-age=300');
+    return this.settings.getAndroidAssetLinks();
+  }
+}

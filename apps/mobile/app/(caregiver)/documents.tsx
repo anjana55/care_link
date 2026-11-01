@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CaregiverDocument } from '@care-platform/shared';
 import { ApiError } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
+import { caregiverOnly } from '@/auth/sides';
 import { useMyDocuments, useOpenDocument, useRemoveDocument, useUploadDocument } from '@/caregiver/api';
 import { choosePhoto, chooseFile, clearViewedDocuments, takePhoto, type PickOutcome } from '@/caregiver/document-files';
 import {
@@ -58,8 +59,8 @@ export default function Documents() {
 
   useEffect(() => clearViewedDocuments, []);
 
-  if (!user) return <Redirect href="/" />;
-  if (user.role !== 'CAREGIVER') return <Redirect href="/find" />;
+  const gate = caregiverOnly(user, '/documents');
+  if (gate) return <Redirect href={gate} />;
 
   const pick = async (how: () => Promise<PickOutcome>) => {
     setError(null);

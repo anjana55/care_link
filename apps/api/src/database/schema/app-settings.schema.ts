@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, datetime } from 'drizzle-orm/mysql-core';
+import { mysqlTable, varchar, datetime, text } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -8,6 +8,10 @@ import { sql } from 'drizzle-orm';
  * and the store link. All empty by default, so a deployment that never opens
  * the page never blocks or nags anyone. Nothing here is secret: the app reads
  * it signed out, at start-up (GET /public/app-config).
+ *
+ * Also the Android app links: the package name and signing-certificate
+ * fingerprints the website publishes in /.well-known/assetlinks.json, so links
+ * to the site open the app (GET /public/app-links/android).
  */
 export const appSettings = mysqlTable('app_settings', {
   id: varchar('id', { length: 36 }).primaryKey(),
@@ -17,6 +21,9 @@ export const appSettings = mysqlTable('app_settings', {
   androidMinimumVersion: varchar('android_minimum_version', { length: 16 }),
   androidLatestVersion: varchar('android_latest_version', { length: 16 }),
   androidStoreUrl: varchar('android_store_url', { length: 500 }),
+  androidPackage: varchar('android_package', { length: 255 }),
+  /** One SHA-256 fingerprint per line, in Android's AA:BB:... form. */
+  androidCertFingerprints: text('android_cert_fingerprints'),
 
   updatedBy: varchar('updated_by', { length: 36 }),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),

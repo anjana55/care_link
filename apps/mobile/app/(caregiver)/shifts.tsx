@@ -9,6 +9,9 @@ import { ShiftRow } from '@/ui/ShiftRow';
 import { IssueForm, IssueReportList } from '@/care/IssueForm';
 import { useMyShiftIssues, useMyShifts, useReportShiftIssue } from '@/caregiver/api';
 import { ShiftCarePlan } from '@/caregiver/ShiftCarePlan';
+import { Redirect } from 'expo-router';
+import { useAuth } from '@/auth/AuthProvider';
+import { caregiverOnly } from '@/auth/sides';
 
 /**
  * The caregiver's confirmed shifts, as on the website - read-only: staff
@@ -27,6 +30,10 @@ export default function Shifts() {
   const [reporting, setReporting] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const now = Date.now();
+  const { user } = useAuth();
+  // A link from an email can open this screen signed out, or on a client's phone.
+  const gate = caregiverOnly(user, '/shifts');
+  if (gate) return <Redirect href={gate} />;
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>

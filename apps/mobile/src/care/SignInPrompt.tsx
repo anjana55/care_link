@@ -5,15 +5,19 @@ import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
 
-/** In place of a client's own list, for someone not signed in as a client. */
-export function SignInPrompt({ body }: { body: string }) {
+/**
+ * In place of a client's own list, for someone not signed in as a client.
+ * Signing in comes back to `returnTo` - this screen - so a link from an email
+ * that opened it ends where it pointed.
+ */
+export function SignInPrompt({ body, returnTo }: { body: string; returnTo: string }) {
   const { t } = useTranslation();
   const colors = useColors();
   const router = useRouter();
   return (
     <View style={styles.box}>
       <Text style={{ fontSize: 16, lineHeight: 24, color: colors.muted }}>{body}</Text>
-      <Button label={t('signIn.client')} onPress={() => router.push({ pathname: '/sign-in', params: { role: 'client' } })} />
+      <Button label={t('signIn.client')} onPress={() => router.push({ pathname: '/sign-in', params: { role: 'client', returnTo } })} />
     </View>
   );
 }

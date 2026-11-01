@@ -272,3 +272,23 @@ describe('reporting a problem on a booking', () => {
     await waitFor(() => expect(calls.filter((c) => c.route === 'GET /me/issues').length).toBe(2));
   });
 });
+
+describe('opened from a link while signed out', () => {
+  const ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
+
+  it('an invoice asks to sign in, and comes back to it', async () => {
+    await tokenStore.clear();
+    mockRouter.params = { id: ID };
+    await show(<InvoiceScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: en.signIn.client }));
+    expect(screen.getByText(en.invoices.signInToView)).toBeTruthy();
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: '/sign-in', params: { role: 'client', returnTo: `/invoices/${ID}` } });
+  });
+
+  it('bookings ask to sign in, and come back to them', async () => {
+    await tokenStore.clear();
+    await show(<Bookings />);
+    await fireEvent.press(await screen.findByRole('button', { name: en.signIn.client }));
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: '/sign-in', params: { role: 'client', returnTo: '/bookings' } });
+  });
+});

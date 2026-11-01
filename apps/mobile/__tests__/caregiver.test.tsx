@@ -281,3 +281,22 @@ describe('reminders and notifications', () => {
     expect(screenFor('/shifts/x')).toBe('/home');
   });
 });
+
+describe('opened from a link while signed out', () => {
+  it.each([
+    ['Shifts', Shifts, '/shifts'],
+    ['Payments', Payments, '/payments'],
+    ['Today', Today, '/home'],
+  ] as const)('%s asks to sign in as a caregiver, and comes back after', async (_name, Screen, path) => {
+    await tokenStore.clear();
+    await show(<Screen />);
+    expect(await screen.findByText(`redirect:/sign-in?role=caregiver&returnTo=${path}`)).toBeTruthy();
+  });
+
+  it('sends a client who opens a caregiver link to their own area', async () => {
+    await tokenStore.set(tokensFor('PATIENT_GUARDIAN'));
+    serveApi({});
+    await show(<Shifts />);
+    expect(await screen.findByText('redirect:/find')).toBeTruthy();
+  });
+});
