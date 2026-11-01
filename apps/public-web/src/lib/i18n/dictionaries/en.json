@@ -217,7 +217,9 @@
       "password": "Password must be at least 8 characters",
       "passwordMismatch": "Passwords do not match",
       "consentRequired": "You must accept the consent to continue"
-    }
+    },
+    "linkTitle": "Or confirm with an account you already have",
+    "linkBody": "Continue with Google, Microsoft or Facebook using the same email address. That confirms your address straight away, and you can sign in with it from now on."
   },
   "patientIntake": {
     "phoneHint": "Our team will use this number to contact you.",
@@ -1227,7 +1229,8 @@
       "requests": "My requests",
       "saved": "Saved caregivers",
       "bookings": "Bookings",
-      "invoices": "Invoices"
+      "invoices": "Invoices",
+      "signIn": "Sign-in methods"
     },
     "findCaregivers": "Find caregivers",
     "requests": {
@@ -1292,6 +1295,20 @@
         "DAILY": "per day",
         "MONTHLY": "per month"
       }
+    },
+    "signIn": {
+      "title": "Sign-in methods",
+      "subtitle": "How you sign in, on the website and in the app.",
+      "emailPassword": "Email and password",
+      "on": "On - {email}",
+      "off": "Not set up",
+      "providers": "Google, Microsoft and Facebook",
+      "providersHint": "Link an account that uses {email}. You can then sign in with it, here and in the app.",
+      "providersHintNoEmail": "Link an account and its email address becomes the one on your account. You can then sign in with it, here and in the app.",
+      "linked": "Linked",
+      "link": "Link",
+      "none": "Google, Microsoft and Facebook sign-in are not switched on.",
+      "error": "Could not start linking. Please try again."
     }
   },
   "bookings": {
@@ -2255,5 +2272,21 @@
     "done": "Your account is closed. Your details will be erased on {date}.",
     "notHere": "Staff and employer accounts can't be deleted here. Please contact your administrator.",
     "error": "We could not do that. Please try again."
+  },
+  "socialSignIn": {
+    "orEmail": "or sign in with your email",
+    "errors": {
+      "notRegistered": "No account is linked to that sign-in yet. Sign in with your email or phone, then link it under My account › Sign-in methods. New here? Register first.",
+      "wrongPortalCaregiver": "That sign-in belongs to a client account. Use the client sign-in.",
+      "wrongPortalClient": "That sign-in belongs to a caregiver account. Use the caregiver sign-in.",
+      "emailMismatch": "That account uses a different email address than yours. Use an account with the same address."
+    },
+    "otherSignIn": {
+      "client": "Go to the client sign-in",
+      "caregiver": "Go to the caregiver sign-in"
+    },
+    "register": "Register",
+    "backToSignIn": "Back to sign in",
+    "signInMethods": "Back to sign-in methods"
   }
 }

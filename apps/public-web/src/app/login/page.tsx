@@ -10,6 +10,7 @@ import { SiteFooter } from '@/components/layout/site-footer';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
 import { useWhatsappConfig } from '@/lib/hooks/use-whatsapp-config';
+import { SocialLoginButtons } from '@/components/caregivers/social-login-buttons';
 import { Input, Label } from '@/components/ui/input';
 import { takeReturnTo } from '@/lib/return-to';
 
@@ -51,6 +52,16 @@ export default function LoginPage() {
         <div className="w-full max-w-sm rounded-lg border border-border bg-white p-8">
           <h1 className="text-lg font-semibold text-ink">{t('login.title')}</h1>
           <p className="mt-1 text-sm text-ink/60">{t('login.subtitle')}</p>
+
+          <div className="mt-6">
+            <SocialLoginButtons side="client">
+              <div className="my-5 flex items-center gap-3 text-xs text-ink/40" role="separator">
+                <span className="h-px flex-1 bg-border" />
+                {t('socialSignIn.orEmail')}
+                <span className="h-px flex-1 bg-border" />
+              </div>
+            </SocialLoginButtons>
+          </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
             <div>

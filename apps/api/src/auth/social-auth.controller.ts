@@ -15,11 +15,13 @@ import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { SocialAuthService, SocialLinkError } from './social-auth.service';
+import { SocialAuthService, SocialLinkError, type SocialRoundTrip } from './social-auth.service';
 import { SetSignupPasswordDto } from './dto/set-signup-password.dto';
 import { RegisterCaregiverUnifiedDto } from './dto/register-caregiver-unified.dto';
 import { ExchangeSocialCodeDto } from './dto/exchange-social-code.dto';
 import { Public } from '../common/decorators/public.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
 
 /**
@@ -102,8 +104,16 @@ export class SocialAuthController {
   @Public()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Get('social/:provider/login-url')
-  async loginUrl(@Param('provider') provider: string, @Query('nonce') nonce: string) {
-    return { url: await this.socialAuth.loginAuthorizeUrl(provider, nonce) };
+  async loginUrl(
+    @Param('provider') provider: string,
+    @Query('nonce') nonce: string,
+    // 'caregiver' (the default, as before) or 'client': whose sign-in this is.
+    @Query('side') side?: string,
+    // 'app' from the mobile app, which must then send `challenge` too.
+    @Query('client') client?: string,
+    @Query('challenge') challenge?: string,
+  ) {
+    return { url: await this.socialAuth.loginAuthorizeUrl(provider, nonce, { side, client, challenge }) };
   }
 
   /**
@@ -123,14 +133,12 @@ export class SocialAuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const frontend = this.frontendUrl();
-
-    // Known before anything can fail, so a failure lands on the page for the
-    // flow the caregiver was actually in (sign-in vs registration).
-    const flow = this.socialAuth.flowOf(state);
+    // Known before anything can fail, so a failure lands where the person
+    // actually is: the sign-in or registration page of their side, or the app.
+    const trip = this.socialAuth.roundTripOf(state);
 
     if (providerError || !code || !state) {
-      return this.fail(res, frontend, providerError ? 'declined' : 'invalid_request', undefined, flow);
+      return this.fail(res, trip, providerError ? 'declined' : 'invalid_request');
     }
     try {
       const result = await this.socialAuth.completeCallback({ provider, code, state });
@@ -140,12 +148,12 @@ export class SocialAuthController {
           entityType: 'User',
           ipAddress: req.ip,
         });
-        return res.redirect(`${frontend}/caregiver/social/callback?code=${encodeURIComponent(result.handoffCode)}`);
+        return res.redirect(`${this.callbackPage(trip)}?code=${encodeURIComponent(result.handoffCode)}`);
       }
-      // The nonce goes back to the browser that generated it, which compares
-      // it with the copy in its sessionStorage before spending the code.
+      // The nonce goes back to the browser (or app) that generated it, which
+      // compares it with its own copy before spending the code.
       const params = new URLSearchParams({ code: result.handoffCode, flow: 'login', nonce: result.nonce });
-      return res.redirect(`${frontend}/caregiver/social/callback?${params.toString()}`);
+      return res.redirect(`${this.callbackPage(trip)}?${params.toString()}`);
     } catch (err) {
       // Only a short code travels in the URL. The provider's own error
       // payload can contain the client secret, and a message is far too much
@@ -154,7 +162,7 @@ export class SocialAuthController {
       const reason =
         err instanceof SocialLinkError ? err.code : err instanceof HttpException ? 'provider_error' : 'unknown';
       this.logger.error(`Social link failed for ${provider}`, err instanceof Error ? err.stack : undefined);
-      return this.fail(res, frontend, reason, provider, flow);
+      return this.fail(res, trip, reason, provider);
     }
   }
 
@@ -167,19 +175,57 @@ export class SocialAuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('social/exchange')
   async exchange(@Body() dto: ExchangeSocialCodeDto, @Req() req: Request) {
-    const tokens = await this.socialAuth.exchangeHandoffCode(dto.code);
+    const tokens = await this.socialAuth.exchangeHandoffCode(dto.code, dto.verifier);
     await this.audit.record({ action: 'LOGIN_SOCIAL', entityType: 'User', ipAddress: req.ip });
     return tokens;
   }
 
-  private fail(res: Response, frontend: string, reason: string, provider?: string, flow: 'login' | 'signup' = 'signup') {
+  private fail(res: Response, trip: SocialRoundTrip, reason: string, provider?: string) {
     const params = new URLSearchParams({ error: reason });
     if (provider) params.set('provider', provider);
-    if (flow === 'login') params.set('flow', 'login');
-    return res.redirect(`${frontend}/caregiver/social/callback?${params.toString()}`);
+    if (trip.flow === 'login') params.set('flow', 'login');
+    return res.redirect(`${this.callbackPage(trip)}?${params.toString()}`);
+  }
+
+  /**
+   * Where a round trip ends: the mobile app (its own URL scheme, from this
+   * server's settings - never from the request), or the website's callback
+   * page for the side it belongs to.
+   */
+  private callbackPage(trip: SocialRoundTrip): string {
+    if (trip.app) return `${this.appScheme()}://auth/callback`;
+    return `${this.frontendUrl()}${trip.side === 'client' ? '/social/callback' : '/caregiver/social/callback'}`;
+  }
+
+  private appScheme() {
+    const scheme = this.config.get<string>('MOBILE_APP_SCHEME') ?? 'carelink';
+    return /^[a-z][a-z0-9+.-]*$/.test(scheme) ? scheme : 'carelink';
   }
 
   private frontendUrl() {
     return (this.config.get<string>('PUBLIC_WEB_URL') ?? 'http://localhost:3002').replace(/\/$/, '');
+  }
+}
+/**
+ * A signed-in caregiver's or client's own sign-in methods (My account >
+ * Sign-in methods): what they can sign in with, and a grant to link
+ * Google, Microsoft or Facebook - the same provider round trip as at
+ * registration, to their own login only.
+ */
+@ApiTags('auth')
+@Controller('me')
+@Roles('CAREGIVER', 'PATIENT_GUARDIAN')
+export class MySignInMethodsController {
+  constructor(private readonly socialAuth: SocialAuthService) {}
+
+  @Get('sign-in-methods')
+  methods(@CurrentUser() user: AuthenticatedUser) {
+    return this.socialAuth.signInMethods(user.userId);
+  }
+
+  @Post('social/link-grant')
+  @HttpCode(200)
+  linkGrant(@CurrentUser() user: AuthenticatedUser) {
+    return this.socialAuth.pendingLinkGrant(user.userId, user.role === 'PATIENT_GUARDIAN' ? 'client' : 'caregiver');
   }
 }

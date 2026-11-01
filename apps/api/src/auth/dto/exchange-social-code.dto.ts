@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class ExchangeSocialCodeDto {
   @ApiProperty({
@@ -11,4 +11,10 @@ export class ExchangeSocialCodeDto {
   // long enough that a truncated or mistyped code never reaches the database.
   @MinLength(32, { message: 'Sign-in code is not valid' })
   code: string;
+
+  @ApiProperty({ required: false, description: 'Mobile app only: the secret whose sha256 was sent as `challenge` with the sign-in' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  verifier?: string;
 }

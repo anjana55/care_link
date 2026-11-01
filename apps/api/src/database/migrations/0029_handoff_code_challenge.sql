@@ -1,0 +1,1 @@
+ALTER TABLE `auth_handoff_codes` ADD `code_challenge` varchar(64);

@@ -218,6 +218,8 @@ export class AuthService {
 
     return {
       patientId: result.patientId,
+      // For the controller, which hands back the link-a-provider grant; not sent on.
+      userId: result.userId,
       message: 'Registration successful. Please check your email to verify your account before logging in.',
       // DEV-ONLY escape hatch - see the identical field on registerCaregiver.
       ...(this.config.get<string>('NODE_ENV') !== 'production' ? { devVerificationUrl: verificationUrl } : {}),

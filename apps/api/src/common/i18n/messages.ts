@@ -146,6 +146,8 @@ const ENTRIES: Triple[] = [
   ['Android: the store link must be an https://play.google.com/... address', 'Android: store සබැඳිය https://play.google.com/... ලිපිනයක් විය යුතුය', 'Android: store இணைப்பு https://play.google.com/... முகவரியாக இருக்க வேண்டும்'],
   ['You can keep at most {n} documents. Remove one first.', 'ඔබට තබා ගත හැක්කේ උපරිම ලේඛන {n}ක් පමණි. මුලින් එකක් ඉවත් කරන්න.', 'நீங்கள் அதிகபட்சம் {n} ஆவணங்களை மட்டுமே வைத்திருக்கலாம். முதலில் ஒன்றை நீக்கவும்.'],
   ['Document not found', 'ලේඛනය හමු නොවීය', 'ஆவணம் கிடைக்கவில்லை'],
+  // Sign-in from the mobile app
+  ['Missing or invalid sign-in challenge', 'පුරනය වීමේ අභියෝගය නැත හෝ වලංගු නොවේ', 'உள்நுழைவுச் சவால் இல்லை அல்லது செல்லாது'],
   // Caregiver sign-up: email and password instead of a provider
   ['A password is already set for this account. Sign in, or use "Forgot password?".', 'මෙම ගිණුමට දැනටමත් මුරපදයක් සකසා ඇත. පිවිසෙන්න, නැතහොත් "මුරපදය අමතකද?" භාවිත කරන්න.', 'இந்தக் கணக்கிற்கு ஏற்கனவே கடவுச்சொல் அமைக்கப்பட்டுள்ளது. உள்நுழையவும், அல்லது "கடவுச்சொல்லை மறந்துவிட்டீர்களா?" என்பதைப் பயன்படுத்தவும்.'],
   // "Delete my account"

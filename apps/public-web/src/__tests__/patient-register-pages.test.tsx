@@ -174,7 +174,7 @@ describe('client sign-up after a search', () => {
   });
 
   it('submits the carried-over answers with only identity and "who" typed in', async () => {
-    post.mockResolvedValue({ patientId: 'p1', message: 'ok' });
+    post.mockResolvedValue({ patientId: 'p1', message: 'ok', pendingToken: 'tok', pendingTokenExpiresInSeconds: 900, providers: { GOOGLE: true, MICROSOFT: false, FACEBOOK: false } });
     renderPage(<RegisterPage />);
     await screen.findByText('Dehiwala, Colombo');
 
@@ -202,6 +202,11 @@ describe('client sign-up after a search', () => {
       careNeeds: 'Help needed with: Dementia care\nHealth conditions: diabetes',
     });
     expect(await screen.findByText(/we'll take you back to the caregiver you chose/)).toBeInTheDocument();
+    // They can confirm their address with Google instead of the email link.
+    expect(screen.getByText('Or confirm with an account you already have')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument();
+    // They chose a password on the form: the caregivers' email-and-password step isn't offered.
+    expect(screen.queryByRole('button', { name: 'Use an email address and password' })).toBeNull();
   });
 
   it('unfolds everything for editing', async () => {

@@ -109,7 +109,7 @@ describe('caregiver login page', () => {
     await waitFor(() => expect(assign).toHaveBeenCalledWith(expect.stringContaining('accounts.google.com')));
     const nonce = window.sessionStorage.getItem(LOGIN_NONCE_KEY);
     expect(nonce).toMatch(/^[0-9a-f]{32}$/);
-    expect(get).toHaveBeenCalledWith('/auth/social/google/login-url', { nonce });
+    expect(get).toHaveBeenCalledWith('/auth/social/google/login-url', { nonce, side: 'caregiver' });
   });
 
   it('links new visitors to the single registration form', async () => {
