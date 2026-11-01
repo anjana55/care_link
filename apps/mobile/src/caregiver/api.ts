@@ -15,7 +15,7 @@ import type {
 import { api, tokenStore } from '@/api';
 import { config } from '@/config';
 import { currentLanguage } from '@/i18n';
-import { openDocument } from './document-files';
+import { openDocument, uploadPart } from './document-files';
 import type { PickedFile } from './documents';
 import { useAuth } from '@/auth/AuthProvider';
 import { useTranslation } from '@/i18n';
@@ -124,8 +124,7 @@ export function useUploadDocument() {
       const form = new FormData();
       form.append('documentType', documentType);
       if (expiresOn) form.append('expiresOn', expiresOn);
-      // React Native sends a { uri, name, type } part as the file itself.
-      form.append('file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
+      form.append('file', uploadPart(file) as unknown as Blob);
       return api.post<CaregiverDocument>(documentsPath(me!.caregiverId), form);
     },
     onSuccess: changed,

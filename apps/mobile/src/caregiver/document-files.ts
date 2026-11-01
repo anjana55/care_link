@@ -112,6 +112,27 @@ export async function chooseFile(): Promise<PickOutcome> {
 }
 
 /**
+ * The file part of an upload. Since SDK 58, Expo's own fetch replaces React
+ * Native's, and it can't send React Native's { uri, name, type } part - it
+ * throws "Unsupported FormDataPart implementation" before anything leaves the
+ * phone. It reads the file through `bytes()`, so this part has both: `bytes()`
+ * for Expo's fetch, `uri` for React Native's (EXPO_PUBLIC_USE_RN_FETCH).
+ * Its name and type are the checked ones, which the API compares.
+ */
+export function uploadPart(file: PickedFile) {
+  return {
+    uri: file.uri,
+    name: file.name,
+    type: file.mimeType,
+    bytes: async (): Promise<Uint8Array> => {
+      const fs = fileSystem();
+      if (!fs) throw new Error('unsupported');
+      return new fs.File(file.uri).bytes();
+    },
+  };
+}
+
+/**
  * Where an opened document is kept while the phone's viewer shows it. Emptied
  * before each one and when the Documents screen closes, so a caregiver's ID
  * doesn't stay on the phone.
