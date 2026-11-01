@@ -24,7 +24,7 @@ import {
  */
 export async function voidOutstandingCredentials(
   db: Database,
-  params: { userId: string | null; caregiverId: string; phone?: string | null },
+  params: { userId: string | null; caregiverId: string | null; phone?: string | null },
 ): Promise<void> {
   const now = new Date();
   if (params.userId) {
@@ -43,10 +43,12 @@ export async function voidOutstandingCredentials(
       .set({ usedAt: now })
       .where(and(eq(passwordResetTokens.userId, params.userId), isNull(passwordResetTokens.usedAt)));
   }
-  await db
-    .update(accountClaimCodes)
-    .set({ consumedAt: now })
-    .where(and(eq(accountClaimCodes.caregiverId, params.caregiverId), isNull(accountClaimCodes.consumedAt)));
+  if (params.caregiverId) {
+    await db
+      .update(accountClaimCodes)
+      .set({ consumedAt: now })
+      .where(and(eq(accountClaimCodes.caregiverId, params.caregiverId), isNull(accountClaimCodes.consumedAt)));
+  }
   if (params.phone) {
     await db
       .update(whatsappOtps)
@@ -81,41 +83,46 @@ export async function releaseCaregiverIdentity(
   db: Database,
   params: { caregiverId: string; userId: string | null },
 ): Promise<ReleasedIdentity> {
-  const released: ReleasedIdentity = { releasedEmail: null, releasedPhone: null, unlinkedProviders: [] };
+  if (params.userId) return releaseLogin(db, { userId: params.userId, caregiverId: params.caregiverId });
+  await voidOutstandingCredentials(db, { userId: null, caregiverId: params.caregiverId });
+  return { releasedEmail: null, releasedPhone: null, unlinkedProviders: [] };
+}
 
-  if (params.userId) {
-    const [user] = await db
-      .select({ email: users.email, phone: users.phone })
-      .from(users)
-      .where(eq(users.id, params.userId))
-      .limit(1);
-    const links = await db
-      .select({ provider: socialAccounts.provider })
-      .from(socialAccounts)
-      .where(eq(socialAccounts.userId, params.userId));
+/**
+ * Takes a login apart, for a caregiver's or a client's account alike:
+ * deactivated, its email, phone and password removed, its Google, Microsoft
+ * and Facebook links deleted, and every session and outstanding code voided.
+ * The email and phone are then free to register again.
+ */
+export async function releaseLogin(
+  db: Database,
+  params: { userId: string; caregiverId?: string | null },
+): Promise<ReleasedIdentity> {
+  const [user] = await db
+    .select({ email: users.email, phone: users.phone })
+    .from(users)
+    .where(eq(users.id, params.userId))
+    .limit(1);
+  const links = await db
+    .select({ provider: socialAccounts.provider })
+    .from(socialAccounts)
+    .where(eq(socialAccounts.userId, params.userId));
 
-    released.releasedEmail = user?.email ?? null;
-    released.releasedPhone = user?.phone ?? null;
-    released.unlinkedProviders = links.map((l) => l.provider);
+  await voidOutstandingCredentials(db, { userId: params.userId, caregiverId: params.caregiverId ?? null, phone: user?.phone });
+  await db.delete(socialAccounts).where(eq(socialAccounts.userId, params.userId));
+  await db
+    .update(users)
+    .set({
+      isActive: false,
+      email: null,
+      phone: null,
+      passwordHash: null,
+      emailVerifiedAt: null,
+      phoneVerifiedAt: null,
+    })
+    .where(eq(users.id, params.userId));
 
-    await voidOutstandingCredentials(db, { userId: params.userId, caregiverId: params.caregiverId, phone: user?.phone });
-    await db.delete(socialAccounts).where(eq(socialAccounts.userId, params.userId));
-    await db
-      .update(users)
-      .set({
-        isActive: false,
-        email: null,
-        phone: null,
-        passwordHash: null,
-        emailVerifiedAt: null,
-        phoneVerifiedAt: null,
-      })
-      .where(eq(users.id, params.userId));
-  } else {
-    await voidOutstandingCredentials(db, { userId: null, caregiverId: params.caregiverId });
-  }
-
-  return released;
+  return { releasedEmail: user?.email ?? null, releasedPhone: user?.phone ?? null, unlinkedProviders: links.map((l) => l.provider) };
 }
 
 export interface SignInMethods {

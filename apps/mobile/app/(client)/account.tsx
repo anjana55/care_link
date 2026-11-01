@@ -63,6 +63,7 @@ export default function Account() {
             }}
           />
         ) : null}
+        {user ? <Button variant="link" label={t('deleteAccount.title')} onPress={() => router.push('/delete-account')} /> : null}
       </ScrollView>
     </Screen>
   );

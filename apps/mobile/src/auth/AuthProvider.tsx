@@ -25,7 +25,8 @@ interface AuthContextValue {
   ready: boolean;
   /** Starts a session from tokens a sign-in endpoint returned. Null when the account can't use the app. */
   signIn(tokens: Tokens): Promise<AuthUser | null>;
-  signOut(): Promise<void>;
+  /** `serverEnded`: the API already ended every session (account deletion), so only forget it here. */
+  signOut(options?: { serverEnded?: boolean }): Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -82,9 +83,9 @@ export function AuthProvider({
     [tokens],
   );
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async ({ serverEnded = false }: { serverEnded?: boolean } = {}) => {
     // Revoke on the server first (best effort - offline must not trap anyone signed in).
-    if (tokens.get()) await api.post('/auth/logout').catch(() => undefined);
+    if (tokens.get() && !serverEnded) await api.post('/auth/logout').catch(() => undefined);
     await tokens.clear();
     setUser(null);
   }, [api, tokens]);

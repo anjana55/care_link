@@ -48,6 +48,7 @@ export default function Me() {
             router.replace('/');
           }}
         />
+        <Button variant="link" label={t('deleteAccount.title')} onPress={() => router.push('/delete-account')} />
       </ScrollView>
     </Screen>
   );

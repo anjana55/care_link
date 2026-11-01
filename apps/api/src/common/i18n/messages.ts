@@ -146,6 +146,9 @@ const ENTRIES: Triple[] = [
   ['Android: the store link must be an https://play.google.com/... address', 'Android: store සබැඳිය https://play.google.com/... ලිපිනයක් විය යුතුය', 'Android: store இணைப்பு https://play.google.com/... முகவரியாக இருக்க வேண்டும்'],
   ['You can keep at most {n} documents. Remove one first.', 'ඔබට තබා ගත හැක්කේ උපරිම ලේඛන {n}ක් පමණි. මුලින් එකක් ඉවත් කරන්න.', 'நீங்கள் அதிகபட்சம் {n} ஆவணங்களை மட்டுமே வைத்திருக்கலாம். முதலில் ஒன்றை நீக்கவும்.'],
   ['Document not found', 'ලේඛනය හමු නොවීය', 'ஆவணம் கிடைக்கவில்லை'],
+  // "Delete my account"
+  ['Only caregiver and client accounts can be deleted here. Please contact us.', 'මෙහි මකා දැමිය හැක්කේ සාත්තු සේවක සහ සේවාලාභී ගිණුම් පමණි. කරුණාකර අප අමතන්න.', 'பராமரிப்பாளர் மற்றும் வாடிக்கையாளர் கணக்குகளை மட்டுமே இங்கே நீக்க முடியும். எங்களைத் தொடர்பு கொள்ளவும்.'],
+  ['Deletion request not found', 'මකා දැමීමේ ඉල්ලීම හමු නොවීය', 'நீக்குதல் கோரிக்கை கிடைக்கவில்லை'],
   ['Document file not found on disk', 'ලේඛන ගොනුව ගබඩාවේ හමු නොවීය', 'ஆவணக் கோப்பு சேமிப்பகத்தில் கிடைக்கவில்லை'],
   ['This document is being verified or has been verified, so only staff can remove it.', 'මෙම ලේඛනය සත්‍යාපනය කරමින් පවතී හෝ සත්‍යාපනය කර ඇත, එබැවින් එය ඉවත් කළ හැක්කේ කාර්ය මණ්ඩලයට පමණි.', 'இந்த ஆவணம் சரிபார்க்கப்படுகிறது அல்லது சரிபார்க்கப்பட்டுவிட்டது, எனவே ஊழியர்கள் மட்டுமே அதை நீக்க முடியும்.'],
   ['This entry is being verified or has been verified, so only staff can remove it.', 'මෙම ඇතුළත් කිරීම සත්‍යාපනය කරමින් පවතී හෝ සත්‍යාපනය කර ඇත, එබැවින් එය ඉවත් කළ හැක්කේ කාර්ය මණ්ඩලයට පමණි.', 'இந்த உள்ளீடு சரிபார்க்கப்படுகிறது அல்லது சரிபார்க்கப்பட்டுவிட்டது, எனவே ஊழியர்கள் மட்டுமே அதை நீக்க முடியும்.'],
