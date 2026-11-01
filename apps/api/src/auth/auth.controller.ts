@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
+import { SocialAuthService } from './social-auth.service';
 import { LoginDto } from './dto/login.dto';
 import { WrongPortalException } from '../common/auth/login-portal';
 import { PushService } from '../push/push.service';
@@ -26,6 +27,7 @@ export class AuthController {
     private readonly auditService: AuditService,
     private readonly passwordReset: PasswordResetService,
     private readonly push: PushService,
+    private readonly socialAuth: SocialAuthService,
   ) {}
 
   @Public()
@@ -77,14 +79,16 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('register-patient')
   async registerPatient(@Body() dto: RegisterPatientDto, @Req() req: Request) {
-    const result = await this.authService.registerPatient(dto);
+    const { userId, ...result } = await this.authService.registerPatient(dto);
     await this.auditService.record({
       action: 'REGISTER_PATIENT',
       entityType: 'Patient',
       entityId: result.patientId,
       ipAddress: req.ip,
     });
-    return result;
+    // As caregivers: they may link Google, Microsoft or Facebook straight away,
+    // which also confirms the address (the provider has verified it).
+    return { ...result, ...(await this.socialAuth.pendingLinkGrant(userId, 'client')) };
   }
 
   // An overseas employer's account. Same rate limit as the other sign-ups.

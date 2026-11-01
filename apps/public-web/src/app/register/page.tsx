@@ -19,8 +19,10 @@ import { useLocationTree } from '@/lib/hooks/use-public-search';
 import { UNSET_ID } from '@/lib/schemas/personal-info';
 import { guardianFieldsCheck, makePatientIntakeSchema, toIntakePayload } from '@/lib/schemas/patient-intake';
 import { CarriedOverSummary, PendingContactBanner, useCarriedOverIntake } from '@/components/register/carried-over-intake';
+import { ProviderChoices } from '@/components/caregivers/provider-choices';
+import type { PendingLinkGrant } from '@care-platform/shared';
 
-interface RegisterResponse {
+interface RegisterResponse extends PendingLinkGrant {
   patientId: string;
   message: string;
   devVerificationUrl?: string;
@@ -166,6 +168,20 @@ export default function RegisterPage() {
                 >
                   {result.devVerificationUrl}
                 </Link>
+              </div>
+            )}
+
+            {/* Google, Microsoft or Facebook with the same address confirms it at once, and is a way to sign in from then on. */}
+            {result.pendingToken && Object.values(result.providers ?? {}).some(Boolean) && (
+              <div className="mb-5 border-t border-border pt-5 text-left">
+                <h3 className="text-sm font-semibold text-ink">{t('register.linkTitle')}</h3>
+                <p className="mb-3 mt-1 text-sm text-ink/60">{t('register.linkBody')}</p>
+                <ProviderChoices
+                  pendingToken={result.pendingToken}
+                  providers={result.providers}
+                  expiresInSeconds={result.pendingTokenExpiresInSeconds}
+                  offerPassword={false}
+                />
               </div>
             )}
 

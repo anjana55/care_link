@@ -12,7 +12,7 @@ import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { WhatsappAuthService } from './whatsapp-auth.service';
 import { WhatsappAuthController } from './whatsapp-auth.controller';
 import { SocialAuthService } from './social-auth.service';
-import { SocialAuthController } from './social-auth.controller';
+import { MySignInMethodsController, SocialAuthController } from './social-auth.controller';
 import { SocialProviderRegistry } from './social/social-provider';
 import { SocialAuthSettingsService } from './social/social-settings.service';
 import { SocialAuthSettingsController } from './social/social-settings.controller';
@@ -45,7 +45,7 @@ import { SocialAuthSettingsController } from './social/social-settings.controlle
     SocialAuthSettingsService,
     SocialProviderRegistry,
   ],
-  controllers: [AuthController, WhatsappAuthController, SocialAuthController, SocialAuthSettingsController],
+  controllers: [AuthController, WhatsappAuthController, SocialAuthController, MySignInMethodsController, SocialAuthSettingsController],
   exports: [AuthService, SocialAuthService, PasswordResetService],
 })
 export class AuthModule {}

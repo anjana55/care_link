@@ -14,6 +14,7 @@ const SECTIONS = [
   { href: '/account/bookings', key: 'account.nav.bookings' },
   { href: '/account/invoices', key: 'account.nav.invoices' },
   { href: '/account/saved', key: 'account.nav.saved' },
+  { href: '/account/sign-in', key: 'account.nav.signIn' },
 ];
 
 /**

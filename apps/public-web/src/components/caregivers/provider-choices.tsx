@@ -30,6 +30,7 @@ export function ProviderChoices({
   expiresInSeconds,
   expiredMessage,
   email: formEmail,
+  offerPassword = true,
 }: {
   pendingToken: string;
   providers: Record<Provider, boolean>;
@@ -43,6 +44,8 @@ export function ProviderChoices({
   expiredMessage?: string;
   /** The address from the registration form, offered for the email-and-password sign-in. */
   email?: string;
+  /** Caregivers only: clients choose their password on the registration form. */
+  offerPassword?: boolean;
 }) {
   const { t } = useTranslation();
   const [pending, setPending] = useState<Provider | null>(null);
@@ -88,6 +91,7 @@ export function ProviderChoices({
 
   // With no provider switched on, email and password is the way: no button to open it.
   if (available.length === 0) {
+    if (!offerPassword) return null;
     return (
       <div>
         <EmailPasswordChoice pendingToken={pendingToken} initialEmail={formEmail} disabled={expired} startOpen />
@@ -116,8 +120,12 @@ export function ProviderChoices({
 
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
-      <p className="my-3 text-center text-xs uppercase tracking-wide text-ink/40">{t('caregiverSignup.or')}</p>
-      <EmailPasswordChoice pendingToken={pendingToken} initialEmail={formEmail} disabled={expired || pending !== null} />
+      {offerPassword && (
+        <>
+          <p className="my-3 text-center text-xs uppercase tracking-wide text-ink/40">{t('caregiverSignup.or')}</p>
+          <EmailPasswordChoice pendingToken={pendingToken} initialEmail={formEmail} disabled={expired || pending !== null} />
+        </>
+      )}
 
       {expiry}
     </div>

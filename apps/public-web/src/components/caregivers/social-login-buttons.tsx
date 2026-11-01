@@ -22,15 +22,17 @@ function makeNonce() {
 }
 
 /**
- * "Continue with Google / Microsoft / Facebook" for a caregiver who has already
- * registered.
+ * "Continue with Google / Microsoft / Facebook" for a caregiver - or, with
+ * `side="client"`, a client - who has already linked that account. The API
+ * signs an account in only on its own side, and sends the result to that
+ * side's callback page.
  *
  * Renders nothing - not even a divider - when no provider is configured, so the
  * email form below it is never preceded by an empty section. `children` is the
  * "or sign in with email" divider and is only shown when there are buttons for
  * it to divide.
  */
-export function SocialLoginButtons({ children }: { children?: React.ReactNode }) {
+export function SocialLoginButtons({ children, side = 'caregiver' }: { children?: React.ReactNode; side?: 'caregiver' | 'client' }) {
   const { t } = useTranslation();
   const { data: providers } = useSocialProviders();
   const [pending, setPending] = useState<SocialProviderName | null>(null);
@@ -45,8 +47,8 @@ export function SocialLoginButtons({ children }: { children?: React.ReactNode })
     try {
       const nonce = makeNonce();
       window.sessionStorage.setItem(LOGIN_NONCE_KEY, nonce);
-      const { url } = await api.get<{ url: string }>(`/auth/social/${provider.toLowerCase()}/login-url`, { nonce });
-      // A full navigation: the caregiver is leaving this app for the provider.
+      const { url } = await api.get<{ url: string }>(`/auth/social/${provider.toLowerCase()}/login-url`, { nonce, side });
+      // A full navigation: they are leaving this site for the provider.
       hardNavigate(url);
     } catch (err) {
       setPending(null);

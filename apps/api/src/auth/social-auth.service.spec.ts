@@ -390,10 +390,10 @@ describe('SocialAuthService sign-in', () => {
 
   it('does not accept a registration token as a login state, or the reverse', async () => {
     const { service, jwt } = makeService({ lookups: [] }, { accountId: 'g-1', email: 'care@x.com' });
-    expect(service.flowOf(pendingToken(jwt, 'u1'))).toBe('signup');
-    expect(service.flowOf(loginState(jwt))).toBe('login');
-    expect(service.flowOf(jwt.sign({ sub: 'u1' }, { secret: SECRET }))).toBe('signup');
-    expect(service.flowOf('garbage')).toBe('signup');
+    expect(service.roundTripOf(pendingToken(jwt, 'u1')).flow).toBe('signup');
+    expect(service.roundTripOf(loginState(jwt)).flow).toBe('login');
+    expect(service.roundTripOf(jwt.sign({ sub: 'u1' }, { secret: SECRET })).flow).toBe('signup');
+    expect(service.roundTripOf('garbage').flow).toBe('signup');
   });
 
   describe('loginAuthorizeUrl', () => {
@@ -414,7 +414,7 @@ describe('SocialAuthService sign-in', () => {
         },
       });
       await service.loginAuthorizeUrl('google', NONCE);
-      expect(service.flowOf(captured)).toBe('login');
+      expect(service.roundTripOf(captured).flow).toBe('login');
     });
   });
 });

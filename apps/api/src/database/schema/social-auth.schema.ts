@@ -68,6 +68,11 @@ export const authHandoffCodes = mysqlTable(
     codeHash: varchar('code_hash', { length: 255 }).notNull(),
     expiresAt: datetime('expires_at').notNull(),
     usedAt: datetime('used_at'),
+    // Sign-in from the mobile app: base64url(sha256(verifier)), where only the
+    // app that started the sign-in holds the verifier. The code comes back to
+    // the app through its URL scheme, which another app could also claim; the
+    // exchange then needs the verifier too (as OAuth's PKCE). Null on the web.
+    codeChallenge: varchar('code_challenge', { length: 64 }),
     createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({

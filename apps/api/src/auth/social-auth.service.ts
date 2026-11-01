@@ -12,7 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { and, eq, isNull } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
-import { createHash, randomBytes, randomUUID as uuid } from 'crypto';
+import { createHash, randomBytes, randomUUID as uuid, timingSafeEqual } from 'crypto';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
   authHandoffCodes,
@@ -39,6 +39,14 @@ import { SocialProviderRegistry } from './social/social-provider';
 import { parseSocialProvider } from './social/social-settings.service';
 import { socialRedirectUri } from './social/social-redirect.util';
 
+/** Whether `verifier` is the secret behind `challenge` (base64url sha256), compared in constant time. */
+export function matchesChallenge(verifier: unknown, challenge: string): boolean {
+  if (typeof verifier !== 'string' || verifier.length < 43 || verifier.length > 128) return false;
+  const actual = Buffer.from(createHash('sha256').update(verifier).digest('base64url'));
+  const expected = Buffer.from(challenge);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
 /**
  * `typ` discriminates this from an ordinary access token. Without it any
  * caregiver's access token would be accepted here as a pending registration,
@@ -56,6 +64,25 @@ const LOGIN_STATE_TYPE = 'caregiver-social-login';
 const LOGIN_STATE_TTL = '10m';
 
 const PENDING_TOKEN_TTL = '15m';
+
+/**
+ * Which sign-in a social round trip belongs to. A provider identity signs in
+ * only on its own side - a caregiver's Google account is refused on the
+ * client sign-in and the reverse, as email sign-in refuses the wrong portal.
+ */
+export type SocialSide = 'caregiver' | 'client';
+const ROLE_OF: Record<SocialSide, 'CAREGIVER' | 'PATIENT_GUARDIAN'> = { caregiver: 'CAREGIVER', client: 'PATIENT_GUARDIAN' };
+const sideOfRole = (role: string): SocialSide | null => (role === 'CAREGIVER' ? 'caregiver' : role === 'PATIENT_GUARDIAN' ? 'client' : null);
+export const parseSide = (raw: unknown): SocialSide => (raw === 'client' ? 'client' : 'caregiver');
+/** base64url(sha256(verifier)): 43 characters. */
+const CHALLENGE_RE = /^[A-Za-z0-9_-]{43}$/;
+
+/** Where a callback goes: whose sign-in, and whether it returns to the mobile app. */
+export interface SocialRoundTrip {
+  flow: 'login' | 'signup';
+  side: SocialSide;
+  app: boolean;
+}
 const PASSWORD_ALREADY_SET = 'A password is already set for this account. Sign in, or use "Forgot password?".';
 /**
  * Short by design: the handoff code is a bearer value sitting in browser
@@ -201,7 +228,7 @@ export class SocialAuthService {
       // expires on its own. Carried through the provider as the OAuth `state`,
       // so it is not stored and cannot be revoked early - which is why every
       // operation it permits is idempotent and email-matched.
-      pendingToken: this.signPendingToken(result.userId),
+      pendingToken: this.signPendingToken(result.userId, 'caregiver'),
       pendingTokenExpiresInSeconds: 15 * 60,
       providers: await this.registry.available(),
     };
@@ -214,10 +241,13 @@ export class SocialAuthService {
    * with their registration number and a code, that a never-secured record is
    * theirs. The token is unchanged either way, so the provider round trip and
    * every check in completeLink apply identically to both.
+   *
+   * Clients get the same grant at the end of their registration and from
+   * My account, to link a provider to the account they already have.
    */
-  async pendingLinkGrant(userId: string) {
+  async pendingLinkGrant(userId: string, side: SocialSide = 'caregiver') {
     return {
-      pendingToken: this.signPendingToken(userId),
+      pendingToken: this.signPendingToken(userId, side),
       pendingTokenExpiresInSeconds: 15 * 60,
       providers: await this.registry.available(),
     };
@@ -264,9 +294,9 @@ export class SocialAuthService {
     return { email, verificationSent: !alreadyVerified };
   }
 
-  private signPendingToken(userId: string) {
+  private signPendingToken(userId: string, side: SocialSide) {
     return this.jwtService.sign(
-      { sub: userId, typ: PENDING_TOKEN_TYPE },
+      { sub: userId, typ: PENDING_TOKEN_TYPE, side },
       {
         secret: this.config.get<string>('JWT_ACCESS_SECRET'),
         expiresIn: PENDING_TOKEN_TTL as any,
@@ -296,6 +326,21 @@ export class SocialAuthService {
     return this.registry.available();
   }
 
+  /**
+   * How a signed-in caregiver or client can sign in: a password, which
+   * providers are linked, and which are switched on (to offer linking).
+   */
+  async signInMethods(userId: string) {
+    const [user] = await this.db.select({ email: users.email, passwordHash: users.passwordHash }).from(users).where(eq(users.id, userId)).limit(1);
+    const links = await this.db.select({ provider: socialAccounts.provider }).from(socialAccounts).where(eq(socialAccounts.userId, userId));
+    return {
+      email: user?.email ?? null,
+      password: Boolean(user?.passwordHash),
+      linked: links.map((l) => l.provider),
+      providers: await this.registry.available(),
+    };
+  }
+
   /** The consent-screen URL the browser is sent to. */
   async authorizeUrl(rawProvider: string, pendingToken: string): Promise<string> {
     const provider = parseSocialProvider(rawProvider);
@@ -316,10 +361,10 @@ export class SocialAuthService {
     // database enum included, works with the canonical `GOOGLE`.
     const params = { ...raw, provider: parseSocialProvider(raw.provider) };
     const client = await this.registry.get(params.provider);
-    const { sub: userId } = this.verifyPendingToken(params.pendingToken);
+    const { sub: userId, side } = this.verifyPendingToken(params.pendingToken);
 
     const [user] = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
-    if (!user || !user.isActive || user.role !== 'CAREGIVER') {
+    if (!user || !user.isActive || user.role !== ROLE_OF[side]) {
       throw new SocialLinkError(
         'registration_gone',
         'This registration can no longer be completed. Please register again.',
@@ -415,33 +460,48 @@ export class SocialAuthService {
    * account and send the callback link to a victim, signing the victim in as
    * the attacker (login CSRF).
    */
-  async loginAuthorizeUrl(rawProvider: string, nonce: string): Promise<string> {
+  async loginAuthorizeUrl(
+    rawProvider: string,
+    nonce: string,
+    options: { side?: unknown; client?: unknown; challenge?: unknown } = {},
+  ): Promise<string> {
     const provider = parseSocialProvider(rawProvider);
     if (typeof nonce !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(nonce)) {
       throw new BadRequestException('Missing or invalid sign-in nonce');
     }
+    // The mobile app gets the code back through its URL scheme, which another
+    // app on the phone could also claim - so it must also send a challenge,
+    // and only it can answer it at the exchange.
+    const app = options.client === 'app';
+    if (app && (typeof options.challenge !== 'string' || !CHALLENGE_RE.test(options.challenge))) {
+      throw new BadRequestException('Missing or invalid sign-in challenge');
+    }
     const client = await this.registry.get(provider);
     const state = this.jwtService.sign(
-      { typ: LOGIN_STATE_TYPE, nonce },
+      { typ: LOGIN_STATE_TYPE, nonce, side: parseSide(options.side), ...(app ? { app: true, challenge: options.challenge } : {}) },
       { secret: this.config.get<string>('JWT_ACCESS_SECRET'), expiresIn: LOGIN_STATE_TTL as any },
     );
     return client.authorizeUrl(state, this.redirectUri(provider));
   }
 
   /**
-   * Which flow a callback belongs to. Only used to pick the page a failure is
-   * reported on, so anything unreadable is treated as a registration - that
-   * page's "back" link is the safe default.
+   * Which flow a callback belongs to, whose sign-in it is, and whether it
+   * returns to the mobile app. Used to pick where the result - or a failure -
+   * is sent, so anything unreadable is treated as a caregiver registration on
+   * the website: that page's "back" link is the safe default.
    */
-  flowOf(state: string | undefined): 'login' | 'signup' {
-    if (!state) return 'signup';
+  roundTripOf(state: string | undefined): SocialRoundTrip {
+    const fallback: SocialRoundTrip = { flow: 'signup', side: 'caregiver', app: false };
+    if (!state) return fallback;
     try {
       const payload = this.jwtService.verify(state, {
         secret: this.config.get<string>('JWT_ACCESS_SECRET'),
-      }) as { typ?: string };
-      return payload.typ === LOGIN_STATE_TYPE ? 'login' : 'signup';
+      }) as { typ?: string; side?: string; app?: boolean };
+      if (payload.typ === LOGIN_STATE_TYPE) return { flow: 'login', side: parseSide(payload.side), app: payload.app === true };
+      if (payload.typ === PENDING_TOKEN_TYPE) return { flow: 'signup', side: parseSide(payload.side), app: false };
+      return fallback;
     } catch {
-      return 'signup';
+      return fallback;
     }
   }
 
@@ -451,7 +511,7 @@ export class SocialAuthService {
    * nothing new has to be registered with Google, Microsoft or Facebook.
    */
   async completeCallback(params: { provider: string; code: string; state: string }) {
-    if (this.flowOf(params.state) === 'login') {
+    if (this.roundTripOf(params.state).flow === 'login') {
       return { flow: 'login' as const, ...(await this.completeLogin(params)) };
     }
     const handoffCode = await this.completeLink({
@@ -474,7 +534,7 @@ export class SocialAuthService {
   private async completeLogin(raw: { provider: string; code: string; state: string }) {
     const params = { ...raw, provider: parseSocialProvider(raw.provider) };
     const client = await this.registry.get(params.provider);
-    const { nonce } = this.verifyLoginState(params.state);
+    const { nonce, side, challenge } = this.verifyLoginState(params.state);
 
     const accessToken = await client.exchangeCode(params.code, this.redirectUri(params.provider));
     const profile = await client.fetchProfile(accessToken);
@@ -492,42 +552,50 @@ export class SocialAuthService {
     if (!link) {
       throw new SocialLinkError(
         'not_registered',
-        'No caregiver account is linked to that sign-in. Register first.',
+        'No account is linked to that sign-in. Register first, or sign in another way and link it.',
         HttpStatus.NOT_FOUND,
       );
     }
 
     const [user] = await this.db.select().from(users).where(eq(users.id, link.userId)).limit(1);
     // Same two conditions completeLink and the exchange enforce: the provider
-    // proving who someone is does not make a disabled account, or a non-caregiver
-    // one, signable here.
-    if (!user || !user.isActive || user.role !== 'CAREGIVER') {
+    // proving who someone is does not make a disabled account signable.
+    if (!user || !user.isActive || !sideOfRole(user.role)) {
       throw new SocialLinkError(
         'account_disabled',
         'This account cannot be used to sign in.',
         HttpStatus.FORBIDDEN,
       );
     }
+    // And only on its own side, as the email sign-in's portal rule.
+    if (sideOfRole(user.role) !== side) {
+      throw new SocialLinkError(
+        'wrong_portal',
+        side === 'client' ? 'That sign-in belongs to a caregiver account. Use the caregiver sign-in.' : 'That sign-in belongs to a client account. Use the client sign-in.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
 
-    return { handoffCode: await this.issueHandoffCode(user.id), nonce };
+    return { handoffCode: await this.issueHandoffCode(user.id, challenge), nonce };
   }
 
-  private verifyLoginState(state: string): { nonce: string } {
+  private verifyLoginState(state: string): { nonce: string; side: SocialSide; challenge: string | null } {
     try {
       const payload = this.jwtService.verify(state, {
         secret: this.config.get<string>('JWT_ACCESS_SECRET'),
-      }) as { typ?: string; nonce?: string };
+      }) as { typ?: string; nonce?: string; side?: string; app?: boolean; challenge?: string };
       if (payload.typ !== LOGIN_STATE_TYPE || !payload.nonce) {
         throw new Error('wrong token type');
       }
-      return { nonce: payload.nonce };
+      if (payload.app && !payload.challenge) throw new Error('app sign-in without a challenge');
+      return { nonce: payload.nonce, side: parseSide(payload.side), challenge: payload.app ? payload.challenge! : null };
     } catch {
       throw new SocialLinkError('expired', 'This sign-in link has expired. Please try again.', HttpStatus.UNAUTHORIZED);
     }
   }
 
   /** Trades a one-time handoff code for the same JWT pair every login issues. */
-  async exchangeHandoffCode(code: string) {
+  async exchangeHandoffCode(code: string, verifier?: string) {
     if (!code) {
       throw new BadRequestException('Missing sign-in code');
     }
@@ -544,7 +612,12 @@ export class SocialAuthService {
       throw new UnauthorizedException('This sign-in link has expired. Please try again.');
     }
 
+    // Spent on the first attempt either way, so a wrong verifier can't be retried.
     await this.db.update(authHandoffCodes).set({ usedAt: new Date() }).where(eq(authHandoffCodes.id, record.id));
+    // A code issued to the mobile app works only with the verifier its challenge was made from.
+    if (record.codeChallenge && !matchesChallenge(verifier, record.codeChallenge)) {
+      throw new UnauthorizedException('This sign-in link has expired. Please try again.');
+    }
 
     const [user] = await this.db.select().from(users).where(eq(users.id, record.userId)).limit(1);
     if (!user || !user.isActive) {
@@ -556,11 +629,12 @@ export class SocialAuthService {
     return this.authService.startSession(user);
   }
 
-  private async issueHandoffCode(userId: string) {
+  private async issueHandoffCode(userId: string, challenge: string | null = null) {
     const code = randomBytes(32).toString('hex');
     await this.db.insert(authHandoffCodes).values({
       id: uuid(),
       userId,
+      codeChallenge: challenge,
       codeHash: this.hashToken(code),
       expiresAt: new Date(Date.now() + HANDOFF_TTL_MS),
     });
@@ -580,17 +654,18 @@ export class SocialAuthService {
     return this.config.get<string>('PUBLIC_WEB_URL') ?? 'http://localhost:3002';
   }
 
-  private verifyPendingToken(token: string): { sub: string } {
+  private verifyPendingToken(token: string): { sub: string; side: SocialSide } {
     try {
       const payload = this.jwtService.verify(token, {
         secret: this.config.get<string>('JWT_ACCESS_SECRET'),
-      }) as { sub?: string; typ?: string };
+      }) as { sub?: string; typ?: string; side?: string };
       // The type check is what stops an ordinary caregiver access token being
       // replayed here to link a provider identity to an arbitrary account.
       if (payload.typ !== PENDING_TOKEN_TYPE || !payload.sub) {
         throw new Error('wrong token type');
       }
-      return { sub: payload.sub };
+      // Tokens from before clients could link carry no side: they were all caregivers'.
+      return { sub: payload.sub, side: parseSide(payload.side) };
     } catch {
       throw new SocialLinkError(
         'expired',
