@@ -39,6 +39,8 @@ jest.mock('../src/caregiver/document-files', () => ({
   choosePhoto: async () => mockFiles.library,
   chooseFile: async () => mockFiles.file,
   clearViewedDocuments: () => void mockFiles.cleared++,
+  // The real part: what the upload actually sends.
+  uploadPart: jest.requireActual('../src/caregiver/document-files').uploadPart,
   openDocument: async (url: string, headers: Record<string, string>, doc: Record<string, string>) => {
     mockFiles.opened.push({ url, headers, doc });
     const fail = mockFiles.openFails.shift();
@@ -196,7 +198,7 @@ describe('Documents', () => {
     expect(sent.body).toEqual({
       documentType: 'PASSPORT',
       expiresOn: '2031-06-15',
-      file: { uri: 'file:///cache/ImagePicker/abc.jpg', name: 'abc.jpg', type: 'image/jpeg' },
+      file: { uri: 'file:///cache/ImagePicker/abc.jpg', name: 'abc.jpg', type: 'image/jpeg', bytes: expect.any(Function) },
     });
     // Sent as a form, so the phone sets the multipart boundary itself.
     expect(sent.headers['Content-Type']).toBeUndefined();
@@ -221,7 +223,7 @@ describe('Documents', () => {
     expect(await screen.findByText(en.portal.documents.uploaded)).toBeTruthy();
     expect(calls.find((c) => c.route === 'POST /caregivers/cg-1/documents')!.body).toEqual({
       documentType: 'GRAMA_NILADHARI_CERTIFICATE',
-      file: { uri: 'content://gn.pdf', name: 'gn.pdf', type: 'application/pdf' },
+      file: { uri: 'content://gn.pdf', name: 'gn.pdf', type: 'application/pdf', bytes: expect.any(Function) },
     });
   });
 
