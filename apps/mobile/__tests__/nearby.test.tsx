@@ -1,7 +1,7 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import en from '../src/i18n/en.json';
 import Find from '../app/(client)/find';
-import { mapHtml, MAP_STYLE_URL } from '../src/search/CaregiverMap';
+import { mapHtml, MAPLIBRE, MAP_STYLE_URL } from '../src/search/CaregiverMap';
 import { useDeviceLocation } from '../src/search/location';
 import { AppProviders, serveApi } from '../test-utils/app';
 import { mockRouter } from '../test-utils/router';
@@ -184,7 +184,23 @@ describe('the map', () => {
 
   it('draws the website’s map: MapLibre with OpenFreeMap, and opens no other pages', async () => {
     const html = mapHtml(MAP_STYLE_URL);
-    expect(html).toContain('https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.js');
+    // MapLibre 6 is modules only: the page imports maplibre-gl.mjs (a classic
+    // <script> for maplibre-gl.js 404s, and the map never loads).
+    expect(html).toContain('import("https://unpkg.com/maplibre-gl@6.16.0/dist/maplibre-gl.mjs")');
+    expect(html).toContain('<script type="module">');
+    expect(html).not.toContain('maplibre-gl.js"');
+    // The same MapLibre as the website, and every file the page loads is in that version.
+    // Node's own modules, in a test the app's types don't describe.
+    const { existsSync } = require('fs') as { existsSync(path: string): boolean };
+    const { dirname } = require('path') as { dirname(path: string): string };
+    const pkg = (require as unknown as { resolve(id: string, o: { paths: string[] }): string }).resolve('maplibre-gl/package.json', {
+      paths: [`${process.cwd()}/../public-web`], // Jest runs from apps/mobile
+    });
+    expect(MAPLIBRE).toBe(`https://unpkg.com/maplibre-gl@${require(pkg).version}/dist`);
+    for (const file of ['maplibre-gl.mjs', 'maplibre-gl-worker.mjs', 'maplibre-gl.css']) {
+      expect(existsSync(`${dirname(pkg)}/dist/${file}`)).toBe(true);
+      if (file !== 'maplibre-gl-worker.mjs') expect(html).toContain(`${MAPLIBRE}/${file}`);
+    }
     expect(html).toContain('"https://tiles.openfreemap.org/styles/positron"');
     api();
     await show();
