@@ -1,8 +1,8 @@
 import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { emailSettings } from '../database/schema';
+import { emailSettings, users } from '../database/schema';
 import { decryptSecret, deriveKey, encryptSecret } from '../common/utils/secret-box.util';
 import { UpdateEmailSettingsDto } from './dto/update-email-settings.dto';
 import { BrandingSettingsService } from '../branding/branding-settings.service';
@@ -115,6 +115,26 @@ export class EmailSettingsService {
 
   async getResolved(): Promise<ResolvedEmailSettings> {
     return this.resolve(await this.getRow());
+  }
+
+  /**
+   * Who gets staff alerts: the request alert list (Settings > Email), or else
+   * every active admin and staff account with an email address. Read at send
+   * time, so a settings change applies to the next alert.
+   */
+  async staffAlertRecipients(): Promise<string[]> {
+    const { requestAlertsTo } = await this.getResolved();
+    if (requestAlertsTo) {
+      return requestAlertsTo
+        .split(',')
+        .map((a) => a.trim())
+        .filter(Boolean);
+    }
+    const rows = await this.db
+      .select({ email: users.email })
+      .from(users)
+      .where(and(inArray(users.role, ['ADMIN', 'STAFF']), eq(users.isActive, true), isNotNull(users.email)));
+    return rows.map((r) => r.email!).filter(Boolean);
   }
 
   async getForAdmin(): Promise<AdminEmailSettings> {

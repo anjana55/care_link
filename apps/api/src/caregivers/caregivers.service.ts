@@ -24,6 +24,7 @@ import { generateRegistrationNumber, assertUniqueContactFields } from './caregiv
 import { resolveLocationRefs } from '../common/utils/location.util';
 import { releaseCaregiverIdentity } from '../account-access/identity.util';
 import { AuditService } from '../audit/audit.service';
+import { assertNoPendingDeletion } from '../account-deletion/pending-deletion.util';
 
 /** A condition that always evaluates to false - used to short-circuit a
  * filter to "no results" without ever building an invalid `IN ()` clause. */
@@ -415,6 +416,7 @@ export class CaregiversService {
     if (current.status === 'REJECTED' && requesterRole !== 'ADMIN') {
       throw new ForbiddenException('Only an admin can move a rejected caregiver back to draft');
     }
+    await assertNoPendingDeletion(this.db, { caregiverId: id });
     await this.db.update(caregivers).set({ status: nextStatus }).where(eq(caregivers.id, id));
     return this.findOne(id);
   }

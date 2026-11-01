@@ -55,6 +55,8 @@ import { Trash2 } from 'lucide-react';
 import { DocumentViewButton } from '@/components/caregivers/document-view-button';
 import { IconButton } from '@/components/ui/icon-button';
 import { SignInAccessPanel } from '@/components/caregivers/sign-in-access-panel';
+import { usePendingAccountDeletion } from '@/lib/hooks/use-account-deletions';
+import { PendingDeletionBanner } from '@/components/accounts/pending-deletion-banner';
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
@@ -70,6 +72,8 @@ export default function CaregiverProfilePage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user } = useAuth();
+  // Asked to delete their account (ADMIN + STAFF can see the requests): say so, rather than just "Inactive".
+  const pendingDeletion = usePendingAccountDeletion({ caregiverId: id }, user?.role === 'ADMIN' || user?.role === 'STAFF');
   const { data: locationTree, isError: locationsUnavailable } = useLocationTree();
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteConfirm, setIsDeleteConfirm] = useState(false);
@@ -280,6 +284,7 @@ export default function CaregiverProfilePage() {
 
   return (
     <div>
+      {pendingDeletion && <PendingDeletionBanner request={pendingDeletion} />}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-ink">{caregiver.fullName}</h1>
@@ -303,7 +308,7 @@ export default function CaregiverProfilePage() {
           ) : (
             <>
               <StatusBadge status={caregiver.status} label={t(`caregivers.status.${caregiver.status}`)} />
-              {canChangeStatus && (
+              {canChangeStatus && !pendingDeletion && (
                 <StatusMoveSelect
                   statuses={nextStatuses}
                   labelOf={(st) => t(`caregivers.status.${st}`)}

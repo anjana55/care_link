@@ -36,6 +36,12 @@ export class AccountDeletionsController {
     return this.deletion.list();
   }
 
+  /** How many are waiting: the badge on Account deletions in the staff app. */
+  @Get('summary')
+  summary() {
+    return this.deletion.summary();
+  }
+
   @Post(':id/cancel')
   @HttpCode(200)
   cancel(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthenticatedUser, @Req() req: Request) {

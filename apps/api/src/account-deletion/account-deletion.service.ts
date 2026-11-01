@@ -42,6 +42,7 @@ import {
 import { releaseLogin } from '../account-access/identity.util';
 import { AuditService } from '../audit/audit.service';
 import { PushService } from '../push/push.service';
+import { AccountDeletionNotifier } from './account-deletion.notifier';
 import { STORAGE_SERVICE, type StorageService } from '../storage/storage.interface';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
@@ -92,6 +93,7 @@ export class AccountDeletionService {
     @Inject(STORAGE_SERVICE) private readonly storage: StorageService,
     private readonly audit: AuditService,
     private readonly push: PushService,
+    private readonly notifier: AccountDeletionNotifier,
   ) {}
 
   // --- the person ---------------------------------------------------------------
@@ -111,7 +113,7 @@ export class AccountDeletionService {
         .from(accountDeletionRequests)
         .where(and(eq(accountDeletionRequests.userId, user.userId), eq(accountDeletionRequests.status, 'PENDING')))
         .limit(1);
-      if (existing) return { eraseAfter: existing.eraseAfter.toISOString(), created: false };
+      if (existing) return { id: existing.id, eraseAfter: existing.eraseAfter.toISOString(), created: false };
 
       let previousStatus: string | null = null;
       if (caregiverId) {
@@ -125,8 +127,9 @@ export class AccountDeletionService {
       }
 
       const eraseAfter = new Date(now.getTime() + ACCOUNT_DELETION_GRACE_DAYS * DAY_MS);
+      const id = uuid();
       await tx.insert(accountDeletionRequests).values({
-        id: uuid(),
+        id,
         userId: user.userId,
         role,
         caregiverId,
@@ -139,24 +142,64 @@ export class AccountDeletionService {
       // Locked: the next request with any token is refused (JwtStrategy checks isActive).
       await tx.update(users).set({ isActive: false }).where(eq(users.id, user.userId));
       await tx.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, user.userId));
-      return { eraseAfter: eraseAfter.toISOString(), created: true };
+      return { id, eraseAfter: eraseAfter.toISOString(), created: true };
     });
 
     if (receipt.created) {
       await this.push.revokeAllForUser(user.userId);
-      await this.audit.record({
-        userId: user.userId,
-        action: 'REQUEST_ACCOUNT_DELETION',
-        entityType: 'User',
-        entityId: user.userId,
-        metadata: { eraseAfter: receipt.eraseAfter },
-        ipAddress,
-      });
+      const r = { id: receipt.id, userId: user.userId, role, caregiverId, patientId };
+      await this.record(r, 'REQUEST_ACCOUNT_DELETION', user.userId, ipAddress, { eraseAfter: receipt.eraseAfter });
+      // Staff hear about it at once, not just from the record turning Inactive. Not awaited: email is slow, and best-effort.
+      void this.alertStaff(r, now, new Date(receipt.eraseAfter));
     }
     return { eraseAfter: receipt.eraseAfter };
   }
 
+  /**
+   * An audit entry about the caregiver or client record - where staff look,
+   * on its Audit tab - naming the login and the request in the details.
+   */
+  private record(
+    r: Pick<Request, 'id' | 'userId' | 'role' | 'caregiverId' | 'patientId'>,
+    action: 'REQUEST_ACCOUNT_DELETION' | 'CANCEL_ACCOUNT_DELETION' | 'ERASE_ACCOUNT',
+    by: string | null,
+    ipAddress: string | null,
+    metadata: Record<string, unknown> = {},
+  ) {
+    const entity = r.caregiverId
+      ? { entityType: 'Caregiver', entityId: r.caregiverId }
+      : r.patientId
+        ? { entityType: 'Patient', entityId: r.patientId }
+        : { entityType: 'User', entityId: r.userId };
+    return this.audit.record({ userId: by, action, ...entity, metadata: { ...metadata, accountUserId: r.userId, requestId: r.id, role: r.role }, ipAddress });
+  }
+
+  private async alertStaff(r: Pick<Request, 'userId' | 'role' | 'caregiverId' | 'patientId'>, requestedAt: Date, eraseAfter: Date) {
+    try {
+      const [who] = await this.db.select({ fullName: users.fullName, email: users.email, phone: users.phone }).from(users).where(eq(users.id, r.userId)).limit(1);
+      const [cg] = r.caregiverId
+        ? await this.db.select({ registrationNumber: caregivers.registrationNumber }).from(caregivers).where(eq(caregivers.id, r.caregiverId)).limit(1)
+        : [];
+      await this.notifier.requested({
+        role: r.role as 'CAREGIVER' | 'PATIENT_GUARDIAN',
+        name: who?.fullName ?? null,
+        reference: cg?.registrationNumber ?? who?.email ?? who?.phone ?? null,
+        requestedAt,
+        eraseAfter,
+        openItems: await this.openItems(r, requestedAt),
+      });
+    } catch (err) {
+      this.logger.warn(`Account deletion request: staff alert failed - ${(err as Error).message}`);
+    }
+  }
+
   // --- staff --------------------------------------------------------------------
+
+  /** For the staff app's sidebar badge. */
+  async summary(): Promise<{ pending: number }> {
+    const [row] = await this.db.select({ n: sql<number>`count(*)` }).from(accountDeletionRequests).where(eq(accountDeletionRequests.status, 'PENDING'));
+    return { pending: Number(row?.n ?? 0) };
+  }
 
   /** Pending requests first (soonest erasure first), then the last 90 days of cancelled and erased ones. */
   async list(now = new Date()): Promise<StaffAccountDeletion[]> {
@@ -202,7 +245,7 @@ export class AccountDeletionService {
 
   /** Staff, before erasure: the account comes back exactly as it was. */
   async cancel(id: string, staffUserId: string, ipAddress: string | null, now = new Date()) {
-    await this.db.transaction(async (tx) => {
+    const cancelled = await this.db.transaction(async (tx) => {
       const [r] = await tx.select().from(accountDeletionRequests).where(eq(accountDeletionRequests.id, id)).limit(1);
       if (!r) throw new NotFoundException('Deletion request not found');
       if (r.status !== 'PENDING') throw new ConflictException(r.status === 'ERASED' ? 'This account has already been erased.' : 'This request was already cancelled.');
@@ -217,8 +260,9 @@ export class AccountDeletionService {
       if (r.patientId && r.previousStatus) {
         await tx.update(patients).set({ status: r.previousStatus as never }).where(eq(patients.id, r.patientId));
       }
+      return r;
     });
-    await this.audit.record({ userId: staffUserId, action: 'CANCEL_ACCOUNT_DELETION', entityType: 'AccountDeletionRequest', entityId: id, ipAddress });
+    await this.record(cancelled, 'CANCEL_ACCOUNT_DELETION', staffUserId, ipAddress, { restoredStatus: cancelled.previousStatus });
     return { success: true };
   }
 
@@ -260,18 +304,23 @@ export class AccountDeletionService {
     for (const r of due) {
       const open = await this.openItems(r, now);
       if (Object.values(open).some((n) => n > 0)) continue; // waits for staff to settle it
-      await this.erase(r, now);
-      erased += 1;
+      if (await this.erase(r, now)) erased += 1;
     }
     return erased;
   }
 
   private async erase(r: Request, now: Date) {
     const files: string[] = [];
-    await this.db.transaction(async (tx) => {
+    const erased = await this.db.transaction(async (tx) => {
       // Still pending? A second API instance, or staff cancelling at the same moment, may have got there first.
-      const [current] = await tx.select({ status: accountDeletionRequests.status }).from(accountDeletionRequests).where(eq(accountDeletionRequests.id, r.id)).limit(1);
-      if (current?.status !== 'PENDING') return;
+      // Locked, so the other one waits here and then sees it is no longer pending.
+      const [current] = await tx
+        .select({ status: accountDeletionRequests.status })
+        .from(accountDeletionRequests)
+        .where(eq(accountDeletionRequests.id, r.id))
+        .limit(1)
+        .for('update');
+      if (current?.status !== 'PENDING') return false;
 
       if (r.caregiverId) files.push(...(await this.eraseCaregiver(tx as unknown as Database, r.caregiverId, now)));
       if (r.patientId) await this.eraseClient(tx as unknown as Database, r.patientId);
@@ -280,20 +329,18 @@ export class AccountDeletionService {
       await tx.update(users).set({ fullName: ERASED_NAME.USER, lastLoginAt: null }).where(eq(users.id, r.userId));
       await tx.delete(deviceTokens).where(eq(deviceTokens.userId, r.userId));
       await tx.update(accountDeletionRequests).set({ status: 'ERASED', erasedAt: now, updatedAt: now }).where(eq(accountDeletionRequests.id, r.id));
+      return true;
     });
+    // Someone else got there first: nothing was erased here, so nothing to record.
+    if (!erased) return false;
 
     // Files after the database: a file left behind can be found and removed; a row pointing at a missing file can't be undone.
     for (const key of files) {
       await this.storage.delete(key).catch((err) => this.logger.warn(`Account erasure: could not delete a file: ${(err as Error).message}`));
     }
-    await this.audit.record({
-      userId: null,
-      action: 'ERASE_ACCOUNT',
-      entityType: 'User',
-      entityId: r.userId,
-      metadata: { role: r.role, requestId: r.id, filesRemoved: files.length },
-    });
+    await this.record(r, 'ERASE_ACCOUNT', null, null, { filesRemoved: files.length });
     this.logger.log(`Account erasure: erased a ${r.role === 'CAREGIVER' ? 'caregiver' : 'client'} account (request ${r.id}).`);
+    return true;
   }
 
   /** The caregiver's record kept for bookings and payouts, without the person. Returns the storage keys to delete. */
