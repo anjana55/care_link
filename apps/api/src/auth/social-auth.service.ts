@@ -10,7 +10,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
+import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomUUID as uuid } from 'crypto';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
@@ -55,6 +56,7 @@ const LOGIN_STATE_TYPE = 'caregiver-social-login';
 const LOGIN_STATE_TTL = '10m';
 
 const PENDING_TOKEN_TTL = '15m';
+const PASSWORD_ALREADY_SET = 'A password is already set for this account. Sign in, or use "Forgot password?".';
 /**
  * Short by design: the handoff code is a bearer value sitting in browser
  * history and server logs, so it is only useful for the few seconds between the
@@ -219,6 +221,47 @@ export class SocialAuthService {
       pendingTokenExpiresInSeconds: 15 * 60,
       providers: await this.registry.available(),
     };
+  }
+
+  /**
+   * Email and password, the alternative to a provider at the end of sign-up
+   * (and of "finish your account" via a claim code). The pending token proves
+   * the record is theirs, exactly as it does for a provider.
+   *
+   * Once only: the token can't be revoked early, so a second call - or a
+   * second tab - must not be able to replace a password already set. The
+   * update itself is conditional on there being none, which also settles two
+   * calls racing each other.
+   *
+   * The address must be confirmed before it signs in (the usual verification
+   * link), unless it is the one a provider already verified on this login.
+   */
+  async setSignupPassword(raw: { pendingToken: string; email: string; password: string }): Promise<{ email: string; verificationSent: boolean }> {
+    const { sub: userId } = this.verifyPendingToken(raw.pendingToken);
+    const [user] = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user || !user.isActive || user.role !== 'CAREGIVER') {
+      throw new SocialLinkError('registration_gone', 'This registration can no longer be completed. Please register again.', HttpStatus.UNAUTHORIZED);
+    }
+    if (user.passwordHash) throw new ConflictException(PASSWORD_ALREADY_SET);
+
+    const email = raw.email.trim().toLowerCase();
+    if (email !== user.email) {
+      const [taken] = await this.db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+      if (taken) throw new ConflictException('An account with this email already exists');
+    }
+    const alreadyVerified = email === user.email && Boolean(user.emailVerifiedAt);
+    const passwordHash = await bcrypt.hash(raw.password, 12);
+
+    const [result] = await this.withDuplicateGuard(() =>
+      this.db
+        .update(users)
+        .set({ email, passwordHash, emailVerifiedAt: alreadyVerified ? user.emailVerifiedAt : null })
+        .where(and(eq(users.id, userId), isNull(users.passwordHash))),
+    );
+    if (!(result as { affectedRows?: number }).affectedRows) throw new ConflictException(PASSWORD_ALREADY_SET);
+
+    if (!alreadyVerified) await this.authService.sendVerificationLink(userId);
+    return { email, verificationSent: !alreadyVerified };
   }
 
   private signPendingToken(userId: string) {

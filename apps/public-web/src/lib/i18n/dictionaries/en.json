@@ -517,7 +517,7 @@
   },
   "caregiverSignup": {
     "title": "Register as a caregiver",
-    "subtitle": "Fill in your details. Afterwards you can optionally sign in with Google, Microsoft or Facebook.",
+    "subtitle": "Fill in your details. Afterwards, choose how you'll sign in: with Google, Microsoft or Facebook, or with an email address and password.",
     "phone": "Phone number",
     "phoneHint": "The number we use to contact you about caregiver work.",
     "email": "Email address (optional)",
@@ -526,10 +526,9 @@
     "error": "We could not complete your registration. Please try again.",
     "useDifferentNumber": "Use a different phone number",
     "successTitle": "Your details are saved",
-    "successBody": "Optionally, you can now sign in with Google, Microsoft or Facebook to secure your registration. If you entered an email address, use the same one.",
+    "successBody": "Now choose how you'll sign in, to secure your registration. If you entered an email address, use the same one.",
     "regNumber": "Registration number",
-    "chooseProvider": "Sign in with an account you already have (optional):",
-    "noProviders": "Google, Microsoft and Facebook sign-in are not available right now. Your registration is saved and we will contact you on your phone number.",
+    "chooseProvider": "Sign in with an account you already have:",
     "providerError": "Could not start the sign-in. Please try again.",
     "tokenExpired": "This sign-in link has expired. Your details are saved - use “Finish setting up your account” with your registration number.",
     "linkExpiresIn": "This link expires in about",
@@ -570,7 +569,17 @@
     "backHome": "Back to the homepage",
     "backToLogin": "Back to sign in",
     "registerInstead": "Register as a caregiver",
-    "finishLaterHint": "Want to sign in with Google, Microsoft or Facebook later? Keep your registration number and use"
+    "finishLaterHint": "Want to set up your sign-in later? Keep your registration number and use",
+    "or": "or",
+    "emailPasswordButton": "Use an email address and password",
+    "emailPasswordTitle": "Sign in with an email address and password",
+    "passwordHint": "At least 8 characters.",
+    "createSignIn": "Create my sign-in",
+    "checkEmailTitle": "Check your email",
+    "checkEmailBody": "We sent a link to {email}. Open it to confirm your address, then sign in with your email address and password.",
+    "passwordSet": "Your password is set. You can now sign in with {email}.",
+    "goToSignIn": "Go to sign in",
+    "passwordError": "We could not set your password. Please try again."
   },
   "caregiverDashboard": {
     "signOut": "Sign out"
@@ -1163,7 +1172,7 @@
     "resendIn": "Send a new code in",
     "differentNumber": "Use a different registration number",
     "noAccessHint": "No longer have that phone or email? Contact the {brand} office. After checking who you are, they can give you a code to enter here.",
-    "verifiedBody": "Code accepted. Now sign in with Google, Microsoft or Facebook - that is how you will sign in from now on.",
+    "verifiedBody": "Code accepted. Now choose how you'll sign in from now on: with Google, Microsoft or Facebook, or with an email address and password.",
     "linkExpired": "This step has timed out. Start again with your registration number - your details are still saved.",
     "startOver": "Start again",
     "genericError": "Something went wrong. Please try again."

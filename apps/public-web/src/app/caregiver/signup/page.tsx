@@ -44,6 +44,8 @@ export default function CaregiverSignupPage() {
   const { data: locationTree, isError: locationsUnavailable } = useLocationTree(locale);
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<RegisterResponse | null>(null);
+  // Offered again for the email-and-password sign-in.
+  const [formEmail, setFormEmail] = useState<string | undefined>(undefined);
   // The provider step is optional: the registration is already saved by the
   // time it is shown, so a caregiver can decline it and finish here.
   const [skipped, setSkipped] = useState(false);
@@ -69,6 +71,7 @@ export default function CaregiverSignupPage() {
         Object.entries(values).filter(([, v]) => v !== '' && v !== undefined && v !== false),
       );
       const res = await api.post<RegisterResponse>('/auth/register-caregiver/unified', cleaned);
+      setFormEmail(typeof cleaned.email === 'string' ? cleaned.email : undefined);
       setResult(res);
     } catch (err) {
       setServerError(err instanceof ApiError ? err.message : t('caregiverSignup.error'));
@@ -112,6 +115,7 @@ export default function CaregiverSignupPage() {
             providers={result.providers}
             expiresInSeconds={result.pendingTokenExpiresInSeconds}
             expiredMessage={t('caregiverSignup.tokenExpired')}
+            email={formEmail}
           />
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <button
