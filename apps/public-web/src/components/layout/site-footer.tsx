@@ -36,6 +36,9 @@ export function SiteFooter() {
           <Link href="/login" className="text-ink/70 transition-colors hover:text-brand">
             {t('nav.signIn')}
           </Link>
+          <Link href="/delete-account" className="text-ink/70 transition-colors hover:text-brand">
+            {t('footer.deleteAccount')}
+          </Link>
           <a href="/api/docs" className="text-ink/70 transition-colors hover:text-brand">
             {t('footer.apiDocs')}
           </a>

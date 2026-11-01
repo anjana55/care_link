@@ -1099,5 +1099,22 @@
     "hints": {
       "phoneCall": "Our staff will phone you about new care requests. Other updates are still sent by email or WhatsApp."
     }
+  },
+  "deleteAccount": {
+    "title": "Delete your account",
+    "whatHappens": "What happens",
+    "steps": {
+      "closed": "Your account is closed straight away: you're signed out everywhere and can't sign in again.",
+      "erased": "14 days later we erase your personal details: your name, contact details, ID numbers, address, documents and photos.",
+      "open": "If a booking, shift, payment or invoice is still open, our team settles it first, then erases your details.",
+      "kept": "We keep the records the law requires, such as bookings, invoices and payments, without your name or contact details."
+    },
+    "changeMind": "Changed your mind? Contact our team within 14 days and we'll restore your account.",
+    "signedInAs": "Signed in as {name}",
+    "confirm": "I understand that my account will be closed now and my details erased after 14 days.",
+    "delete": "Delete my account",
+    "done": "Your account is closed. Your details will be erased on {date}.",
+    "error": "We could not do that. Please try again.",
+    "doneOk": "OK"
   }
 }

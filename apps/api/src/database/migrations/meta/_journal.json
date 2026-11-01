@@ -197,6 +197,13 @@
       "when": 1793423165197,
       "tag": "0027_app_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "5",
+      "when": 1793503901430,
+      "tag": "0028_account_deletion",
+      "breakpoints": true
     }
   ]
 }

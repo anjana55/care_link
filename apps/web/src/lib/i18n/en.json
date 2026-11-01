@@ -22,7 +22,8 @@
     "international": "Overseas",
     "dataTransfer": "Import & export",
     "training": "Training",
-    "carePlans": "Care plans"
+    "carePlans": "Care plans",
+    "accountDeletions": "Account deletions"
   },
   "login": {
     "title": "Sign in",
@@ -3476,5 +3477,41 @@
     "raiseWarning": "Raising the minimum stops everyone on an older version the next time they open the app. Make sure the new version is live in the store first.",
     "saved": "Saved.",
     "saveError": "Could not save the settings. Please try again."
+  },
+  "accountDeletions": {
+    "title": "Account deletions",
+    "subtitle": "People who asked to delete their account in the app or on the website. Each account is locked at once, and its personal details are erased 14 days later once nothing is still open. Settle what's open in the usual place. If they change their mind, cancel the request to restore the account.",
+    "empty": "No deletion requests.",
+    "columns": {
+      "who": "Who",
+      "asked": "Asked",
+      "eraseOn": "Erase after",
+      "open": "Still open",
+      "status": "Status"
+    },
+    "role": {
+      "CAREGIVER": "Caregiver",
+      "PATIENT_GUARDIAN": "Client"
+    },
+    "status": {
+      "PENDING": "Waiting",
+      "CANCELLED": "Cancelled",
+      "ERASED": "Erased"
+    },
+    "held": "Held: settle what's open",
+    "nothingOpen": "Nothing open",
+    "erasedName": "Erased account",
+    "open": {
+      "upcomingShifts": "{n} upcoming shift(s)",
+      "unpaidPayouts": "{n} unpaid payout(s)",
+      "activePlacements": "{n} active placement(s) abroad",
+      "activeBookings": "{n} active booking(s)",
+      "unpaidInvoices": "{n} unpaid invoice(s)",
+      "openCareRequests": "{n} open care request(s)",
+      "openAdjustments": "{n} open billing adjustment(s)"
+    },
+    "cancel": "Cancel deletion",
+    "cancelTitle": "Cancel this deletion?",
+    "cancelMessage": "{name}'s account is unlocked and set back to how it was. They can sign in again."
   }
 }

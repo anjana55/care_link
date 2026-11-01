@@ -25,3 +25,4 @@ export * from './ai.schema';
 export * from './international.schema';
 export * from './push.schema';
 export * from './app-settings.schema';
+export * from './account-deletion.schema';
