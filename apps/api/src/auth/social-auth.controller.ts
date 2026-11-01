@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   HttpException,
   Logger,
   Param,
@@ -15,6 +16,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { SocialAuthService, SocialLinkError } from './social-auth.service';
+import { SetSignupPasswordDto } from './dto/set-signup-password.dto';
 import { RegisterCaregiverUnifiedDto } from './dto/register-caregiver-unified.dto';
 import { ExchangeSocialCodeDto } from './dto/exchange-social-code.dto';
 import { Public } from '../common/decorators/public.decorator';
@@ -55,6 +57,20 @@ export class SocialAuthController {
       entityId: result.caregiverId,
       ipAddress: req.ip,
     });
+    return result;
+  }
+
+  /**
+   * The other way to finish sign-up: an email address and password instead of
+   * a provider. Authorised by the same pending token; works once.
+   */
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('register-caregiver/unified/password')
+  @HttpCode(200)
+  async setSignupPassword(@Body() dto: SetSignupPasswordDto, @Req() req: Request) {
+    const result = await this.socialAuth.setSignupPassword(dto);
+    await this.audit.record({ action: 'SET_SIGNUP_PASSWORD', entityType: 'User', ipAddress: req.ip });
     return result;
   }
 

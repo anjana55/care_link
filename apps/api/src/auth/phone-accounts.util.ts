@@ -31,6 +31,9 @@ export async function purgeUnverifiedPhoneAccount(db: Database, phone: string): 
     // identity exempts the row, exactly as a non-DRAFT profile does.
     const [linked] = await db.select({ id: socialAccounts.id }).from(socialAccounts).where(eq(socialAccounts.userId, id)).limit(1);
     if (linked) continue;
+    // The same for one who chose email and password instead and confirmed the address.
+    const [verified] = await db.select({ at: users.emailVerifiedAt }).from(users).where(eq(users.id, id)).limit(1);
+    if (verified?.at) continue;
 
     const [profile] = await db.select({ status: caregivers.status }).from(caregivers).where(eq(caregivers.userId, id)).limit(1);
     if (profile && profile.status !== 'DRAFT') continue;

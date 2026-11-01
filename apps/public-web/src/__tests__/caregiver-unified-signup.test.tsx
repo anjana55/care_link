@@ -196,17 +196,19 @@ describe('the provider choice screen', () => {
     expect(screen.queryByRole('button', { name: /facebook/i })).toBeNull();
   });
 
-  it('says so rather than showing an empty screen when no provider is configured', () => {
+  it('goes straight to email and password when no provider is configured', () => {
     renderPage(
       <ProviderChoices
         pendingToken="tok"
         providers={{ GOOGLE: false, MICROSOFT: false, FACEBOOK: false }}
         expiresInSeconds={900}
+        email="nadee@example.com"
       />,
     );
 
-    expect(screen.queryAllByRole('button')).toHaveLength(0);
-    expect(screen.getByText(/not available right now/i)).toBeDefined();
+    expect(screen.queryByRole('button', { name: /google|microsoft|facebook/i })).toBeNull();
+    expect((screen.getByLabelText('Email address') as HTMLInputElement).value).toBe('nadee@example.com');
+    expect(screen.getByRole('button', { name: 'Create my sign-in' })).toBeDefined();
   });
 });
 
@@ -253,6 +255,15 @@ describe('the registration flow around the provider step', () => {
     expect(screen.getByRole('button', { name: /continue with microsoft/i })).toBeDefined();
     expect(screen.getByRole('button', { name: /continue with facebook/i })).toBeDefined();
     expect(screen.getByRole('button', { name: /skip for now/i })).toBeDefined();
+  });
+
+  it('offers email and password too, with the address given on the form', async () => {
+    const { client } = renderPage(<CaregiverSignupPage />);
+    change(/email address/i, 'nimal@example.com');
+    await fillAndSubmit(client);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Use an email address and password' }));
+    expect((screen.getByLabelText('Email address') as HTMLInputElement).value).toBe('nimal@example.com');
   });
 
   it('lets the caregiver finish without signing in with a provider', async () => {
