@@ -9,8 +9,8 @@ import { Text } from '@/ui/Text';
 import { useOwnCaregiver } from '@/caregiver/api';
 
 /**
- * The caregiver's account: who they are, their documents, the app's language,
- * and signing out. The profile comes here in Phase 3c.
+ * The caregiver's account: who they are, their profile and documents, the
+ * app's language, and signing out.
  */
 export default function Me() {
   const { t } = useTranslation();
@@ -34,6 +34,7 @@ export default function Me() {
           ) : null}
           {user?.phone || user?.email ? <Text style={{ color: colors.muted, fontSize: 16 }}>{user.phone ?? user.email}</Text> : null}
         </View>
+        <Button variant="secondary" label={t('portal.profile.title')} onPress={() => router.navigate('/profile')} />
         <Button variant="secondary" label={t('portal.nav.documents')} onPress={() => router.navigate('/documents')} />
         <View style={styles.section}>
           <Text style={[styles.label, { color: colors.ink }]}>{t('common.language')}</Text>

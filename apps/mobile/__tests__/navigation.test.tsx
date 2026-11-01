@@ -7,14 +7,14 @@ import { AppProviders } from '../test-utils/app';
 
 /**
  * The app's real tab layouts with the real router (the screens themselves are
- * stand-ins). Screens without a tab button - Documents, Saved, Invoices - must
+ * stand-ins). Screens without a tab button - Documents, Profile, Saved, Invoices - must
  * still open from the screens that link to them: hiding them with
  * `href: null` made the router send people straight back.
  */
 // The tab icons' font file isn't something Jest can load; the icons aren't the subject.
 jest.mock('@expo/vector-icons/Ionicons', () => Object.assign(() => null, { glyphMap: {} }));
 
-const goTo = (path: '/documents' | '/saved' | '/invoices') =>
+const goTo = (path: '/documents' | '/profile' | '/saved' | '/invoices') =>
   function From() {
     const router = useRouter();
     return (
@@ -39,6 +39,7 @@ const app = (from: Record<string, () => React.JSX.Element>) =>
       '(caregiver)/payments': page('Payments'),
       '(caregiver)/me': page('Me'),
       '(caregiver)/documents': page('Documents'),
+      '(caregiver)/profile': page('Profile'),
       '(client)/_layout': ClientTabs,
       '(client)/find': page('Find'),
       '(client)/bookings': page('Bookings'),
@@ -55,6 +56,7 @@ describe('screens without a tab button', () => {
   it.each([
     ['(caregiver)/home', '/documents', 'Documents'],
     ['(caregiver)/me', '/documents', 'Documents'],
+    ['(caregiver)/me', '/profile', 'Profile'],
     ['(client)/account', '/saved', 'Saved'],
     ['(client)/account', '/invoices', 'Invoices'],
   ] as const)('%s opens %s', async (from, path, name) => {
@@ -67,6 +69,7 @@ describe('screens without a tab button', () => {
   it('have no tab button of their own', async () => {
     const r = await app({ '(caregiver)/me': page('Me') });
     expect(r.queryByRole('button', { name: /documents/i })).toBeNull();
+    expect(r.queryByRole('button', { name: /profile/i })).toBeNull();
     expect(r.getByRole('button', { name: /Shifts/ })).toBeTruthy();
   });
 });

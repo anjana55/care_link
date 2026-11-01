@@ -51,7 +51,8 @@
     "hidePassword": "Hide password",
     "requiredField": "Required field",
     "language": "Language",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "save": "Save"
   },
   "update": {
     "requiredTitle": "Please update the app",
@@ -710,7 +711,10 @@
       "skills": "Care skills",
       "skillsHint": "Tick everything you can do. This is saved as you tick.",
       "languages": "Languages",
-      "languagesHint": "Tick the languages you can speak with a client."
+      "languagesHint": "Tick the languages you can speak with a client.",
+      "identityOnWebsite": "To correct your name, date of birth, gender or ID numbers, use your profile on our website.",
+      "recordsOnWebsite": "Add or change your qualifications and work experience on our website.",
+      "openWebsite": "Open the website"
     },
     "qualifications": {
       "title": "Qualifications",
@@ -1006,6 +1010,94 @@
         "missing": "This certificate is not available.",
         "englishNote": "The certificate is in English, for employers abroad."
       }
+    }
+  },
+  "personalInfo": {
+    "fields": {
+      "fullName": "Full name",
+      "permanentAddress": "Permanent address",
+      "nic": "NIC",
+      "passportNumber": "Passport number",
+      "dateOfBirth": "Date of birth",
+      "gender": "Gender",
+      "civilStatus": "Civil status",
+      "heightIn": "Height (in)",
+      "weightKg": "Weight (kg)",
+      "primaryPhone": "Primary phone",
+      "secondaryPhone": "Secondary phone",
+      "emergencyContactName": "Emergency contact name",
+      "emergencyContactNumber": "Emergency contact number",
+      "emergencyContactRelationship": "Emergency contact relationship",
+      "policeDivision": "Police division",
+      "policeStation": "Police station",
+      "preferredContactMethod": "Preferred contact method",
+      "district": "District",
+      "city": "City",
+      "postalCode": "Postal code"
+    },
+    "validation": {
+      "fullName": {
+        "required": "Full name is required",
+        "invalid": "Enter a full name of at least 2 characters"
+      },
+      "permanentAddress": {
+        "required": "Permanent address is required",
+        "invalid": "Enter an address of at least 5 characters"
+      },
+      "dateOfBirth": {
+        "required": "Date of birth is required"
+      },
+      "gender": {
+        "required": "Gender is required"
+      },
+      "civilStatus": {
+        "required": "Civil status is required"
+      },
+      "primaryPhone": {
+        "required": "Primary phone is required",
+        "invalid": "Enter a valid phone number with at least 9 digits"
+      },
+      "emergencyContactName": {
+        "required": "Emergency contact name is required",
+        "invalid": "Enter a name of at least 2 characters"
+      },
+      "emergencyContactNumber": {
+        "required": "Emergency contact number is required",
+        "invalid": "Enter a valid phone number with at least 9 digits"
+      },
+      "emergencyContactRelationship": {
+        "required": "Relationship to this contact is required",
+        "invalid": "Describe how you are related to this contact"
+      },
+      "district": {
+        "required": "District is required"
+      },
+      "city": {
+        "required": "City is required"
+      }
+    },
+    "options": {
+      "select": "Select",
+      "gender": {
+        "MALE": "Male",
+        "FEMALE": "Female",
+        "OTHER": "Other"
+      },
+      "civilStatus": {
+        "SINGLE": "Single",
+        "MARRIED": "Married",
+        "DIVORCED": "Divorced",
+        "WIDOWED": "Widowed",
+        "OTHER": "Other"
+      },
+      "contactMethod": {
+        "PHONE_CALL": "Phone call",
+        "WHATSAPP": "WhatsApp",
+        "EMAIL": "Email"
+      }
+    },
+    "hints": {
+      "phoneCall": "Our staff will phone you about new care requests. Other updates are still sent by email or WhatsApp."
     }
   }
 }
