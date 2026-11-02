@@ -1,5 +1,10 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+// This file runs in Node; the app's TypeScript has no Node types, so the two calls used are typed here.
+const { existsSync, readFileSync } = require('fs') as { existsSync(path: string): boolean; readFileSync(path: string, encoding: 'utf8'): string };
+const { join } = require('path') as { join(...parts: string[]): string };
+declare const __dirname: string;
+
 /**
  * One app, many brands. `BRAND` picks the store name, identifiers and the
  * API it talks to, so a white-labelled deployment is a build profile, not a
@@ -58,6 +63,31 @@ export const APP_LINK_PATHS = [
   '/find',
 ];
 
+/**
+ * The home-screen icon, Android's adaptive icon and the splash screen, made
+ * from the deployment's Settings > Branding by `npm run brand:assets` (also
+ * run by EAS Build). Unlike everything else about the brand they are baked
+ * into the app, so a change to them needs a new build. Without them, Expo's
+ * defaults are used.
+ */
+function brandArtwork(key: string) {
+  const dir = join(__dirname, 'assets', 'brand', key);
+  const file = (name: string) => (existsSync(join(dir, name)) ? `./assets/brand/${key}/${name}` : undefined);
+  let colours: { adaptiveBackground?: string; splashBackground?: string } = {};
+  try {
+    colours = JSON.parse(readFileSync(join(dir, 'brand.json'), 'utf8'));
+  } catch {
+    // not fetched yet
+  }
+  return {
+    icon: file('icon.png'),
+    adaptiveIcon: file('adaptive-icon.png'),
+    splashIcon: file('splash-icon.png'),
+    adaptiveBackground: colours.adaptiveBackground ?? '#FFFFFF',
+    splashBackground: colours.splashBackground ?? '#FFFFFF',
+  };
+}
+
 const BRANDS: Record<string, Brand> = {
   carelink: {
     name: 'CareLink',
@@ -80,6 +110,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   // Android push goes through Firebase: EAS Build provides this file from the
   // GOOGLE_SERVICES_JSON file variable (BUILDING.md, step 4). Never committed.
   const googleServicesFile = process.env.GOOGLE_SERVICES_JSON;
+  const art = brandArtwork(key);
 
   return {
     ...config,
@@ -96,10 +127,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...(projectId ? { updates: { url: `https://u.expo.dev/${projectId}` } } : {}),
     orientation: 'portrait',
     userInterfaceStyle: 'automatic',
+    ...(art.icon ? { icon: art.icon } : {}),
     ios: { bundleIdentifier: brand.bundleId, supportsTablet: false },
     android: {
       package: brand.bundleId,
       ...(googleServicesFile ? { googleServicesFile } : {}),
+      ...(art.adaptiveIcon ? { adaptiveIcon: { foregroundImage: art.adaptiveIcon, backgroundColor: art.adaptiveBackground } } : {}),
       // Links to the website open the app (APP_LINK_PATHS above). Android checks
       // the site's /.well-known/assetlinks.json when the app is installed.
       intentFilters: [
@@ -113,6 +146,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     plugins: [
       'expo-router',
+      // The brand's mark on a plain screen while the app starts (Settings > Branding, via brand:assets).
+      ...(art.splashIcon ? [['expo-splash-screen', { image: art.splashIcon, imageWidth: 180, backgroundColor: art.splashBackground }] as [string, object]] : []),
       'expo-notifications',
       // "Use my location" on Find: while the app is open only, never in the background.
       ['expo-location', { locationWhenInUsePermission: `${brand.name} uses your location, only when you ask, to show caregivers near you.` }],

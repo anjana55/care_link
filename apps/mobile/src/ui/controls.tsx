@@ -1,5 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import type { IconName } from './visual';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from '@/i18n';
 import { useColors, type Colors } from '@/theme';
@@ -18,10 +20,12 @@ interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'link';
   busy?: boolean;
   disabled?: boolean;
+  /** A picture before the label. */
+  icon?: IconName;
 }
 
 /** At least 48 pt tall, as accessibility guidelines ask for touch targets. */
-export function Button({ label, onPress, variant = 'primary', busy = false, disabled = false }: ButtonProps) {
+export function Button({ label, onPress, variant = 'primary', busy = false, disabled = false, icon }: ButtonProps) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const off = disabled || busy;
@@ -37,7 +41,10 @@ export function Button({ label, onPress, variant = 'primary', busy = false, disa
       {busy ? (
         <ActivityIndicator color={variant === 'primary' ? colors.brandText : colors.brand} />
       ) : (
-        <Text style={variant === 'primary' ? styles.primaryText : variant === 'secondary' ? styles.secondaryText : styles.linkText}>{label}</Text>
+        <View style={styles.buttonRow}>
+          {icon ? <Ionicons name={icon} size={20} color={variant === 'primary' ? colors.brandText : colors.brand} /> : null}
+          <Text style={variant === 'primary' ? styles.primaryText : variant === 'secondary' ? styles.secondaryText : styles.linkText}>{label}</Text>
+        </View>
       )}
     </Pressable>
   );
@@ -120,13 +127,14 @@ export function FormError({ message }: { message: string | null }) {
   );
 }
 
-const button = { minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 } as const;
+const button = { minHeight: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 } as const;
 
 const makeStyles = (colors: Colors) =>
   StyleSheet.create({
     primary: { ...button, backgroundColor: colors.brand },
     secondary: { ...button, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.brand },
     link: { minHeight: 48, justifyContent: 'center' },
+    buttonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
     primaryText: { fontSize: 17, fontWeight: '600', color: colors.brandText, textAlign: 'center' },
     secondaryText: { fontSize: 17, fontWeight: '600', color: colors.brand, textAlign: 'center' },
     linkText: { fontSize: 16, fontWeight: '600', color: colors.brand },

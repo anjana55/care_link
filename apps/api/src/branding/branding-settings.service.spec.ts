@@ -1,4 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import sharp from 'sharp';
+import { brandingAssetUrl, normalizeBranding } from '@care-platform/shared';
 import { BrandingSettingsService, inspectLogo } from './branding-settings.service';
 
 /**
@@ -80,6 +82,7 @@ describe('BrandingSettingsService', () => {
       primaryColor: '#5F6952',
       accentColor: '#2F7A84',
       logoVersion: null,
+      assets: { logo: null, logoReverse: null, symbol: null, appIcon: null },
       defaultLocale: 'en',
       enabledLocales: ['en', 'si', 'ta'],
     });
@@ -114,7 +117,7 @@ describe('BrandingSettingsService', () => {
 
   it('stores a logo under a new version and deletes the one it replaces', async () => {
     const { service, files, storage } = make({ companyName: 'CareLink' });
-    const first = await service.setLogo({ buffer: PNG }, 'a');
+    const first = await service.setLogo({ buffer: await png(300, 60) }, 'a');
     expect(first.logoMimeType).toBe('image/png');
     expect(first.logoVersion).toMatch(/^[0-9a-f]{12}$/);
     const second = await service.setLogo({ buffer: svg('<rect width="10" height="10" fill="#123456"/>') }, 'a');
@@ -157,4 +160,63 @@ describe('inspectLogo', () => {
     expect(() => inspectLogo(Buffer.alloc(0))).toThrow(BadRequestException);
     expect(() => inspectLogo(Buffer.concat([PNG, Buffer.alloc(1024 * 1024)]))).toThrow(/1 MB/);
   });
+
+  describe('the other artwork', () => {
+    const square = svg('<circle cx="5" cy="5" r="4" fill="#1B8086"/>');
+    const wide = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 92" width="448" height="92"><rect width="448" height="92" fill="#0D4447"/></svg>');
+
+    it('keeps each asset apart: the reverse logo, symbol and app icon have their own versions', async () => {
+      const { service, files } = make({ companyName: 'CareLink' });
+      await service.setLogo({ buffer: wide }, 'a');
+      const out = await service.setAsset('symbol', { buffer: square }, 'a');
+      expect(out.assets.symbol).toMatch(/^[0-9a-f]{12}$/);
+      expect(out.assets.logo).toBe(out.logoVersion);
+      expect(out.assets.logoReverse).toBeNull();
+      expect(out.assetMimeTypes).toMatchObject({ logo: 'image/svg+xml', symbol: 'image/svg+xml', appIcon: null });
+      expect(files.size).toBe(2);
+
+      const removed = await service.removeAsset('symbol', 'a');
+      expect(removed.assets.symbol).toBeNull();
+      expect(removed.assets.logo).not.toBeNull();
+      expect(files.size).toBe(1);
+      await expect(service.getAsset('symbol')).rejects.toThrow('This picture has not been uploaded');
+    });
+
+    it('wants the symbol and app icon square, and the app icon big enough for the stores', async () => {
+      const { service, files } = make({ companyName: 'CareLink' });
+      await expect(service.setAsset('symbol', { buffer: wide }, 'a')).rejects.toThrow('This picture must be square (this one is 448 × 92).');
+      await expect(service.setAsset('appIcon', { buffer: await png(512, 512) }, 'a')).rejects.toThrow(/at least 1024 × 1024 pixels, or an SVG/);
+      await expect(service.setAsset('appIcon', { buffer: PNG }, 'a')).rejects.toThrow(/could not be read/);
+      expect(files.size).toBe(0);
+      // A wide reverse logo, a 1024 px icon and a square SVG are all fine.
+      await service.setAsset('logoReverse', { buffer: wide }, 'a');
+      await service.setAsset('appIcon', { buffer: await png(1024, 1024) }, 'a');
+      await service.setAsset('appIcon', { buffer: square }, 'a');
+      expect(files.size).toBe(2);
+    });
+
+    it('renders any of them as a crisp PNG of a listed size, for the app', async () => {
+      const { service } = make({ companyName: 'CareLink' });
+      await service.setLogo({ buffer: wide }, 'a');
+      const { buffer } = await service.getAssetPng('logo', 512);
+      const meta = await sharp(buffer).metadata();
+      expect(meta).toMatchObject({ format: 'png', width: 512 });
+      expect(meta.height).toBe(Math.round((512 * 92) / 448));
+      // Only listed sizes: nobody can ask the API to draw a giant picture.
+      await expect(service.getAssetPng('logo', 5000)).rejects.toThrow(/size must be one of/);
+      await expect(service.getAssetPng('symbol', 64)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('builds asset addresses only for what is uploaded, and reads an older API that sends only the logo', () => {
+      const b = normalizeBranding({ companyName: 'X', logoVersion: 'abc123', assets: { symbol: 'def456', logoReverse: '../etc' } });
+      expect(b.assets).toEqual({ logo: 'abc123', logoReverse: null, symbol: 'def456', appIcon: null });
+      expect(brandingAssetUrl('/api/', b, 'symbol', { png: 128 })).toBe('/api/branding/symbol?v=def456&size=128');
+      expect(brandingAssetUrl('/api', b, 'logo')).toBe('/api/branding/logo?v=abc123');
+      expect(brandingAssetUrl('/api', b, 'appIcon')).toBeNull();
+    });
+  });
 });
+
+async function png(width: number, height: number): Promise<Buffer> {
+  return sharp({ create: { width, height, channels: 4, background: '#1B8086' } }).png().toBuffer();
+}

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { tint, type IconName } from './visual';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { fontFamilyFor } from './fonts';
@@ -9,9 +11,15 @@ import { Button } from './controls';
 export interface Choice<V extends string | number> {
   value: V;
   label: string;
+  /** Shown on tiles. */
+  icon?: IconName;
 }
 
-/** One-tap choices in a wrapping row. Single choice unless `multiple`. */
+/**
+ * One-tap choices. Single choice unless `multiple`. `layout`: a wrapping row of
+ * chips (the default), `tiles` - two to a row, each with its icon - or
+ * `scroll`, one sideways-scrolling row for long runs such as dates.
+ */
 export function Chips<V extends string | number>({
   label,
   choices,
@@ -19,6 +27,7 @@ export function Chips<V extends string | number>({
   onToggle,
   multiple = false,
   error,
+  layout = 'wrap',
 }: {
   label?: string;
   choices: Choice<V>[];
@@ -26,30 +35,61 @@ export function Chips<V extends string | number>({
   onToggle: (value: V) => void;
   multiple?: boolean;
   error?: string | null;
+  layout?: 'wrap' | 'tiles' | 'scroll';
 }) {
   const colors = useColors();
+  const items = choices.map((c) => {
+    const on = selected.includes(c.value);
+    const a11y = {
+      accessibilityRole: multiple ? ('checkbox' as const) : ('radio' as const),
+      accessibilityState: multiple ? { checked: on } : { selected: on },
+      onPress: () => onToggle(c.value),
+    };
+    if (layout === 'tiles') {
+      return (
+        <Pressable
+          key={String(c.value)}
+          {...a11y}
+          style={[styles.tile, { borderColor: on ? colors.brand : colors.border, backgroundColor: on ? tint(colors.brand, 0.08) : colors.surface }]}
+        >
+          {c.icon ? (
+            <View style={[styles.tileIcon, { backgroundColor: on ? colors.brand : tint(colors.accent, 0.12) }]}>
+              <Ionicons name={c.icon} size={22} color={on ? colors.brandText : colors.accent} />
+            </View>
+          ) : null}
+          <Text style={{ fontSize: 15, lineHeight: 20, color: colors.ink, fontWeight: on ? '700' : '500' }}>{c.label}</Text>
+          {on ? <Ionicons name="checkmark-circle" size={20} color={colors.brand} style={styles.tileCheck} /> : null}
+        </Pressable>
+      );
+    }
+    return (
+      <Pressable
+        key={String(c.value)}
+        {...a11y}
+        style={[styles.chip, { borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand : colors.surface }]}
+      >
+        <Text style={{ fontSize: 15, color: on ? colors.brandText : colors.ink, fontWeight: on ? '600' : '400' }}>{c.label}</Text>
+      </Pressable>
+    );
+  });
   return (
     <View style={styles.group}>
       {label ? <Text style={[styles.label, { color: colors.ink }]}>{label}</Text> : null}
-      <View accessibilityRole={multiple ? undefined : 'radiogroup'} accessibilityLabel={label} style={styles.chips}>
-        {choices.map((c) => {
-          const on = selected.includes(c.value);
-          return (
-            <Pressable
-              key={String(c.value)}
-              accessibilityRole={multiple ? 'checkbox' : 'radio'}
-              accessibilityState={multiple ? { checked: on } : { selected: on }}
-              onPress={() => onToggle(c.value)}
-              style={[
-                styles.chip,
-                { borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand : colors.surface },
-              ]}
-            >
-              <Text style={{ fontSize: 15, color: on ? colors.brandText : colors.ink, fontWeight: on ? '600' : '400' }}>{c.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {layout === 'scroll' ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          accessibilityRole={multiple ? undefined : 'radiogroup'}
+          accessibilityLabel={label}
+          contentContainerStyle={styles.scrollRow}
+        >
+          {items}
+        </ScrollView>
+      ) : (
+        <View accessibilityRole={multiple ? undefined : 'radiogroup'} accessibilityLabel={label} style={layout === 'tiles' ? styles.tiles : styles.chips}>
+          {items}
+        </View>
+      )}
       {error ? (
         <Text accessibilityRole="alert" style={{ fontSize: 14, color: colors.danger }}>
           {error}
@@ -164,6 +204,11 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, fontWeight: '600' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { minHeight: 44, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 22, borderWidth: 1 },
+  scrollRow: { gap: 8, paddingRight: 8 },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  tile: { flexBasis: '47%', flexGrow: 1, minHeight: 96, borderWidth: 1.5, borderRadius: 16, padding: 12, gap: 8, justifyContent: 'flex-start' },
+  tileIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  tileCheck: { position: 'absolute', top: 10, right: 10 },
   select: { minHeight: 52, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sheet: { flex: 1, paddingHorizontal: 24, paddingTop: 56, paddingBottom: 32, gap: 12 },
   sheetTitle: { fontSize: 22, fontWeight: '700' },

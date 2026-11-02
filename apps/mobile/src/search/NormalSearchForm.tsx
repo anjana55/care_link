@@ -6,7 +6,17 @@ import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Chips, SelectField } from '@/ui/choices';
 import { Text } from '@/ui/Text';
+import type { IconName } from '@/ui/visual';
 import { useCities, useDistricts, useSkills } from './api';
+
+/** A picture for each type of care. */
+export const CARE_TYPE_ICONS: Record<CareType, IconName> = {
+  HOME_SHIFT: 'home-outline',
+  LIVE_IN: 'bed-outline',
+  HOSPITAL: 'medkit-outline',
+  NURSING_HOME: 'business-outline',
+  RETIREMENT_HOME: 'leaf-outline',
+};
 
 /** YYYY-MM-DD plus `n` days, as dates (no time zone can shift it). */
 export function addDays(date: string, n: number): string {
@@ -67,8 +77,9 @@ export function NormalSearchForm({ initial, onSearch }: { initial?: SearchReques
   return (
     <View style={styles.form}>
       <Chips
+        layout="tiles"
         label={t('normalSearch.careType')}
-        choices={careTypeValues.map((v) => ({ value: v, label: t(`careTypes.${v}`) }))}
+        choices={careTypeValues.map((v) => ({ value: v, label: t(`careTypes.${v}`), icon: CARE_TYPE_ICONS[v] }))}
         selected={careType ? [careType] : []}
         onToggle={setCareType}
         error={tried && !careType ? t('normalSearch.errors.careTypeRequired') : null}
@@ -96,6 +107,7 @@ export function NormalSearchForm({ initial, onSearch }: { initial?: SearchReques
       />
 
       <Chips
+        layout="scroll"
         label={t('normalSearch.startDate')}
         choices={startDateChoices(today, locale)}
         selected={[startDate]}

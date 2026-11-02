@@ -7,6 +7,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
+import { EmptyState, ScreenTitle } from '@/ui/visual';
 import { formatDate } from '@/ui/dates';
 import { ShiftRow } from '@/ui/ShiftRow';
 import { useClient } from '@/care/api';
@@ -35,10 +36,7 @@ export default function Bookings() {
 
   const head = (
     <View style={styles.head}>
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-        {t('account.bookings.title')}
-      </Text>
-      <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('account.bookings.subtitle')}</Text>
+      <ScreenTitle icon="calendar-outline" title={t('account.bookings.title')} subtitle={t('account.bookings.subtitle')} />
       {client ? <TodaysCare /> : <SignInPrompt body={t('account.bookings.empty')} returnTo="/bookings" />}
     </View>
   );
@@ -51,10 +49,9 @@ export default function Bookings() {
       <Button variant="secondary" label={t('error.retry')} onPress={() => bookings.refetch()} />
     </View>
   ) : (
-    <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 16, lineHeight: 24, color: colors.muted }}>{t('account.bookings.empty')}</Text>
+    <EmptyState icon="calendar-outline" body={t('account.bookings.empty')}>
       <Button variant="secondary" label={t('care.viewRequests')} onPress={() => router.navigate('/requests')} />
-    </View>
+    </EmptyState>
   );
 
   return (

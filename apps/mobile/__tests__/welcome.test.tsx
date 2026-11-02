@@ -135,9 +135,10 @@ describe('welcome screen', () => {
     expect(screen.getByText('தமிழ்')).toHaveStyle({ fontFamily: 'NotoSansTamil_400Regular' });
 
     await fireEvent.press(screen.getByText('සිංහල'));
-    expect(screen.getByText(si.welcome.tagline)).toHaveStyle({ fontFamily: 'NotoSansSinhala_400Regular' });
+    expect(screen.getByText(si.welcome.findCareHint)).toHaveStyle({ fontFamily: 'NotoSansSinhala_400Regular' });
     // Bold text uses the bold file, not a synthesised bold.
     expect(screen.getByText(si.welcome.findCare)).toHaveStyle({ fontFamily: 'NotoSansSinhala_700Bold', fontWeight: 'normal' });
+    expect(screen.getByText(si.welcome.tagline)).toHaveStyle({ fontFamily: 'NotoSansSinhala_700Bold', fontWeight: 'normal' });
   });
 
   it('lets anyone start searching, and sends caregivers to sign-in', async () => {
@@ -145,9 +146,9 @@ describe('welcome screen', () => {
     await screen.findByText(en.welcome.tagline);
 
     // Searching needs no account.
-    expect(screen.getByTestId('link:/find')).toHaveTextContent(en.welcome.findCare);
+    expect(screen.getByTestId('link:/find')).toHaveTextContent(en.welcome.findCare, { exact: false });
     const [join, caregiverSignIn] = screen.getAllByTestId('link:/sign-in?role=caregiver');
-    expect(join).toHaveTextContent(en.welcome.joinAsCaregiver);
+    expect(join).toHaveTextContent(en.welcome.joinAsCaregiver, { exact: false });
 
     // People who already have an account can see where to sign in.
     expect(screen.getByText(en.welcome.haveAccount)).toBeTruthy();

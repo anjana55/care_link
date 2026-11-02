@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
-import { DEFAULT_BRANDING, brandingLogoUrl, type PublicBranding } from '@care-platform/shared';
+import { DEFAULT_BRANDING, brandingAssetUrl, normalizeBranding, type BrandAsset, type BRAND_PNG_SIZES, type PublicBranding } from '@care-platform/shared';
 import { api } from '@/api';
 import { config } from '@/config';
 
@@ -13,10 +13,18 @@ import { config } from '@/config';
  */
 const CACHE_KEY = 'carelink.branding';
 
+type PngSize = (typeof BRAND_PNG_SIZES)[number];
+
 interface BrandingValue {
   branding: PublicBranding;
-  /** Absolute URL of the logo, or null when the deployment has none. */
+  /** The logo as a PNG (the app can't draw SVG), or null when the deployment has none. */
   logoUrl: string | null;
+  /**
+   * A piece of the brand's artwork (Settings > Branding) as a PNG `size` px on
+   * its longer side - ask for twice the size it is drawn at, for sharp screens -
+   * or null when it isn't uploaded.
+   */
+  assetUrl(asset: BrandAsset, size: PngSize): string | null;
 }
 
 const BrandingContext = createContext<BrandingValue | null>(null);
@@ -49,8 +57,11 @@ export function BrandingProvider({
   }, [data]);
 
   const value = useMemo<BrandingValue>(() => {
-    const branding = data ?? cached ?? { ...DEFAULT_BRANDING, companyName: config.brandName };
-    return { branding, logoUrl: brandingLogoUrl(config.apiUrl, branding) };
+    // Normalised: a copy saved by an older version of the app has no `assets`.
+    const raw = data ?? cached;
+    const branding = raw ? normalizeBranding(raw) : { ...DEFAULT_BRANDING, companyName: config.brandName };
+    const assetUrl = (asset: BrandAsset, size: PngSize) => brandingAssetUrl(config.apiUrl, branding, asset, { png: size });
+    return { branding, logoUrl: assetUrl('logo', 512), assetUrl };
   }, [data, cached]);
 
   return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>;

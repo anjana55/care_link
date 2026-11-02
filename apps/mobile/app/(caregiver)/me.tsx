@@ -6,6 +6,7 @@ import { useColors } from '@/theme';
 import { Button, Screen } from '@/ui/controls';
 import { LanguagePicker } from '@/ui/LanguagePicker';
 import { Text } from '@/ui/Text';
+import { Avatar, Card, Divider, MenuRow, Pill } from '@/ui/visual';
 import { useOwnCaregiver } from '@/caregiver/api';
 
 /**
@@ -25,17 +26,26 @@ export default function Me() {
         <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
           {t('nav.myAccount')}
         </Text>
-        <View style={styles.section}>
-          {c ? <Text style={{ fontSize: 20, fontWeight: '600', color: colors.ink }}>{c.fullName}</Text> : null}
-          {c ? (
-            <Text style={{ color: colors.muted, fontSize: 15 }}>
-              {t('portal.registrationNumber')} {c.registrationNumber}
-            </Text>
-          ) : null}
-          {user?.phone || user?.email ? <Text style={{ color: colors.muted, fontSize: 16 }}>{user.phone ?? user.email}</Text> : null}
-        </View>
-        <Button variant="secondary" label={t('portal.profile.title')} onPress={() => router.navigate('/profile')} />
-        <Button variant="secondary" label={t('portal.nav.documents')} onPress={() => router.navigate('/documents')} />
+        <Card style={styles.profile}>
+          <Avatar name={c?.fullName ?? user?.email ?? user?.phone} size={64} />
+          <View style={{ flex: 1, gap: 4 }}>
+            {c ? <Text style={{ fontSize: 20, fontWeight: '700', color: colors.ink }}>{c.fullName}</Text> : null}
+            {c ? (
+              <Text style={{ color: colors.muted, fontSize: 14 }}>
+                {t('portal.registrationNumber')} {c.registrationNumber}
+              </Text>
+            ) : null}
+            {user?.phone || user?.email ? <Text style={{ color: colors.muted, fontSize: 15 }}>{user.phone ?? user.email}</Text> : null}
+            {c ? <Pill icon="ellipse" tone={c.status === 'ACTIVE' ? 'brand' : 'muted'} label={t(`portal.status.${c.status}`)} /> : null}
+          </View>
+        </Card>
+
+        <Card style={styles.menu}>
+          <MenuRow icon="person-outline" label={t('portal.profile.title')} onPress={() => router.navigate('/profile')} />
+          <Divider />
+          <MenuRow icon="document-text-outline" tone="accent" label={t('portal.nav.documents')} onPress={() => router.navigate('/documents')} />
+        </Card>
+
         <View style={styles.section}>
           <Text style={[styles.label, { color: colors.ink }]}>{t('common.language')}</Text>
           <LanguagePicker />
@@ -55,8 +65,10 @@ export default function Me() {
 }
 
 const styles = StyleSheet.create({
-  body: { paddingTop: 24, paddingBottom: 32, gap: 28 },
+  body: { paddingTop: 24, paddingBottom: 32, gap: 22 },
   title: { fontSize: 26, fontWeight: '700' },
+  profile: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  menu: { padding: 6, gap: 0 },
   section: { gap: 8 },
   label: { fontSize: 15, fontWeight: '600' },
 });

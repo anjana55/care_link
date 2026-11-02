@@ -7,6 +7,7 @@ import { useColors } from '@/theme';
 import { Button, Screen } from '@/ui/controls';
 import { LanguagePicker } from '@/ui/LanguagePicker';
 import { Text } from '@/ui/Text';
+import { Avatar, Card, Divider, IconBadge, MenuRow } from '@/ui/visual';
 
 /**
  * A client's account. Signed out: sign in or sign up (searching doesn't need
@@ -27,25 +28,33 @@ export default function Account() {
         </Text>
 
         {user ? (
-          <View style={styles.section}>
-            <Text style={[styles.lead, { color: colors.ink }]}>{t('home.welcome')}</Text>
-            {user.phone || user.email ? <Text style={{ color: colors.muted, fontSize: 16 }}>{user.phone ?? user.email}</Text> : null}
-          </View>
+          <Card style={styles.profile}>
+            <Avatar name={user.email ?? user.phone} size={64} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.lead, { color: colors.ink }]}>{t('home.welcome')}</Text>
+              {user.phone || user.email ? <Text style={{ color: colors.muted, fontSize: 15 }}>{user.phone ?? user.email}</Text> : null}
+            </View>
+          </Card>
         ) : (
-          <View style={styles.section}>
+          <Card style={{ alignItems: 'stretch', gap: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <IconBadge name="person-circle-outline" size={52} />
+              <Text style={{ flex: 1, color: colors.muted, fontSize: 15, lineHeight: 22 }}>{t('account.signedOutHint')}</Text>
+            </View>
             <Button label={t('signIn.client')} onPress={() => router.push({ pathname: '/sign-in', params: { role: 'client' } })} />
             <View style={styles.row}>
               <Text style={{ color: colors.muted, fontSize: 15 }}>{t('signIn.noAccount')}</Text>
               <Button variant="link" label={t('signIn.signUp')} onPress={() => Linking.openURL(registerUrl('client'))} />
             </View>
-          </View>
+          </Card>
         )}
 
         {user ? (
-          <View style={styles.section}>
-            <Button variant="secondary" label={t('account.nav.saved')} onPress={() => router.navigate('/saved')} />
-            <Button variant="secondary" label={t('account.nav.invoices')} onPress={() => router.navigate('/invoices')} />
-          </View>
+          <Card style={styles.menu}>
+            <MenuRow icon="heart-outline" tone="accent" label={t('account.nav.saved')} onPress={() => router.navigate('/saved')} />
+            <Divider />
+            <MenuRow icon="receipt-outline" label={t('account.nav.invoices')} onPress={() => router.navigate('/invoices')} />
+          </Card>
         ) : null}
 
         <View style={styles.section}>
@@ -70,7 +79,9 @@ export default function Account() {
 }
 
 const styles = StyleSheet.create({
-  body: { paddingTop: 24, paddingBottom: 32, gap: 28 },
+  body: { paddingTop: 24, paddingBottom: 32, gap: 22 },
+  profile: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  menu: { padding: 6, gap: 0 },
   title: { fontSize: 26, fontWeight: '700' },
   section: { gap: 12 },
   lead: { fontSize: 20, fontWeight: '600' },

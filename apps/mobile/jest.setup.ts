@@ -39,3 +39,9 @@ beforeEach(() => {
 // The phone's FormData, not Node's: on the phone a { uri, name, type } part is
 // the file itself, and that is what the app's uploads send.
 globalThis.FormData = require('react-native/Libraries/Network/FormData').default;
+
+// Icons draw from a font file Jest can't load; they are decoration (labels carry the meaning).
+jest.mock('@expo/vector-icons/Ionicons', () => {
+  const Icon = () => null;
+  return Object.assign(Icon, { glyphMap: {}, default: Object.assign(() => null, { glyphMap: {} }) });
+});

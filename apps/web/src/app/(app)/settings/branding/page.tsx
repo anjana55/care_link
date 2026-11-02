@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, ImageUp, RotateCcw, Trash2, TriangleAlert } from 'lucide-react';
+import { Check, RotateCcw, TriangleAlert } from 'lucide-react';
 import {
   DEFAULT_ACCENT_COLOR,
   DEFAULT_PRIMARY_COLOR,
   LOCALES,
-  LOGO_MAX_BYTES,
-  LOGO_MIME_TYPES,
+  BRAND_ASSETS,
   MIN_BRAND_CONTRAST,
   brandingLogoUrl,
   contrastRatio,
@@ -23,15 +22,14 @@ import { useTranslation } from '@/lib/i18n/provider';
 import { API_URL, ApiError } from '@/lib/api/client';
 import {
   useBrandingSettings,
-  useRemoveLogo,
   useUpdateBrandingSettings,
-  useUploadLogo,
   type BrandingSettings,
 } from '@/lib/hooks/use-branding-settings';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Select } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { BrandAssetSlot } from '@/components/settings/brand-asset-slot';
 
 type Draft = {
   companyName: string;
@@ -76,12 +74,8 @@ export default function BrandingSettingsPage() {
   const router = useRouter();
   const { data: settings, isLoading } = useBrandingSettings();
   const save = useUpdateBrandingSettings();
-  const upload = useUploadLogo();
-  const removeLogo = useRemoveLogo();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saved, setSaved] = useState(false);
-  const [logoError, setLogoError] = useState<string | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -125,15 +119,8 @@ export default function BrandingSettingsPage() {
     setDraft({ ...draft, enabledLocales: next, defaultLocale: next.includes(draft.defaultLocale) ? draft.defaultLocale : next[0] });
   };
 
-  const onLogoChosen = (file: File | undefined) => {
-    setLogoError(null);
-    if (!file) return;
-    if (!(LOGO_MIME_TYPES as readonly string[]).includes(file.type)) return setLogoError(t('brandingAdmin.logoWrongType'));
-    if (file.size > LOGO_MAX_BYTES) return setLogoError(t('brandingAdmin.logoTooLarge'));
-    upload.mutate(file, { onError: (err) => setLogoError(errorText(err, t('brandingAdmin.logoUploadError'))) });
-  };
-
   const logoUrl = brandingLogoUrl(API_URL, settings);
+  const brandColor = isHexColor(draft.primaryColor) ? draft.primaryColor : DEFAULT_PRIMARY_COLOR;
   const shortNamePreview = draft.shortName.trim() || initialsOf(draft.companyName);
 
   return (
@@ -170,59 +157,31 @@ export default function BrandingSettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{t('brandingAdmin.logoTitle')}</CardTitle>
+            <CardTitle>{t('brandingAdmin.artworkTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-ink/60">{t('brandingAdmin.logoHint')}</p>
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex h-20 min-w-[8rem] items-center justify-center rounded-lg border border-dashed border-border bg-paper px-4">
-                {logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt={t('brandingAdmin.logoAlt')} className="max-h-14 max-w-[12rem] object-contain" />
-                ) : (
-                  <span
-                    className="flex h-11 min-w-11 items-center justify-center rounded px-1 text-base font-bold text-white"
-                    style={{ backgroundColor: isHexColor(draft.primaryColor) ? draft.primaryColor : DEFAULT_PRIMARY_COLOR }}
-                  >
-                    {shortNamePreview}
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <input
-                  ref={fileInput}
-                  type="file"
-                  accept={LOGO_MIME_TYPES.join(',')}
-                  className="sr-only"
-                  aria-label={t('brandingAdmin.uploadLogo')}
-                  onChange={(e) => {
-                    onLogoChosen(e.target.files?.[0]);
-                    e.target.value = '';
-                  }}
-                />
-                <Button variant="secondary" size="sm" disabled={upload.isPending} onClick={() => fileInput.current?.click()}>
-                  <ImageUp size={14} className="mr-1.5" />
-                  {upload.isPending ? t('common.loading') : logoUrl ? t('brandingAdmin.replaceLogo') : t('brandingAdmin.uploadLogo')}
-                </Button>
-                {logoUrl && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={removeLogo.isPending}
-                    onClick={() => removeLogo.mutate(undefined, { onError: (err) => setLogoError(errorText(err, t('brandingAdmin.logoUploadError'))) })}
-                  >
-                    <Trash2 size={14} className="mr-1.5" />
-                    {t('brandingAdmin.removeLogo')}
-                  </Button>
-                )}
-              </div>
-            </div>
-            <p className="text-xs text-ink/50">{t('brandingAdmin.logoFormats')}</p>
-            {logoError && (
-              <p role="alert" className="text-sm text-danger">
-                {logoError}
-              </p>
-            )}
+            <p className="text-sm text-ink/60">{t('brandingAdmin.artworkHint')}</p>
+            {BRAND_ASSETS.map((asset) => (
+              <BrandAssetSlot
+                key={asset}
+                asset={asset}
+                settings={settings}
+                apiUrl={API_URL}
+                primaryColor={brandColor}
+                fallback={
+                  asset === 'logoReverse' ? (
+                    <span className="px-2 text-center text-sm font-semibold text-white">{draft.companyName}</span>
+                  ) : (
+                    <span
+                className="flex h-11 min-w-11 items-center justify-center rounded px-1 text-base font-bold text-white"
+                style={{ backgroundColor: brandColor }}
+              >
+                {shortNamePreview}
+              </span>
+                  )
+                }
+              />
+            ))}
           </CardContent>
         </Card>
 

@@ -1,13 +1,14 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Locale, PublicBranding } from '@care-platform/shared';
+import { BRAND_ASSET_PATH, type BrandAsset, type Locale, type PublicBranding } from '@care-platform/shared';
 import { api } from '../api/client';
 import { BRANDING_QUERY_KEY } from '../branding/provider';
 
 /** Settings > Branding as the admin sees it: the public branding plus the logo's type. */
 export interface BrandingSettings extends PublicBranding {
   logoMimeType: string | null;
+  assetMimeTypes: Record<BrandAsset, string | null>;
   updatedAt: string;
 }
 
@@ -47,14 +48,15 @@ export function useUpdateBrandingSettings() {
   return useBrandingMutation((v: BrandingSettingsInput) => api.patch<BrandingSettings>('/settings/branding', v));
 }
 
-export function useUploadLogo() {
+/** Upload the logo, reverse logo, symbol or app icon. */
+export function useUploadBrandAsset(asset: BrandAsset) {
   return useBrandingMutation((file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return api.upload<BrandingSettings>('/settings/branding/logo', form);
+    return api.upload<BrandingSettings>(`/settings/branding/${BRAND_ASSET_PATH[asset]}`, form);
   });
 }
 
-export function useRemoveLogo() {
-  return useBrandingMutation(() => api.delete<BrandingSettings>('/settings/branding/logo'));
+export function useRemoveBrandAsset(asset: BrandAsset) {
+  return useBrandingMutation(() => api.delete<BrandingSettings>(`/settings/branding/${BRAND_ASSET_PATH[asset]}`));
 }

@@ -7,6 +7,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
+import { Card, EmptyState, IconBadge, ScreenTitle } from '@/ui/visual';
 import { useCaregiverSearch, useClientSearchOrigin, useCoverage, useSearchConfig } from '@/search/api';
 import { useDeviceLocation } from '@/search/location';
 import { Nearby } from '@/search/Nearby';
@@ -93,9 +94,7 @@ export default function Find() {
 
   const header = (
     <View style={styles.header}>
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-        {t('welcome.tagline')}
-      </Text>
+      <ScreenTitle icon="search" title={t('welcome.tagline')} />
 
       {aiEnabled ? (
         <View accessibilityRole="tablist" style={[styles.modes, { borderColor: colors.border }]}>
@@ -116,23 +115,25 @@ export default function Find() {
         </View>
       ) : null}
 
-      {mode === 'ai' ? (
-        <AiSearchPanel
-          key={panelKey}
-          onSearch={(r, q) => search(r, q)}
-          onUseNormalSearch={() => switchMode('normal')}
-          onReset={() => {
-            setRequest(null);
-            setAiQuery(null);
-          }}
-        />
-      ) : (
-        <NormalSearchForm
-          key={panelKey}
-          initial={request}
-          onSearch={(r) => search(r)}
-        />
-      )}
+      <Card style={styles.formCard}>
+        {mode === 'ai' ? (
+          <AiSearchPanel
+            key={panelKey}
+            onSearch={(r, q) => search(r, q)}
+            onUseNormalSearch={() => switchMode('normal')}
+            onReset={() => {
+              setRequest(null);
+              setAiQuery(null);
+            }}
+          />
+        ) : (
+          <NormalSearchForm
+            key={panelKey}
+            initial={request}
+            onSearch={(r) => search(r)}
+          />
+        )}
+      </Card>
 
       <Nearby
         response={results.data?.pages[0] ?? null}
@@ -169,14 +170,16 @@ export default function Find() {
       <Button variant="secondary" label={t('error.retry')} onPress={() => results.refetch()} />
     </View>
   ) : !items.length ? (
-    <View style={styles.state}>
-      <Text style={[styles.stateTitle, { color: colors.ink }]}>{t('empty.title')}</Text>
-      <Text style={{ color: colors.muted, textAlign: 'center' }}>{t('empty.subtitle')}</Text>
-      <View style={[styles.askUs, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-        <Text style={[styles.stateTitle, { color: colors.ink }]}>{t('care.findForMe.title')}</Text>
+    <View>
+      <EmptyState icon="people-outline" title={t('empty.title')} body={t('empty.subtitle')} />
+      <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <IconBadge name="chatbubble-ellipses-outline" tone="accent" />
+          <Text style={[styles.stateTitle, { color: colors.ink, flex: 1 }]}>{t('care.findForMe.title')}</Text>
+        </View>
         <Text style={{ color: colors.muted, fontSize: 15, lineHeight: 22 }}>{t('care.findForMe.body')}</Text>
         <Button label={t('care.findForMe.cta')} onPress={askUs} />
-      </View>
+      </Card>
     </View>
   ) : results.hasNextPage ? (
     <View style={styles.more}>
@@ -213,7 +216,6 @@ export default function Find() {
 const styles = StyleSheet.create({
   list: { paddingHorizontal: 20, paddingBottom: 32 },
   header: { gap: 20, paddingTop: 16, paddingBottom: 16 },
-  title: { fontSize: 26, lineHeight: 36, fontWeight: '700' },
   modes: { flexDirection: 'row', borderWidth: 1, borderRadius: 12, padding: 4, gap: 4 },
   mode: { flex: 1, minHeight: 44, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   resultsHead: { gap: 6, marginTop: 8 },
@@ -221,5 +223,5 @@ const styles = StyleSheet.create({
   state: { alignItems: 'center', gap: 10, paddingVertical: 24 },
   stateTitle: { fontSize: 18, fontWeight: '700' },
   more: { marginTop: 16 },
-  askUs: { alignSelf: 'stretch', borderWidth: 1, borderRadius: 14, padding: 16, gap: 10, marginTop: 12 },
+  formCard: { padding: 16, gap: 20 },
 });

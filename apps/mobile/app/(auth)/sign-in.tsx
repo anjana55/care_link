@@ -12,6 +12,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button, Field, FormError, PasswordField, Screen } from '@/ui/controls';
 import { Text } from '@/ui/Text';
+import { BrandLogo, Card, Pill } from '@/ui/visual';
 
 /**
  * Sign-in for one side of the app. WhatsApp first when this deployment has it
@@ -92,12 +93,18 @@ export default function SignIn() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.title, { color: colors.ink }]}>{t(side === 'caregiver' ? 'signIn.caregiver' : 'signIn.client')}</Text>
+        <View style={styles.head}>
+          <BrandLogo height={40} />
+          <Pill icon={side === 'caregiver' ? 'medkit-outline' : 'person-outline'} tone={side === 'caregiver' ? 'accent' : 'brand'} label={t(side === 'caregiver' ? 'signIn.sideCaregiver' : 'signIn.sideClient')} />
+          <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
+            {t(side === 'caregiver' ? 'signIn.caregiver' : 'signIn.client')}
+          </Text>
+        </View>
 
         <SocialButtons side={side} onSignedIn={finish} onWrongSide={() => router.replace({ pathname: '/sign-in', params: { role: otherSide } })} />
 
         {mode === 'whatsapp' ? (
-          <View style={styles.form}>
+          <Card style={styles.form}>
             <Text style={[styles.subtitle, { color: colors.muted }]}>{t('signIn.whatsappSubtitle')}</Text>
             <Field
               label={t('signIn.phone')}
@@ -111,9 +118,9 @@ export default function SignIn() {
             <FormError message={error} />
             <Button label={t('signIn.sendCode')} onPress={sendCode} busy={busy} disabled={phone.trim().length < 7} />
             <Button variant="link" label={t('signIn.useEmail')} onPress={() => (setChosen('email'), setError(null))} />
-          </View>
+          </Card>
         ) : (
-          <View style={styles.form}>
+          <Card style={styles.form}>
             <Field
               label={t('signIn.email')}
               value={email}
@@ -147,7 +154,7 @@ export default function SignIn() {
             {whatsappOn ? (
               <Button variant="link" label={t('signIn.useWhatsapp')} onPress={() => (setChosen('whatsapp'), setError(null))} />
             ) : null}
-          </View>
+          </Card>
         )}
 
         <View style={styles.signUp}>
@@ -162,9 +169,10 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
-  body: { paddingTop: 48, paddingBottom: 24, gap: 20 },
-  title: { fontSize: 26, lineHeight: 38, fontWeight: '700' },
+  body: { paddingTop: 32, paddingBottom: 24, gap: 20 },
+  head: { gap: 12 },
+  title: { fontSize: 26, lineHeight: 36, fontWeight: '700' },
   subtitle: { fontSize: 15, lineHeight: 22 },
-  form: { gap: 16 },
+  form: { gap: 16, padding: 18 },
   signUp: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
 });

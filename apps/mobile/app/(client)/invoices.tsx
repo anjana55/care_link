@@ -6,6 +6,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
+import { EmptyState, ScreenTitle } from '@/ui/visual';
 import { formatDate } from '@/ui/dates';
 import { useClient } from '@/care/api';
 import { useMyInvoices } from '@/care/billing-api';
@@ -22,10 +23,7 @@ export default function Invoices() {
 
   const head = (
     <View style={styles.head}>
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-        {t('invoices.title')}
-      </Text>
-      <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('invoices.subtitle')}</Text>
+      <ScreenTitle icon="receipt-outline" title={t('invoices.title')} subtitle={t('invoices.subtitle')} />
       {!client ? <SignInPrompt body={t('invoices.empty')} returnTo="/invoices" /> : null}
       {owing > 0 ? (
         <Text style={[styles.owing, { borderColor: colors.brand, color: colors.ink }]}>
@@ -43,7 +41,7 @@ export default function Invoices() {
       <Button variant="secondary" label={t('error.retry')} onPress={() => invoices.refetch()} />
     </View>
   ) : (
-    <Text style={{ fontSize: 16, color: colors.muted }}>{t('invoices.empty')}</Text>
+    <EmptyState icon="receipt-outline" body={t('invoices.empty')} />
   );
 
   return (

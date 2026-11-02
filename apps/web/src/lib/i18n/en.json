@@ -1102,7 +1102,34 @@
     "previewBadge": "Verified",
     "previewTint": "Highlighted information",
     "previewLink": "View details",
-    "previewNote": "Save to apply. Open pages pick up the change on their next load."
+    "previewNote": "Save to apply. Open pages pick up the change on their next load.",
+    "artworkTitle": "Logo and artwork",
+    "artworkHint": "Each piece of artwork has its place in the website, the staff app and the mobile app. Only the logo is needed; anything missing falls back to the logo, then to the company name. Changes apply immediately, except the app icon, which goes into the next app build.",
+    "upload": "Upload",
+    "replace": "Replace",
+    "remove": "Remove",
+    "assets": {
+      "logo": {
+        "title": "Logo",
+        "hint": "The horizontal logo in full colour, for light backgrounds: the website header, emails, invoices and the app's sign-in screen.",
+        "spec": "Wide, on a transparent background - for example 448 × 92. SVG works best; PNG, JPEG or WebP up to 1 MB."
+      },
+      "logoReverse": {
+        "title": "Reverse logo",
+        "hint": "The same logo in white or light colours, for the brand colour and dark backgrounds: the app's welcome screen. Without it, the app shows the symbol on a white tile and the company name.",
+        "spec": "Same shape as the logo, transparent background, light-coloured artwork."
+      },
+      "symbol": {
+        "title": "Symbol",
+        "hint": "The mark on its own, without the name: the browser tab icon, small spaces in the app, and the app's splash screen. Without it, the logo is used.",
+        "spec": "Square, transparent background, at least 512 × 512 or SVG. Keep it simple enough to read at 32 px."
+      },
+      "appIcon": {
+        "title": "App icon",
+        "hint": "The icon on the phone's home screen and in the App Store and Google Play. It is built into the app, so a new icon needs a new app release (see BUILDING.md). Without it, the symbol on white is used.",
+        "spec": "Square and full-bleed: fill the whole square with the background colour, no rounded corners or transparency - the phone adds its own shape. 1024 × 1024 PNG or SVG; keep the mark inside the middle 66%."
+      }
+    }
   },
   "socialAdmin": {
     "title": "Google, Microsoft and Facebook sign-in",

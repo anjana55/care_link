@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { brandingLogoUrl, defaultFaviconDataUrl, derivePalette, paletteCss } from '@care-platform/shared';
+import { brandingAssetUrl, brandingLogoUrl, defaultFaviconDataUrl, derivePalette, paletteCss } from '@care-platform/shared';
 import { QueryProvider } from '@/lib/api/query-provider';
 import { AuthProvider } from '@/lib/api/auth-context';
 import { BrandingProvider } from '@/lib/branding/provider';
@@ -11,7 +11,8 @@ const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
 export async function generateMetadata(): Promise<Metadata> {
   const b = await getBranding();
-  const icon = brandingLogoUrl(PUBLIC_API_URL, b) ?? defaultFaviconDataUrl(b.primaryColor);
+  // The browser tab: the square symbol when there is one, else the logo, else the shipped mark in the brand colour.
+  const icon = brandingAssetUrl(PUBLIC_API_URL, b, 'symbol', { png: 64 }) ?? brandingLogoUrl(PUBLIC_API_URL, b) ?? defaultFaviconDataUrl(b.primaryColor);
   return {
     // The staff area is reached at /staff; the default title is what a bookmarked tab shows.
     title: {
