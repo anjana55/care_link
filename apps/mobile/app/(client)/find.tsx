@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { DEFAULT_SEARCH_RADIUS_KM, withDeviceOrigin, withProfileOrigin, type DeviceLocation, type SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
-import { Card, EmptyState, IconBadge, ScreenTitle } from '@/ui/visual';
+import { Card, EmptyState, IconBadge } from '@/ui/visual';
+import { PageHeader } from '@/ui/PageHeader';
 import { useCaregiverSearch, useClientSearchOrigin, useCoverage, useSearchConfig } from '@/search/api';
 import { useDeviceLocation } from '@/search/location';
 import { Nearby } from '@/search/Nearby';
@@ -94,7 +94,6 @@ export default function Find() {
 
   const header = (
     <View style={styles.header}>
-      <ScreenTitle icon="search" title={t('welcome.tagline')} />
 
       {aiEnabled ? (
         <View accessibilityRole="tablist" style={[styles.modes, { borderColor: colors.border }]}>
@@ -188,7 +187,8 @@ export default function Find() {
   ) : null;
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHeader title={t('welcome.tagline')} />
       <FlatList
         data={request ? items : []}
         keyExtractor={(c) => c.publicId}
@@ -209,7 +209,7 @@ export default function Find() {
           router.navigate('/requests');
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

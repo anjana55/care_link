@@ -1,5 +1,4 @@
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ClientBooking, MyIssueReport } from '@care-platform/shared';
@@ -7,7 +6,8 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
-import { EmptyState, ScreenTitle } from '@/ui/visual';
+import { EmptyState } from '@/ui/visual';
+import { PageHeader } from '@/ui/PageHeader';
 import { formatDate } from '@/ui/dates';
 import { ShiftRow } from '@/ui/ShiftRow';
 import { useClient } from '@/care/api';
@@ -36,7 +36,6 @@ export default function Bookings() {
 
   const head = (
     <View style={styles.head}>
-      <ScreenTitle icon="calendar-outline" title={t('account.bookings.title')} subtitle={t('account.bookings.subtitle')} />
       {client ? <TodaysCare /> : <SignInPrompt body={t('account.bookings.empty')} returnTo="/bookings" />}
     </View>
   );
@@ -55,7 +54,8 @@ export default function Bookings() {
   );
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHeader title={t('account.bookings.title')} subtitle={t('account.bookings.subtitle')} />
       <FlatList
         data={client ? (bookings.data ?? []) : []}
         keyExtractor={(b) => b.id}
@@ -66,7 +66,7 @@ export default function Bookings() {
         refreshControl={client ? <RefreshControl refreshing={bookings.isRefetching} onRefresh={refresh} /> : undefined}
         renderItem={({ item }) => <BookingCard booking={item} reports={(issues.data ?? []).filter((r) => r.bookingId === item.id)} />}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

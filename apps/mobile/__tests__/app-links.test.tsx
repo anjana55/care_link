@@ -127,8 +127,8 @@ describe('arriving signed out, or on the other side', () => {
 
   it('keeps each side to its own screens', () => {
     // A client who opens a caregiver link goes to their own area, and the reverse.
-    expect(caregiverOnly({ role: 'PATIENT_GUARDIAN' }, '/shifts')).toBe('/find');
-    expect(afterSignIn({ role: 'PATIENT_GUARDIAN' }, '/shifts')).toBe('/find');
+    expect(caregiverOnly({ role: 'PATIENT_GUARDIAN' }, '/shifts')).toBe('/start');
+    expect(afterSignIn({ role: 'PATIENT_GUARDIAN' }, '/shifts')).toBe('/start');
     expect(afterSignIn({ role: 'CAREGIVER' }, '/bookings')).toBe('/home');
     expect(afterSignIn({ role: 'PATIENT_GUARDIAN' }, `/invoices/${INVOICE_ID}`)).toBe(`/invoices/${INVOICE_ID}`);
   });

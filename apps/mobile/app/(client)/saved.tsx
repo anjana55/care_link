@@ -1,11 +1,11 @@
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
-import { EmptyState, ScreenTitle } from '@/ui/visual';
+import { EmptyState } from '@/ui/visual';
+import { PageHeader } from '@/ui/PageHeader';
 import { formatDate } from '@/ui/dates';
 import { useClient, useSavedCaregivers, useSetSaved } from '@/care/api';
 import { SignInPrompt } from '@/care/SignInPrompt';
@@ -22,7 +22,6 @@ export default function Saved() {
 
   const head = (
     <View style={styles.head}>
-      <ScreenTitle icon="heart-outline" title={t('account.saved.title')} subtitle={t('account.saved.subtitle')} />
       {!client ? <SignInPrompt body={t('profile.saveCta')} returnTo="/saved" /> : null}
     </View>
   );
@@ -41,7 +40,8 @@ export default function Saved() {
   );
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHeader title={t('account.saved.title')} subtitle={t('account.saved.subtitle')} />
       <FlatList
         data={client ? (saved.data ?? []) : []}
         keyExtractor={(s) => s.caregiverPublicId}
@@ -66,7 +66,7 @@ export default function Saved() {
           </View>
         )}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

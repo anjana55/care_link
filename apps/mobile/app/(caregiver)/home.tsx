@@ -1,5 +1,4 @@
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useRouter } from 'expo-router';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import type { CareChecklistShift } from '@care-platform/shared';
@@ -10,7 +9,8 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
-import { Avatar, Card, EmptyState, HeroBand, IconBadge, Pill, tint } from '@/ui/visual';
+import { Avatar, Card, EmptyState, IconBadge, Pill, tint } from '@/ui/visual';
+import { PageHeader } from '@/ui/PageHeader';
 import { ShiftRow } from '@/ui/ShiftRow';
 import { useCaregiver, useMyShifts, useOwnCaregiver } from '@/caregiver/api';
 import { missingCore } from '@/caregiver/documents';
@@ -67,21 +67,21 @@ export default function Today() {
   const missing = c ? missingCore(c.documents ?? []) : [];
   const rejected = Boolean(c?.documents?.some((d) => d.verificationStatus === 'REJECTED'));
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         contentContainerStyle={styles.page}
         refreshControl={<RefreshControl refreshing={shifts.isRefetching} onRefresh={() => void queryClient.invalidateQueries({ queryKey: ['caregiver', me?.userId ?? 'none'] })} />}
       >
-        <HeroBand style={styles.hero}>
+        <PageHeader isHome>
           <View style={styles.heroRow}>
             <Avatar name={c?.fullName ?? user?.phone ?? user?.email} size={60} onBrand />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>{t('portal.welcome')}</Text>
+              <Text style={{ fontSize: 17, color: '#FFFFFF' }}>{t('portal.welcome')}</Text>
               <Text accessibilityRole="header" style={[styles.title, { color: colors.brandText }]}>
                 {c?.fullName ?? user?.phone ?? user?.email ?? ''}
               </Text>
               {c ? (
-                <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.8)' }}>
+                <Text style={{ fontSize: 15, color: '#FFFFFF' }}>
                   {t('portal.registrationNumber')} {c.registrationNumber}
                 </Text>
               ) : null}
@@ -95,7 +95,7 @@ export default function Today() {
           ) : record.isError ? (
             <Text style={{ color: colors.brandText }}>{t('portal.loadError')}</Text>
           ) : null}
-        </HeroBand>
+        </PageHeader>
 
         {c && (missing.length || rejected) ? (
           <Card style={[styles.card, { borderColor: tint(colors.danger, 0.3) }]}>
@@ -138,17 +138,16 @@ export default function Today() {
           ))}
         </Card>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   page: { gap: 16, paddingBottom: 40 },
-  hero: { paddingTop: 20, gap: 16, marginBottom: 4 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   statusBox: { borderRadius: 16, padding: 14, gap: 8 },
   card: { marginHorizontal: 20, gap: 10 },
-  title: { fontSize: 22, fontWeight: '700' },
-  section: { flex: 1, fontSize: 18, fontWeight: '700' },
+  title: { fontSize: 26, lineHeight: 34, fontWeight: '800' },
+  section: { flex: 1, fontSize: 20, fontWeight: '800' },
   sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 });

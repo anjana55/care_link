@@ -9,7 +9,8 @@ import { Chips, SelectField } from '@/ui/choices';
 import { fontFamilyFor } from '@/ui/fonts';
 import { Text } from '@/ui/Text';
 import { useCities, useDistricts } from '@/search/api';
-import { startDateChoices } from '@/search/NormalSearchForm';
+import { addDays, START_WINDOW_DAYS } from '@/search/NormalSearchForm';
+import { DateField } from '@/ui/Calendar';
 import { useSendRequest } from './api';
 import { detailsFromLastSearch } from './last-search';
 
@@ -134,11 +135,14 @@ export function RequestSheet({
                   none={t('normalSearch.anyCity')}
                   disabled={!districtId}
                 />
-                <Chips
+                <DateField
                   label={t('normalSearch.startDate')}
-                  choices={startDateChoices(colomboToday(), locale)}
-                  selected={startDate ? [startDate] : []}
-                  onToggle={(d) => setStartDate((cur) => (cur === d ? null : d))}
+                  value={startDate}
+                  onChange={setStartDate}
+                  today={colomboToday()}
+                  min={colomboToday()}
+                  max={addDays(colomboToday(), START_WINDOW_DAYS)}
+                  none={t('calendar.choose')}
                 />
               </>
             ) : null}

@@ -19,6 +19,8 @@ import { AppProviders, serveApi } from '../test-utils/app';
 import { mockRouter } from '../test-utils/router';
 import { tokensFor } from '../test-utils/helpers';
 import { tokenStore } from '@/api';
+import { longDay } from '@/ui/Calendar';
+import { pickDate } from '../test-utils/calendar';
 import { config } from '@/config';
 
 jest.mock('expo-router', () => require('../test-utils/router').expoRouterMock());
@@ -185,9 +187,7 @@ describe('Documents', () => {
     expect(upload().props.accessibilityState.disabled).toBe(true);
 
     await fireEvent.press(screen.getByRole('radio', { name: en.portal.documents.idKinds.PASSPORT }));
-    await choose(en.portal.documents.day, '15');
-    await choose(en.portal.documents.month, 'June');
-    await choose(en.portal.documents.year, '2031');
+    await pickDate(en.portal.documents.expiresOn, '2031-06-15');
     mockFiles.photo = photo;
     await fireEvent.press(screen.getByRole('button', { name: en.portal.documents.takePhoto }));
     expect(await screen.findByText(en.portal.documents.selected.replace('{name}', 'abc.jpg').replace('{size}', '1.7 MB'))).toBeTruthy();
@@ -227,22 +227,34 @@ describe('Documents', () => {
     });
   });
 
-  it('asks for a whole expiry date, and a real one', async () => {
+  it('picks the expiry date on a calendar that starts today, and can leave it out', async () => {
     await signIn();
-    const calls = serveApi({ 'GET /caregivers/cg-1/documents': () => ({ status: 200, body: [] }) });
+    const calls = serveApi({
+      'GET /caregivers/cg-1/documents': () => ({ status: 200, body: [] }),
+      'POST /caregivers/cg-1/documents': () => ({ status: 201, body: doc(1, { documentType: 'POLICE_CLEARANCE' }) }),
+    });
     await show(<Documents />);
     await choose(en.portal.documents.type, en.portal.documents.pick.police);
     mockFiles.library = photo;
     await fireEvent.press(screen.getByRole('button', { name: en.portal.documents.choosePhoto }));
-    await choose(en.portal.documents.day, '31');
-    await fireEvent.press(await screen.findByRole('button', { name: en.portal.documents.upload }));
-    expect(screen.getByText(en.portal.documents.partDate)).toBeTruthy();
 
-    await choose(en.portal.documents.month, 'April');
-    await choose(en.portal.documents.year, String(new Date().getFullYear() + 1));
+    // An expiry date can't be in the past: the calendar opens on this month and won't go back.
+    const field = await screen.findByRole('button', { name: en.portal.documents.expiresOn });
+    expect(field).toHaveProp('accessibilityValue', { text: en.portal.documents.notSet });
+    await fireEvent.press(field);
+    expect(screen.getByRole('button', { name: en.calendar.previousMonth })).toHaveProp('accessibilityState', { disabled: true });
+    // The calendar's own Back closes it (the screen's Back is still behind it).
+    await fireEvent.press(screen.getAllByRole('button', { name: en.nav.back }).at(-1)!);
+
+    // Chosen, then cleared again: nothing is sent.
+    const nextYear = `${new Date().getFullYear() + 1}-04-30`;
+    await pickDate(en.portal.documents.expiresOn, nextYear);
+    expect(screen.getByRole('button', { name: en.portal.documents.expiresOn })).toHaveProp('accessibilityValue', { text: longDay(nextYear, 'en') });
+    await fireEvent.press(screen.getByRole('button', { name: en.portal.documents.expiresOn }));
+    await fireEvent.press(screen.getByRole('button', { name: en.calendar.clear }));
     await fireEvent.press(upload());
-    expect(screen.getByText(en.portal.documents.badDate)).toBeTruthy();
-    expect(calls.some((c) => c.route.startsWith('POST'))).toBe(false);
+    await screen.findByText(en.portal.documents.uploaded);
+    expect(calls.find((c) => c.route.startsWith('POST'))!.body.expiresOn).toBeUndefined();
   });
 
   it("says why a file can't be used", async () => {

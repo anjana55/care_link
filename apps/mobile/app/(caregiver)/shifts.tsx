@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
-import { EmptyState, ScreenTitle } from '@/ui/visual';
+import { EmptyState } from '@/ui/visual';
+import { PageHeader } from '@/ui/PageHeader';
 import { ShiftRow } from '@/ui/ShiftRow';
 import { IssueForm, IssueReportList } from '@/care/IssueForm';
 import { useMyShiftIssues, useMyShifts, useReportShiftIssue } from '@/caregiver/api';
@@ -37,12 +37,12 @@ export default function Shifts() {
   if (gate) return <Redirect href={gate} />;
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHeader title={t('portal.shifts.bookedTitle')} subtitle={t('portal.shifts.bookedSubtitle')} />
       <ScrollView
         contentContainerStyle={styles.page}
         refreshControl={<RefreshControl refreshing={shifts.isRefetching} onRefresh={() => void shifts.refetch()} />}
       >
-        <ScreenTitle icon="calendar-outline" title={t('portal.shifts.bookedTitle')} subtitle={t('portal.shifts.bookedSubtitle')} />
 
         {shifts.isLoading ? <ActivityIndicator color={colors.brand} /> : null}
         {shifts.isError ? <Text style={{ color: colors.danger }}>{t('care.actionError')}</Text> : null}
@@ -104,7 +104,7 @@ export default function Shifts() {
         ) : null}
         <IssueReportList reports={issues.data ?? []} showBooking />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

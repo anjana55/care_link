@@ -225,10 +225,10 @@ describe('a caregiver’s profile', () => {
 });
 
 describe('where people land', () => {
-  it('a signed-in client opens on Find, a caregiver on their home', async () => {
+  it('a signed-in client opens on their home of tiles, a caregiver on Today', async () => {
     await tokenStore.set(tokensFor('PATIENT_GUARDIAN'));
     await show(<Welcome />);
-    expect(await screen.findByText('redirect:/find')).toBeTruthy();
+    expect(await screen.findByText('redirect:/start')).toBeTruthy();
     screen.unmount();
 
     await tokenStore.set(tokensFor('CAREGIVER'));
@@ -236,10 +236,10 @@ describe('where people land', () => {
     expect(await screen.findByText('redirect:/home')).toBeTruthy();
   });
 
-  it('a client who reaches the caregiver home is sent to Find', async () => {
+  it('a client who reaches the caregiver home is sent to their own home', async () => {
     await tokenStore.set(tokensFor('PATIENT_GUARDIAN'));
     await show(<Home />);
-    expect(await screen.findByText('redirect:/find')).toBeTruthy();
+    expect(await screen.findByText('redirect:/start')).toBeTruthy();
   });
 });
 

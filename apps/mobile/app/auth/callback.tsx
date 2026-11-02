@@ -14,5 +14,5 @@ export default function AuthCallback() {
     if (router.canGoBack()) router.back();
     else router.replace('/');
   }, [router]);
-  return <Screen>{null}</Screen>;
+  return <Screen header={false}>{null}</Screen>;
 }

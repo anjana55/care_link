@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Linking, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Redirect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Experience, OwnCaregiver, Qualification, VerificationStatus } from '@care-platform/shared';
 import { ApiError } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
@@ -16,7 +15,7 @@ import { Chips, SelectField } from '@/ui/choices';
 import { Button, Field } from '@/ui/controls';
 import { formatDate } from '@/ui/dates';
 import { Text } from '@/ui/Text';
-import { ScreenTitle } from '@/ui/visual';
+import { PageHeader } from '@/ui/PageHeader';
 
 /** The caregiver's profile on the website, for what the app only shows. */
 const websiteProfile = () => `${config.siteUrl}/caregiver/profile`;
@@ -39,15 +38,13 @@ export default function Profile() {
 
   const c = record.data;
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHeader title={t('portal.profile.title')} subtitle={t('portal.profile.subtitle')} />
       <ScrollView
         contentContainerStyle={styles.page}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={record.isRefetching} onRefresh={() => void record.refetch()} />}
       >
-        <View style={{ gap: 6 }}>
-          <ScreenTitle icon="person-outline" title={t('portal.profile.title')} subtitle={t('portal.profile.subtitle')} />
-        </View>
         {record.isLoading ? <Text style={{ color: colors.muted }}>{t('common.loading')}</Text> : null}
         {record.isError ? (
           <View style={{ gap: 8 }}>
@@ -67,7 +64,7 @@ export default function Profile() {
           </>
         ) : null}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

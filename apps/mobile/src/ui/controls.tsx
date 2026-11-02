@@ -6,12 +6,36 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from '@/i18n';
 import { useColors, type Colors } from '@/theme';
 import { fontFamilyFor } from './fonts';
+import { PageHeader } from './PageHeader';
 import { Text } from './Text';
 
-/** A full screen with the app's background and side margins. */
-export function Screen({ children }: { children: ReactNode }) {
+/**
+ * A full screen with the app's background and side margins, under the page
+ * header (Back, Home and the title). `header={false}` only for screens that
+ * are never really seen, such as the sign-in return.
+ */
+export function Screen({
+  children,
+  title,
+  subtitle,
+  isHome = false,
+  header = true,
+}: {
+  children: ReactNode;
+  title?: string;
+  subtitle?: string;
+  isHome?: boolean;
+  header?: boolean;
+}) {
   const colors = useColors();
-  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, paddingHorizontal: 24 }}>{children}</SafeAreaView>;
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {header ? <PageHeader title={title} subtitle={subtitle} isHome={isHome} /> : null}
+      <SafeAreaView edges={header ? ['bottom', 'left', 'right'] : undefined} style={{ flex: 1, paddingHorizontal: 24 }}>
+        {children}
+      </SafeAreaView>
+    </View>
+  );
 }
 
 interface ButtonProps {
@@ -42,7 +66,7 @@ export function Button({ label, onPress, variant = 'primary', busy = false, disa
         <ActivityIndicator color={variant === 'primary' ? colors.brandText : colors.brand} />
       ) : (
         <View style={styles.buttonRow}>
-          {icon ? <Ionicons name={icon} size={20} color={variant === 'primary' ? colors.brandText : colors.brand} /> : null}
+          {icon ? <Ionicons name={icon} size={22} color={variant === 'primary' ? colors.brandText : colors.brand} /> : null}
           <Text style={variant === 'primary' ? styles.primaryText : variant === 'secondary' ? styles.secondaryText : styles.linkText}>{label}</Text>
         </View>
       )}
@@ -127,30 +151,31 @@ export function FormError({ message }: { message: string | null }) {
   );
 }
 
-const button = { minHeight: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 } as const;
+/** Big and easy to hit: many of the app's people are older or new to smartphones. */
+const button = { minHeight: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 } as const;
 
 const makeStyles = (colors: Colors) =>
   StyleSheet.create({
-    primary: { ...button, backgroundColor: colors.brand },
-    secondary: { ...button, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.brand },
+    primary: { ...button, backgroundColor: colors.deep },
+    secondary: { ...button, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.brand },
     link: { minHeight: 48, justifyContent: 'center' },
     buttonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-    primaryText: { fontSize: 17, fontWeight: '600', color: colors.brandText, textAlign: 'center' },
-    secondaryText: { fontSize: 17, fontWeight: '600', color: colors.brand, textAlign: 'center' },
-    linkText: { fontSize: 16, fontWeight: '600', color: colors.brand },
+    primaryText: { fontSize: 18, fontWeight: '700', color: colors.brandText, textAlign: 'center' },
+    secondaryText: { fontSize: 18, fontWeight: '700', color: colors.brand, textAlign: 'center' },
+    linkText: { fontSize: 17, fontWeight: '700', color: colors.brand },
     field: { gap: 6 },
-    label: { fontSize: 15, fontWeight: '600', color: colors.ink },
+    label: { fontSize: 16, fontWeight: '700', color: colors.ink },
     box: {
-      minHeight: 52,
+      minHeight: 56,
       flexDirection: 'row',
       alignItems: 'center',
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 10,
+      borderRadius: 14,
       backgroundColor: colors.surface,
     },
-    input: { flex: 1, minHeight: 50, paddingHorizontal: 14, fontSize: 17, color: colors.ink },
+    input: { flex: 1, minHeight: 54, paddingHorizontal: 16, fontSize: 18, color: colors.ink },
     inputError: { borderColor: colors.danger },
-    hint: { fontSize: 13, color: colors.muted },
+    hint: { fontSize: 15, color: colors.muted },
     error: { fontSize: 14, color: colors.danger },
   });

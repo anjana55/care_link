@@ -16,6 +16,8 @@ export const mockRouter = {
   back: jest.fn(),
   dismissTo: jest.fn(),
   navigate: jest.fn(),
+  /** Whether there's a screen to go back to; nothing by default, as when a link opens the app. */
+  canGoBack: jest.fn(() => false),
   params: {} as Record<string, string>,
   reset() {
     this.push.mockReset();
@@ -23,6 +25,7 @@ export const mockRouter = {
     this.back.mockReset();
     this.dismissTo.mockReset();
     this.navigate.mockReset();
+    this.canGoBack.mockReset().mockReturnValue(false);
     this.params = {};
   },
 };

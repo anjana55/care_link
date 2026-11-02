@@ -1,12 +1,12 @@
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { formatLkr, type ClientInvoice } from '@care-platform/shared';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
-import { EmptyState, ScreenTitle } from '@/ui/visual';
+import { EmptyState } from '@/ui/visual';
+import { PageHeader } from '@/ui/PageHeader';
 import { formatDate } from '@/ui/dates';
 import { useClient } from '@/care/api';
 import { useMyInvoices } from '@/care/billing-api';
@@ -23,7 +23,6 @@ export default function Invoices() {
 
   const head = (
     <View style={styles.head}>
-      <ScreenTitle icon="receipt-outline" title={t('invoices.title')} subtitle={t('invoices.subtitle')} />
       {!client ? <SignInPrompt body={t('invoices.empty')} returnTo="/invoices" /> : null}
       {owing > 0 ? (
         <Text style={[styles.owing, { borderColor: colors.brand, color: colors.ink }]}>
@@ -45,7 +44,8 @@ export default function Invoices() {
   );
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHeader title={t('invoices.title')} subtitle={t('invoices.subtitle')} />
       <FlatList
         data={client ? sorted : []}
         keyExtractor={(i) => i.id}
@@ -56,7 +56,7 @@ export default function Invoices() {
         refreshControl={client ? <RefreshControl refreshing={invoices.isRefetching} onRefresh={() => void invoices.refetch()} /> : undefined}
         renderItem={({ item }) => <InvoiceRow invoice={item} />}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

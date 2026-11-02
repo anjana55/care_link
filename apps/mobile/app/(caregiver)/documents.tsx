@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Image, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Redirect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import type { CaregiverDocument } from '@care-platform/shared';
+import { colomboToday, type CaregiverDocument } from '@care-platform/shared';
 import { ApiError } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
 import { caregiverOnly } from '@/auth/sides';
@@ -13,7 +12,6 @@ import {
   CHOICES,
   CORE,
   documentTypeFor,
-  expiryFrom,
   fileSize,
   hasExpired,
   ID_KINDS,
@@ -27,10 +25,11 @@ import {
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Chips, SelectField } from '@/ui/choices';
+import { DateField } from '@/ui/Calendar';
 import { Button } from '@/ui/controls';
 import { formatDate } from '@/ui/dates';
 import { Text } from '@/ui/Text';
-import { ScreenTitle } from '@/ui/visual';
+import { PageHeader } from '@/ui/PageHeader';
 
 const YEARS_AHEAD = 20;
 
@@ -52,9 +51,7 @@ export default function Documents() {
   const [choice, setChoice] = useState<Choice>('identity');
   const [idKind, setIdKind] = useState<IdKind>('NIC');
   const [file, setFile] = useState<PickedFile | null>(null);
-  const [year, setYear] = useState<number | null>(null);
-  const [month, setMonth] = useState<number | null>(null);
-  const [day, setDay] = useState<number | null>(null);
+  const [expires, setExpires] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -91,9 +88,7 @@ export default function Documents() {
   const onUpload = () => {
     setNotice(null);
     if (!file) return setError(t('portal.documents.chooseFile'));
-    const expiresOn = withExpiry ? expiryFrom(year, month, day) : null;
-    if (expiresOn === 'partial') return setError(t('portal.documents.partDate'));
-    if (expiresOn === 'invalid') return setError(t('portal.documents.badDate'));
+    const expiresOn = withExpiry ? expires : null;
     setError(null);
     upload.mutate(
       { file, documentType: documentTypeFor(choice, idKind), expiresOn },
@@ -101,9 +96,7 @@ export default function Documents() {
         onSuccess: () => {
           setNotice(t('portal.documents.uploaded'));
           setFile(null);
-          setYear(null);
-          setMonth(null);
-          setDay(null);
+          setExpires(null);
         },
         onError: (err) => setError(err instanceof ApiError && err.message ? err.message : t('portal.saveError')),
       },
@@ -137,19 +130,16 @@ export default function Documents() {
 
   const list = documents.data ?? [];
   const missing = missingCore(list);
-  const thisYear = Number(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 4));
-  const monthName = (m: number) => new Date(Date.UTC(2000, m - 1, 1)).toLocaleDateString(locale === 'en' ? 'en-GB' : locale, { month: 'long', timeZone: 'UTC' });
+  const today = colomboToday();
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHeader title={t('portal.documents.title')} subtitle={t('portal.documents.subtitle')} />
       <ScrollView
         contentContainerStyle={styles.page}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={documents.isRefetching} onRefresh={() => void documents.refetch()} />}
       >
-        <View style={{ gap: 6 }}>
-          <ScreenTitle icon="document-text-outline" title={t('portal.documents.title')} subtitle={t('portal.documents.subtitle')} />
-        </View>
 
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
           <Text accessibilityRole="header" style={[styles.section, { color: colors.ink }]}>
@@ -185,39 +175,16 @@ export default function Documents() {
             />
           ) : null}
           {withExpiry ? (
-            <View style={{ gap: 8 }}>
-              <Text style={[styles.label, { color: colors.ink }]}>{t('portal.documents.expiresOn')}</Text>
-              <View style={styles.dateRow}>
-                <View style={{ flex: 1 }}>
-                  <SelectField
-                    label={t('portal.documents.day')}
-                    choices={Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: String(i + 1) }))}
-                    value={day}
-                    onChange={setDay}
-                    none={t('portal.documents.notSet')}
-                  />
-                </View>
-                <View style={{ flex: 1.6 }}>
-                  <SelectField
-                    label={t('portal.documents.month')}
-                    choices={Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: monthName(i + 1) }))}
-                    value={month}
-                    onChange={setMonth}
-                    none={t('portal.documents.notSet')}
-                  />
-                </View>
-                <View style={{ flex: 1.2 }}>
-                  <SelectField
-                    label={t('portal.documents.year')}
-                    choices={Array.from({ length: YEARS_AHEAD + 1 }, (_, i) => ({ value: thisYear + i, label: String(thisYear + i) }))}
-                    value={year}
-                    onChange={setYear}
-                    none={t('portal.documents.notSet')}
-                  />
-                </View>
-              </View>
-              <Text style={{ fontSize: 13, color: colors.muted }}>{t('portal.documents.expiresHint')}</Text>
-            </View>
+            <DateField
+              label={t('portal.documents.expiresOn')}
+              value={expires}
+              onChange={setExpires}
+              today={today}
+              min={today}
+              max={`${Number(today.slice(0, 4)) + YEARS_AHEAD}-12-31`}
+              none={t('portal.documents.notSet')}
+              hint={t('portal.documents.expiresHint')}
+            />
           ) : null}
 
           <View style={{ gap: 8 }}>
@@ -297,7 +264,7 @@ export default function Documents() {
           ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -309,7 +276,6 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 14, padding: 16, gap: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tick: { width: 22, height: 22, borderRadius: 11, borderWidth: 1, textAlign: 'center', fontSize: 13, lineHeight: 20, overflow: 'hidden' },
-  dateRow: { flexDirection: 'row', gap: 8 },
   picked: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 10, padding: 10 },
   thumb: { width: 64, height: 64, borderRadius: 6 },
   doc: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, gap: 4 },

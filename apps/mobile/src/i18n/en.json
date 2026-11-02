@@ -6,7 +6,11 @@
     "language": "Language",
     "haveAccount": "Already have an account?",
     "findCareHint": "Verified caregivers near you, for home, hospital or live-in care",
-    "joinHint": "Find work, see your shifts and get paid"
+    "joinHint": "Find work, see your shifts and get paid",
+    "headline": "Caring help, right at home",
+    "subline": "Trusted caregivers for the people you love.",
+    "getStarted": "Get started",
+    "pictureLabel": "Two smiling caregivers"
   },
   "signIn": {
     "client": "Sign in to your account",
@@ -217,7 +221,9 @@
     "signUp": "Sign up",
     "myAccount": "My account",
     "signOut": "Sign out",
-    "find": "Find"
+    "find": "Find",
+    "back": "Back",
+    "home": "Home"
   },
   "map": {
     "title": "Caregivers near you",
@@ -1140,5 +1146,30 @@
     "done": "Your account is closed. Your details will be erased on {date}.",
     "error": "We could not do that. Please try again.",
     "doneOk": "OK"
+  },
+  "start": {
+    "title": "How can we help?",
+    "needCare": "I need care",
+    "caregiver": "I'm a caregiver"
+  },
+  "clientHome": {
+    "welcome": "Welcome",
+    "search": "Search for a caregiver",
+    "whatToDo": "What would you like to do?",
+    "nextVisit": "Next visit",
+    "nextVisitWhen": "{day} · {from} – {to}"
+  },
+  "calendar": {
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "previousYear": "Previous year",
+    "nextYear": "Next year",
+    "today": "today",
+    "choose": "Choose a date",
+    "openHint": "Opens a calendar",
+    "yourDate": "Your date",
+    "tapADay": "Tap a day on the calendar",
+    "confirm": "Choose this date",
+    "clear": "Clear the date"
   }
 }

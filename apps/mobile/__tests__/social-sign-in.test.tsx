@@ -123,7 +123,7 @@ describe('the sign-in screen', () => {
     await fireEvent.press(await screen.findByRole('button', { name: en.signIn.social.continue.GOOGLE }));
     expect(screen.getByRole('button', { name: en.signIn.social.continue.FACEBOOK })).toBeTruthy();
     expect(screen.queryByRole('button', { name: en.signIn.social.continue.MICROSOFT })).toBeNull();
-    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/find'));
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/start'));
     expect(tokenStore.get()).toEqual(tokens);
   });
 

@@ -21,11 +21,8 @@ export default function Me() {
   const { data: c } = useOwnCaregiver();
 
   return (
-    <Screen>
+    <Screen title={t('nav.myAccount')}>
       <ScrollView contentContainerStyle={styles.body}>
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-          {t('nav.myAccount')}
-        </Text>
         <Card style={styles.profile}>
           <Avatar name={c?.fullName ?? user?.email ?? user?.phone} size={64} />
           <View style={{ flex: 1, gap: 4 }}>
@@ -66,7 +63,6 @@ export default function Me() {
 
 const styles = StyleSheet.create({
   body: { paddingTop: 24, paddingBottom: 32, gap: 22 },
-  title: { fontSize: 26, fontWeight: '700' },
   profile: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   menu: { padding: 6, gap: 0 },
   section: { gap: 8 },

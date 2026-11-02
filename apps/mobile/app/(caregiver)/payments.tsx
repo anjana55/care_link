@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatLkr } from '@care-platform/shared';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Text } from '@/ui/Text';
-import { EmptyState, ScreenTitle } from '@/ui/visual';
+import { EmptyState } from '@/ui/visual';
+import { PageHeader } from '@/ui/PageHeader';
 import { formatDate } from '@/ui/dates';
 import { useMyPayouts } from '@/caregiver/api';
 import { Redirect } from 'expo-router';
@@ -28,12 +28,12 @@ export default function Payments() {
   if (gate) return <Redirect href={gate} />;
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHeader title={t('portal.payments.title')} subtitle={t('portal.payments.subtitle')} />
       <ScrollView
         contentContainerStyle={styles.page}
         refreshControl={<RefreshControl refreshing={payouts.isRefetching} onRefresh={() => void payouts.refetch()} />}
       >
-        <ScreenTitle icon="wallet-outline" title={t('portal.payments.title')} subtitle={t('portal.payments.subtitle')} />
         {payouts.isLoading ? <ActivityIndicator color={colors.brand} /> : null}
         {payouts.isError ? <Text style={{ color: colors.danger }}>{t('care.actionError')}</Text> : null}
         {payouts.isSuccess && !payouts.data.length ? <EmptyState icon="wallet-outline" body={t('portal.payments.empty')} /> : null}
@@ -85,7 +85,7 @@ export default function Payments() {
           );
         })}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

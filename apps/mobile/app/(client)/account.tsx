@@ -21,11 +21,8 @@ export default function Account() {
   const { user, signOut } = useAuth();
 
   return (
-    <Screen>
+    <Screen title={t('nav.myAccount')}>
       <ScrollView contentContainerStyle={styles.body}>
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-          {t('nav.myAccount')}
-        </Text>
 
         {user ? (
           <Card style={styles.profile}>
@@ -51,6 +48,8 @@ export default function Account() {
 
         {user ? (
           <Card style={styles.menu}>
+            <MenuRow icon="chatbubbles-outline" label={t('account.nav.requests')} onPress={() => router.navigate('/requests')} />
+            <Divider />
             <MenuRow icon="heart-outline" tone="accent" label={t('account.nav.saved')} onPress={() => router.navigate('/saved')} />
             <Divider />
             <MenuRow icon="receipt-outline" label={t('account.nav.invoices')} onPress={() => router.navigate('/invoices')} />
@@ -82,7 +81,6 @@ const styles = StyleSheet.create({
   body: { paddingTop: 24, paddingBottom: 32, gap: 22 },
   profile: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   menu: { padding: 6, gap: 0 },
-  title: { fontSize: 26, fontWeight: '700' },
   section: { gap: 12 },
   lead: { fontSize: 20, fontWeight: '600' },
   label: { fontSize: 15, fontWeight: '600' },
