@@ -69,8 +69,9 @@ export function useAssistantMutations() {
   });
 
   const send = useMutation({
-    mutationFn: ({ id, content }: { id: string; content: string }) =>
-      api.post<AssistantConversation>(`/assistant/conversations/${id}/messages`, { content }),
+    // `path`: the page they are on, so the assistant knows what "this" is (resolved on the server).
+    mutationFn: ({ id, content, path }: { id: string; content: string; path?: string }) =>
+      api.post<AssistantConversation>(`/assistant/conversations/${id}/messages`, { content, ...(path ? { context: { path } } : {}) }),
     onSuccess: (convo) => {
       queryClient.setQueryData(['assistant', 'conversation', convo.id], convo);
       refreshList();

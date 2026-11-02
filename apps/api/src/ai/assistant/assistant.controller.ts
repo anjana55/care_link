@@ -2,11 +2,21 @@ import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Re
 import { ApiBearerAuth, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Transform } from 'class-transformer';
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsOptional, IsString, Matches, MaxLength, MinLength, ValidateNested } from 'class-validator';
 import type { Request } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { AssistantService } from './assistant.service';
+
+/** Only the page's path: what it means is looked up on the server (assistant-context.ts). */
+export class AssistantContextDto {
+  @ApiProperty({ example: '/bookings/0b6f0d0e-1c55-4d8a-9a8e-2f1c7c3f4a10' })
+  @IsString()
+  @MaxLength(200)
+  @Matches(/^\/[A-Za-z0-9/_-]*$/, { message: 'Invalid page' })
+  path: string;
+}
 
 export class SendAssistantMessageDto {
   @ApiProperty({ maxLength: 4000 })
@@ -15,6 +25,12 @@ export class SendAssistantMessageDto {
   @MinLength(1, { message: 'Write a message first' })
   @MaxLength(4000, { message: 'Please keep messages under 4000 characters' })
   content: string;
+
+  @ApiProperty({ required: false, description: 'Where the staff member is in the app when they ask' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AssistantContextDto)
+  context?: AssistantContextDto;
 }
 
 /**
@@ -54,7 +70,7 @@ export class AssistantController {
   @HttpCode(200)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   send(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SendAssistantMessageDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.assistant.send(id, dto.content, user);
+    return this.assistant.send(id, dto.content, user, dto.context);
   }
 
   @Post('actions/:id/approve')

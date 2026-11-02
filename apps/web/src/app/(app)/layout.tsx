@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/api/auth-context';
 import { useTranslation } from '@/lib/i18n/provider';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
+import { AssistantLauncher } from '@/components/assistant/assistant-launcher';
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -47,6 +48,8 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         </div>
         <main className="flex-1 overflow-y-auto p-6 print:overflow-visible print:p-0">{children}</main>
       </div>
+      {/* Floats over every page; renders nothing unless the assistant is on and this role may use it. */}
+      <AssistantLauncher />
     </div>
   );
 }
