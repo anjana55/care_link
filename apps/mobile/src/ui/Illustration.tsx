@@ -1,15 +1,73 @@
-import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
+import { StyleSheet, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from '@/i18n';
+import { hasNativeView } from '@/native';
 import { useColors } from '@/theme';
+import { BrandMark } from './visual';
+
+type SvgLib = typeof import('react-native-svg');
+
+/**
+ * react-native-svg, if this build of the app has its native views. A
+ * development build made before it was added doesn't, and drawing it there
+ * stops the screen ("Can't find ViewManager 'RNSVGCircle'"), so the package is
+ * only loaded once the views are known to be there.
+ */
+function svgLib(): SvgLib | null {
+  if (!hasNativeView('RNSVGCircle') || !hasNativeView('RNSVGPath')) return null;
+  try {
+    return require('react-native-svg') as SvgLib;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * The welcome picture: two smiling caregivers - a woman in a white coat with a
  * stethoscope and a man in blue scrubs with a clipboard - in a flat style,
  * cropped at the waist by the band they stand in. Drawn, not a bitmap, so it
  * is sharp on every phone and the woman's top and the backdrop take the
- * deployment's brand colour. `width` sets the size; the height follows.
+ * deployment's brand colour. `width` sets the size; the height follows. On a
+ * build without the drawing library: a simpler picture of the brand's symbol
+ * between a home and people, as before.
  */
 export function CaregiversIllustration({ width = 340 }: { width?: number }) {
+  const svg = svgLib();
+  return svg ? <DrawnCaregivers svg={svg} width={width} /> : <SimplePicture width={width} />;
+}
+
+function SimplePicture({ width }: { width: number }) {
+  const { t } = useTranslation();
+  const colors = useColors();
+  return (
+    <View
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={t('welcome.pictureLabel')}
+      testID="caregivers-illustration-simple"
+      style={[fallback.row, { width, height: Math.round(width * 0.55) }]}
+    >
+      <View style={fallback.side}>
+        <Ionicons name="home-outline" size={30} color={colors.brandText} />
+      </View>
+      <View style={[fallback.middle, { backgroundColor: colors.surface }]}>
+        <BrandMark size={84} light />
+      </View>
+      <View style={fallback.side}>
+        <Ionicons name="people-outline" size={30} color={colors.brandText} />
+      </View>
+    </View>
+  );
+}
+
+const fallback = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18 },
+  side: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 255, 255, 0.16)' },
+  middle: { width: 112, height: 112, borderRadius: 56, alignItems: 'center', justifyContent: 'center' },
+});
+
+function DrawnCaregivers({ svg, width }: { svg: SvgLib; width: number }) {
+  const { Svg, Circle, Ellipse, Path, Rect } = svg;
   const { t } = useTranslation();
   const colors = useColors();
   const height = (width * 320) / 360;

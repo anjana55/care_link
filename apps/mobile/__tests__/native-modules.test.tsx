@@ -1,11 +1,13 @@
-import { act, renderHook } from '@testing-library/react-native';
+import { act, render, renderHook, screen } from '@testing-library/react-native';
+import en from '../src/i18n/en.json';
+import { CaregiversIllustration } from '../src/ui/Illustration';
 import { useDeviceLocation } from '../src/search/location';
 import { chooseFile, choosePhoto, clearViewedDocuments, openDocument, takePhoto } from '../src/caregiver/document-files';
 import { phoneSocialDeps } from '../src/auth/social';
 import { AppProviders, serveApi } from '../test-utils/app';
 
 // A development build made before expo-location, expo-image-picker (and so on) were added: the native modules aren't there...
-jest.mock('../src/native', () => ({ hasNativeModule: () => false }));
+jest.mock('../src/native', () => ({ hasNativeModule: () => false, hasNativeView: () => false }));
 // ...and loading the package would fail, as it does on such a phone.
 const mockLoads = { count: 0 };
 jest.mock('expo-location', () => {
@@ -23,6 +25,10 @@ jest.mock('expo-web-browser', () => {
 jest.mock('expo-crypto', () => {
   mockLoads.count += 1;
   throw new Error("Cannot find native module 'ExpoCrypto'");
+});
+jest.mock('react-native-svg', () => {
+  mockLoads.count += 1;
+  throw new Error("Can't find ViewManager 'RNSVGCircle'");
 });
 jest.mock('expo-file-system', () => {
   mockLoads.count += 1;
@@ -54,6 +60,17 @@ describe('a build without a native module', () => {
 
   it('offers no Google, Microsoft or Facebook buttons without the sign-in browser, without loading it', () => {
     expect(phoneSocialDeps()).toBeNull();
+    expect(mockLoads.count).toBe(0);
+  });
+
+  it('shows the simpler welcome picture without the drawing library, without loading it', async () => {
+    await render(
+      <AppProviders>
+        <CaregiversIllustration width={320} />
+      </AppProviders>,
+    );
+    expect(await screen.findByTestId('caregivers-illustration-simple')).toHaveProp('accessibilityLabel', en.welcome.pictureLabel);
+    expect(screen.queryByTestId('caregivers-illustration')).toBeNull();
     expect(mockLoads.count).toBe(0);
   });
 });

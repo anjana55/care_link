@@ -11,6 +11,7 @@ import { tokenStore } from '@/api';
 import { nextVisit } from '@/care/next-visit';
 import { Calendar, DateField, longDay, monthGrid } from '@/ui/Calendar';
 import { PageHeader } from '@/ui/PageHeader';
+import { CaregiversIllustration } from '@/ui/Illustration';
 
 /**
  * The app's simpler look for older and less confident people: Back and Home
@@ -18,12 +19,22 @@ import { PageHeader } from '@/ui/PageHeader';
  * date is chosen.
  */
 jest.mock('expo-router', () => require('../test-utils/router').expoRouterMock());
+// A build that has react-native-svg's native views.
+jest.mock('@/native', () => ({ ...jest.requireActual('@/native'), hasNativeView: () => true }));
 
 const show = (ui: React.ReactElement) => render(<AppProviders>{ui}</AppProviders>);
 
 beforeEach(async () => {
   mockRouter.reset();
   await tokenStore.clear();
+});
+
+describe('the welcome picture', () => {
+  it('is drawn on a build with the drawing library, named for screen readers', async () => {
+    await show(<CaregiversIllustration width={320} />);
+    expect(await screen.findByTestId('caregivers-illustration')).toHaveProp('accessibilityLabel', en.welcome.pictureLabel);
+    expect(screen.queryByTestId('caregivers-illustration-simple')).toBeNull();
+  });
 });
 
 describe('Back and Home', () => {
