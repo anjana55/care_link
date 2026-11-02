@@ -2389,7 +2389,9 @@
         "caregiverRequests": "Which requests is this caregiver attached to?",
         "clientBookings": "Summarise this client's bookings",
         "clientRequests": "What has this client asked for?"
-      }
+      },
+      "dragHint": "drag to move it",
+      "moveHint": "Drag to move this button, or use Shift and the arrow keys."
     }
   },
   "careTypes": {
@@ -3603,5 +3605,12 @@
     },
     "waitingCount": "{count} waiting",
     "recordDeleted": "Record deleted by staff. Its details are erased when the request falls due."
+  },
+  "recordPager": {
+    "label": "Move between records",
+    "previous": "Previous",
+    "next": "Next",
+    "position": "{n} of {total}",
+    "failed": "Couldn't load the next records"
   }
 }

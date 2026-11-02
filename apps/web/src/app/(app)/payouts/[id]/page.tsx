@@ -7,6 +7,7 @@ import { AlertTriangle, ChevronLeft, ExternalLink, Printer, RefreshCw, Trash2 } 
 import { colomboToday, formatLkr } from '@care-platform/shared';
 import { DEFAULT_PAYMENT_HOW, PaymentHowFields, paymentHowBody, usePaymentHowLabel, type PaymentHow } from '@/components/billing/payment-how-fields';
 import { useTranslation } from '@/lib/i18n/provider';
+import { RecordPager } from '@/components/ui/record-pager';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
 import {
@@ -58,10 +59,13 @@ export default function PayoutPage() {
 
   return (
     <div>
-      <Link href="/payouts" className="mb-4 inline-flex items-center gap-1 text-sm text-ink/60 hover:text-ink print:hidden">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <Link href="/payouts" className="inline-flex items-center gap-1 text-sm text-ink/60 hover:text-ink">
         <ChevronLeft size={16} />
         {t('billing.payouts.back')}
-      </Link>
+        </Link>
+        <RecordPager kind="payouts" id={id} />
+      </div>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="hidden text-xs uppercase tracking-wide text-ink/50 print:block">{t('billing.payout.printTitle')}</p>

@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowDownUp, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRecordTrail } from '@/lib/record-trail';
 import { useTranslation } from '@/lib/i18n/provider';
-import { useCaregivers, useSkills, useLanguages, useLocationTree } from '@/lib/hooks/use-caregivers';
+import { useCaregivers, useSkills, useLanguages, useLocationTree, caregiverListPath } from '@/lib/hooks/use-caregivers';
+import type { CaregiverSearchFilters } from '@/lib/api/types';
 import { useAuth } from '@/lib/api/auth-context';
 import { api, ApiError } from '@/lib/api/client';
 import { Input } from '@/components/ui/input';
@@ -43,13 +45,16 @@ export default function CaregiversListPage() {
 
   const activeCount = countActiveFilters(advanced);
 
-  const { data, isLoading } = useCaregivers({
+  // Also left as the trail the record pages' previous / next follow (lib/record-trail).
+  const listFilters: CaregiverSearchFilters = {
     search: search || undefined,
     status: status || undefined,
     page,
     pageSize: 15,
     ...toApiFilters(advanced),
-  });
+  };
+  const { data, isLoading } = useCaregivers(listFilters);
+  useRecordTrail('caregivers', caregiverListPath(listFilters), data);
 
   const nameOf = useMemo(() => {
     const skillNames = new Map((skills ?? []).map((s) => [s.id, s.name]));

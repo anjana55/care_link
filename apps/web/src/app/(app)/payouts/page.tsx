@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Wallet } from 'lucide-react';
 import { addDays, colomboToday, formatLkr } from '@care-platform/shared';
+import { useRecordTrail } from '@/lib/record-trail';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
-import { useCreatePayout, useGeneratePayouts, usePayoutSummary, usePayouts } from '@/lib/hooks/use-billing';
+import { useCreatePayout, useGeneratePayouts, usePayoutSummary, usePayouts, payoutListPath, type PayoutFilters } from '@/lib/hooks/use-billing';
 import { fmtDate } from '@/lib/colombo-time';
 import { CaregiverPicker } from '@/components/requests/caregiver-picker';
 import { Button } from '@/components/ui/button';
@@ -55,7 +56,10 @@ export default function PayoutsPage() {
   }, [authLoading, user, allowed, router]);
 
   const { data: summary } = usePayoutSummary(allowed);
-  const { data, isLoading } = usePayouts({ status: tab === 'all' ? undefined : tab, search: search.trim() || undefined, page, pageSize: 20 }, allowed);
+  // Also left as the trail the record pages' previous / next follow (lib/record-trail).
+  const listFilters: PayoutFilters = { status: tab === 'all' ? undefined : tab, search: search.trim() || undefined, page, pageSize: 20 };
+  const { data, isLoading } = usePayouts(listFilters, allowed);
+  useRecordTrail('payouts', payoutListPath(listFilters), data);
 
   if (authLoading || !allowed) return <div className="flex min-h-[40vh] items-center justify-center text-sm text-ink/50">{t('common.loading')}</div>;
   const periodOk = Boolean(periodStart && periodEnd && periodEnd >= periodStart);

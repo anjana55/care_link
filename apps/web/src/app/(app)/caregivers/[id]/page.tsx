@@ -37,6 +37,7 @@ import {
 } from '@/lib/hooks/use-caregivers';
 import { useAuth } from '@/lib/api/auth-context';
 import { useTranslation } from '@/lib/i18n/provider';
+import { RecordPager } from '@/components/ui/record-pager';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { RelatedRequests } from '@/components/requests/related-requests';
@@ -300,6 +301,7 @@ export default function CaregiverProfilePage() {
 
   return (
     <div>
+      <RecordPager kind="caregivers" id={id} className="mb-4 justify-end print:hidden" />
       {pendingDeletion && <PendingDeletionBanner request={pendingDeletion} />}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>

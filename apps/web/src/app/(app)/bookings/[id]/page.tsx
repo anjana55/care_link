@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { AlertTriangle, Banknote, ChevronLeft, ExternalLink, Lock, Pencil, Plus, Trash2, UserRoundCog, Wrench } from 'lucide-react';
 import { formatLkr, isoToColomboLocal, toColombo } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
+import { RecordPager } from '@/components/ui/record-pager';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
 import {
@@ -98,10 +99,13 @@ export default function BookingPage() {
 
   return (
     <div>
-      <Link href="/bookings" className="mb-4 inline-flex items-center gap-1 text-sm text-ink/60 hover:text-ink">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <Link href="/bookings" className="inline-flex items-center gap-1 text-sm text-ink/60 hover:text-ink">
         <ChevronLeft size={16} />
         {t('bookings.back')}
-      </Link>
+        </Link>
+        <RecordPager kind="bookings" id={id} />
+      </div>
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

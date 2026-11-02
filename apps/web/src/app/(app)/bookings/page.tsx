@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarPlus, MessageSquareWarning, Search } from 'lucide-react';
+import { useRecordTrail } from '@/lib/record-trail';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
-import { useBookings, useBookingSummary } from '@/lib/hooks/use-bookings';
+import { useBookings, useBookingSummary, bookingListPath, type BookingFilters } from '@/lib/hooks/use-bookings';
 import { fmtDate, fmtDateTime } from '@/lib/colombo-time';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -38,10 +39,10 @@ export default function BookingsPage() {
   }, [authLoading, user, allowed, router]);
 
   const { data: summary } = useBookingSummary(allowed);
-  const { data, isLoading } = useBookings(
-    { status: tab === 'all' || tab === 'issues' || tab === 'care' ? undefined : tab, hasOpenIssues: tab === 'issues' || undefined, hasCareAlerts: tab === 'care' || undefined, search: search.trim() || undefined, page, pageSize: 20 },
-    allowed,
-  );
+  // Also left as the trail the record pages' previous / next follow (lib/record-trail).
+  const listFilters: BookingFilters = { status: tab === 'all' || tab === 'issues' || tab === 'care' ? undefined : tab, hasOpenIssues: tab === 'issues' || undefined, hasCareAlerts: tab === 'care' || undefined, search: search.trim() || undefined, page, pageSize: 20 };
+  const { data, isLoading } = useBookings(listFilters, allowed,);
+  useRecordTrail('bookings', bookingListPath(listFilters), data);
 
   if (authLoading || !allowed) return <div className="flex min-h-[40vh] items-center justify-center text-sm text-ink/50">{t('common.loading')}</div>;
 

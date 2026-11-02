@@ -4,9 +4,10 @@ import { useEffect, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Phone, PhoneCall, Search } from 'lucide-react';
+import { useRecordTrail } from '@/lib/record-trail';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
-import { useCareRequests, useCareRequestSummary, type CareRequestFilters } from '@/lib/hooks/use-care-requests';
+import { useCareRequests, useCareRequestSummary, type CareRequestFilters, careRequestListPath } from '@/lib/hooks/use-care-requests';
 import { Input, Select } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/badge';
@@ -49,16 +50,16 @@ export default function RequestsPage() {
 
   const allowed = user?.role === 'ADMIN' || user?.role === 'STAFF';
   const { data: summary } = useCareRequestSummary(allowed);
-  const { data, isLoading } = useCareRequests(
-    {
+  // Also left as the trail the record pages' previous / next follow (lib/record-trail).
+  const listFilters: CareRequestFilters = {
       ...TABS.find((x) => x.key === tab)!.filter,
       search: search.trim() || undefined,
       assigned: (assigned || undefined) as CareRequestFilters['assigned'],
       page,
       pageSize: 20,
-    },
-    allowed,
-  );
+    };
+  const { data, isLoading } = useCareRequests(listFilters, allowed,);
+  useRecordTrail('requests', careRequestListPath(listFilters), data);
 
   if (authLoading || !allowed) {
     return (
