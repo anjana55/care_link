@@ -2366,6 +2366,30 @@
       "unmatched": "Show open requests with no caregiver yet",
       "today": "What shifts start today?",
       "mine": "Summarise the requests assigned to me"
+    },
+    "floating": {
+      "open": "Ask the assistant",
+      "close": "Close the assistant",
+      "openFull": "Open the full Assistant page",
+      "placeholder": "Ask about this page, or anything else…",
+      "context": {
+        "page": "Knows which page you are on",
+        "request": "Looking at this request with you",
+        "booking": "Looking at this booking with you",
+        "caregiver": "Looking at this caregiver with you",
+        "client": "Looking at this client with you"
+      },
+      "starters": {
+        "summariseRequest": "Summarise this request",
+        "suggestCaregivers": "Suggest caregivers for this request",
+        "assignToMe": "Assign this request to me",
+        "summariseBooking": "Summarise this booking",
+        "nextShifts": "What are the next shifts on this booking?",
+        "caregiverBookings": "What bookings does this caregiver have?",
+        "caregiverRequests": "Which requests is this caregiver attached to?",
+        "clientBookings": "Summarise this client's bookings",
+        "clientRequests": "What has this client asked for?"
+      }
     }
   },
   "careTypes": {

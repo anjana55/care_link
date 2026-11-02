@@ -17,6 +17,7 @@ import { BrandingSettingsService } from '../../branding/branding-settings.servic
 import { AiSettingsService } from '../ai-settings.service';
 import { AiProviderService, AiUnavailableError } from '../ai-provider.service';
 import type { ChatMessage, ChatToolCall } from '../ai-protocol';
+import { describeContext, type AssistantPageContext } from './assistant-context';
 import { ALL_TOOLS, READ_TOOL_NAMES, WRITE_TOOL_NAMES, assistantSystemPrompt } from './assistant-tools';
 import { AssistantToolbox, ToolInputError, errorMessage, type ExecutionResult } from './assistant-toolbox.service';
 
@@ -139,7 +140,7 @@ export class AssistantService {
 
   // --- a turn ----------------------------------------------------------------------
 
-  async send(conversationId: string, content: string, user: AuthenticatedUser): Promise<AssistantConversation> {
+  async send(conversationId: string, content: string, user: AuthenticatedUser, context?: AssistantPageContext): Promise<AssistantConversation> {
     const settings = await this.requireEnabled();
     const convo = await this.ownConversation(conversationId, user);
 
@@ -161,6 +162,8 @@ export class AssistantService {
       brand: await this.branding.companyName(),
       extra: settings.assistantPrompt,
       actionUpdates: await this.actionUpdates(conversationId),
+      // Rebuilt every turn, so it is always where they are now, not where they were when the conversation began.
+      pageContext: await describeContext(this.db, context),
     });
 
     // The reply staff will see. Actions proposed during this turn hang off it.
