@@ -3207,6 +3207,7 @@
       "needsEmail": "Email can't be the preferred contact without an email address.",
       "needsContact": "Give an email address or a phone number.",
       "fixedPhone": "{column}: the leading 0 was restored ({value}).",
+      "notNumber": "{column}: \"{value}\" isn't a number, so it was left blank.",
       "failed": "Couldn't be saved: {message}",
       "allowed": "Use one of: {allowed}.",
       "duplicateBare": "Already on the platform ({column} is in use)."

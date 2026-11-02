@@ -21,6 +21,7 @@ export const MAX_IMPORT_ROWS = 2000;
  *  needsEmail    - "Email" chosen as the preferred contact without an email address
  *  needsContact  - neither an email nor a phone for a client
  *  fixedPhone    - a phone number that lost its leading 0 in a spreadsheet, restored (warning)
+ *  notNumber     - height or weight that isn't a number, left blank (warning)
  *  failed        - the database refused the row at import time
  */
 export type IssueCode =
@@ -33,6 +34,7 @@ export type IssueCode =
   | 'needsEmail'
   | 'needsContact'
   | 'fixedPhone'
+  | 'notNumber'
   | 'failed';
 
 export interface ImportIssue {

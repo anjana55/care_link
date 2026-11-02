@@ -274,8 +274,10 @@ export class CaregiverTransferService {
   ): PreparedCaregiver | null {
     const text = (key: string) => textCell(v, col(key), errors, keyOf);
     const fullName = text('fullName');
+    // NIC is taken as written (only the column's length limit applies): records
+    // brought over from other systems carry NICs in every shape, and the staff
+    // form doesn't check the format either. It still matches duplicates.
     const nic = text('nic')?.toUpperCase() ?? null;
-    if (nic && !/^[0-9]{9}[VX]$|^[0-9]{12}$/i.test(nic)) errors.push({ code: 'invalid', column: col('nic').header, value: nic });
     const passportNumber = text('passportNumber')?.toUpperCase() ?? null;
 
     const dobRaw = text('dateOfBirth');
@@ -309,18 +311,22 @@ export class CaregiverTransferService {
     const secondaryPhone = phoneCell('secondaryPhone');
     const emergencyContactNumber = phoneCell('emergencyContactNumber');
 
+    // Height and weight are taken as given, 0 included (what an export writes
+    // for "not recorded"). Only a cell that isn't a number at all, or won't fit
+    // the column, is left blank - with a warning, never stopping the row.
     const numberCell = (key: string, max: number, integer: boolean) => {
       const raw = text(key);
       if (!raw) return null;
       const n = Number(raw.replace(',', '.'));
-      if (!Number.isFinite(n) || n <= 0 || n > max || (integer && !Number.isInteger(n))) {
-        errors.push({ code: 'invalid', column: col(key).header, value: raw });
+      if (!Number.isFinite(n) || n < 0 || n > max) {
+        warnings.push({ code: 'notNumber', column: col(key).header, value: raw });
         return null;
       }
-      return n;
+      return integer ? Math.round(n) : Math.round(n * 10) / 10;
     };
-    const heightIn = numberCell('heightIn', 120, false);
-    const weightKg = numberCell('weightKg', 300, true);
+    // The columns' own limits: height DECIMAL(5,1), weight INT.
+    const heightIn = numberCell('heightIn', 9999.9, false);
+    const weightKg = numberCell('weightKg', 2_147_483_647, true);
 
     const location = locations.resolve(v[keyOf(col('district'))] ?? '', v[keyOf(col('city'))] ?? '', warnings, { district: col('district').header, city: col('city').header });
 

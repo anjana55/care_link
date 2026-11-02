@@ -6,7 +6,7 @@ import { api } from '../api/client';
 export type TransferKind = 'caregivers' | 'clients';
 
 export interface ImportIssue {
-  code: 'required' | 'invalid' | 'tooLong' | 'duplicate' | 'duplicateFile' | 'notFound' | 'needsEmail' | 'needsContact' | 'fixedPhone' | 'failed';
+  code: 'required' | 'invalid' | 'tooLong' | 'duplicate' | 'duplicateFile' | 'notFound' | 'needsEmail' | 'needsContact' | 'fixedPhone' | 'notNumber' | 'failed';
   column?: string;
   value?: string;
   params?: Record<string, string | number>;
