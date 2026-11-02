@@ -18,6 +18,7 @@ import { ClientPicker } from '@/components/requests/client-picker';
 import { CaregiverPicker, type PickedCaregiver } from '@/components/requests/caregiver-picker';
 import { cn } from '@/lib/utils';
 import type { Client, PhoneClientInput } from '@/lib/api/types';
+import { isPhoneNumber } from '@care-platform/shared';
 import { careTypeValues, type CareType } from '@care-platform/shared';
 
 const RELATIONSHIPS = ['PARENT', 'SPOUSE', 'CHILD', 'SIBLING', 'OTHER_RELATIVE', 'FRIEND', 'OTHER'] as const;
@@ -77,7 +78,8 @@ const EMPTY_CALLER: CallerDraft = {
 function missingCallerFields(c: CallerDraft): string[] {
   const missing: string[] = [];
   if (c.fullName.trim().length < 2) missing.push('fullName');
-  if (c.phone.trim().length < 7) missing.push('phone');
+  if (!isPhoneNumber(c.phone)) missing.push('phone');
+  if (c.alternatePhone.trim() && !isPhoneNumber(c.alternatePhone)) missing.push('alternatePhone');
   if (c.registrantType === 'GUARDIAN') {
     if (c.recipientName.trim().length < 2) missing.push('recipientName');
     if (!c.recipientRelationship) missing.push('recipientRelationship');

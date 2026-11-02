@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsBoolean, IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { civilStatusEnum, contactMethodEnum, genderEnum } from '../../database/schema/caregivers.schema';
-import { TextField } from '../../common/validation/text-field.validator';
+import { OptionalPhoneField, TextField } from '../../common/validation/text-field.validator';
 
 /**
  * Validation messages are written out rather than left to class-validator's
@@ -77,6 +77,7 @@ export class CreateCaregiverDto {
   @ApiProperty()
   @TextField({
     min: 9,
+    phone: true,
     requiredMessage: 'Primary phone is required',
     invalidMessage: 'Enter a valid phone number with at least 9 digits',
   })
@@ -86,6 +87,7 @@ export class CreateCaregiverDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString({ message: 'Secondary phone must be text' })
+  @OptionalPhoneField('Enter a valid phone number with at least 9 digits')
   secondaryPhone?: string;
 
   @ApiProperty()
@@ -100,6 +102,7 @@ export class CreateCaregiverDto {
   @ApiProperty()
   @TextField({
     min: 9,
+    phone: true,
     requiredMessage: 'Emergency contact number is required',
     invalidMessage: 'Enter a valid phone number with at least 9 digits',
   })

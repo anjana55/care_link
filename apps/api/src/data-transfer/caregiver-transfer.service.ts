@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, inArray, isNull, like, or, type SQL } from 'drizzle-orm';
 import { randomUUID as uuid } from 'crypto';
+import { isPhoneNumber } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
   caregivers,
@@ -304,7 +305,8 @@ export class CaregiverTransferService {
         raw = `0${raw}`;
         warnings.push({ code: 'fixedPhone', column: col(key).header, value: raw });
       }
-      if (raw.replace(/\D/g, '').length < 9) errors.push({ code: 'invalid', column: col(key).header, value: raw });
+      // The same rule as the forms (isPhoneNumber): digits and separators only, at least 9 digits.
+      if (!isPhoneNumber(raw)) errors.push({ code: 'invalid', column: col(key).header, value: raw });
       return raw;
     };
     const primaryPhone = phoneCell('primaryPhone');

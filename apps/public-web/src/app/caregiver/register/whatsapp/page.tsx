@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { isPhoneNumber } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/lib/api/auth-context';
 import { api, ApiError, type Tokens } from '@/lib/api/client';
@@ -51,7 +52,7 @@ export default function CaregiverRegisterWhatsappPage() {
   const schema = personalSchema
     .extend({
       whatsappNumber: z.string().trim().min(1, t('whatsapp.register.validation.numberRequired')).min(7, t('whatsapp.register.validation.numberInvalid')),
-      primaryPhone: z.string().trim().optional(),
+      primaryPhone: z.string().trim().optional().refine((v) => !v || isPhoneNumber(v), t('personalInfo.validation.primaryPhone.invalid')),
       consentAccepted: z.boolean(),
     })
     .refine((d) => d.consentAccepted === true, {

@@ -169,6 +169,7 @@ function ContactForm({ caregiver }: { caregiver: OwnCaregiver }) {
         label={t('personalInfo.fields.secondaryPhone')}
         value={form.secondaryPhone}
         onChangeText={(v) => set('secondaryPhone', v)}
+        error={problem('secondaryPhone')}
         keyboardType="phone-pad"
         autoComplete="tel"
       />

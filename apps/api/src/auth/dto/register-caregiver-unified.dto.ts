@@ -28,6 +28,7 @@ export class RegisterCaregiverUnifiedDto extends OmitType(CreateCaregiverDto, ['
   })
   @TextField({
     min: 9,
+    phone: true,
     requiredMessage: 'Phone number is required',
     invalidMessage: 'Enter a valid phone number with at least 9 digits',
   })

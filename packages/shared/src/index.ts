@@ -38,3 +38,4 @@ export * from './types/international-phase4';
 export * from './types/caregivers';
 export * from './types/auth';
 export * from './types/app-links';
+export * from './types/phone';

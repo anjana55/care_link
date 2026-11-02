@@ -78,6 +78,21 @@ describe('caregiver DTO validation messages', () => {
       ]);
     });
 
+    it('needs digits in a phone number, not just enough characters', async () => {
+      // 16 characters and no digits: what got saved as an emergency number before.
+      for (const field of ['primaryPhone', 'secondaryPhone', 'emergencyContactNumber']) {
+        expect(await errorsFor({ ...valid, [field]: 'W B M Wijesinghe' })).toEqual(['Enter a valid phone number with at least 9 digits']);
+      }
+      expect(await errorsFor({ ...valid, emergencyContactNumber: '0771234567 ask for Sunil' })).toEqual(['Enter a valid phone number with at least 9 digits']);
+    });
+
+    it('accepts the usual ways of writing a number', async () => {
+      for (const n of ['0771234567', '+94 77 123 4567', '(011) 234-5678', '077.123.4567']) {
+        expect(await errorsFor({ ...valid, primaryPhone: n, secondaryPhone: n, emergencyContactNumber: n })).toEqual([]);
+      }
+      expect(await errorsFor({ ...valid, secondaryPhone: '' })).toEqual([]);
+    });
+
     it('asks for a description of the relationship rather than a length', async () => {
       expect(await errorsFor({ ...valid, emergencyContactRelationship: 'x' })).toEqual([
         'Describe how you are related to this contact',

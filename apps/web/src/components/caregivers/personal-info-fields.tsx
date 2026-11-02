@@ -229,11 +229,13 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
 
       <div>
         <Label htmlFor="primaryPhone" required={requiredFields.has('primaryPhone')}>{t('personalInfo.fields.primaryPhone')}</Label>
-        <Input id="primaryPhone" {...register('primaryPhone' as any)} />
+        <Input id="primaryPhone" inputMode="tel" {...register('primaryPhone' as any)} />
+        <FieldError message={(errors as any).primaryPhone?.message as string | undefined} />
       </div>
       <div>
         <Label htmlFor="secondaryPhone" required={requiredFields.has('secondaryPhone')}>{t('personalInfo.fields.secondaryPhone')}</Label>
-        <Input id="secondaryPhone" {...register('secondaryPhone' as any)} />
+        <Input id="secondaryPhone" inputMode="tel" {...register('secondaryPhone' as any)} />
+        <FieldError message={(errors as any).secondaryPhone?.message as string | undefined} />
       </div>
 
       {/* Its own full-width row, half-width inside, so adding it cannot shift
@@ -261,7 +263,7 @@ export function PersonalInfoFields<T extends PersonalInfoValues>({
       </div>
       <div>
         <Label htmlFor="emergencyContactNumber" required={requiredFields.has('emergencyContactNumber')}>{t('personalInfo.fields.emergencyContactNumber')}</Label>
-        <Input id="emergencyContactNumber" {...register('emergencyContactNumber' as any)} />
+        <Input id="emergencyContactNumber" inputMode="tel" {...register('emergencyContactNumber' as any)} />
         <FieldError message={errors.emergencyContactNumber?.message as string | undefined} />
       </div>
       <div>

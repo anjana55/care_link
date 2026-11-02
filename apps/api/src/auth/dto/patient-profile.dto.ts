@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, ValidateIf } from 'class-validator';
-import { TextField } from '../../common/validation/text-field.validator';
+import { OptionalPhoneField, TextField } from '../../common/validation/text-field.validator';
 import {
   caregiverGenderPreferenceEnum,
   careScheduleEnum,
@@ -59,7 +59,7 @@ export class PatientProfileDto {
 
   @ApiPropertyOptional({ description: 'A second number staff can try if the first is unreachable' })
   @IsOptional()
-  @Matches(/^\+?[\d\s\-()]{7,20}$/, { message: 'Enter a valid alternate phone number' })
+  @OptionalPhoneField('Enter a valid alternate phone number')
   alternatePhone?: string;
 
   @ApiProperty({ enum: contactMethodEnum, description: 'How staff should reach the client first. EMAIL is only accepted for email accounts' })
