@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isPhoneNumber } from '@care-platform/shared';
 
 /**
  * The care intake both client sign-ups ask for (email and WhatsApp), mirroring
@@ -15,8 +16,6 @@ export const CARE_SCHEDULES = ['DAY', 'NIGHT', 'LIVE_IN_24H', 'NOT_SURE'] as con
 export const CARE_STARTS = ['IMMEDIATELY', 'WITHIN_WEEK', 'WITHIN_MONTH', 'JUST_EXPLORING'] as const;
 export const CAREGIVER_GENDER_PREFERENCES = ['NO_PREFERENCE', 'MALE', 'FEMALE'] as const;
 
-/** Same pattern as the API's alternatePhone rule. */
-const PHONE_PATTERN = /^\+?[\d\s\-()]{7,20}$/;
 
 /**
  * A number input submits a string, and a blank one is '' - "not answered", not 0.
@@ -47,7 +46,8 @@ export function makePatientIntakeSchema(t: (key: string) => string, opts: { allo
       .string()
       .trim()
       .optional()
-      .refine((val) => !val || PHONE_PATTERN.test(val), v('alternatePhone')),
+      // The API's alternatePhone rule, from one place (isPhoneNumber).
+      .refine((val) => !val || isPhoneNumber(val), v('alternatePhone')),
     preferredContactMethod: z
       .enum(CONTACT_METHODS, chooseOne('contactMethod'))
       .refine((m) => opts.allowEmailContact || m !== 'EMAIL', v('contactMethod')),

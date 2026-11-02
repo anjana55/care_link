@@ -3,7 +3,7 @@ import { OmitType } from '@nestjs/swagger';
 import { Equals, IsIn, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 import { CreateCaregiverDto } from '../../caregivers/dto/create-caregiver.dto';
 import { PatientProfileDto } from './patient-profile.dto';
-import { TextField } from '../../common/validation/text-field.validator';
+import { OptionalPhoneField, TextField } from '../../common/validation/text-field.validator';
 import { whatsappOtpPurposeEnum, type WhatsappOtpPurpose } from '../../database/schema';
 
 const WHATSAPP_NUMBER_HELP = 'The number the code is sent to. Sri Lankan numbers may be written 0771234567 or +94771234567';
@@ -29,6 +29,7 @@ export class RegisterCaregiverWhatsappDto extends OmitType(CreateCaregiverDto, [
   @IsOptional()
   @IsString({ message: 'Primary phone must be text' })
   @MaxLength(32)
+  @OptionalPhoneField('Enter a valid phone number with at least 9 digits')
   primaryPhone?: string;
 
   @ApiProperty({ description: 'Must be true - explicit consent to data processing, required at self-registration' })

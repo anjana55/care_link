@@ -1,4 +1,4 @@
-import type { CaregiverStatus, OwnCaregiver } from '@care-platform/shared';
+import { isPhoneNumber, type CaregiverStatus, type OwnCaregiver } from '@care-platform/shared';
 
 /**
  * The caregiver's own details that the app lets them change - contact,
@@ -45,7 +45,7 @@ export function contactDetailsOf(c: OwnCaregiver): ContactDetails {
  * What's wrong, as message keys under personalInfo.validation (the website's
  * messages): field → 'required' | 'invalid'. Empty when the form can be saved.
  */
-export function problemsIn(v: ContactDetails): Partial<Record<'permanentAddress' | 'district' | 'city' | 'emergencyContactName' | 'emergencyContactNumber' | 'emergencyContactRelationship', 'required' | 'invalid'>> {
+export function problemsIn(v: ContactDetails): Partial<Record<'permanentAddress' | 'district' | 'city' | 'secondaryPhone' | 'emergencyContactName' | 'emergencyContactNumber' | 'emergencyContactRelationship', 'required' | 'invalid'>> {
   const problems: ReturnType<typeof problemsIn> = {};
   const text = (field: 'permanentAddress' | 'emergencyContactName' | 'emergencyContactRelationship', min: number) => {
     const value = v[field].trim();
@@ -55,10 +55,13 @@ export function problemsIn(v: ContactDetails): Partial<Record<'permanentAddress'
   text('permanentAddress', 5);
   if (v.districtId === null) problems.district = 'required';
   if (v.cityId === null) problems.city = 'required';
+  // Phone numbers need digits, not just length - a name is 9+ characters too (isPhoneNumber).
+  const secondary = v.secondaryPhone.trim();
+  if (secondary && !isPhoneNumber(secondary)) problems.secondaryPhone = 'invalid';
   text('emergencyContactName', 2);
   const number = v.emergencyContactNumber.trim();
   if (!number) problems.emergencyContactNumber = 'required';
-  else if (number.length < 9) problems.emergencyContactNumber = 'invalid';
+  else if (!isPhoneNumber(number)) problems.emergencyContactNumber = 'invalid';
   text('emergencyContactRelationship', 2);
   return problems;
 }

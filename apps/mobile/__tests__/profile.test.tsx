@@ -93,6 +93,14 @@ describe('the profile rules', () => {
     expect(problemsIn({ ...details, emergencyContactNumber: '  ' }).emergencyContactNumber).toBe('required');
   });
 
+  it('needs digits in a phone number, not just length', () => {
+    // 16 characters, no digits: what got saved as an emergency number before.
+    expect(problemsIn({ ...details, emergencyContactNumber: 'W B M Wijesinghe' }).emergencyContactNumber).toBe('invalid');
+    expect(problemsIn({ ...details, secondaryPhone: 'Ask for Sunil' }).secondaryPhone).toBe('invalid');
+    expect(problemsIn({ ...details, emergencyContactNumber: '+94 77 123-4567', secondaryPhone: '(011) 222 3333' })).toEqual({});
+    expect(problemsIn({ ...details, secondaryPhone: '' }).secondaryPhone).toBeUndefined();
+  });
+
   it('sends only what changed, trimmed', () => {
     expect(changesBetween(details, { ...details, permanentAddress: '12 Temple Road, Dehiwala  ' })).toEqual({});
     expect(changesBetween(details, { ...details, secondaryPhone: ' 0112223333 ', cityId: 12 })).toEqual({ secondaryPhone: '0112223333', cityId: 12 });

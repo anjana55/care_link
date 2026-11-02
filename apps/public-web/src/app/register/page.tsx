@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { isPhoneNumber } from '@care-platform/shared';
 import { CheckCircle2, MessageCircle, Heart, Send } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { SiteHeader } from '@/components/layout/site-header';
@@ -34,7 +35,7 @@ function makeRegisterSchema(t: (key: string) => string) {
       fullName: z.string().min(2, t('register.validation.fullName')),
       email: z.string().email(t('register.validation.email')),
       // Required now: it is how staff reach the client.
-      phone: z.string().trim().min(1, t('register.validation.phoneRequired')).min(9, t('register.validation.phone')),
+      phone: z.string().trim().min(1, t('register.validation.phoneRequired')).refine((v) => isPhoneNumber(v), t('register.validation.phone')),
       password: z.string().min(8, t('register.validation.password')),
       confirmPassword: z.string(),
       consentAccepted: z.boolean(),

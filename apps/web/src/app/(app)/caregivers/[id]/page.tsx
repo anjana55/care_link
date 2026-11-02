@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { fmtDateTime } from '@/lib/colombo-time';
+import { isPhoneNumber } from '@care-platform/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -133,6 +134,8 @@ export default function CaregiverProfilePage() {
   const [refName, setRefName] = useState('');
   const [refRelationship, setRefRelationship] = useState('');
   const [refPhone, setRefPhone] = useState('');
+  // Shown once something is typed: digits, not a name (isPhoneNumber).
+  const refPhoneInvalid = refPhone.trim() !== '' && !isPhoneNumber(refPhone);
   const [refEmail, setRefEmail] = useState('');
   const [refNotes, setRefNotes] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -856,11 +859,13 @@ export default function CaregiverProfilePage() {
                   <div>
                     <div className="mb-1 text-xs font-medium text-ink/70">{t('caregivers.edit.referencePhone')}</div>
                     <input
-                      type="text"
+                      type="tel"
                       value={refPhone}
                       onChange={(e) => setRefPhone(e.target.value)}
+                      aria-invalid={refPhoneInvalid}
                       className="w-full rounded border border-border bg-white px-2 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
                     />
+                    {refPhoneInvalid && <p className="mt-1 text-xs text-danger">{t('personalInfo.validation.primaryPhone.invalid')}</p>}
                   </div>
                   <div>
                     <div className="mb-1 text-xs font-medium text-ink/70">{t('caregivers.edit.referenceEmail')}</div>
@@ -885,7 +890,7 @@ export default function CaregiverProfilePage() {
                   type="button"
                   variant="secondary"
                   size="sm"
-                  disabled={!refName || !refRelationship || !refPhone || addReference.isPending}
+                  disabled={!refName || !refRelationship || !refPhone || refPhoneInvalid || addReference.isPending}
                   onClick={() => {
                     addReference.mutate(
                       { name: refName, relationship: refRelationship, phone: refPhone, email: refEmail || undefined, notes: refNotes || undefined },

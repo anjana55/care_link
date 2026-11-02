@@ -21,7 +21,8 @@ export class PhoneClientDto extends PatientProfileDto {
   fullName: string;
 
   @ApiProperty({ example: '0771234567', description: "The caller's mobile number - becomes their WhatsApp sign-in number" })
-  @Matches(/^\+?[\d\s\-()]{7,20}$/, { message: 'Enter a valid phone number' })
+  @TextField({ phone: true, requiredMessage: 'Phone number is required', invalidMessage: 'Enter a valid phone number' })
+  @IsString({ message: 'Phone number must be text' })
   phone: string;
 
   @ApiPropertyOptional()

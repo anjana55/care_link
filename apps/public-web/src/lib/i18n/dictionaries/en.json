@@ -631,6 +631,9 @@
         "required": "Primary phone is required",
         "invalid": "Enter a valid phone number with at least 9 digits"
       },
+      "secondaryPhone": {
+        "invalid": "Enter a valid phone number with at least 9 digits"
+      },
       "emergencyContactName": {
         "required": "Emergency contact name is required",
         "invalid": "Enter a name of at least 2 characters"

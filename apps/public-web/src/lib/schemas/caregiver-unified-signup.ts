@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isPhoneNumber } from '@care-platform/shared';
 import { makePersonalInfoSchema, requiredFieldsOf } from './personal-info';
 
 /**
@@ -23,7 +24,7 @@ export function makeUnifiedSignupSchema(t: (key: string) => string) {
       .string()
       .trim()
       .min(1, t('caregiverSignup.validation.phoneRequired'))
-      .min(9, t('caregiverSignup.validation.phoneInvalid')),
+      .refine((v) => isPhoneNumber(v), t('caregiverSignup.validation.phoneInvalid')),
     // Optional. If given, it must be the address they later verify with
     // Google/Microsoft/Facebook, which the API enforces when it links the
     // provider identity.

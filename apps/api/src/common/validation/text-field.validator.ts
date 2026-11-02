@@ -1,10 +1,13 @@
 import { registerDecorator, ValidationArguments, ValidationOptions } from 'class-validator';
+import { isPhoneNumber } from '@care-platform/shared';
 
 export interface TextFieldOptions {
   /** Shortest accepted value, counted after trimming. Omit for a presence-only field. */
   min?: number;
   /** Longest accepted value, counted after trimming. */
   max?: number;
+  /** A phone number: digits and the usual separators only, at least 9 digits (isPhoneNumber). */
+  phone?: boolean;
   requiredMessage: string;
   invalidMessage: string;
   validationOptions?: ValidationOptions;
@@ -39,6 +42,7 @@ export function TextField(options: TextFieldOptions) {
           if (trimmed === '') return false;
           if (options.min !== undefined && trimmed.length < options.min) return false;
           if (options.max !== undefined && trimmed.length > options.max) return false;
+          if (options.phone && !isPhoneNumber(trimmed)) return false;
           return true;
         },
         defaultMessage(args: ValidationArguments): string {
@@ -47,6 +51,29 @@ export function TextField(options: TextFieldOptions) {
           if (typeof value === 'string' && value.trim() === '') return options.requiredMessage;
           return options.invalidMessage;
         },
+      },
+    });
+  };
+}
+
+/**
+ * An optional phone number: blank (or absent) is fine, anything else must be
+ * a phone number by the same rule as TextField's `phone`.
+ */
+export function OptionalPhoneField(invalidMessage: string, validationOptions?: ValidationOptions) {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: 'optionalPhoneField',
+      target: object.constructor,
+      propertyName,
+      options: validationOptions,
+      validator: {
+        validate(value: unknown): boolean {
+          if (value === undefined || value === null) return true;
+          if (typeof value !== 'string') return true; // @IsString's business
+          return value.trim() === '' || isPhoneNumber(value);
+        },
+        defaultMessage: () => invalidMessage,
       },
     });
   };
