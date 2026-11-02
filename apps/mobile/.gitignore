@@ -19,3 +19,8 @@ expo-env.d.ts
 # Firebase config for Android push: provided to EAS Build as a file variable, never committed.
 google-services.json
 GoogleService-Info.plist
+
+# The icons and splash made from Settings > Branding by `npm run brand:assets`.
+# Not committed: EAS Build fetches them from the deployment at build time, so
+# the store build always carries the artwork the admin uploaded.
+/assets/brand/

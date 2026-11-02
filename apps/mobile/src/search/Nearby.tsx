@@ -81,6 +81,7 @@ export function Nearby({
 
       {usingDevicePlace || origin ? (
         <Chips
+          layout="scroll"
           label={t('map.radius')}
           choices={radiusChoices.map((km) => ({ value: km, label: t('map.radiusOption', { km }) }))}
           selected={[shownRadius]}

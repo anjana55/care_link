@@ -16,6 +16,7 @@ import { Chips, SelectField } from '@/ui/choices';
 import { Button, Field } from '@/ui/controls';
 import { formatDate } from '@/ui/dates';
 import { Text } from '@/ui/Text';
+import { ScreenTitle } from '@/ui/visual';
 
 /** The caregiver's profile on the website, for what the app only shows. */
 const websiteProfile = () => `${config.siteUrl}/caregiver/profile`;
@@ -45,10 +46,7 @@ export default function Profile() {
         refreshControl={<RefreshControl refreshing={record.isRefetching} onRefresh={() => void record.refetch()} />}
       >
         <View style={{ gap: 6 }}>
-          <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-            {t('portal.profile.title')}
-          </Text>
-          <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('portal.profile.subtitle')}</Text>
+          <ScreenTitle icon="person-outline" title={t('portal.profile.title')} subtitle={t('portal.profile.subtitle')} />
         </View>
         {record.isLoading ? <Text style={{ color: colors.muted }}>{t('common.loading')}</Text> : null}
         {record.isError ? (

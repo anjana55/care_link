@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
+import { EmptyState, ScreenTitle } from '@/ui/visual';
 import { formatDate } from '@/ui/dates';
 import { useClient, useSavedCaregivers, useSetSaved } from '@/care/api';
 import { SignInPrompt } from '@/care/SignInPrompt';
@@ -21,10 +22,7 @@ export default function Saved() {
 
   const head = (
     <View style={styles.head}>
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-        {t('account.saved.title')}
-      </Text>
-      <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('account.saved.subtitle')}</Text>
+      <ScreenTitle icon="heart-outline" title={t('account.saved.title')} subtitle={t('account.saved.subtitle')} />
       {!client ? <SignInPrompt body={t('profile.saveCta')} returnTo="/saved" /> : null}
     </View>
   );
@@ -37,10 +35,9 @@ export default function Saved() {
       <Button variant="secondary" label={t('error.retry')} onPress={() => saved.refetch()} />
     </View>
   ) : (
-    <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 16, color: colors.muted }}>{t('account.saved.empty')}</Text>
+    <EmptyState icon="heart-outline" body={t('account.saved.empty')}>
       <Button variant="secondary" label={t('account.requests.emptyCta')} onPress={() => router.navigate('/find')} />
-    </View>
+    </EmptyState>
   );
 
   return (

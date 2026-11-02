@@ -4,7 +4,9 @@
     "findCare": "Find a caregiver",
     "joinAsCaregiver": "Join as a caregiver",
     "language": "Language",
-    "haveAccount": "Already have an account?"
+    "haveAccount": "Already have an account?",
+    "findCareHint": "Verified caregivers near you, for home, hospital or live-in care",
+    "joinHint": "Find work, see your shifts and get paid"
   },
   "signIn": {
     "client": "Sign in to your account",
@@ -40,7 +42,9 @@
         "expired": "Sign-in could not be completed. Please try again.",
         "generic": "Sign-in could not be completed. Please try again."
       }
-    }
+    },
+    "sideClient": "For clients and families",
+    "sideCaregiver": "For caregivers"
   },
   "app": {
     "name": "{brand}"
@@ -212,7 +216,8 @@
     "signIn": "Sign in",
     "signUp": "Sign up",
     "myAccount": "My account",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "find": "Find"
   },
   "map": {
     "title": "Caregivers near you",
@@ -332,7 +337,8 @@
         "DAILY": "per day",
         "MONTHLY": "per month"
       }
-    }
+    },
+    "signedOutHint": "Sign in to save caregivers, follow your requests, and see your bookings and invoices."
   },
   "care": {
     "contactCta": "Contact this caregiver",

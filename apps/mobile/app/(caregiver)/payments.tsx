@@ -5,6 +5,7 @@ import { formatLkr } from '@care-platform/shared';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Text } from '@/ui/Text';
+import { EmptyState, ScreenTitle } from '@/ui/visual';
 import { formatDate } from '@/ui/dates';
 import { useMyPayouts } from '@/caregiver/api';
 import { Redirect } from 'expo-router';
@@ -32,13 +33,10 @@ export default function Payments() {
         contentContainerStyle={styles.page}
         refreshControl={<RefreshControl refreshing={payouts.isRefetching} onRefresh={() => void payouts.refetch()} />}
       >
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-          {t('portal.payments.title')}
-        </Text>
-        <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('portal.payments.subtitle')}</Text>
+        <ScreenTitle icon="wallet-outline" title={t('portal.payments.title')} subtitle={t('portal.payments.subtitle')} />
         {payouts.isLoading ? <ActivityIndicator color={colors.brand} /> : null}
         {payouts.isError ? <Text style={{ color: colors.danger }}>{t('care.actionError')}</Text> : null}
-        {payouts.isSuccess && !payouts.data.length ? <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('portal.payments.empty')}</Text> : null}
+        {payouts.isSuccess && !payouts.data.length ? <EmptyState icon="wallet-outline" body={t('portal.payments.empty')} /> : null}
 
         {(payouts.data ?? []).map((p) => {
           const expanded = open === p.id;

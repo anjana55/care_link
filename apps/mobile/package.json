@@ -10,7 +10,9 @@
     "ios": "expo start --go --ios",
     "typecheck": "tsc --noEmit",
     "bundle:check": "expo export --platform ios --platform android --output-dir .expo/bundle-check --clear",
-    "test": "jest"
+    "test": "jest",
+    "brand:assets": "node scripts/brand-assets.mjs",
+    "eas-build-post-install": "node scripts/brand-assets.mjs --optional"
   },
   "dependencies": {
     "@care-platform/shared": "*",

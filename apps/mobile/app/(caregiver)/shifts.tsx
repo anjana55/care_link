@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
+import { EmptyState, ScreenTitle } from '@/ui/visual';
 import { ShiftRow } from '@/ui/ShiftRow';
 import { IssueForm, IssueReportList } from '@/care/IssueForm';
 import { useMyShiftIssues, useMyShifts, useReportShiftIssue } from '@/caregiver/api';
@@ -41,14 +42,11 @@ export default function Shifts() {
         contentContainerStyle={styles.page}
         refreshControl={<RefreshControl refreshing={shifts.isRefetching} onRefresh={() => void shifts.refetch()} />}
       >
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-          {t('portal.shifts.bookedTitle')}
-        </Text>
-        <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('portal.shifts.bookedSubtitle')}</Text>
+        <ScreenTitle icon="calendar-outline" title={t('portal.shifts.bookedTitle')} subtitle={t('portal.shifts.bookedSubtitle')} />
 
         {shifts.isLoading ? <ActivityIndicator color={colors.brand} /> : null}
         {shifts.isError ? <Text style={{ color: colors.danger }}>{t('care.actionError')}</Text> : null}
-        {shifts.isSuccess && !shifts.data.length ? <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('portal.shifts.noBooked')}</Text> : null}
+        {shifts.isSuccess && !shifts.data.length ? <EmptyState icon="calendar-outline" body={t('portal.shifts.noBooked')} /> : null}
 
         <View>
           {(shifts.data ?? []).map((s) => {

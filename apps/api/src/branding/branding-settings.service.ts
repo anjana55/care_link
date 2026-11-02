@@ -1,9 +1,14 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
+import sharp from 'sharp';
 import {
+  APP_ICON_MIN_PX,
+  BRAND_PNG_SIZES,
   DEFAULT_COMPANY_NAME,
   LOGO_MAX_BYTES,
+  SQUARE_BRAND_ASSETS,
+  type BrandAsset,
   MIN_BRAND_CONTRAST,
   contrastRatio,
   initialsOf,
@@ -26,7 +31,48 @@ const EXTENSION: Record<LogoMimeType, string> = { 'image/png': 'png', 'image/jpe
 
 export interface AdminBranding extends PublicBranding {
   logoMimeType: string | null;
+  /** Each asset's file type, null when it isn't uploaded. */
+  assetMimeTypes: Record<BrandAsset, string | null>;
   updatedAt: Date;
+}
+
+/** Where each asset lives in the branding row. */
+const COLUMNS = {
+  logo: { key: 'logoKey', mime: 'logoMimeType', version: 'logoVersion' },
+  logoReverse: { key: 'logoReverseKey', mime: 'logoReverseMimeType', version: 'logoReverseVersion' },
+  symbol: { key: 'symbolKey', mime: 'symbolMimeType', version: 'symbolVersion' },
+  appIcon: { key: 'appIconKey', mime: 'appIconMimeType', version: 'appIconVersion' },
+} as const satisfies Record<BrandAsset, { key: keyof Row; mime: keyof Row; version: keyof Row }>;
+
+/** File names in storage. */
+const FILE_STEM: Record<BrandAsset, string> = { logo: 'logo', logoReverse: 'logo-reverse', symbol: 'symbol', appIcon: 'app-icon' };
+
+const versionOf = (row: Row, asset: BrandAsset): string | null => (row[COLUMNS[asset].key] ? (row[COLUMNS[asset].version] as string | null) : null);
+
+/**
+ * The shape rules the stores and small spaces need: the symbol and app icon
+ * square, the app icon big enough not to blur, and none of them too small to
+ * be crisp. Read from the decoded picture (an SVG's own size or viewBox).
+ */
+export async function checkAssetShape(asset: BrandAsset, buffer: Buffer): Promise<void> {
+  let width = 0;
+  let height = 0;
+  let vector = false;
+  try {
+    const meta = await sharp(buffer, { limitInputPixels: 50_000_000 }).metadata();
+    width = meta.width ?? 0;
+    height = meta.height ?? 0;
+    vector = meta.format === 'svg';
+  } catch {
+    throw new BadRequestException('This picture could not be read. Export it again as PNG or SVG.');
+  }
+  if (!width || !height) throw new BadRequestException('This picture has no size. Export it again with a width and height.');
+  if (SQUARE_BRAND_ASSETS.includes(asset) && Math.abs(width - height) / Math.max(width, height) > 0.05) {
+    throw new BadRequestException(`This picture must be square (this one is ${width} × ${height}).`);
+  }
+  if (asset === 'appIcon' && !vector && Math.min(width, height) < APP_ICON_MIN_PX) {
+    throw new BadRequestException(`The app icon must be at least ${APP_ICON_MIN_PX} × ${APP_ICON_MIN_PX} pixels, or an SVG (this one is ${width} × ${height}).`);
+  }
 }
 
 /**
@@ -82,7 +128,8 @@ export class BrandingSettingsService {
       tagline: row.tagline || null,
       primaryColor: row.primaryColor.toUpperCase(),
       accentColor: row.accentColor.toUpperCase(),
-      logoVersion: row.logoKey ? row.logoVersion : null,
+      logoVersion: versionOf(row, 'logo'),
+      assets: { logo: versionOf(row, 'logo'), logoReverse: versionOf(row, 'logoReverse'), symbol: versionOf(row, 'symbol'), appIcon: versionOf(row, 'appIcon') },
       defaultLocale,
       enabledLocales: normalizeLocales(row.enabledLocales.split(','), defaultLocale),
     };
@@ -103,7 +150,13 @@ export class BrandingSettingsService {
 
   async getForAdmin(): Promise<AdminBranding> {
     const row = await this.getRow();
-    return { ...this.toPublic(row), logoMimeType: row.logoKey ? row.logoMimeType : null, updatedAt: row.updatedAt };
+    const mimeOf = (asset: BrandAsset) => (row[COLUMNS[asset].key] ? (row[COLUMNS[asset].mime] as string | null) : null);
+    return {
+      ...this.toPublic(row),
+      logoMimeType: mimeOf('logo'),
+      assetMimeTypes: { logo: mimeOf('logo'), logoReverse: mimeOf('logoReverse'), symbol: mimeOf('symbol'), appIcon: mimeOf('appIcon') },
+      updatedAt: row.updatedAt,
+    };
   }
 
   async update(dto: UpdateBrandingSettingsDto, updatedBy: string): Promise<AdminBranding> {
@@ -147,34 +200,87 @@ export class BrandingSettingsService {
     return this.getForAdmin();
   }
 
-  async setLogo(file: { buffer: Buffer } | undefined, updatedBy: string): Promise<AdminBranding> {
+  async setAsset(asset: BrandAsset, file: { buffer: Buffer } | undefined, updatedBy: string): Promise<AdminBranding> {
     const mimeType = inspectLogo(file?.buffer as Buffer);
+    await checkAssetShape(asset, file!.buffer);
     const current = await this.getRow();
+    const cols = COLUMNS[asset];
     const version = randomBytes(6).toString('hex');
-    const key = `branding/logo-${version}.${EXTENSION[mimeType]}`;
+    const key = `branding/${FILE_STEM[asset]}-${version}.${EXTENSION[mimeType]}`;
     await this.storage.upload({ key, buffer: file!.buffer, mimeType });
     await this.db
       .update(brandingSettings)
-      .set({ logoKey: key, logoMimeType: mimeType, logoVersion: version, updatedBy, updatedAt: new Date() })
+      .set({ [cols.key]: key, [cols.mime]: mimeType, [cols.version]: version, updatedBy, updatedAt: new Date() })
       .where(eq(brandingSettings.id, SETTINGS_ID));
     // The old file goes only once the row no longer points at it.
-    if (current.logoKey && current.logoKey !== key) await this.storage.delete(current.logoKey);
+    const old = current[cols.key] as string | null;
+    if (old && old !== key) await this.storage.delete(old);
     return this.getForAdmin();
   }
 
-  async removeLogo(updatedBy: string): Promise<AdminBranding> {
+  async removeAsset(asset: BrandAsset, updatedBy: string): Promise<AdminBranding> {
     const current = await this.getRow();
+    const cols = COLUMNS[asset];
     await this.db
       .update(brandingSettings)
-      .set({ logoKey: null, logoMimeType: null, logoVersion: null, updatedBy, updatedAt: new Date() })
+      .set({ [cols.key]: null, [cols.mime]: null, [cols.version]: null, updatedBy, updatedAt: new Date() })
       .where(eq(brandingSettings.id, SETTINGS_ID));
-    if (current.logoKey) await this.storage.delete(current.logoKey);
+    const old = current[cols.key] as string | null;
+    if (old) await this.storage.delete(old);
     return this.getForAdmin();
   }
 
-  async getLogo(): Promise<{ buffer: Buffer; mimeType: string; version: string }> {
+  async getAsset(asset: BrandAsset): Promise<{ buffer: Buffer; mimeType: string; version: string }> {
     const row = await this.getRow();
-    if (!row.logoKey || !row.logoMimeType || !row.logoVersion) throw new NotFoundException('No logo has been uploaded');
-    return { buffer: await this.storage.download(row.logoKey), mimeType: row.logoMimeType, version: row.logoVersion };
+    const cols = COLUMNS[asset];
+    const key = row[cols.key] as string | null;
+    const mimeType = row[cols.mime] as string | null;
+    const version = row[cols.version] as string | null;
+    if (!key || !mimeType || !version) throw new NotFoundException('This picture has not been uploaded');
+    return { buffer: await this.storage.download(key), mimeType, version };
+  }
+
+  /** Recent renditions, so the app asking for the same icon all day doesn't re-render it. */
+  private readonly renditions = new Map<string, Buffer>();
+
+  /**
+   * The asset as a PNG `size` px on its longer side, transparent around it -
+   * for the mobile app, which can't draw SVG, and for the store icon. Sizes
+   * are a fixed list, so nobody can make the API render a giant picture.
+   */
+  async getAssetPng(asset: BrandAsset, size: number): Promise<{ buffer: Buffer; version: string }> {
+    if (!(BRAND_PNG_SIZES as readonly number[]).includes(size)) {
+      throw new BadRequestException(`size must be one of ${BRAND_PNG_SIZES.join(', ')}`);
+    }
+    const original = await this.getAsset(asset);
+    const cacheKey = `${asset}:${original.version}:${size}`;
+    const hit = this.renditions.get(cacheKey);
+    if (hit) return { buffer: hit, version: original.version };
+
+    const meta = await sharp(original.buffer).metadata();
+    const longest = Math.max(meta.width ?? size, meta.height ?? size);
+    // An SVG is drawn at the density that makes it `size` px, so it is sharp rather than scaled up.
+    const density = meta.format === 'svg' ? Math.min(2400, Math.max(1, Math.ceil((72 * size) / longest))) : undefined;
+    const buffer = await sharp(original.buffer, { density, limitInputPixels: 50_000_000 })
+      // A raster picture is never blown up (it would only blur); an SVG is already drawn at the size asked for.
+      .resize({ width: size, height: size, fit: 'inside', withoutEnlargement: true })
+      .png()
+      .toBuffer();
+    if (this.renditions.size >= 64) this.renditions.delete(this.renditions.keys().next().value!);
+    this.renditions.set(cacheKey, buffer);
+    return { buffer, version: original.version };
+  }
+
+  // The logo, as before the other assets existed.
+  setLogo(file: { buffer: Buffer } | undefined, updatedBy: string) {
+    return this.setAsset('logo', file, updatedBy);
+  }
+
+  removeLogo(updatedBy: string) {
+    return this.removeAsset('logo', updatedBy);
+  }
+
+  getLogo() {
+    return this.getAsset('logo');
   }
 }

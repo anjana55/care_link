@@ -26,7 +26,8 @@ export default function ClientLayout() {
       <Tabs.Screen
         name="find"
         options={{
-          tabBarLabel: t('account.findCaregivers'),
+          tabBarLabel: t('nav.find'),
+          tabBarAccessibilityLabel: t('account.findCaregivers'),
           tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color as string} size={size} />,
         }}
       />

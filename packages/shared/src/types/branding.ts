@@ -19,6 +19,43 @@ export const MIN_BRAND_CONTRAST = 4.5;
 export const LOGO_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] as const;
 export const LOGO_MAX_BYTES = 1024 * 1024;
 
+/**
+ * The brand's artwork, each uploaded in Settings > Branding. All optional:
+ * whatever is missing falls back (see each), down to the company name.
+ *
+ * - `logo`: the horizontal logo in full colour, for light backgrounds - the
+ *   website header, emails, invoices, the app's sign-in screen.
+ * - `logoReverse`: the same logo in white or light colours, for the brand
+ *   colour and dark backgrounds - the app's welcome band. Falls back to the
+ *   symbol on a white tile with the company name.
+ * - `symbol`: the mark alone, square - small places (the app's headers, the
+ *   browser tab) and the app's splash screen. Falls back to the logo.
+ * - `appIcon`: the phone's home-screen icon, square and full-bleed (no
+ *   rounded corners or transparency: the phone adds its own mask). Used when
+ *   the app is built. Falls back to the symbol on white.
+ */
+export const BRAND_ASSETS = ['logo', 'logoReverse', 'symbol', 'appIcon'] as const;
+export type BrandAsset = (typeof BRAND_ASSETS)[number];
+
+/** Each asset's address segment: /branding/<path>, /settings/branding/<path>. */
+export const BRAND_ASSET_PATH: Record<BrandAsset, string> = {
+  logo: 'logo',
+  logoReverse: 'logo-reverse',
+  symbol: 'symbol',
+  appIcon: 'app-icon',
+};
+
+export const brandAssetFromPath = (path: string): BrandAsset | null =>
+  (Object.keys(BRAND_ASSET_PATH) as BrandAsset[]).find((a) => BRAND_ASSET_PATH[a] === path) ?? null;
+
+/** Assets that must be square (within a few percent). */
+export const SQUARE_BRAND_ASSETS: readonly BrandAsset[] = ['symbol', 'appIcon'];
+/** The stores want a 1024 px icon: a smaller picture would be blurry. */
+export const APP_ICON_MIN_PX = 1024;
+
+/** PNG sizes the API renders on request (?size=), for the app - which can't draw SVG - and the stores. */
+export const BRAND_PNG_SIZES = [32, 48, 64, 96, 128, 192, 256, 384, 512, 1024] as const;
+
 /** What every visitor - signed in or not - is told about the brand. GET /branding. */
 export interface PublicBranding {
   companyName: string;
@@ -27,8 +64,10 @@ export interface PublicBranding {
   tagline: string | null;
   primaryColor: string;
   accentColor: string;
-  /** Changes whenever the logo does; null when there is no logo. Append as ?v= to bust caches. */
+  /** Changes whenever the logo does; null when there is no logo. Append as ?v= to bust caches. Same as assets.logo. */
   logoVersion: string | null;
+  /** Each asset's version, null when it isn't uploaded. */
+  assets: Record<BrandAsset, string | null>;
   defaultLocale: Locale;
   /** Always contains defaultLocale; in LOCALES order. */
   enabledLocales: Locale[];
@@ -41,6 +80,7 @@ export const DEFAULT_BRANDING: PublicBranding = {
   primaryColor: DEFAULT_PRIMARY_COLOR,
   accentColor: DEFAULT_ACCENT_COLOR,
   logoVersion: null,
+  assets: { logo: null, logoReverse: null, symbol: null, appIcon: null },
   defaultLocale: DEFAULT_LOCALE,
   enabledLocales: [...LOCALES],
 };
@@ -49,6 +89,23 @@ export const DEFAULT_BRANDING: PublicBranding = {
 export function brandingLogoUrl(apiBase: string, branding: Pick<PublicBranding, 'logoVersion'>): string | null {
   if (!branding.logoVersion) return null;
   return `${apiBase.replace(/\/+$/, '')}/branding/logo?v=${encodeURIComponent(branding.logoVersion)}`;
+}
+
+/**
+ * An asset's address under an API base such as '/api', or null when it isn't
+ * uploaded. `png` asks for a PNG that size on its longer side (one of
+ * BRAND_PNG_SIZES): the mobile app can't draw SVG.
+ */
+export function brandingAssetUrl(
+  apiBase: string,
+  branding: Pick<PublicBranding, 'assets'>,
+  asset: BrandAsset,
+  opts: { png?: (typeof BRAND_PNG_SIZES)[number] } = {},
+): string | null {
+  const version = branding.assets?.[asset];
+  if (!version) return null;
+  const png = opts.png ? `&size=${opts.png}` : '';
+  return `${apiBase.replace(/\/+$/, '')}/branding/${BRAND_ASSET_PATH[asset]}?v=${encodeURIComponent(version)}${png}`;
 }
 
 /**
@@ -211,13 +268,22 @@ export function normalizeBranding(raw: unknown): PublicBranding {
   const str = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
   const companyName = str(r.companyName, 120) ?? DEFAULT_COMPANY_NAME;
   const defaultLocale = LOCALES.includes(r.defaultLocale as Locale) ? (r.defaultLocale as Locale) : DEFAULT_LOCALE;
+  const version = (v: unknown) => (typeof v === 'string' && /^[0-9a-zA-Z_-]{1,40}$/.test(v) ? v : null);
+  // An API from before the other assets sends only logoVersion.
+  const assets = (r.assets && typeof r.assets === 'object' ? r.assets : {}) as Partial<Record<BrandAsset, unknown>>;
   return {
     companyName,
     shortName: str(r.shortName, 4) ?? initialsOf(companyName),
     tagline: str(r.tagline, 160),
     primaryColor: meetsBrandContrast(r.primaryColor as string) ? (r.primaryColor as string).toUpperCase() : DEFAULT_PRIMARY_COLOR,
     accentColor: meetsBrandContrast(r.accentColor as string) ? (r.accentColor as string).toUpperCase() : DEFAULT_ACCENT_COLOR,
-    logoVersion: typeof r.logoVersion === 'string' && /^[0-9a-zA-Z_-]{1,40}$/.test(r.logoVersion) ? r.logoVersion : null,
+    logoVersion: version(assets.logo) ?? version(r.logoVersion),
+    assets: {
+      logo: version(assets.logo) ?? version(r.logoVersion),
+      logoReverse: version(assets.logoReverse),
+      symbol: version(assets.symbol),
+      appIcon: version(assets.appIcon),
+    },
     defaultLocale,
     enabledLocales: normalizeLocales(Array.isArray(r.enabledLocales) ? (r.enabledLocales as string[]) : null, defaultLocale),
   };

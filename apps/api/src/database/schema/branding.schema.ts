@@ -11,7 +11,8 @@ export const brandingLocaleEnum = ['en', 'si', 'ta'] as const;
  *
  * The logo file itself lives in the storage service under `logo_key`;
  * `logo_version` changes with every upload so browsers can cache the image
- * forever and still pick up a new one.
+ * forever and still pick up a new one. The other artwork (BRAND_ASSETS: the
+ * reverse logo, the symbol, the app icon) is kept the same way.
  */
 export const brandingSettings = mysqlTable('branding_settings', {
   id: varchar('id', { length: 36 }).primaryKey(),
@@ -24,6 +25,15 @@ export const brandingSettings = mysqlTable('branding_settings', {
   logoKey: varchar('logo_key', { length: 255 }),
   logoMimeType: varchar('logo_mime_type', { length: 40 }),
   logoVersion: varchar('logo_version', { length: 40 }),
+  logoReverseKey: varchar('logo_reverse_key', { length: 255 }),
+  logoReverseMimeType: varchar('logo_reverse_mime_type', { length: 40 }),
+  logoReverseVersion: varchar('logo_reverse_version', { length: 40 }),
+  symbolKey: varchar('symbol_key', { length: 255 }),
+  symbolMimeType: varchar('symbol_mime_type', { length: 40 }),
+  symbolVersion: varchar('symbol_version', { length: 40 }),
+  appIconKey: varchar('app_icon_key', { length: 255 }),
+  appIconMimeType: varchar('app_icon_mime_type', { length: 40 }),
+  appIconVersion: varchar('app_icon_version', { length: 40 }),
 
   defaultLocale: mysqlEnum('default_locale', brandingLocaleEnum).notNull().default('en'),
   // Comma-separated subset of brandingLocaleEnum, e.g. 'en,si,ta'.

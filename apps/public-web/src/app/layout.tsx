@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { brandingLogoUrl, defaultFaviconDataUrl, derivePalette, paletteCss } from '@care-platform/shared';
+import { brandingAssetUrl, brandingLogoUrl, defaultFaviconDataUrl, derivePalette, paletteCss } from '@care-platform/shared';
 import { QueryProvider } from '@/lib/query-provider';
 import { AuthProvider } from '@/lib/api/auth-context';
 import { DeviceShortlistSync } from '@/components/care/device-shortlist-sync';
@@ -16,7 +16,8 @@ const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
 export async function generateMetadata(): Promise<Metadata> {
   const b = await getBranding();
-  const icon = brandingLogoUrl(PUBLIC_API_URL, b) ?? defaultFaviconDataUrl(b.primaryColor);
+  // The browser tab: the square symbol when there is one, else the logo, else the shipped mark in the brand colour.
+  const icon = brandingAssetUrl(PUBLIC_API_URL, b, 'symbol', { png: 64 }) ?? brandingLogoUrl(PUBLIC_API_URL, b) ?? defaultFaviconDataUrl(b.primaryColor);
   return {
     // The landing page ("/") and /find both declare their own titles; this is the
     // fallback for any page that does not.

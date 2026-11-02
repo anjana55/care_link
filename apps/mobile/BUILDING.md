@@ -133,6 +133,34 @@ Until this is done, nothing breaks: links simply open in the browser.
 Links to sign in, confirm an email, reset a password, register or delete
 an account always stay on the website.
 
+### 6. The brand's icon and splash screen
+
+The app is white-labelled: its name in the stores is set per brand in
+`app.config.ts` (CareLink), and everything inside it - logos, colours, the
+company name - comes live from **Settings › Branding** in the staff app.
+
+Three things can't come live, because the phone shows them before the app
+runs: the **home-screen icon**, Android's **adaptive icon** and the **splash
+screen**. They are made from the same Settings › Branding artwork:
+
+1. In the staff app, open **Settings › Branding › Logo and artwork** and
+   upload at least the **Symbol** and the **App icon** (each card says what to
+   upload).
+2. EAS Build fetches them from the brand's API automatically on every build
+   (the `eas-build-post-install` script). Nothing to do.
+3. For a local build, or to look at them first:
+
+   ```bash
+   npm run brand:assets
+   ```
+
+   This writes `assets/brand/carelink/` (`icon.png`, `adaptive-icon.png`,
+   `splash-icon.png`). Those files aren't committed: each build takes the
+   artwork from the deployment, so it always matches what the admin uploaded.
+
+A new icon or splash only reaches people in a new store release. Logos and
+colours change at once, without one.
+
 ---
 
 ## Everyday use
@@ -196,6 +224,71 @@ It reaches builds with the **same `version`** the next time they're opened
 twice. Anything that adds or upgrades a native package needs a new build and
 a store release.
 
+## Publishing to the stores for the first time
+
+Do the one-time setup above first (steps 1 to 6). Then, per store:
+
+### Google Play (Android)
+
+1. **Developer account.** Sign up at **play.google.com/console** as an
+   **organization** (Vivanti Health), which needs a D-U-N-S number. New
+   *personal* accounts must first run a closed test with at least 12 testers
+   for 14 days before they can publish; check Play Console Help for the rule
+   that applies to your account when you sign up.
+2. **Create the app** in Play Console (**Create app**): name **CareLink**,
+   app, free. The package name is set by the first upload:
+   `com.vivantihealth.carelink`.
+3. **Let EAS upload for you.** In Google Cloud, create a **service account**
+   with access to the Play Console account, download its **JSON key**, and add
+   it on **expo.dev** › the project › **Credentials › Android ›
+   com.vivantihealth.carelink › Service credentials › Add a Google service
+   account key**.
+4. **Build and upload:**
+
+   ```bash
+   eas build --profile production --platform android
+   eas submit --platform android --latest
+   ```
+
+   The build goes to the **Internal testing** track. Add yourself and staff
+   as testers and try it on real phones.
+5. **Fill in the store listing** in Play Console: short and full description,
+   screenshots (phone), the 512 × 512 icon (`assets/brand/carelink/icon.png`
+   scaled down), a 1024 × 500 feature graphic, the privacy policy link,
+   **Data safety**, the content rating questionnaire, target audience, and
+   the **account deletion** link: `https://find.caregivers.lk/delete-account`.
+6. **App signing.** Once uploaded, copy the **app signing key** SHA-256 from
+   **Test and release › App integrity › Play app signing** into
+   **Settings › Mobile app › App links** (step 5), so links open the app.
+7. **Release.** Promote the internal build to **Production** (or a closed
+   test first) and send it for review. The first review can take several
+   days.
+8. When it's live, put its Play Store link in **Settings › Mobile app**.
+
+### App Store (iPhone)
+
+Waiting on Vivanti Health's **Apple Developer Program** membership (step 4).
+Two things must also be in place before Apple will accept the app:
+**Sign in with Apple** - Apple's review guidelines (4.8) ask apps that offer
+Google, Microsoft or Facebook sign-in to also offer it or an equivalent
+private option; that is plan phase 4c - and the app's privacy answers. Then:
+
+1. In **App Store Connect**, create the app: name **CareLink**, bundle id
+   `com.vivantihealth.carelink`.
+2. Build and upload:
+
+   ```bash
+   eas build --profile production --platform ios
+   eas submit --platform ios --latest
+   ```
+
+   EAS asks you to sign in to Apple and creates the certificates.
+3. Test it in **TestFlight**, fill in the listing (screenshots in the iPhone
+   sizes App Store Connect asks for, description, keywords, support and
+   privacy URLs, App Privacy answers, a demo account for the reviewer), and
+   submit for review.
+4. When it's live, put its App Store link in **Settings › Mobile app**.
+
 ## Checklist before the first store release
 
 - [ ] Bundle id `com.vivantihealth.carelink` confirmed. It can't change once published.
@@ -205,4 +298,5 @@ a store release.
 - [ ] Caregiver documents tried on a real Android phone and iPhone: take a photo, choose a photo, choose a PDF, and open an uploaded one.
 - [ ] Store links filled in under Settings › Mobile app.
 - [ ] App links set up (step 5) with the Play **app signing** fingerprint, and a link in an email opening the store build.
+- [ ] Symbol and app icon uploaded in Settings › Branding (step 6), and `npm run brand:assets` shows the icon you expect.
 - [ ] Store listings, privacy forms and screenshots: see the mobile app plan, section 7.

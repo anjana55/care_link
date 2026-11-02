@@ -30,6 +30,7 @@ import { Chips, SelectField } from '@/ui/choices';
 import { Button } from '@/ui/controls';
 import { formatDate } from '@/ui/dates';
 import { Text } from '@/ui/Text';
+import { ScreenTitle } from '@/ui/visual';
 
 const YEARS_AHEAD = 20;
 
@@ -147,10 +148,7 @@ export default function Documents() {
         refreshControl={<RefreshControl refreshing={documents.isRefetching} onRefresh={() => void documents.refetch()} />}
       >
         <View style={{ gap: 6 }}>
-          <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-            {t('portal.documents.title')}
-          </Text>
-          <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('portal.documents.subtitle')}</Text>
+          <ScreenTitle icon="document-text-outline" title={t('portal.documents.title')} subtitle={t('portal.documents.subtitle')} />
         </View>
 
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -223,9 +221,9 @@ export default function Documents() {
           ) : null}
 
           <View style={{ gap: 8 }}>
-            <Button variant="secondary" label={t('portal.documents.takePhoto')} onPress={() => void pick(takePhoto)} />
-            <Button variant="secondary" label={t('portal.documents.choosePhoto')} onPress={() => void pick(choosePhoto)} />
-            <Button variant="secondary" label={t('portal.documents.chooseFile')} onPress={() => void pick(chooseFile)} />
+            <Button variant="secondary" icon="camera-outline" label={t('portal.documents.takePhoto')} onPress={() => void pick(takePhoto)} />
+            <Button variant="secondary" icon="images-outline" label={t('portal.documents.choosePhoto')} onPress={() => void pick(choosePhoto)} />
+            <Button variant="secondary" icon="folder-open-outline" label={t('portal.documents.chooseFile')} onPress={() => void pick(chooseFile)} />
             <Text style={{ fontSize: 13, lineHeight: 19, color: colors.muted }}>{t('portal.documents.photoTip')}</Text>
             <Text style={{ fontSize: 13, lineHeight: 19, color: colors.muted }}>{t('portal.documents.fileHint')}</Text>
           </View>
@@ -249,7 +247,7 @@ export default function Documents() {
               {notice}
             </Text>
           ) : null}
-          <Button label={upload.isPending ? t('common.loading') : t('portal.documents.upload')} busy={upload.isPending} disabled={!file} onPress={() => !upload.isPending && onUpload()} />
+          <Button icon="cloud-upload-outline" label={upload.isPending ? t('common.loading') : t('portal.documents.upload')} busy={upload.isPending} disabled={!file} onPress={() => !upload.isPending && onUpload()} />
         </View>
 
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>

@@ -10,6 +10,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
+import { Avatar, Card, EmptyState, HeroBand, IconBadge, Pill, tint } from '@/ui/visual';
 import { ShiftRow } from '@/ui/ShiftRow';
 import { useCaregiver, useMyShifts, useOwnCaregiver } from '@/caregiver/api';
 import { missingCore } from '@/caregiver/documents';
@@ -71,31 +72,39 @@ export default function Today() {
         contentContainerStyle={styles.page}
         refreshControl={<RefreshControl refreshing={shifts.isRefetching} onRefresh={() => void queryClient.invalidateQueries({ queryKey: ['caregiver', me?.userId ?? 'none'] })} />}
       >
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-          <Text style={{ fontSize: 13, color: colors.muted }}>{t('portal.welcome')}</Text>
-          <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-            {c?.fullName ?? user?.phone ?? user?.email ?? ''}
-          </Text>
-          {c ? (
-            <>
-              <View style={styles.row}>
-                <Text style={[styles.badge, { color: colors.brand, borderColor: colors.brand }]}>{t(`portal.status.${c.status}`)}</Text>
-                <Text style={{ fontSize: 13, color: colors.muted }}>
+        <HeroBand style={styles.hero}>
+          <View style={styles.heroRow}>
+            <Avatar name={c?.fullName ?? user?.phone ?? user?.email} size={60} onBrand />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.85)' }}>{t('portal.welcome')}</Text>
+              <Text accessibilityRole="header" style={[styles.title, { color: colors.brandText }]}>
+                {c?.fullName ?? user?.phone ?? user?.email ?? ''}
+              </Text>
+              {c ? (
+                <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.8)' }}>
                   {t('portal.registrationNumber')} {c.registrationNumber}
                 </Text>
-              </View>
+              ) : null}
+            </View>
+          </View>
+          {c ? (
+            <View style={[styles.statusBox, { backgroundColor: colors.surface }]}>
+              <Pill icon="ellipse" tone={c.status === 'ACTIVE' ? 'brand' : 'accent'} label={t(`portal.status.${c.status}`)} />
               <Text style={{ fontSize: 15, lineHeight: 22, color: colors.ink }}>{t(`portal.statusHelp.${c.status}`)}</Text>
-            </>
+            </View>
           ) : record.isError ? (
-            <Text style={{ color: colors.danger }}>{t('portal.loadError')}</Text>
+            <Text style={{ color: colors.brandText }}>{t('portal.loadError')}</Text>
           ) : null}
-        </View>
+        </HeroBand>
 
         {c && (missing.length || rejected) ? (
-          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-            <Text accessibilityRole="header" style={[styles.section, { color: colors.ink }]}>
-              {t('portal.checklist.documents.title')}
-            </Text>
+          <Card style={[styles.card, { borderColor: tint(colors.danger, 0.3) }]}>
+            <View style={styles.sectionRow}>
+              <IconBadge name="document-attach-outline" tone="danger" />
+              <Text accessibilityRole="header" style={[styles.section, { color: colors.ink }]}>
+                {t('portal.checklist.documents.title')}
+              </Text>
+            </View>
             {rejected ? <Text style={{ fontSize: 15, lineHeight: 22, color: colors.danger }}>{t('portal.documents.rejectedHint')}</Text> : null}
             {missing.length ? (
               <View style={{ gap: 4 }}>
@@ -109,32 +118,37 @@ export default function Today() {
               </View>
             ) : null}
             <Button label={t('portal.documents.add')} onPress={() => router.navigate('/documents')} />
-          </View>
+          </Card>
         ) : null}
 
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-          <Text accessibilityRole="header" style={[styles.section, { color: colors.ink }]}>
-            {t('portal.shifts.bookedTitle')}
-          </Text>
+        <Card style={styles.card}>
+          <View style={styles.sectionRow}>
+            <IconBadge name="calendar-outline" />
+            <Text accessibilityRole="header" style={[styles.section, { color: colors.ink }]}>
+              {t('portal.shifts.bookedTitle')}
+            </Text>
+          </View>
           {shifts.isLoading ? <ActivityIndicator color={colors.brand} /> : null}
           {shifts.isError ? <Text style={{ color: colors.danger }}>{t('care.actionError')}</Text> : null}
-          {shifts.isSuccess && !upcoming.length ? <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('portal.shifts.noBooked')}</Text> : null}
+          {shifts.isSuccess && !upcoming.length ? <EmptyState icon="sunny-outline" body={t('portal.shifts.noBooked')} /> : null}
           {upcoming.map((s) => (
             <ShiftRow key={s.id} shift={s} coverLabel={t('portal.shifts.cover')} extra={[s.bookingReference, s.area].filter(Boolean).join(' · ')}>
               {soon.includes(s) ? <ShiftCarePlan shiftId={s.id} /> : null}
             </ShiftRow>
           ))}
-        </View>
+        </Card>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 20, gap: 16, paddingBottom: 40 },
-  card: { borderWidth: 1, borderRadius: 14, padding: 16, gap: 8 },
-  title: { fontSize: 24, fontWeight: '700' },
-  section: { fontSize: 18, fontWeight: '700' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  badge: { fontSize: 12, fontWeight: '700', borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },
+  page: { gap: 16, paddingBottom: 40 },
+  hero: { paddingTop: 20, gap: 16, marginBottom: 4 },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  statusBox: { borderRadius: 16, padding: 14, gap: 8 },
+  card: { marginHorizontal: 20, gap: 10 },
+  title: { fontSize: 22, fontWeight: '700' },
+  section: { flex: 1, fontSize: 18, fontWeight: '700' },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 });

@@ -7,6 +7,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button, FormError } from '@/ui/controls';
 import { Text } from '@/ui/Text';
+import { EmptyState, ScreenTitle } from '@/ui/visual';
 import { formatDate } from '@/ui/dates';
 import { useCancelRequest, useClient, useMyRequests } from '@/care/api';
 import { RequestSheet } from '@/care/RequestSheet';
@@ -28,10 +29,7 @@ export default function Requests() {
 
   const head = (
     <View style={styles.head}>
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-        {t('account.requests.title')}
-      </Text>
-      <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('account.requests.subtitle')}</Text>
+      <ScreenTitle icon="chatbubbles-outline" title={t('account.requests.title')} subtitle={t('account.requests.subtitle')} />
       {client ? (
         <Button variant="secondary" label={t('account.requests.newRequest')} onPress={() => setFindForMe(true)} />
       ) : (
@@ -48,10 +46,9 @@ export default function Requests() {
       <Button variant="secondary" label={t('error.retry')} onPress={() => requests.refetch()} />
     </View>
   ) : (
-    <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 16, color: colors.muted }}>{t('account.requests.empty')}</Text>
+    <EmptyState icon="chatbubbles-outline" body={t('account.requests.empty')}>
       <Button variant="secondary" label={t('account.requests.emptyCta')} onPress={() => router.navigate('/find')} />
-    </View>
+    </EmptyState>
   );
 
   return (
