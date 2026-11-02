@@ -6,14 +6,15 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/api/auth-context';
 import { useTranslation } from '@/lib/i18n/provider';
 import { cn } from '@/lib/utils';
-import { settingsSectionsFor } from '@/lib/settings-sections';
+import { sectionHrefFor, settingsGroupsFor } from '@/lib/settings-sections';
+import { Select } from '@/components/ui/input';
 
 /**
  * The Settings area: the white-label branding, AI, how people sign in, how
  * they are reached and billed - and the reference data (skills, languages,
  * locations) and the audit log.
  *
- * Which tabs a role sees comes from settingsSectionsFor(): admins see
+ * Which sections a role sees comes from settingsGroupsFor(): admins see
  * everything; staff and verifiers see the reference data only, read-only,
  * as they did when those pages sat in the sidebar. A section a role cannot
  * open sends them to the first one they can (the pages keep their own guards
@@ -25,8 +26,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const sections = settingsSectionsFor(user?.role);
-  const allowed = sections.some((s) => pathname?.startsWith(s.href));
+  const groups = settingsGroupsFor(user?.role);
+  const sections = groups.flatMap((g) => g.sections);
+  const active = sectionHrefFor(pathname);
+  const allowed = sections.some((s) => s.href === active);
 
   useEffect(() => {
     if (loading || !user) return;
@@ -41,26 +44,59 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <div>
       <h1 className="mb-1 text-2xl font-semibold text-ink">{t('settings.title')}</h1>
-      <p className="mb-5 text-sm text-ink/60">{user.role === 'ADMIN' ? t('settings.subtitle') : t('settings.subtitleStaff')}</p>
-      <nav aria-label={t('settings.title')} className="mb-6 flex gap-1 overflow-x-auto border-b border-border">
-        {sections.map((section) => {
-          const active = pathname?.startsWith(section.href);
-          return (
-            <Link
-              key={section.href}
-              href={section.href}
-              aria-current={active ? 'page' : undefined}
-              className={cn(
-                '-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors',
-                active ? 'border-brand text-brand-dark' : 'border-transparent text-ink/60 hover:text-ink',
-              )}
-            >
-              {t(section.key)}
-            </Link>
-          );
-        })}
-      </nav>
-      {children}
+      <p className="mb-6 text-sm text-ink/60">{user.role === 'ADMIN' ? t('settings.subtitle') : t('settings.subtitleStaff')}</p>
+
+      <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
+        {/* Narrow screens: one grouped drop-down instead of a strip of tabs that runs off the edge. */}
+        <div className="mb-6 lg:hidden">
+          <label htmlFor="settings-section" className="sr-only">
+            {t('settings.title')}
+          </label>
+          <Select id="settings-section" value={active ?? ''} onChange={(e) => router.push(e.target.value)}>
+            {groups.map((g) => (
+              <optgroup key={g.key} label={t(g.key)}>
+                {g.sections.map((s) => (
+                  <option key={s.href} value={s.href}>
+                    {t(s.key)}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </Select>
+        </div>
+
+        {/* Wide screens: the sections listed down the side, in groups. */}
+        <nav aria-label={t('settings.title')} className="hidden lg:block">
+          <div className="sticky top-6 space-y-4">
+            {groups.map((g) => (
+              <div key={g.key}>
+                <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-ink/45">{t(g.key)}</p>
+                <ul className="space-y-0.5">
+                  {g.sections.map((s) => {
+                    const current = s.href === active;
+                    return (
+                      <li key={s.href}>
+                        <Link
+                          href={s.href}
+                          aria-current={current ? 'page' : undefined}
+                          className={cn(
+                            'block rounded px-3 py-1 text-sm transition-colors',
+                            current ? 'bg-brand-light font-medium text-brand-dark' : 'text-ink/70 hover:bg-paper hover:text-ink',
+                          )}
+                        >
+                          {t(s.key)}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </nav>
+
+        <div className="min-w-0">{children}</div>
+      </div>
     </div>
   );
 }

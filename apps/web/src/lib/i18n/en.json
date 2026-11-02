@@ -1059,7 +1059,16 @@
     "ai": "AI",
     "ads": "Ads",
     "analytics": "Analytics",
-    "mobileApp": "Mobile app"
+    "mobileApp": "Mobile app",
+    "adsAnalytics": "Ads & analytics",
+    "skillsLanguages": "Skills & languages",
+    "groups": {
+      "brand": "Brand",
+      "signInMessaging": "Sign-in & messages",
+      "services": "Services",
+      "referenceData": "Reference data",
+      "data": "Data"
+    }
   },
   "brandingAdmin": {
     "companyTitle": "Company",

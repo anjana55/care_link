@@ -1059,7 +1059,16 @@
     "ai": "AI",
     "ads": "விளம்பரங்கள்",
     "analytics": "பகுப்பாய்வு",
-    "mobileApp": "மொபைல் செயலி"
+    "mobileApp": "மொபைல் செயலி",
+    "adsAnalytics": "விளம்பரங்கள் & பகுப்பாய்வு",
+    "skillsLanguages": "திறன்கள் & மொழிகள்",
+    "groups": {
+      "brand": "பிராண்ட்",
+      "signInMessaging": "உள்நுழைவு & செய்திகள்",
+      "services": "சேவைகள்",
+      "referenceData": "குறிப்புத் தரவு",
+      "data": "தரவு"
+    }
   },
   "brandingAdmin": {
     "companyTitle": "நிறுவனம்",

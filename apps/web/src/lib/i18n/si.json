@@ -1059,7 +1059,16 @@
     "ai": "AI",
     "ads": "දැන්වීම්",
     "analytics": "විශ්ලේෂණ",
-    "mobileApp": "ජංගම යෙදුම"
+    "mobileApp": "ජංගම යෙදුම",
+    "adsAnalytics": "දැන්වීම් සහ විශ්ලේෂණ",
+    "skillsLanguages": "කුසලතා සහ භාෂා",
+    "groups": {
+      "brand": "සන්නාමය",
+      "signInMessaging": "පුරනය සහ පණිවිඩ",
+      "services": "සේවා",
+      "referenceData": "යොමු දත්ත",
+      "data": "දත්ත"
+    }
   },
   "brandingAdmin": {
     "companyTitle": "සමාගම",
