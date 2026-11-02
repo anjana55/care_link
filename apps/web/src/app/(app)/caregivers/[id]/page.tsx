@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
+import { fmtDateTime } from '@/lib/colombo-time';
 import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -69,7 +71,7 @@ function Field({ label, value }: { label: string; value: string | number | null 
 
 export default function CaregiverProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const { user } = useAuth();
   // Asked to delete their account (ADMIN + STAFF can see the requests): say so, rather than just "Inactive".
@@ -87,7 +89,7 @@ export default function CaregiverProfilePage() {
     otherNotes: '',
   });
 
-  const { data: caregiver, isLoading } = useCaregiver(id);
+  const { data: caregiver, isLoading, error: caregiverError } = useCaregiver(id);
   const updateStatus = useUpdateCaregiverStatus(id);
   const updateCaregiver = useUpdateCaregiver(id);
   const deleteCaregiver = useDeleteCaregiver(id);
@@ -248,6 +250,17 @@ export default function CaregiverProfilePage() {
     }
   }, [isHealthEditing, healthInfo]);
 
+  // Deleted (or never there): say so, rather than "Loading" forever or a stale copy with a Delete that can only fail.
+  if (caregiverError instanceof ApiError && caregiverError.status === 404) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-sm text-ink/60">
+        <span>{t('caregivers.notFound')}</span>
+        <Link href="/caregivers" className="text-brand-dark hover:underline">
+          {t('caregivers.backToList')}
+        </Link>
+      </div>
+    );
+  }
   if (isLoading || !caregiver) return <p className="text-sm text-ink/50">{t('common.loading')}</p>;
 
   // Reopening a rejected registration (back to Draft) is an admin decision.
@@ -1201,7 +1214,11 @@ export default function CaregiverProfilePage() {
       {isDeleteConfirm && (
         <ConfirmDialog
           title={t('caregivers.deleteTitle')}
-          message={t('caregivers.confirmDeleteNamed', { name: caregiver.fullName })}
+          message={
+            pendingDeletion
+              ? t('caregivers.confirmDeleteRequested', { name: caregiver.fullName, erase: fmtDateTime(pendingDeletion.eraseAfter, locale) })
+              : t('caregivers.confirmDeleteNamed', { name: caregiver.fullName })
+          }
           tone="danger"
           confirmLabel={t('common.delete')}
           pending={deleteCaregiver.isPending}

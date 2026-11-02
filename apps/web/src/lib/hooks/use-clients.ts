@@ -115,8 +115,11 @@ export function useDeleteClient() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/patients/${id}`),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      queryClient.removeQueries({ queryKey: ['client', id], exact: true });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      // Deleting someone who asked to be deleted closes their request.
+      queryClient.invalidateQueries({ queryKey: ['account-deletions'] });
     },
   });
 }

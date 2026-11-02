@@ -54,7 +54,7 @@ describe('CaregiversService auto-notify vs phone-call preference', () => {
       },
     ) as unknown as Database;
 
-    return { service: new CaregiversService(db, { record: async () => undefined } as never), updates };
+    return { service: new CaregiversService(db, { record: async () => undefined } as never, {} as never), updates };
   }
 
   it('refuses to turn auto-notify on for a caregiver who prefers phone calls', async () => {

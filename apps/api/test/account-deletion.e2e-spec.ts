@@ -103,6 +103,12 @@ describe('Account deletion (e2e)', () => {
   const ask = (token: string) => api().post('/me/account/deletion').set(bearer(token));
   const queue = async () => (await api().get('/account-deletions').set(bearer(staffToken)).expect(200)).body as { id: string; caregiverId: string | null; patientId: string | null; [k: string]: unknown }[];
   const requestOf = async (userId: string) => (await db.select().from(accountDeletionRequests).where(eq(accountDeletionRequests.userId, userId)))[0];
+  const auditOf = async (entityType: string, entityId: string) =>
+    (await api().get(`/audit-logs?entityType=${entityType}&entityId=${entityId}`).set(bearer(adminToken)).expect(200)).body as {
+      action: string;
+      userId: string | null;
+      metadata: Record<string, unknown>;
+    }[];
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
@@ -223,6 +229,71 @@ describe('Account deletion (e2e)', () => {
       // Nothing to erase once cancelled.
       expect(await deletion.eraseDue(new Date(Date.now() + 30 * DAY))).toBeGreaterThanOrEqual(0);
       expect((await requestOf(cg.userId)).status).toBe('CANCELLED');
+    });
+
+    it('deleting a caregiver who asked to be deleted erases them now and closes the request', async () => {
+      const cg = await newCaregiver();
+      await ask(cg.token).expect(200);
+      expect((await queue()).find((r) => r.caregiverId === cg.id)?.status).toBe('PENDING');
+
+      await api().delete(`/caregivers/${cg.id}`).set(bearer(adminToken)).expect(200);
+
+      // Gone from the caregiver list and the record ...
+      const listed = (await api().get(`/caregivers?search=${encodeURIComponent(cg.registrationNumber)}`).set(bearer(staffToken)).expect(200)).body;
+      expect(listed.items.map((c: { id: string }) => c.id)).not.toContain(cg.id);
+      await api().get(`/caregivers/${cg.id}`).set(bearer(staffToken)).expect(404);
+      // ... and out of the queue: the request is carried out, not left waiting.
+      const row = (await queue()).find((r) => r.caregiverId === cg.id)!;
+      expect(row).toMatchObject({ status: 'ERASED', name: null, reference: null, openItems: null, recordDeleted: false });
+      expect((await api().get('/account-deletions/summary').set(bearer(staffToken)).expect(200)).body.pending).toBe(
+        (await queue()).filter((r) => r.status === 'PENDING').length,
+      );
+      // Erased, not just hidden: what they asked for.
+      const [c] = await db.select().from(caregivers).where(eq(caregivers.id, cg.id));
+      expect(c).toMatchObject({ fullName: 'Deleted caregiver', nic: null });
+      expect(c.deletedAt).not.toBeNull();
+      const erasure = (await auditOf('Caregiver', cg.id)).find((a) => a.action === 'ERASE_ACCOUNT')!;
+      expect(erasure).toMatchObject({ userId: expect.any(String) });
+      expect(erasure.metadata).toMatchObject({ deletedByStaff: true });
+      // A second delete is the plain "not found", and the hourly job has nothing left to do.
+      await api().delete(`/caregivers/${cg.id}`).set(bearer(adminToken)).expect(404);
+      await deletion.eraseDue(new Date(Date.now() + 30 * DAY));
+      expect((await auditOf('Caregiver', cg.id)).filter((a) => a.action === 'ERASE_ACCOUNT')).toHaveLength(1);
+    });
+
+    it("won't delete a caregiver who asked to be deleted while something of theirs is open", async () => {
+      const cg = await newCaregiver();
+      await db.insert(payoutStatements).values({ id: uuid(), reference: `PO-D${run}${++n}`.slice(0, 16), caregiverId: cg.id, periodStart: '2026-10-01', periodEnd: '2026-10-31', status: 'APPROVED' } as never);
+      await ask(cg.token).expect(200);
+
+      const refused = await api().delete(`/caregivers/${cg.id}`).set(bearer(adminToken)).expect(409);
+      expect(refused.body.message).toMatch(/still open/);
+      const [c] = await db.select().from(caregivers).where(eq(caregivers.id, cg.id));
+      expect(c.deletedAt).toBeNull();
+      expect((await requestOf(cg.userId)).status).toBe('PENDING');
+    });
+
+    it('deleting a client who asked to be deleted closes the request', async () => {
+      const client = await newClient();
+      await ask(client.token).expect(200);
+      await api().delete(`/patients/${client.patientId}`).set(bearer(adminToken)).expect(200);
+      expect((await queue()).find((r) => r.patientId === client.patientId)).toMatchObject({ status: 'ERASED', recordDeleted: false });
+    });
+
+    it('a request left behind by an earlier delete is marked, and cannot be cancelled', async () => {
+      // How deletes worked before: the record soft-deleted, the request still pending.
+      const cg = await newCaregiver();
+      await ask(cg.token).expect(200);
+      await db.update(caregivers).set({ deletedAt: new Date() }).where(eq(caregivers.id, cg.id));
+
+      const row = (await queue()).find((r) => r.caregiverId === cg.id)!;
+      expect(row).toMatchObject({ status: 'PENDING', recordDeleted: true });
+      const refused = await api().post(`/account-deletions/${row.id}/cancel`).set(bearer(staffToken)).expect(409);
+      expect(refused.body.message).toBe('This record has been deleted, so there is nothing to restore.');
+      expect((await db.select().from(users).where(eq(users.id, cg.userId)))[0].isActive).toBe(false);
+      // It is still erased when it falls due.
+      await deletion.eraseDue(new Date(Date.now() + 16 * DAY));
+      expect((await requestOf(cg.userId)).status).toBe('ERASED');
     });
   });
 
@@ -357,12 +428,6 @@ describe('Account deletion (e2e)', () => {
   });
 
   describe('what staff are told', () => {
-    const auditOf = async (entityType: string, entityId: string) =>
-      (await api().get(`/audit-logs?entityType=${entityType}&entityId=${entityId}`).set(bearer(adminToken)).expect(200)).body as {
-        action: string;
-        userId: string | null;
-        metadata: Record<string, unknown>;
-      }[];
     const pending = async () => (await api().get('/account-deletions/summary').set(bearer(staffToken)).expect(200)).body.pending as number;
     const mailAbout = (text: string) => waitFor(() => mails.find((m) => m.text.includes(text) || m.subject.includes(text)));
     async function waitFor<T>(find: () => T | undefined): Promise<T> {

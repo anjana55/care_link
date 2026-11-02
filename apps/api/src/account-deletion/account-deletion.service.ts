@@ -43,6 +43,7 @@ import { releaseLogin } from '../account-access/identity.util';
 import { AuditService } from '../audit/audit.service';
 import { PushService } from '../push/push.service';
 import { AccountDeletionNotifier } from './account-deletion.notifier';
+import { PENDING_DELETION_OPEN_ITEMS_MESSAGE, PENDING_DELETION_RECORD_DELETED_MESSAGE } from './pending-deletion.util';
 import { STORAGE_SERVICE, type StorageService } from '../storage/storage.interface';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
@@ -210,10 +211,13 @@ export class AccountDeletionService {
         email: users.email,
         phone: users.phone,
         registrationNumber: caregivers.registrationNumber,
+        caregiverDeletedAt: caregivers.deletedAt,
+        patientRowId: patients.id,
       })
       .from(accountDeletionRequests)
       .leftJoin(users, eq(users.id, accountDeletionRequests.userId))
       .leftJoin(caregivers, eq(caregivers.id, accountDeletionRequests.caregiverId))
+      .leftJoin(patients, eq(patients.id, accountDeletionRequests.patientId))
       .where(
         or(
           eq(accountDeletionRequests.status, 'PENDING'),
@@ -223,7 +227,7 @@ export class AccountDeletionService {
       .orderBy(sql`${accountDeletionRequests.status} = 'PENDING' DESC`, accountDeletionRequests.eraseAfter, desc(accountDeletionRequests.updatedAt));
 
     return Promise.all(
-      rows.map(async ({ r, fullName, email, phone, registrationNumber }) => {
+      rows.map(async ({ r, fullName, email, phone, registrationNumber, caregiverDeletedAt, patientRowId }) => {
         const erased = r.status === 'ERASED';
         return {
           id: r.id,
@@ -238,6 +242,7 @@ export class AccountDeletionService {
           cancelledAt: r.cancelledAt?.toISOString() ?? null,
           erasedAt: r.erasedAt?.toISOString() ?? null,
           openItems: r.status === 'PENDING' ? await this.openItems(r, now) : null,
+          recordDeleted: !erased && isRecordDeleted(r, caregiverDeletedAt, patientRowId),
         };
       }),
     );
@@ -249,6 +254,11 @@ export class AccountDeletionService {
       const [r] = await tx.select().from(accountDeletionRequests).where(eq(accountDeletionRequests.id, id)).limit(1);
       if (!r) throw new NotFoundException('Deletion request not found');
       if (r.status !== 'PENDING') throw new ConflictException(r.status === 'ERASED' ? 'This account has already been erased.' : 'This request was already cancelled.');
+      // Staff deleted the record while this waited (before that closed the request too): turning
+      // the login back on would bring back an account with no record and no email or phone.
+      const [cg] = r.caregiverId ? await tx.select({ deletedAt: caregivers.deletedAt }).from(caregivers).where(eq(caregivers.id, r.caregiverId)).limit(1) : [];
+      const [pt] = r.patientId ? await tx.select({ id: patients.id }).from(patients).where(eq(patients.id, r.patientId)).limit(1) : [];
+      if (isRecordDeleted(r, cg?.deletedAt ?? null, pt?.id ?? null, Boolean(cg))) throw new ConflictException(PENDING_DELETION_RECORD_DELETED_MESSAGE);
       await tx
         .update(accountDeletionRequests)
         .set({ status: 'CANCELLED', cancelledAt: now, cancelledByUserId: staffUserId, updatedAt: now })
@@ -264,6 +274,33 @@ export class AccountDeletionService {
     });
     await this.record(cancelled, 'CANCEL_ACCOUNT_DELETION', staffUserId, ipAddress, { restoredStatus: cancelled.previousStatus });
     return { success: true };
+  }
+
+  /**
+   * Staff deleting a caregiver who has already asked to delete their account.
+   *
+   * The usual staff delete is a soft delete: it keeps the name, NIC, address
+   * and documents on the record for the audit history. For someone who asked
+   * to be deleted that is the opposite of what they asked for, and it left
+   * their request waiting in Account deletions with a link to a record that
+   * no longer opens. So the request is carried out now instead: erased exactly
+   * as at the end of the grace period, and closed.
+   *
+   * Refused while something is still open, for the reason erasure waits for
+   * it (nobody left unpaid, no shift without its caregiver).
+   *
+   * Returns false when no request is pending, so the usual delete goes ahead.
+   */
+  async eraseCaregiverForStaff(caregiverId: string, staffUserId: string | null, ipAddress: string | null, now = new Date()): Promise<boolean> {
+    const [r] = await this.db
+      .select()
+      .from(accountDeletionRequests)
+      .where(and(eq(accountDeletionRequests.caregiverId, caregiverId), eq(accountDeletionRequests.status, 'PENDING')))
+      .limit(1);
+    if (!r) return false;
+    const open = await this.openItems(r, now);
+    if (Object.values(open).some((n) => n > 0)) throw new ConflictException(PENDING_DELETION_OPEN_ITEMS_MESSAGE);
+    return this.erase(r, now, { userId: staffUserId, ipAddress });
   }
 
   // --- what's still open --------------------------------------------------------
@@ -309,7 +346,8 @@ export class AccountDeletionService {
     return erased;
   }
 
-  private async erase(r: Request, now: Date) {
+  /** `byStaff`: a staff member deleting the record before the grace period ran out (eraseCaregiverForStaff). */
+  private async erase(r: Request, now: Date, byStaff?: { userId: string | null; ipAddress: string | null }) {
     const files: string[] = [];
     const erased = await this.db.transaction(async (tx) => {
       // Still pending? A second API instance, or staff cancelling at the same moment, may have got there first.
@@ -338,7 +376,10 @@ export class AccountDeletionService {
     for (const key of files) {
       await this.storage.delete(key).catch((err) => this.logger.warn(`Account erasure: could not delete a file: ${(err as Error).message}`));
     }
-    await this.record(r, 'ERASE_ACCOUNT', null, null, { filesRemoved: files.length });
+    await this.record(r, 'ERASE_ACCOUNT', byStaff?.userId ?? null, byStaff?.ipAddress ?? null, {
+      filesRemoved: files.length,
+      ...(byStaff ? { deletedByStaff: true } : {}),
+    });
     this.logger.log(`Account erasure: erased a ${r.role === 'CAREGIVER' ? 'caregiver' : 'client'} account (request ${r.id}).`);
     return true;
   }
@@ -432,3 +473,18 @@ export class AccountDeletionService {
   }
 }
 
+/**
+ * Whether the caregiver or client record behind a request is gone: a
+ * caregiver soft-deleted by staff, or a client's record deleted outright.
+ * `caregiverFound` tells a missing caregiver row from one that is there.
+ */
+function isRecordDeleted(
+  r: Pick<Request, 'caregiverId' | 'patientId'>,
+  caregiverDeletedAt: Date | null,
+  patientRowId: string | null,
+  caregiverFound = true,
+): boolean {
+  if (r.caregiverId) return Boolean(caregiverDeletedAt) || !caregiverFound;
+  if (r.patientId) return !patientRowId;
+  return false;
+}
