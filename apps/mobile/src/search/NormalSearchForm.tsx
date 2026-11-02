@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
 import { Chips, SelectField } from '@/ui/choices';
+import { DateField } from '@/ui/Calendar';
 import { Text } from '@/ui/Text';
 import type { IconName } from '@/ui/visual';
 import { useCities, useDistricts, useSkills } from './api';
@@ -25,7 +26,10 @@ export function addDays(date: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** The next two weeks as one-tap start dates - a date picker would need a native module this build doesn't have. */
+/** How far ahead care can be asked to start, on the calendar. */
+export const START_WINDOW_DAYS = 180;
+
+/** The next two weeks as one-tap start dates - for places with no room for a calendar. */
 const START_DAYS = 14;
 
 /** The start-date choices from `today`, labelled in the app's language. */
@@ -106,12 +110,13 @@ export function NormalSearchForm({ initial, onSearch }: { initial?: SearchReques
         disabled={!districtId}
       />
 
-      <Chips
-        layout="scroll"
+      <DateField
         label={t('normalSearch.startDate')}
-        choices={startDateChoices(today, locale)}
-        selected={[startDate]}
-        onToggle={setStartDate}
+        value={startDate}
+        onChange={(d) => d && setStartDate(d)}
+        today={today}
+        min={today}
+        max={addDays(today, START_WINDOW_DAYS)}
       />
 
       <Chips

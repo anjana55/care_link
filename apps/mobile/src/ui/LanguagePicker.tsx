@@ -24,8 +24,8 @@ export function LanguagePicker({ onBrand = false }: { onBrand?: boolean }) {
             style={[
               styles.chip,
               onBrand
-                ? { borderColor: 'rgba(255, 255, 255, 0.45)', backgroundColor: selected ? colors.surface : 'rgba(255, 255, 255, 0.12)' }
-                : [{ borderColor: colors.border, backgroundColor: colors.surface }, selected && { backgroundColor: colors.brand, borderColor: colors.brand }],
+                ? { borderColor: colors.surface, backgroundColor: selected ? colors.surface : 'rgba(0, 0, 0, 0.14)' }
+                : [{ borderColor: colors.border, backgroundColor: colors.surface }, selected && { backgroundColor: colors.deep, borderColor: colors.deep }],
             ]}
           >
             <Text
@@ -33,7 +33,7 @@ export function LanguagePicker({ onBrand = false }: { onBrand?: boolean }) {
               style={[
                 styles.text,
                 { color: onBrand ? colors.brandText : colors.ink },
-                selected && { color: onBrand ? colors.brand : colors.brandText, fontWeight: '600' },
+                selected && { color: onBrand ? colors.deep : colors.brandText, fontWeight: '700' },
               ]}
             >
               {LANGUAGE_NAMES[code]}
@@ -47,6 +47,6 @@ export function LanguagePicker({ onBrand = false }: { onBrand?: boolean }) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  chip: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 22, borderWidth: 1 },
-  text: { fontSize: 16 },
+  chip: { flexGrow: 1, minHeight: 52, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderRadius: 16, borderWidth: 2 },
+  text: { fontSize: 17 },
 });

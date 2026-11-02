@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation } from '@tanstack/react-query';
 import type { AccountDeletionReceipt } from '@care-platform/shared';
 import { api, ApiError } from '@/api';
@@ -9,6 +8,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button } from '@/ui/controls';
+import { PageHeader } from '@/ui/PageHeader';
 import { formatDate } from '@/ui/dates';
 import { Text } from '@/ui/Text';
 
@@ -38,28 +38,24 @@ export default function DeleteAccount() {
 
   if (eraseAfter) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <PageHeader title={t('deleteAccount.title')} />
         <View style={[styles.page, { flex: 1, justifyContent: 'center' }]}>
-          <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-            {t('deleteAccount.title')}
-          </Text>
           <Text accessibilityLiveRegion="polite" style={{ fontSize: 17, lineHeight: 25, color: colors.ink }}>
             {t('deleteAccount.done', { date: formatDate(colomboDay(eraseAfter), locale) })}
           </Text>
           <Text style={{ fontSize: 15, lineHeight: 22, color: colors.muted }}>{t('deleteAccount.changeMind')}</Text>
           <Button label={t('deleteAccount.doneOk')} onPress={() => router.replace('/')} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
   if (!user) return <Redirect href="/" />;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHeader title={t('deleteAccount.title')} />
       <ScrollView contentContainerStyle={styles.page}>
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
-          {t('deleteAccount.title')}
-        </Text>
         {user.phone || user.email ? (
           <Text style={{ fontSize: 15, color: colors.muted }}>{t('deleteAccount.signedInAs', { name: user.phone ?? user.email ?? '' })}</Text>
         ) : null}
@@ -103,13 +99,12 @@ export default function DeleteAccount() {
         />
         <Button variant="secondary" label={t('common.cancel')} onPress={() => router.back()} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   page: { padding: 20, paddingBottom: 40, gap: 16 },
-  title: { fontSize: 26, fontWeight: '700' },
   section: { fontSize: 18, fontWeight: '700' },
   card: { borderWidth: 1, borderRadius: 14, padding: 16, gap: 10 },
   step: { flexDirection: 'row', gap: 8 },

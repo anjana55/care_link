@@ -8,12 +8,14 @@ import { useBranding } from '@/branding/BrandingProvider';
  */
 const neutrals = {
   brandText: '#FFFFFF',
-  ink: '#111827',
-  muted: '#4B5563',
+  ink: '#1C2B36',
+  muted: '#4A5A66',
+  /** Deep navy: main buttons, the chosen day, the panel under a calendar - strong against any brand colour. */
+  deep: '#12304A',
   danger: '#B91C1C',
-  border: '#D1D5DB',
+  border: '#C9D6DC',
   surface: '#FFFFFF',
-  background: '#F8FAFC',
+  background: '#F4F8F8',
 } as const;
 
 export type Colors = typeof neutrals & { brand: string; accent: string };

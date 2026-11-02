@@ -262,9 +262,9 @@ describe('coming back after signing in', () => {
   it('only ever goes back to a screen inside the app, and caregivers always go home', () => {
     const clientUser = { role: 'PATIENT_GUARDIAN' };
     expect(afterSignIn(clientUser, '/requests')).toBe('/requests');
-    expect(afterSignIn(clientUser, '//evil.example/x')).toBe('/find');
-    expect(afterSignIn(clientUser, 'https://evil.example')).toBe('/find');
-    expect(afterSignIn(clientUser, undefined)).toBe('/find');
+    expect(afterSignIn(clientUser, '//evil.example/x')).toBe('/start');
+    expect(afterSignIn(clientUser, 'https://evil.example')).toBe('/start');
+    expect(afterSignIn(clientUser, undefined)).toBe('/start');
     expect(afterSignIn({ role: 'CAREGIVER' }, `/caregivers/${ID}`)).toBe('/home');
   });
 });

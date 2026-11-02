@@ -6,9 +6,10 @@ import { fontFamilyFor } from '@/ui/fonts';
 import { HIDDEN_TAB } from '@/ui/tabs';
 
 /**
- * The client side of the app: Find (for anyone, signed in or not), Bookings,
- * My requests and My account, which also opens Saved caregivers and Invoices.
- * The others ask a client to sign in.
+ * The client side of the app: Home (big tiles for everything), Find (for
+ * anyone, signed in or not), Bookings and My account. My requests, Saved
+ * caregivers and Invoices open from Home's tiles and My account. The others
+ * ask a client to sign in.
  */
 export default function ClientLayout() {
   const { t, locale } = useTranslation();
@@ -20,9 +21,16 @@ export default function ClientLayout() {
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
-        tabBarLabelStyle: { fontFamily: fontFamilyFor(locale, false), fontSize: 12 },
+        tabBarLabelStyle: { fontFamily: fontFamilyFor(locale, false), fontSize: 14 },
       }}
     >
+      <Tabs.Screen
+        name="start"
+        options={{
+          tabBarLabel: t('nav.home'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color as string} size={size} />,
+        }}
+      />
       <Tabs.Screen
         name="find"
         options={{
@@ -38,14 +46,8 @@ export default function ClientLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color as string} size={size} />,
         }}
       />
-      <Tabs.Screen
-        name="requests"
-        options={{
-          tabBarLabel: t('account.nav.requests'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" color={color as string} size={size} />,
-        }}
-      />
-      {/* Reached from My account, with the tab bar still showing: four tabs stay readable on a phone. */}
+      {/* Reached from Home's tiles and My account, with the tab bar still showing: four tabs stay readable on a phone. */}
+      <Tabs.Screen name="requests" options={HIDDEN_TAB} />
       <Tabs.Screen name="saved" options={HIDDEN_TAB} />
       <Tabs.Screen name="invoices" options={HIDDEN_TAB} />
       <Tabs.Screen

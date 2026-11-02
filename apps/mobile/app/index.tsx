@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, Redirect } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from '@/i18n';
@@ -9,18 +9,21 @@ import { LanguagePicker } from '@/ui/LanguagePicker';
 import { useAuth } from '@/auth/AuthProvider';
 import { useColors, type Colors } from '@/theme';
 import { Text } from '@/ui/Text';
-import { BrandLogo, BrandMark, HeroBand, IconBadge } from '@/ui/visual';
+import { CaregiversIllustration } from '@/ui/Illustration';
+import { BrandLogo, tint } from '@/ui/visual';
 
 /**
- * First screen: language, then which side of the app this person is on.
- * The choice decides the registration endpoint and the `portal` sent on
- * sign-in (caregiver or customer), so the API's portal rule still applies.
+ * First screen, kept simple: the brand, the language, a picture of the people
+ * the app is about, one sentence, and one button - Get started - which asks
+ * which side of the app this person is on. People who already have an account
+ * sign in straight from here.
  */
 export default function Welcome() {
   const { t } = useTranslation();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { user } = useAuth();
 
   // Already signed in: straight to their area.
@@ -28,51 +31,29 @@ export default function Welcome() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} bounces={false}>
-      <HeroBand style={{ paddingTop: insets.top + 28 }}>
-        <View style={styles.header}>
-          <BrandLogo reverse height={44} name={t('app.name')} />
-          <Text style={styles.tagline}>{t('welcome.tagline')}</Text>
+      <View testID="welcome-band" style={[styles.band, { paddingTop: insets.top + 20 }]}>
+        <View pointerEvents="none" style={[styles.blob, { backgroundColor: tint(colors.accent, 0.45) }]} />
+        <View style={styles.bandTop}>
+          <BrandLogo reverse height={40} name={t('app.name')} />
+          <LanguagePicker onBrand />
+        </View>
+        <View style={styles.art}>
+          <CaregiversIllustration width={Math.min(width - 24, 380)} />
+        </View>
+      </View>
+
+      <View style={styles.body}>
+        <View style={{ gap: 10 }}>
+          <Text accessibilityRole="header" style={styles.headline}>
+            {t('welcome.headline')}
+          </Text>
+          <Text style={styles.subline}>{t('welcome.subline')}</Text>
         </View>
 
-        {/* A small picture of what the app is for: care, people, home. */}
-        <View style={styles.art} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-          <View style={styles.artCircle}>
-            <Ionicons name="home-outline" size={26} color={colors.brandText} />
-          </View>
-          {/* The brand's own symbol in the middle (Settings > Branding), else a heart. */}
-          <View style={styles.artCircleMain}>
-            <BrandMark size={72} light />
-          </View>
-          <View style={styles.artCircle}>
-            <Ionicons name="people-outline" size={26} color={colors.brandText} />
-          </View>
-        </View>
-
-        <LanguagePicker onBrand />
-      </HeroBand>
-
-      <View style={styles.actions}>
-        {/* Searching needs no account: a client signs in when they contact or save someone. */}
-        <Link href="/find" asChild>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('welcome.findCare')} style={styles.primaryCard}>
-            <View style={styles.cardIconOnBrand}>
-              <Ionicons name="search" size={24} color={colors.brand} />
-            </View>
-            <View style={styles.cardText}>
-              <Text style={[styles.cardTitle, styles.primaryText]}>{t('welcome.findCare')}</Text>
-              <Text style={[styles.cardHint, styles.primaryHint]}>{t('welcome.findCareHint')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color={colors.brandText} />
-          </Pressable>
-        </Link>
-        <Link href={{ pathname: '/sign-in', params: { role: 'caregiver' } }} asChild>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('welcome.joinAsCaregiver')} style={styles.secondaryCard}>
-            <IconBadge name="medkit-outline" tone="accent" size={48} />
-            <View style={styles.cardText}>
-              <Text style={styles.cardTitle}>{t('welcome.joinAsCaregiver')}</Text>
-              <Text style={styles.cardHint}>{t('welcome.joinHint')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color={colors.muted} />
+        <Link href="/get-started" asChild>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('welcome.getStarted')} style={styles.start}>
+            <Text style={styles.startText}>{t('welcome.getStarted')}</Text>
+            <Ionicons name="arrow-forward" size={26} color={colors.brandText} />
           </Pressable>
         </Link>
 
@@ -94,28 +75,21 @@ export default function Welcome() {
   );
 }
 
-const card = { minHeight: 84, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14 } as const;
-
 const makeStyles = (colors: Colors) =>
   StyleSheet.create({
-    screen: { flex: 1, backgroundColor: colors.background },
-    header: { gap: 14 },
-    tagline: { fontSize: 24, lineHeight: 34, color: colors.brandText, fontWeight: '600' },
-    art: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, marginVertical: 26 },
-    artCircle: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 255, 255, 0.16)' },
-    artCircleMain: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-    actions: { gap: 14, paddingHorizontal: 20, marginTop: 24 },
+    screen: { flex: 1, backgroundColor: colors.surface },
+    band: { backgroundColor: colors.brand, borderBottomLeftRadius: 48, borderBottomRightRadius: 48, overflow: 'hidden' },
+    blob: { position: 'absolute', width: 260, height: 260, borderRadius: 130, top: -80, right: -80 },
+    bandTop: { paddingHorizontal: 24, gap: 18 },
+    art: { alignItems: 'center', marginTop: 12 },
+    body: { paddingHorizontal: 24, paddingTop: 28, gap: 24 },
+    headline: { fontSize: 30, lineHeight: 38, fontWeight: '800', color: colors.deep },
+    subline: { fontSize: 18, lineHeight: 27, color: colors.muted },
     // One flat style each: expo-router's <Link asChild> refuses an array of styles on its child.
-    primaryCard: { ...card, backgroundColor: colors.brand },
-    secondaryCard: { ...card, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-    cardIconOnBrand: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-    cardText: { flex: 1, gap: 3 },
-    cardTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
-    cardHint: { fontSize: 14, lineHeight: 20, color: colors.muted },
-    primaryText: { color: colors.brandText },
-    primaryHint: { color: 'rgba(255, 255, 255, 0.85)' },
-    signIn: { marginTop: 10, alignItems: 'center' },
-    signInLead: { fontSize: 15, color: colors.muted },
-    signInLink: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
-    signInText: { fontSize: 17, fontWeight: '600', color: colors.brand, textDecorationLine: 'underline' },
+    start: { minHeight: 64, borderRadius: 18, backgroundColor: colors.deep, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    startText: { fontSize: 22, fontWeight: '800', color: colors.brandText },
+    signIn: { alignItems: 'center' },
+    signInLead: { fontSize: 17, color: colors.muted },
+    signInLink: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 8 },
+    signInText: { fontSize: 18, fontWeight: '700', color: colors.brand, textDecorationLine: 'underline' },
   });

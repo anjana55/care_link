@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { CLIENT_CANCELLABLE_STATUSES, type ClientCareRequest } from '@care-platform/shared';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button, FormError } from '@/ui/controls';
 import { Text } from '@/ui/Text';
-import { EmptyState, ScreenTitle } from '@/ui/visual';
+import { EmptyState } from '@/ui/visual';
+import { PageHeader } from '@/ui/PageHeader';
 import { formatDate } from '@/ui/dates';
 import { useCancelRequest, useClient, useMyRequests } from '@/care/api';
 import { RequestSheet } from '@/care/RequestSheet';
@@ -29,7 +29,6 @@ export default function Requests() {
 
   const head = (
     <View style={styles.head}>
-      <ScreenTitle icon="chatbubbles-outline" title={t('account.requests.title')} subtitle={t('account.requests.subtitle')} />
       {client ? (
         <Button variant="secondary" label={t('account.requests.newRequest')} onPress={() => setFindForMe(true)} />
       ) : (
@@ -52,7 +51,8 @@ export default function Requests() {
   );
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHeader title={t('account.requests.title')} subtitle={t('account.requests.subtitle')} />
       <FlatList
         data={client ? (requests.data ?? []) : []}
         keyExtractor={(r) => r.id}
@@ -67,7 +67,7 @@ export default function Requests() {
         onClose={() => setFindForMe(false)}
         onViewRequests={() => setFindForMe(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

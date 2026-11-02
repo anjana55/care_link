@@ -24,7 +24,7 @@ export default function CaregiverLayout() {
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
-        tabBarLabelStyle: { fontFamily: fontFamilyFor(locale, false), fontSize: 12 },
+        tabBarLabelStyle: { fontFamily: fontFamilyFor(locale, false), fontSize: 14 },
       }}
     >
       <Tabs.Screen name="home" options={{ tabBarLabel: t('carePlan.today'), tabBarIcon: icon('today-outline') }} />

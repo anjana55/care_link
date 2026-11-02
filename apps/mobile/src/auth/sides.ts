@@ -17,11 +17,11 @@ export const registerUrl = (side: Side): string =>
   `${config.siteUrl}${side === 'caregiver' ? '/caregiver/join' : '/register'}`;
 
 /**
- * Where a signed-in person's area starts: clients on Find, caregivers on their
- * home (today's shift, from Phase 3). Anyone else isn't signed in to the app.
+ * Where a signed-in person's area starts - what the Home button opens: clients
+ * on their home of big tiles (Start), caregivers on Today.
  */
-export const homeFor = (user: { role: string } | null | undefined): '/find' | '/home' =>
-  user?.role === 'CAREGIVER' ? '/home' : '/find';
+export const homeFor = (user: { role: string } | null | undefined): '/start' | '/home' =>
+  user?.role === 'CAREGIVER' ? '/home' : '/start';
 
 /** The caregiver side's screens; everything else is the client side's. */
 export const CAREGIVER_SCREENS = ['/home', '/shifts', '/payments', '/me', '/documents', '/profile'] as const;
@@ -47,6 +47,6 @@ export function afterSignIn(user: { role: string }, returnTo: unknown): string {
  */
 export function caregiverOnly(user: { role: string } | null | undefined, here: CaregiverScreen) {
   if (!user) return { pathname: '/sign-in', params: { role: 'caregiver', returnTo: here } } as const;
-  if (user.role !== 'CAREGIVER') return '/find' as const;
+  if (user.role !== 'CAREGIVER') return '/start' as const;
   return null;
 }

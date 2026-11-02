@@ -182,7 +182,7 @@ describe('Today', () => {
     expect(mockNotifications.set).toHaveLength(0);
   });
 
-  it('says when nothing is booked, and sends a client to Find', async () => {
+  it('says when nothing is booked, and sends a client to their own home', async () => {
     await signIn();
     serveApi({ 'GET /caregivers/cg-1': () => ({ status: 200, body: caregiverRecord }), 'GET /me/shifts': () => ({ status: 200, body: [] }) });
     await show(<Today />);
@@ -191,7 +191,7 @@ describe('Today', () => {
 
     await tokenStore.set(tokensFor('PATIENT_GUARDIAN'));
     await show(<Today />);
-    expect(await screen.findByText('redirect:/find')).toBeTruthy();
+    expect(await screen.findByText('redirect:/start')).toBeTruthy();
   });
 });
 
@@ -256,12 +256,12 @@ describe('Payments', () => {
     expect(screen.getByText(`PO-3 · ${en.portal.payments.paidOn.replace('{date}', '2 Nov 2026')}`)).toBeTruthy();
     expect(screen.queryByText('Day shift')).toBeNull();
 
-    await fireEvent.press(screen.getAllByRole('button')[0]);
+    await fireEvent.press(screen.getByText('LKR 2,500.00'));
     expect(screen.getByText(/Day shift/)).toBeTruthy();
     expect(screen.getByText('-LKR 500.00')).toBeTruthy();
     expect(screen.getByText(en.portal.payments.reference.replace('{reference}', 'TRX-889'))).toBeTruthy();
 
-    await fireEvent.press(screen.getAllByRole('button')[1]);
+    await fireEvent.press(screen.getByText('LKR 9,000.00'));
     expect(screen.getByText(en.portal.payments.approvedHint)).toBeTruthy();
   });
 });
@@ -297,6 +297,6 @@ describe('opened from a link while signed out', () => {
     await tokenStore.set(tokensFor('PATIENT_GUARDIAN'));
     serveApi({});
     await show(<Shifts />);
-    expect(await screen.findByText('redirect:/find')).toBeTruthy();
+    expect(await screen.findByText('redirect:/start')).toBeTruthy();
   });
 });
