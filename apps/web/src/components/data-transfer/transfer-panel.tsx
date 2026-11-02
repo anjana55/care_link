@@ -211,19 +211,31 @@ export function TransferPanel({ kind }: { kind: TransferKind }) {
           </details>
 
           <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 basis-72">
               <Label htmlFor={`${kind}-file`}>{t('dataTransfer.file')}</Label>
-              <Input
+              {/* The native picker can't be styled to the form's height, so it is hidden and
+                  driven from a field that looks like the other inputs (as Settings › Branding does). */}
+              <input
                 id={`${kind}-file`}
                 ref={fileInput}
                 type="file"
                 accept=".csv,text/csv"
+                className="sr-only"
                 onChange={(e) => {
                   setFile(e.target.files?.[0] ?? null);
                   setReport(null);
                   importer.reset();
                 }}
               />
+              <button
+                type="button"
+                onClick={() => fileInput.current?.click()}
+                className="flex h-10 w-full items-center gap-3 rounded border border-border bg-white px-3 text-left text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              >
+                <FileSpreadsheet size={16} className="shrink-0 text-ink/50" aria-hidden />
+                <span className={cn('min-w-0 flex-1 truncate', file ? 'text-ink' : 'text-ink/40')}>{file ? file.name : t('dataTransfer.noFile')}</span>
+                <span className="shrink-0 font-medium text-brand-dark">{file ? t('dataTransfer.changeFile') : t('dataTransfer.chooseFile')}</span>
+              </button>
             </div>
             <Button variant="secondary" onClick={() => run(true)} disabled={!file || importer.isPending}>
               {importer.isPending && importer.variables?.dryRun ? t('dataTransfer.checking') : t('dataTransfer.check')}
