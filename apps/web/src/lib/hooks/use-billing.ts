@@ -37,10 +37,13 @@ export interface InvoiceFilters {
   pageSize?: number;
 }
 
+/** The list's API address - also what the record pages' previous / next walk (lib/record-trail). */
+export const invoiceListPath = (filters: InvoiceFilters) => `/invoices${qs(filters as Record<string, unknown>)}`;
+
 export function useInvoices(filters: InvoiceFilters, enabled = true) {
   return useQuery({
     queryKey: ['invoices', 'list', filters],
-    queryFn: () => api.get<InvoiceListResponse>(`/invoices${qs(filters as Record<string, unknown>)}`),
+    queryFn: () => api.get<InvoiceListResponse>(invoiceListPath(filters)),
     enabled,
   });
 }
@@ -132,10 +135,13 @@ export interface PayoutFilters {
   pageSize?: number;
 }
 
+/** The list's API address - also what the record pages' previous / next walk (lib/record-trail). */
+export const payoutListPath = (filters: PayoutFilters) => `/payouts${qs(filters as Record<string, unknown>)}`;
+
 export function usePayouts(filters: PayoutFilters, enabled = true) {
   return useQuery({
     queryKey: ['payouts', 'list', filters],
-    queryFn: () => api.get<PayoutListResponse>(`/payouts${qs(filters as Record<string, unknown>)}`),
+    queryFn: () => api.get<PayoutListResponse>(payoutListPath(filters)),
     enabled,
   });
 }

@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FilePlus2, Search } from 'lucide-react';
 import { formatLkr } from '@care-platform/shared';
+import { useRecordTrail } from '@/lib/record-trail';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
-import { useInvoices, useInvoiceSummary } from '@/lib/hooks/use-billing';
+import { useInvoices, useInvoiceSummary, invoiceListPath, type InvoiceFilters } from '@/lib/hooks/use-billing';
 import { fmtDate } from '@/lib/colombo-time';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -35,16 +36,16 @@ export default function InvoicesPage() {
   }, [authLoading, user, allowed, router]);
 
   const { data: summary } = useInvoiceSummary(allowed);
-  const { data, isLoading } = useInvoices(
-    {
+  // Also left as the trail the record pages' previous / next follow (lib/record-trail).
+  const listFilters: InvoiceFilters = {
       status: tab === 'all' || tab === 'overdue' ? undefined : tab,
       overdue: tab === 'overdue' || undefined,
       search: search.trim() || undefined,
       page,
       pageSize: 20,
-    },
-    allowed,
-  );
+    };
+  const { data, isLoading } = useInvoices(listFilters, allowed,);
+  useRecordTrail('invoices', invoiceListPath(listFilters), data);
 
   if (authLoading || !allowed) return <div className="flex min-h-[40vh] items-center justify-center text-sm text-ink/50">{t('common.loading')}</div>;
 

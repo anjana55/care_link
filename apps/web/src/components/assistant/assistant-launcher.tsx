@@ -10,6 +10,7 @@ import { ApiError } from '@/lib/api/client';
 import { useAiStatus, useAssistantMutations, useConversation } from '@/lib/hooks/use-ai';
 import { Button } from '@/components/ui/button';
 import { MessageView } from './assistant-message';
+import { useFloatingPosition } from './use-floating-position';
 import { cn } from '@/lib/utils';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -72,6 +73,8 @@ export function AssistantLauncher() {
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
+  // Draggable, so it can be moved off a button it covers.
+  const floating = useFloatingPosition();
 
   // The same conversation across pages and reloads in this tab.
   useEffect(() => setConversationId(readStored()), []);
@@ -139,7 +142,9 @@ export function AssistantLauncher() {
           onKeyDown={(e) => {
             if (e.key === 'Escape') close();
           }}
-          className="fixed inset-0 z-50 flex flex-col bg-white sm:inset-auto sm:bottom-24 sm:right-6 sm:h-[min(640px,calc(100vh-8rem))] sm:w-[420px] sm:rounded-xl sm:border sm:border-border sm:shadow-2xl"
+          // Phones: full screen. Wider: next to wherever the button has been dragged.
+          style={floating.panelStyle()}
+          className="fixed inset-0 z-50 flex flex-col bg-white sm:rounded-xl sm:border sm:border-border sm:shadow-2xl"
         >
           <header className="flex items-start gap-3 border-b border-border px-4 py-3">
             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-light text-accent">
@@ -246,18 +251,29 @@ export function AssistantLauncher() {
 
       <button
         ref={launcherRef}
-        onClick={() => (open ? close() : setOpen(true))}
+        onClick={() => {
+          if (floating.consumeDragClick()) return;
+          if (open) close();
+          else setOpen(true);
+        }}
+        {...floating.handlers}
+        style={floating.buttonStyle}
         aria-expanded={open}
         aria-label={open ? t('assistant.floating.close') : t('assistant.floating.open')}
-        title={open ? undefined : t('assistant.floating.open')}
+        aria-describedby="assistant-launcher-hint"
+        title={open ? undefined : `${t('assistant.floating.open')} - ${t('assistant.floating.dragHint')}`}
         className={cn(
-          'fixed bottom-6 right-6 z-40 h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg transition hover:bg-accent-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
+          'fixed z-40 h-14 w-14 select-none items-center justify-center rounded-full bg-accent text-white shadow-lg hover:bg-accent-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
+          floating.dragging ? 'cursor-grabbing shadow-2xl ring-4 ring-accent/25' : 'cursor-grab transition-colors',
           // On a phone the open panel fills the screen and has its own close button.
           open ? 'hidden sm:flex' : 'flex',
         )}
       >
         {open ? <X size={22} aria-hidden /> : <Bot size={24} aria-hidden />}
       </button>
+      <span id="assistant-launcher-hint" className="sr-only">
+        {t('assistant.floating.moveHint')}
+      </span>
     </div>
   );
 }

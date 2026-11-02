@@ -34,10 +34,13 @@ function buildQuery(filters: CareRequestFilters): string {
   return qs ? `?${qs}` : '';
 }
 
+/** The list's API address - also what the record pages' previous / next walk (lib/record-trail). */
+export const careRequestListPath = (filters: CareRequestFilters) => `/care-requests${buildQuery(filters)}`;
+
 export function useCareRequests(filters: CareRequestFilters, enabled = true) {
   return useQuery({
     queryKey: ['care-requests', 'list', filters],
-    queryFn: () => api.get<CareRequestListResponse>(`/care-requests${buildQuery(filters)}`),
+    queryFn: () => api.get<CareRequestListResponse>(careRequestListPath(filters)),
     enabled,
   });
 }

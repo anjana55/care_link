@@ -55,10 +55,13 @@ function buildClientQuery(filters: ClientFilters): string {
   return query.toString();
 }
 
+/** The list's API address - also what the record pages' previous / next walk (lib/record-trail). */
+export const clientListPath = (filters: ClientFilters) => `/patients?${buildClientQuery(filters)}`;
+
 export function useClients(filters: ClientFilters) {
   return useQuery({
     queryKey: ['clients', filters],
-    queryFn: () => api.get<ClientListResponse>(`/patients?${buildClientQuery(filters)}`),
+    queryFn: () => api.get<ClientListResponse>(clientListPath(filters)),
   });
 }
 

@@ -39,10 +39,13 @@ const qs = (f: Record<string, unknown>) => {
   return s ? `?${s}` : '';
 };
 
+/** The list's API address - also what the record pages' previous / next walk (lib/record-trail). */
+export const bookingListPath = (filters: BookingFilters) => `/bookings${qs(filters as Record<string, unknown>)}`;
+
 export function useBookings(filters: BookingFilters, enabled = true) {
   return useQuery({
     queryKey: ['bookings', 'list', filters],
-    queryFn: () => api.get<BookingListResponse>(`/bookings${qs(filters as Record<string, unknown>)}`),
+    queryFn: () => api.get<BookingListResponse>(bookingListPath(filters)),
     enabled,
   });
 }

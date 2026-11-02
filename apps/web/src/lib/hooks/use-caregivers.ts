@@ -46,10 +46,13 @@ function buildCaregiverQuery(filters: CaregiverSearchFilters): string {
   return query.toString();
 }
 
+/** The list's API address - also what the record pages' previous / next walk (lib/record-trail). */
+export const caregiverListPath = (filters: CaregiverSearchFilters) => `/caregivers?${buildCaregiverQuery(filters)}`;
+
 export function useCaregivers(filters: CaregiverSearchFilters) {
   return useQuery({
     queryKey: ['caregivers', filters],
-    queryFn: () => api.get<CaregiverListResponse>(`/caregivers?${buildCaregiverQuery(filters)}`),
+    queryFn: () => api.get<CaregiverListResponse>(caregiverListPath(filters)),
   });
 }
 

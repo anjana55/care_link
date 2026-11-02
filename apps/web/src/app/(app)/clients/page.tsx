@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowDownUp, Search, SlidersHorizontal } from 'lucide-react';
+import { useRecordTrail } from '@/lib/record-trail';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
-import { useClients, useDeleteClient } from '@/lib/hooks/use-clients';
+import { useClients, useDeleteClient, clientListPath, type ClientFilters } from '@/lib/hooks/use-clients';
 import { useLocationTree } from '@/lib/hooks/use-caregivers';
 import { Input, Select } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -63,13 +64,16 @@ export default function ClientsListPage() {
 
   const activeCount = countClientFilters(filters);
 
-  const { data, isLoading } = useClients({
+  // Also left as the trail the record pages' previous / next follow (lib/record-trail).
+  const listFilters: ClientFilters = {
     search: search || undefined,
     status: status || undefined,
     ...toClientApiFilters(filters),
     page,
     pageSize: 15,
-  });
+  };
+  const { data, isLoading } = useClients(listFilters);
+  useRecordTrail('clients', clientListPath(listFilters), data);
 
   const deleteMutation = useDeleteClient();
 

@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ChevronLeft } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
+import { RecordPager } from '@/components/ui/record-pager';
 import { useAuth } from '@/lib/api/auth-context';
 import { api, ApiError } from '@/lib/api/client';
 import { useClient, useDeleteClient, useUpdateClient, type ClientUpdateValues } from '@/lib/hooks/use-clients';
@@ -145,13 +146,13 @@ export default function ClientDetailPage() {
 
   return (
     <div>
-      <Link
-        href="/clients"
-        className="mb-4 inline-flex items-center gap-1 text-sm text-ink/60 hover:text-ink"
-      >
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <Link href="/clients" className="inline-flex items-center gap-1 text-sm text-ink/60 hover:text-ink">
         <ChevronLeft size={16} />
         {t('clients.back')}
-      </Link>
+        </Link>
+        <RecordPager kind="clients" id={id} />
+      </div>
 
       {pendingDeletion && <PendingDeletionBanner request={pendingDeletion} />}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
