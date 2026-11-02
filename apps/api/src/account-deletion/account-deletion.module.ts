@@ -11,5 +11,7 @@ import { AccountErasureJob } from './account-erasure.job';
   imports: [AuditModule, EmailModule],
   controllers: [MyAccountDeletionController, AccountDeletionsController],
   providers: [AccountDeletionService, AccountDeletionNotifier, AccountErasureJob],
+  // Staff deleting a caregiver who asked to be deleted carries the request out (CaregiversService.remove).
+  exports: [AccountDeletionService],
 })
 export class AccountDeletionModule {}

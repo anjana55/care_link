@@ -463,7 +463,10 @@
       "endHint": "Leave empty if they still work there.",
       "endBeforeStart": "The end date cannot be before the start date.",
       "adminOnly": "Only admins can change the work history."
-    }
+    },
+    "notFound": "This caregiver doesn't exist or has been deleted.",
+    "backToList": "Back to caregivers",
+    "confirmDeleteRequested": "Delete {name}? They asked to delete their account, so this carries it out now instead of on {erase}: their details, documents and files are erased, and their email, phone number and NIC become free to register again. This can't be undone."
   },
   "clients": {
     "title": "Clients",
@@ -3558,6 +3561,7 @@
       "body": "They asked on {asked}. The account is locked - they can't sign in - and it will be erased from {erase}, once nothing is still open. To restore it, cancel the request in Account deletions.",
       "open": "Open Account deletions"
     },
-    "waitingCount": "{count} waiting"
+    "waitingCount": "{count} waiting",
+    "recordDeleted": "Record deleted by staff. Its details are erased when the request falls due."
   }
 }

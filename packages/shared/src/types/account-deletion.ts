@@ -52,6 +52,12 @@ export interface StaffAccountDeletion {
   erasedAt: string | null;
   /** Pending requests only: what is holding erasure back. */
   openItems: AccountOpenItems | null;
+  /**
+   * Staff deleted the caregiver or client record while the request was still
+   * pending (before that closed the request too). There is nothing to open or
+   * restore; the details are erased when the request falls due.
+   */
+  recordDeleted: boolean;
 }
 
 export const openItemCount = (items: AccountOpenItems | null): number =>

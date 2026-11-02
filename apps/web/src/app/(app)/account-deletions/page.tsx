@@ -47,7 +47,7 @@ export default function AccountDeletionsPage() {
   const now = Date.now();
   const nameOf = (r: StaffAccountDeletion) => r.name ?? t('accountDeletions.erasedName');
   const recordHref = (r: StaffAccountDeletion) =>
-    r.status === 'ERASED' ? null : r.caregiverId ? `/caregivers/${r.caregiverId}` : r.patientId ? `/clients/${r.patientId}` : null;
+    r.status === 'ERASED' || r.recordDeleted ? null : r.caregiverId ? `/caregivers/${r.caregiverId}` : r.patientId ? `/clients/${r.patientId}` : null;
 
   return (
     <div className="space-y-5">
@@ -95,6 +95,7 @@ export default function AccountDeletionsPage() {
                             {t(`accountDeletions.role.${r.role}`)}
                             {r.reference ? ` · ${r.reference}` : ''}
                           </div>
+                          {r.recordDeleted && <div className="text-xs text-ink/50">{t('accountDeletions.recordDeleted')}</div>}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-ink/70">{fmtDateTime(r.requestedAt, locale)}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-ink/70">{r.status === 'PENDING' ? fmtDateTime(r.eraseAfter, locale) : '—'}</td>
@@ -119,7 +120,7 @@ export default function AccountDeletionsPage() {
                           {r.status === 'CANCELLED' && r.cancelledAt ? <div className="text-xs text-ink/50">{fmtDateTime(r.cancelledAt, locale)}</div> : null}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {r.status === 'PENDING' && (
+                          {r.status === 'PENDING' && !r.recordDeleted && (
                             <Button variant="secondary" size="sm" onClick={() => setConfirming(r)}>
                               {t('accountDeletions.cancel')}
                             </Button>

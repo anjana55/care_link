@@ -25,6 +25,7 @@ import { resolveLocationRefs } from '../common/utils/location.util';
 import { releaseCaregiverIdentity } from '../account-access/identity.util';
 import { AuditService } from '../audit/audit.service';
 import { assertNoPendingDeletion } from '../account-deletion/pending-deletion.util';
+import { AccountDeletionService } from '../account-deletion/account-deletion.service';
 
 /** A condition that always evaluates to false - used to short-circuit a
  * filter to "no results" without ever building an invalid `IN ()` clause. */
@@ -82,6 +83,7 @@ export class CaregiversService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly audit: AuditService,
+    private readonly accountDeletion: AccountDeletionService,
   ) {}
 
 
@@ -436,9 +438,16 @@ export class CaregiversService {
    * phone were still held by the old login.
    *
    * What was released is returned for the audit log and not sent to the client.
+   *
+   * A caregiver who has asked to delete their account is erased instead (see
+   * AccountDeletionService.eraseCaregiverForStaff), which also closes the
+   * request, so it doesn't linger in Account deletions.
    */
   async remove(id: string, actorUserId?: string | null, ipAddress?: string | null) {
     await this.findOne(id);
+    if (await this.accountDeletion.eraseCaregiverForStaff(id, actorUserId ?? null, ipAddress ?? null)) {
+      return { success: true };
+    }
     const [{ userId }] = await this.db.select({ userId: caregivers.userId }).from(caregivers).where(eq(caregivers.id, id)).limit(1);
     const released = await this.db.transaction(async (tx) => {
       await tx.update(caregivers).set({ deletedAt: new Date() }).where(eq(caregivers.id, id));

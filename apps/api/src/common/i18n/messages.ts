@@ -160,6 +160,8 @@ const ENTRIES: Triple[] = [
   ['Document not found', 'ලේඛනය හමු නොවීය', 'ஆவணம் கிடைக்கவில்லை'],
   // Account deletion, while a request is pending
   ['This person asked to delete their account. To restore it, cancel the request in Account deletions.', 'මෙම පුද්ගලයා තම ගිණුම මකා දැමීමට ඉල්ලා ඇත. එය යථා තත්ත්වයට පත් කිරීමට, ගිණුම් මකා දැමීම් හි ඉල්ලීම අවලංගු කරන්න.', 'இந்த நபர் தனது கணக்கை நீக்கக் கோரியுள்ளார். அதை மீட்டெடுக்க, கணக்கு நீக்கங்களில் கோரிக்கையை ரத்து செய்யவும்.'],
+  ['This person asked to delete their account, and something of theirs is still open. Settle it first - see Account deletions - or leave it: the account is erased once nothing is open.', 'මෙම පුද්ගලයා තම ගිණුම මකා දැමීමට ඉල්ලා ඇති අතර, ඔවුන්ගේ යමක් තවමත් විවෘතව ඇත. මුලින් එය නිරාකරණය කරන්න - ගිණුම් මකා දැමීම් බලන්න - නැතහොත් එසේම තබන්න: කිසිවක් විවෘතව නොමැති වූ පසු ගිණුම මකා දමනු ලැබේ.', 'இந்த நபர் தனது கணக்கை நீக்கக் கோரியுள்ளார், அவருடைய ஏதோ ஒன்று இன்னும் நிலுவையில் உள்ளது. முதலில் அதைத் தீர்க்கவும் - கணக்கு நீக்கங்களைப் பார்க்கவும் - அல்லது அப்படியே விடவும்: நிலுவையில் எதுவும் இல்லாதபோது கணக்கு அழிக்கப்படும்.'],
+  ['This record has been deleted, so there is nothing to restore.', 'මෙම වාර්තාව මකා දමා ඇති බැවින්, යථා තත්ත්වයට පත් කිරීමට කිසිවක් නැත.', 'இந்தப் பதிவு நீக்கப்பட்டுவிட்டதால், மீட்டெடுக்க எதுவும் இல்லை.'],
   // Sign-in from the mobile app
   ['Missing or invalid sign-in challenge', 'පුරනය වීමේ අභියෝගය නැත හෝ වලංගු නොවේ', 'உள்நுழைவுச் சவால் இல்லை அல்லது செல்லாது'],
   // Caregiver sign-up: email and password instead of a provider

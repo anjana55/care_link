@@ -28,7 +28,7 @@ import { normalizePhone } from '../common/utils/phone.util';
 import { resolveLocationRefs } from '../common/utils/location.util';
 import { assertWhatsappNumberAvailable } from '../auth/phone-accounts.util';
 import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
-import { assertNoPendingDeletion } from '../account-deletion/pending-deletion.util';
+import { assertNoPendingDeletion, closePendingDeletionAsErased } from '../account-deletion/pending-deletion.util';
 
 /**
  * The columns a staff edit may write directly. Everything else is either set
@@ -476,6 +476,8 @@ export class PatientsService {
       await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, target.userId));
       await tx.delete(users).where(eq(users.id, target.userId));
       await tx.delete(patients).where(eq(patients.id, id));
+      // They had asked to delete their account: this did it, so the request leaves the Account deletions queue.
+      await closePendingDeletionAsErased(tx as unknown as Database, { patientId: id });
     });
 
     return { success: true };

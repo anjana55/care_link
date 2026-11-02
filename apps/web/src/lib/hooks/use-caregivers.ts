@@ -419,7 +419,13 @@ export function useDeleteCaregiver(id: string) {
   return useMutation({
     mutationFn: () => api.delete(`/caregivers/${id}`),
     onSuccess: () => {
+      // Drop the record itself, not just the lists: a cached copy kept rendering the
+      // deleted caregiver (and its Delete button) when reopened from Account deletions.
+      queryClient.removeQueries({ queryKey: ['caregiver', id], exact: true });
       queryClient.invalidateQueries({ queryKey: ['caregivers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      // Deleting someone who asked to be deleted carries their request out.
+      queryClient.invalidateQueries({ queryKey: ['account-deletions'] });
       router.push('/caregivers');
     },
   });
