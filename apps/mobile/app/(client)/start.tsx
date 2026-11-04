@@ -9,6 +9,7 @@ import { nextVisit } from '@/care/next-visit';
 import { shortId } from '@/search/ResultCard';
 import { fmtDay, fmtTime } from '@/ui/dates';
 import { PageHeader } from '@/ui/PageHeader';
+import { TodoCards } from '@/notifications/TodoCards';
 import { Text } from '@/ui/Text';
 import { tint, type IconName } from '@/ui/visual';
 
@@ -61,6 +62,8 @@ export default function Start() {
           </Pressable>
         </PageHeader>
         <View style={styles.body}>
+          {/* What is waiting on them comes first. */}
+          <TodoCards />
           <Text accessibilityRole="header" style={[styles.section, { color: colors.deep }]}>
             {t('clientHome.whatToDo')}
           </Text>

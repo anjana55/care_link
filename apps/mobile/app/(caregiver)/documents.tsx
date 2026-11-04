@@ -30,6 +30,7 @@ import { Button } from '@/ui/controls';
 import { formatDate } from '@/ui/dates';
 import { Text } from '@/ui/Text';
 import { PageHeader } from '@/ui/PageHeader';
+import { useMarkPathsRead } from '@/notifications/api';
 
 const YEARS_AHEAD = 20;
 
@@ -40,6 +41,7 @@ const YEARS_AHEAD = 20;
  * phone's own viewer; the copy is cleared when this screen closes.
  */
 export default function Documents() {
+  useMarkPathsRead(['/documents']);
   const { t, locale } = useTranslation();
   const colors = useColors();
   const { user } = useAuth();

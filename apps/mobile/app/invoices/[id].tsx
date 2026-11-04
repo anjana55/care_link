@@ -14,6 +14,7 @@ import { useMyInvoice, useStartOnlinePayment } from '@/care/billing-api';
 import { SignInPrompt } from '@/care/SignInPrompt';
 import { useClient } from '@/care/api';
 import { PayhereSheet, webViewAvailable, type PayhereOutcome } from '@/care/PayhereSheet';
+import { useMarkPathsRead } from '@/notifications/api';
 
 /** After a manual close, how long to keep checking whether a payment came through. */
 const QUIET_CHECK_MS = 60_000;
@@ -33,6 +34,8 @@ export default function InvoiceScreen() {
   const { user } = useAuth();
   const client = useClient();
   const { id } = useLocalSearchParams<{ id?: string }>();
+  // Opening the invoice clears its notices from the bell.
+  useMarkPathsRead([id ? `/invoices/${id}` : null]);
   const [payment, setPayment] = useState<PayhereOutcome | null>(null);
   const { data: invoice, isLoading, isError, refetch } = useMyInvoice(id ?? null, payment === 'return' || payment === 'closed');
   const start = useStartOnlinePayment(id ?? '');

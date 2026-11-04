@@ -9,6 +9,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Text } from './Text';
 import { HeroBand, type IconName } from './visual';
+import { Bell } from '@/notifications/Bell';
 
 /** Where Home goes: a signed-in person's own area, else the welcome screen. */
 export function useHome(): string {
@@ -19,7 +20,8 @@ export function useHome(): string {
 /**
  * The top of every screen: the brand band, curved at the bottom, with a
  * labelled Back button and a labelled Home button - words as well as arrows,
- * for people who are new to phones - then the screen's title. `isHome` marks
+ * for people who are new to phones - with the bell between them for a
+ * signed-in client or caregiver, then the screen's title. `isHome` marks
  * the Home button as where the person already is. `children` sit on the band
  * under the title (a greeting, a search box).
  */
@@ -50,6 +52,7 @@ export function PageHeader({
     <HeroBand style={{ paddingTop: insets.top + 12, paddingBottom: title || children ? 24 : 18, gap: 18 }}>
       <View style={styles.nav}>
         <NavButton icon="chevron-back" label={t('nav.back')} onPress={back} />
+        <Bell />
         <NavButton icon="home" label={t('nav.home')} current={isHome} onPress={() => (isHome ? undefined : router.replace(home as never))} />
       </View>
       {title ? (

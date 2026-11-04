@@ -76,8 +76,9 @@ export async function getPushToken(): Promise<string | null> {
  * (/bookings/{id}, /care, /requests/{id}, /shifts, /invoices/{id}, ...).
  * Bookings and the 8 pm care reminder open Bookings, requests open My
  * requests, an invoice opens that invoice, shifts and payouts open the
- * caregiver's Shifts and Payments; the rest open home (a client's home is
- * Find, a caregiver's is Today).
+ * caregiver's Shifts and Payments, documents open Documents, announcements
+ * and reminder digests open Notifications; the rest open home (a client's
+ * home is Find, a caregiver's is Today).
  */
 const SCREENS: [RegExp, string][] = [
   [/^\/(bookings(\/[^/]+)?|care)$/, '/bookings'],
@@ -85,6 +86,12 @@ const SCREENS: [RegExp, string][] = [
   // The caregiver's side: shift changes and new shifts, and payouts.
   [/^\/shifts$/, '/shifts'],
   [/^\/payments$/, '/payments'],
+  // A caregiver's document checked or expiring.
+  [/^\/documents$/, '/documents'],
+  // A correction to a client's bills.
+  [/^\/invoices$/, '/invoices'],
+  // Announcements and reminder digests open the bell.
+  [/^\/notifications$/, '/notifications'],
 ];
 /** An invoice notice opens that invoice (ids are uuids: nothing else gets through). */
 const INVOICE = /^\/invoices\/[0-9a-fA-F-]{36}$/;
