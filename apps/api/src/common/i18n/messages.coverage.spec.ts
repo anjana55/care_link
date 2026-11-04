@@ -37,6 +37,7 @@ const EXEMPT_FILES: Record<string, string> = {
   'analytics/dto/update-analytics-settings.dto.ts': 'admin configuration screen (staff UI)',
   'ai/ai-settings.service.ts': 'admin configuration screen (staff UI)',
   'ai/dto/update-ai-settings.dto.ts': 'admin configuration screen (staff UI)',
+  'reviews/review-settings.service.ts': 'admin configuration screen (staff UI)',
   'ai/ai.controller.ts': 'admin configuration screen (staff UI); relays the model provider\'s own diagnostics',
 };
 

@@ -38,6 +38,10 @@ import {
   sharedProfiles,
   users,
   verifications,
+  caregiverReviews,
+  caregiverReviewBadges,
+  caregiverRatingStats,
+  reviewRequests,
 } from '../database/schema';
 import { releaseLogin } from '../account-access/identity.util';
 import { AuditService } from '../audit/audit.service';
@@ -434,6 +438,12 @@ export class AccountDeletionService {
     }
     // Staff's verification record stays (it was done), without notes that may name the person.
     await db.update(verifications).set({ notes: null }).where(eq(verifications.caregiverId, caregiverId));
+    // Their ratings go with the profile.
+    const reviewIds = (await db.select({ id: caregiverReviews.id }).from(caregiverReviews).where(eq(caregiverReviews.caregiverId, caregiverId))).map((r) => r.id);
+    if (reviewIds.length) await db.delete(caregiverReviewBadges).where(inArray(caregiverReviewBadges.reviewId, reviewIds));
+    await db.delete(caregiverReviews).where(eq(caregiverReviews.caregiverId, caregiverId));
+    await db.delete(caregiverRatingStats).where(eq(caregiverRatingStats.caregiverId, caregiverId));
+    await db.delete(reviewRequests).where(eq(reviewRequests.caregiverId, caregiverId));
 
     return [...docs.map((d) => d.key), ...photos.map((p) => p.key).filter((k): k is string => Boolean(k))];
   }
@@ -470,6 +480,11 @@ export class AccountDeletionService {
     await db.delete(savedCaregivers).where(eq(savedCaregivers.patientId, patientId));
     // The requests stay (staff's record of who was introduced); what the client wrote doesn't.
     await db.update(careRequests).set({ message: null }).where(eq(careRequests.patientId, patientId));
+    // Their ratings stay, anonymously - a caregiver keeps the stars and badges they earned - but what they wrote goes.
+    await db
+      .update(caregiverReviews)
+      .set({ reviewerUserId: null, comment: null, commentLanguage: null, commentStatus: 'NONE', commentRejectReason: null, privateNote: null })
+      .where(eq(caregiverReviews.patientId, patientId));
   }
 }
 

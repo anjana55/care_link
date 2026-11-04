@@ -1,3 +1,4 @@
+import type { ReviewableCaregiver } from './reviews';
 import type { PublicCaregiverProfile } from './public-search';
 
 /**
@@ -207,6 +208,8 @@ export interface ClientBooking {
   caregiver: PublicCaregiverProfile | null;
   /** Upcoming and recent (last 7 days) shifts. */
   shifts: PortalShift[];
+  /** Each caregiver who has worked a shift on it - booked or cover - and the client's review of them. */
+  reviews: ReviewableCaregiver[];
 }
 
 /** GET /me/shifts (caregiver). */

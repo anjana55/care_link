@@ -1,3 +1,4 @@
+import type { CaregiverRatingSummary } from './reviews';
 import { z } from 'zod';
 import { LOCALES, type Locale } from './locale';
 import {
@@ -202,6 +203,8 @@ export interface PublicCaregiverSummary {
   distanceKm: number | null;
   /** The cities the caregiver will travel to, with their distance from the search origin. */
   serviceArea: ServiceAreaCity[];
+  /** Clients' star rating and top praise badges. Null until there are enough ratings to show (Settings > Reviews). */
+  rating: CaregiverRatingSummary | null;
   /** Why this caregiver is within the search radius: they live there, or they travel there. */
   reach?: 'home' | 'serviceArea' | null;
   /** Present only in search results, absent on a profile fetched directly. */

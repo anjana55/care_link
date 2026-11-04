@@ -41,6 +41,8 @@ export interface RankingCandidate {
   dayDuty: boolean;
   nightDuty: boolean;
   liveIn24h: boolean;
+  /** Clients' rating as 0..1 (see ratingSignal in reviews/review-rules); null when unrated or too few to count. */
+  ratingSignal?: number | null;
 }
 
 export interface RankedCandidate {
@@ -69,6 +71,9 @@ const WEIGHTS = {
   proximity: 15,
   shiftExactMatch: 10,
   genderPreferenceMatch: 5,
+  // Up to this many points from clients' ratings - half of what being verified
+  // is worth, so ratings order caregivers without outweighing the platform's checks.
+  rating: 15,
 } as const;
 
 @Injectable()
@@ -160,6 +165,11 @@ export class RankingService {
     ) {
       score += WEIGHTS.genderPreferenceMatch;
       reasons.push('matches the preferred caregiver gender');
+    }
+
+    // Ratings only order; they never filter anyone out, and an unrated caregiver is neither helped nor hurt.
+    if (candidate.ratingSignal != null) {
+      score += WEIGHTS.rating * candidate.ratingSignal;
     }
 
     return { caregiverId: candidate.caregiverId, score: Math.round(score * 100) / 100, reasons };
