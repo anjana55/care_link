@@ -8,6 +8,8 @@ import { Text } from '@/ui/Text';
 import { useCaregiverProfile } from '@/search/api';
 import { shortId } from '@/search/ResultCard';
 import { CaregiverActions } from '@/care/CaregiverActions';
+import { RatingLine } from '@/reviews/Stars';
+import { CaregiverReviews } from '@/reviews/CaregiverReviews';
 
 /**
  * A caregiver's public profile, as on the website: no name, photo or contact
@@ -77,6 +79,7 @@ export default function CaregiverProfile() {
           {t('results.approxAge', { age: c.approxAge })}
         </Text>
         <Text style={[styles.body, { color: colors.muted }]}>{t('results.yearsExperience', { years: c.yearsExperience })}</Text>
+        <RatingLine rating={c.rating} />
         {c.hasVerifiedQualification ? <Text style={[styles.body, { color: colors.brand, fontWeight: '600' }]}>{t('results.verifiedQualification')}</Text> : null}
 
         {c.careTypes?.length ? <Section title={t('profile.careTypes')}>{body(c.careTypes.map((ct) => t(`careTypes.${ct}`)).join(' · '))}</Section> : null}
@@ -103,6 +106,7 @@ export default function CaregiverProfile() {
         ) : null}
 
         <CaregiverActions publicId={c.publicId} />
+        <CaregiverReviews publicId={c.publicId} />
       </ScrollView>
     </Screen>
   );

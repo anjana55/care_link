@@ -17,6 +17,7 @@ import { TodaysCare } from '@/care/TodaysCare';
 import { BookingIssues } from '@/care/BookingIssues';
 import { useMyIssues } from '@/care/billing-api';
 import { shortId } from '@/search/ResultCard';
+import { BookingReviews, PendingReviewsBanner } from '@/reviews/BookingReviews';
 
 /**
  * The client's bookings, as on the website: today's care checklist first, then
@@ -36,7 +37,14 @@ export default function Bookings() {
 
   const head = (
     <View style={styles.head}>
-      {client ? <TodaysCare /> : <SignInPrompt body={t('account.bookings.empty')} returnTo="/bookings" />}
+      {client ? (
+        <>
+          <PendingReviewsBanner />
+          <TodaysCare />
+        </>
+      ) : (
+        <SignInPrompt body={t('account.bookings.empty')} returnTo="/bookings" />
+      )}
     </View>
   );
 
@@ -107,6 +115,7 @@ function BookingCard({ booking: b, reports }: { booking: ClientBooking; reports:
       ) : (
         b.shifts.map((s) => <ShiftRow key={s.id} shift={s} coverLabel={t('account.bookings.cover')} />)
       )}
+      <BookingReviews reviews={b.reviews ?? []} />
       <BookingIssues booking={b} reports={reports} />
     </View>
   );
