@@ -98,7 +98,7 @@ export class ReviewsNotifier {
         preferred: c.preferred as Parameters<typeof chooseClientChannel>[0]['preferred'],
       });
       if (channel === 'EMAIL') {
-        await this.email.sendNotificationEmail(account!.email!, { subject: msg.subject, blocks: msg.blocks, cta: { label: '{brand}', url: this.publicUrl('/caregiver/dashboard') } }, 'caregiver praise');
+        await this.email.sendNotificationEmail(account!.email!, { subject: msg.subject, blocks: msg.blocks, cta: { label: '{brand}', url: this.publicUrl('/caregiver/ratings') } }, 'caregiver praise');
       } else if (channel === 'WHATSAPP') {
         await this.whatsapp.sendUpdate(wa, phone!, 'en', msg.whatsappText).catch((e) => this.logger.error(`WhatsApp caregiver praise failed: ${(e as Error).message}`));
       }

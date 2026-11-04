@@ -41,6 +41,7 @@ function caregiver(overrides: Partial<PublicCaregiverSummary> = {}): PublicCareg
     distanceKm: 8.9,
     serviceArea: [{ cityId: 340, name: 'Dehiwala', latitude: 6.8511, longitude: 79.8659, distanceKm: 0 }],
     reach: 'home',
+    rating: null,
     matchScore: 10,
     matchReasons: [],
     ...overrides,

@@ -11,6 +11,7 @@ import { CaregiverSummary } from '@/components/care/caregiver-summary';
 import { ShiftList } from '@/components/care/shift-list';
 import { IssueReportList, ReportIssueForm } from '@/components/care/report-issue';
 import { TodaysCare } from '@/components/care/todays-care';
+import { BookingReviews, PendingReviewsBanner } from '@/components/reviews/booking-reviews';
 
 const TONE: Record<BookingStatus, string> = {
   DRAFT: 'bg-paper text-ink/60',
@@ -35,7 +36,8 @@ export default function MyBookingsPage() {
       <h1 className="text-xl font-semibold text-ink">{t('account.bookings.title')}</h1>
       <p className="mt-1 text-sm text-ink/60">{t('account.bookings.subtitle')}</p>
       <div className="mt-6">
-        {/* The care-plan checklist for today, when any booking has a plan. */}
+        {/* Caregivers waiting for a rating, then the care-plan checklist for today. */}
+        <PendingReviewsBanner />
         <TodaysCare />
         {isLoading && <LoadingState label={t('common.loading')} />}
         {isError && <ErrorState onRetry={() => refetch()} />}
@@ -50,7 +52,7 @@ export default function MyBookingsPage() {
         {data && data.length > 0 && (
           <ul className="space-y-4">
             {data.map((b) => (
-              <li key={b.id} className="rounded-lg border border-border bg-white p-4 sm:p-5">
+              <li key={b.id} id={`booking-${b.id}`} className="scroll-mt-4 rounded-lg border border-border bg-white p-4 sm:p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <CaregiverSummary publicId={b.caregiverPublicId} caregiver={b.caregiver} unavailableText={t('account.requests.notOnline')} />
                   <span className={`self-start whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE[b.status]}`}>
@@ -85,6 +87,7 @@ export default function MyBookingsPage() {
                     <ShiftList shifts={b.shifts} coverLabel={t('account.bookings.cover')} />
                   )}
                 </div>
+                <BookingReviews reviews={b.reviews ?? []} />
                 <BookingIssues booking={b} reports={(reports ?? []).filter((r) => r.bookingId === b.id)} />
               </li>
             ))}
