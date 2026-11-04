@@ -3,6 +3,7 @@ import type { PublicCaregiverSummary } from '@care-platform/shared';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Text } from '@/ui/Text';
+import { RatingLine } from '@/reviews/Stars';
 import { Pill, tint } from '@/ui/visual';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -23,7 +24,13 @@ export function ResultCard({ caregiver, onOpen }: { caregiver: PublicCaregiverSu
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${t('profile.anonymousId', { id: shortId(caregiver.publicId) })}, ${t('results.viewProfile')}`}
+      accessibilityLabel={[
+        t('profile.anonymousId', { id: shortId(caregiver.publicId) }),
+        caregiver.rating ? t('reviews.outOfFive', { rating: caregiver.rating.average }) : null,
+        t('results.viewProfile'),
+      ]
+        .filter(Boolean)
+        .join(', ')}
       onPress={onOpen}
       style={({ pressed }) => [styles.card, { backgroundColor: colors.surface, borderColor: tint(colors.ink, 0.06), opacity: pressed ? 0.9 : 1 }]}
     >
@@ -41,6 +48,7 @@ export function ResultCard({ caregiver, onOpen }: { caregiver: PublicCaregiverSu
           <Text style={[styles.headline, { color: colors.ink }]}>
             {t('results.approxAge', { age: caregiver.approxAge })} · {t('results.yearsExperience', { years: caregiver.yearsExperience })}
           </Text>
+          <RatingLine rating={caregiver.rating} showTopBadge />
           <View style={styles.pills}>
             {caregiver.verified ? (
               <View accessibilityHint={t('results.verifiedHint')}>

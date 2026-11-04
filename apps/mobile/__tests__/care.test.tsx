@@ -38,6 +38,7 @@ const profile: PublicCaregiverProfile = {
   homeLocation: null,
   distanceKm: null,
   serviceArea: [],
+  rating: null,
 };
 
 const request = (over: Partial<ClientCareRequest>): ClientCareRequest =>
