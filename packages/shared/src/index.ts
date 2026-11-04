@@ -25,6 +25,7 @@ export * from './types/care-requests';
 export * from './types/bookings';
 export * from './types/care-plans';
 export * from './types/reviews';
+export * from './types/notifications';
 export * from './types/billing';
 export * from './types/amendments';
 export * from './types/branding';

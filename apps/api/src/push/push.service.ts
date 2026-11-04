@@ -34,8 +34,13 @@ export interface ExpoMessage {
   sound: 'default';
   /** The Android channel the app creates on start-up. */
   channelId: 'default';
-  data: { path: string };
+  data: { path: string; notificationId?: string };
+  /** The app icon's number (iOS; Android launchers show a dot). */
+  badge?: number;
 }
+
+/** Per person: the icon badge to show, and the bell row this push is (so tapping it marks that row read). */
+export type PushExtras = Map<string, { badge?: number; notificationId?: string }>;
 
 type Ticket = { status: 'ok'; id: string } | { status: 'error'; message?: string; details?: { error?: string } };
 type Receipt = { status: 'ok' } | { status: 'error'; message?: string; details?: { error?: string } };
@@ -45,10 +50,11 @@ export const isDeadToken = (r: Ticket | Receipt | undefined) => r?.status === 'e
 
 /** A push for each of the person's phones, each in that phone's app language. */
 export function messagesFor(
-  devices: { expoPushToken: string; locale: PushLanguage }[],
+  devices: { expoPushToken: string; locale: PushLanguage; userId?: string }[],
   build: (lang: PushLanguage) => PushText,
   path: string,
   brand: string,
+  extras?: PushExtras,
 ): ExpoMessage[] {
   const byLang = new Map<PushLanguage, PushText>();
   return devices.map((d) => {
@@ -59,7 +65,11 @@ export function messagesFor(
       text = { title: withBrand(t.title, brand).trim(), body: withBrand(t.body, brand).trim() };
       byLang.set(d.locale, text);
     }
-    return { to: d.expoPushToken, title: text.title, body: text.body, sound: 'default', channelId: 'default', data: { path } };
+    const extra = d.userId ? extras?.get(d.userId) : undefined;
+    const msg: ExpoMessage = { to: d.expoPushToken, title: text.title, body: text.body, sound: 'default', channelId: 'default', data: { path } };
+    if (extra?.notificationId) msg.data.notificationId = extra.notificationId;
+    if (extra?.badge !== undefined) msg.badge = extra.badge;
+    return msg;
   });
 }
 
@@ -173,23 +183,23 @@ export class PushService implements OnApplicationBootstrap, OnModuleDestroy {
    * language, opening `path` in the app when tapped. Fire and forget: returns
    * at once, never throws. `label` names the notice in the logs.
    */
-  notify(userIds: (string | null | undefined)[], build: (lang: PushLanguage) => PushText, path: string, label: string): void {
-    void this.send(userIds, build, path, label);
+  notify(userIds: (string | null | undefined)[], build: (lang: PushLanguage) => PushText, path: string, label: string, extras?: PushExtras): void {
+    void this.send(userIds, build, path, label, extras);
   }
 
   /** notify(), awaitable: resolves to the number of phones Expo accepted the push for. Never throws. */
-  async send(userIds: (string | null | undefined)[], build: (lang: PushLanguage) => PushText, path: string, label: string): Promise<number> {
+  async send(userIds: (string | null | undefined)[], build: (lang: PushLanguage) => PushText, path: string, label: string, extras?: PushExtras): Promise<number> {
     try {
       const ids = [...new Set(userIds.filter((v): v is string => Boolean(v)))];
       if (!ids.length || !this.enabled()) return 0;
       const devices = await this.db
-        .select({ expoPushToken: deviceTokens.expoPushToken, locale: deviceTokens.locale })
+        .select({ expoPushToken: deviceTokens.expoPushToken, locale: deviceTokens.locale, userId: deviceTokens.userId })
         .from(deviceTokens)
         .where(and(inArray(deviceTokens.userId, ids), isNull(deviceTokens.revokedAt)));
       if (!devices.length) return 0;
 
       const brand = this.branding ? await this.branding.companyName() : DEFAULT_COMPANY_NAME;
-      const messages = messagesFor(devices, build, path, brand);
+      const messages = messagesFor(devices, build, path, brand, extras);
       let accepted = 0;
       const dead: string[] = [];
       for (const batch of chunk(messages, SEND_CHUNK)) {

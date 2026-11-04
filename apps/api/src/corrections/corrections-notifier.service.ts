@@ -12,6 +12,14 @@ import { normalizePhone } from '../common/utils/phone.util';
 import { chooseClientChannel } from '../care-requests/care-request-notifier.service';
 import { BookingNotifier } from '../bookings/booking-notifier.service';
 import { CATEGORY_EN, CORRECTION_CTA, correctionCaregiverNotice, correctionClientNotice, issueNotice } from './corrections-messages';
+import { NotificationsService } from '../notifications/notifications.service';
+import type { PushLanguage, PushText } from '../push/push.service';
+
+/** A bell notice from blocks written in several languages: heading and paragraphs. */
+const fromParagraphs = (blocks: readonly { lang: string; heading: string; paragraphs: string[] }[], lang: PushLanguage): PushText => {
+  const b = blocks.find((x) => x.lang === lang) ?? blocks.find((x) => x.lang === 'en') ?? blocks[0];
+  return { title: b?.heading ?? '', body: b?.paragraphs.join(' ') ?? '' };
+};
 
 /** Who to tell about a committed correction - worked out inside its transaction, sent after it. */
 export interface CorrectionNotices {
@@ -26,6 +34,8 @@ export interface CorrectionNotices {
 }
 
 interface Recipient {
+  /** Their login, for the bell and push. */
+  userId: string | null;
   email: string | null;
   phone: string | null;
   preferred?: string | null;
@@ -50,6 +60,7 @@ export class CorrectionsNotifier {
     private readonly whatsappSettings: WhatsappSettingsService,
     private readonly whatsapp: WhatsappProviderService,
     private readonly bookingNotifier: BookingNotifier,
+    private readonly notices: NotificationsService,
   ) {}
 
   private publicUrl(path: string) {
@@ -82,6 +93,7 @@ export class CorrectionsNotifier {
     });
     const text = correctionClientNotice(n.language, n.reference, items);
     const who = await this.client(n.patientId);
+    this.notices.notify([who.userId], (lang) => fromParagraphs([{ lang, ...correctionClientNotice(lang, n.reference, items) }], lang), '/invoices', `correction ${n.reference}`);
     await this.deliverToClient(who, n.language, text, '/account/invoices', `correction ${n.reference}`);
   }
 
@@ -93,7 +105,9 @@ export class CorrectionsNotifier {
       return { kind: cents < 0 ? ('LESS' as const) : ('MORE' as const), label, amount: formatLkr(Math.abs(cents) / 100) };
     });
     const msg = correctionCaregiverNotice(reference, items);
-    await this.deliverToCaregiver(await this.caregiver(cg.caregiverId), msg, '/caregiver/payments', `caregiver correction ${reference}`);
+    const who = await this.caregiver(cg.caregiverId);
+    this.notices.notify([who.userId], (lang) => fromParagraphs(msg.blocks, lang), '/payments', `caregiver correction ${reference}`);
+    await this.deliverToCaregiver(who, msg, '/caregiver/payments', `caregiver correction ${reference}`);
   }
 
   // --- issue reports -------------------------------------------------------------
@@ -146,9 +160,14 @@ export class CorrectionsNotifier {
     if (r.reporterRole === 'CLIENT') {
       const text = issueNotice(kind, r.language, r.reference, note, false);
       const block = text.blocks[0];
-      await this.deliverToClient(await this.client(r.patientId), r.language, { subject: text.subject, heading: block.heading, paragraphs: block.paragraphs }, '/account/bookings', `issue ${kind.toLowerCase()} ${r.reference}`);
+      const who = await this.client(r.patientId);
+      this.notices.notify([who.userId], (lang) => fromParagraphs(issueNotice(kind, lang, r.reference, note, false).blocks, lang), '/bookings', `issue ${kind.toLowerCase()} ${r.reference}`);
+      await this.deliverToClient(who, r.language, { subject: text.subject, heading: block.heading, paragraphs: block.paragraphs }, '/account/bookings', `issue ${kind.toLowerCase()} ${r.reference}`);
     } else if (r.caregiverId) {
-      await this.deliverToCaregiver(await this.caregiver(r.caregiverId), issueNotice(kind, 'en', r.reference, note, true), '/caregiver/shifts', `caregiver issue ${kind.toLowerCase()} ${r.reference}`);
+      const msg = issueNotice(kind, 'en', r.reference, note, true);
+      const who = await this.caregiver(r.caregiverId);
+      this.notices.notify([who.userId], (lang) => fromParagraphs(msg.blocks, lang), '/shifts', `caregiver issue ${kind.toLowerCase()} ${r.reference}`);
+      await this.deliverToCaregiver(who, msg, '/caregiver/shifts', `caregiver issue ${kind.toLowerCase()} ${r.reference}`);
     }
   }
 
@@ -178,13 +197,13 @@ export class CorrectionsNotifier {
 
   private async client(patientId: string): Promise<Recipient> {
     const [p] = await this.db
-      .select({ phone: patients.phone, preferred: patients.preferredContactMethod, email: users.email, accountPhone: users.phone })
+      .select({ userId: patients.userId, phone: patients.phone, preferred: patients.preferredContactMethod, email: users.email, accountPhone: users.phone })
       .from(patients)
       .innerJoin(users, eq(patients.userId, users.id))
       .where(eq(patients.id, patientId))
       .limit(1);
     const cc = await this.whatsappSettings.getDefaultCountryCode();
-    return { email: p?.email ?? null, phone: p?.accountPhone ?? normalizePhone(p?.phone ?? null, cc), preferred: p?.preferred ?? null };
+    return { userId: p?.userId ?? null, email: p?.email ?? null, phone: p?.accountPhone ?? normalizePhone(p?.phone ?? null, cc), preferred: p?.preferred ?? null };
   }
 
   private async caregiver(caregiverId: string): Promise<Recipient> {
@@ -193,7 +212,7 @@ export class CorrectionsNotifier {
       .from(caregivers).where(eq(caregivers.id, caregiverId)).limit(1);
     const [account] = c?.userId ? await this.db.select({ email: users.email, phone: users.phone }).from(users).where(eq(users.id, c.userId)).limit(1) : [];
     const cc = await this.whatsappSettings.getDefaultCountryCode();
-    return { email: account?.email ?? null, phone: account?.phone ?? normalizePhone(c?.phone ?? null, cc), preferred: c?.preferred ?? null };
+    return { userId: c?.userId ?? null, email: account?.email ?? null, phone: account?.phone ?? normalizePhone(c?.phone ?? null, cc), preferred: c?.preferred ?? null };
   }
 
   private async deliverToClient(who: Recipient, lang: CareRequestLanguage, text: { subject: string; heading: string; paragraphs: string[] }, path: string, label: string) {

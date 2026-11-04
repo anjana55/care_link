@@ -38,6 +38,9 @@ const EXEMPT_FILES: Record<string, string> = {
   'ai/ai-settings.service.ts': 'admin configuration screen (staff UI)',
   'ai/dto/update-ai-settings.dto.ts': 'admin configuration screen (staff UI)',
   'reviews/review-settings.service.ts': 'admin configuration screen (staff UI)',
+  'notifications/notification-settings.service.ts': 'admin configuration screen (staff UI)',
+  'notifications/announcements.service.ts': 'staff Announcements page (staff UI)',
+  'notifications/dto/notifications.dto.ts': 'staff Announcements page and Settings > Notifications (staff UI); the client endpoints in it have no messages',
   'ai/ai.controller.ts': 'admin configuration screen (staff UI); relays the model provider\'s own diagnostics',
 };
 

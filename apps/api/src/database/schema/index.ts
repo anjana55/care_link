@@ -27,3 +27,4 @@ export * from './push.schema';
 export * from './app-settings.schema';
 export * from './account-deletion.schema';
 export * from './reviews.schema';
+export * from './notifications.schema';

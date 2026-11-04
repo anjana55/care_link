@@ -50,6 +50,7 @@ import { PushModule } from './push/push.module';
 import { MobileAppModule } from './mobile-app/mobile-app.module';
 import { AccountDeletionModule } from './account-deletion/account-deletion.module';
 import { ReviewsCoreModule, ReviewsModule } from './reviews/reviews.module';
+import { NotificationsCoreModule, NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { ReviewsCoreModule, ReviewsModule } from './reviews/reviews.module';
     StorageModule,
     BrandingModule,
     PushModule,
+    NotificationsCoreModule,
     MobileAppModule,
     AccountDeletionModule,
     ReviewsCoreModule,
@@ -103,6 +105,7 @@ import { ReviewsCoreModule, ReviewsModule } from './reviews/reviews.module';
     BillingModule,
     CorrectionsModule,
     ReviewsModule,
+    NotificationsModule,
     CarePlansModule,
     InsightsModule,
     AiModule,

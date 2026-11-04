@@ -18,7 +18,8 @@ import {
   clientNotice,
   clientNoticeFor,
 } from './notification-messages';
-import { PushService, fromBlocks, fromNotice } from '../push/push.service';
+import { fromBlocks, fromNotice } from '../push/push.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 /** Everything a notice needs about one request, read fresh at send time. */
 interface NoticeContext {
@@ -93,7 +94,7 @@ export class CareRequestNotifier {
     private readonly emailSettings: EmailSettingsService,
     private readonly whatsappSettings: WhatsappSettingsService,
     private readonly whatsapp: WhatsappProviderService,
-    private readonly push: PushService,
+    private readonly notices: NotificationsService,
   ) {}
 
   /**
@@ -314,7 +315,7 @@ export class CareRequestNotifier {
     const lang = ctx.language;
     const text = clientNotice(notice, lang, ctx.reference);
     // Push to the app as well - in addition to the message below, never instead of it.
-    this.push.notify([ctx.client.userId], (l) => fromNotice(clientNotice(notice, l, ctx.reference)), `/requests/${ctx.id}`, `client update ${ctx.reference}`);
+    this.notices.notify([ctx.client.userId], (l) => fromNotice(clientNotice(notice, l, ctx.reference)), `/requests/${ctx.id}`, `client update ${ctx.reference}`);
     const wa = await this.whatsappSettings.getResolved();
     const channel = chooseClientChannel({
       hasEmail: Boolean(ctx.client.email),
@@ -346,7 +347,7 @@ export class CareRequestNotifier {
     const caregiver = ctx.caregiver;
     if (!caregiver) return null;
     const msg = caregiverNotice(notice, ctx.reference);
-    this.push.notify([caregiver.userId], (l) => fromBlocks(msg.blocks, l), `/requests/${ctx.id}`, `caregiver update ${ctx.reference}`);
+    this.notices.notify([caregiver.userId], (l) => fromBlocks(msg.blocks, l), `/requests/${ctx.id}`, `caregiver update ${ctx.reference}`);
     const wa = await this.whatsappSettings.getResolved();
     const channel = chooseClientChannel({
       hasEmail: Boolean(caregiver.email),
