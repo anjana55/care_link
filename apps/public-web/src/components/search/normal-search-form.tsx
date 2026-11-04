@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { careTypeValues, searchRequestSchema, type SearchRequest } from '@care-platform/shared';
+import { careTypeValues, colomboToday, searchRequestSchema, type SearchRequest } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { LocateFixed, Loader2 } from 'lucide-react';
 import { useMetaSkills, useMetaLanguages, useLocationTree, useCities } from '@/lib/hooks/use-public-search';
@@ -100,7 +100,14 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel, compact
     formState: { errors },
   } = useForm<SearchRequest>({
     resolver: zodResolver(searchRequestSchema),
-    defaultValues: initialValues ?? { page: 1, pageSize: 20 },
+    // The start date opens on today (Colombo), as in the app, so most people
+    // never have to touch it; a restored or AI-filled search keeps its own.
+    defaultValues: {
+      page: 1,
+      pageSize: 20,
+      ...initialValues,
+      desiredStartDate: initialValues?.desiredStartDate ?? colomboToday(),
+    },
   });
 
   // register() returns the handlers as an object rather than wiring them in,
@@ -518,7 +525,7 @@ export function NormalSearchForm({ onSubmit, initialValues, submitLabel, compact
         </button>
         <button
           type="button"
-          onClick={() => reset({ page: 1, pageSize: 20 })}
+          onClick={() => reset({ page: 1, pageSize: 20, desiredStartDate: colomboToday() })}
           className="rounded-DEFAULT border border-border px-6 py-2.5 text-sm font-medium text-ink/70 hover:bg-paper"
         >
           {t('normalSearch.reset')}
