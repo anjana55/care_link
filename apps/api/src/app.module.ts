@@ -49,6 +49,7 @@ import { InternationalModule } from './international/international.module';
 import { PushModule } from './push/push.module';
 import { MobileAppModule } from './mobile-app/mobile-app.module';
 import { AccountDeletionModule } from './account-deletion/account-deletion.module';
+import { ReviewsCoreModule, ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { AccountDeletionModule } from './account-deletion/account-deletion.modul
     PushModule,
     MobileAppModule,
     AccountDeletionModule,
+    ReviewsCoreModule,
     AdsModule,
     AnalyticsModule,
     AiCoreModule,
@@ -100,6 +102,7 @@ import { AccountDeletionModule } from './account-deletion/account-deletion.modul
     BookingsModule,
     BillingModule,
     CorrectionsModule,
+    ReviewsModule,
     CarePlansModule,
     InsightsModule,
     AiModule,

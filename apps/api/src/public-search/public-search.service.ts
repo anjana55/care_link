@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { and, eq, gt, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 import type {
   CareType,
@@ -11,6 +11,7 @@ import type {
   PublicSearchResponse,
   SearchOrigin,
   ServiceAreaCity,
+  CaregiverRatingSummary,
 } from '@care-platform/shared';
 import {
   resolveLocale,
@@ -45,6 +46,9 @@ import {
 import { SearchRequestDto } from './dto/search-request.dto';
 import { RankingService, type RankedCandidate, type RankingCandidate } from './ranking/ranking.service';
 import { GeoService, localName } from '../geo/geo.service';
+import { ReviewStore } from '../reviews/review-store.service';
+import { ReviewSettingsService } from '../reviews/review-settings.service';
+import { publicSummary, ratingSignal } from '../reviews/review-rules';
 
 /** Hard cap on how many hard-filter matches we ever pull into memory to
  * score - independent of the page size the caller asked for. Bounds both
@@ -143,6 +147,10 @@ export interface EnrichedCandidate {
   preferredShift: string;
   availableFrom: string | null;
   careTypes: CareType[];
+  /** Clients' rating, when there are enough to show (null otherwise). */
+  rating: CaregiverRatingSummary | null;
+  /** The ranking signal from ratings, 0..1; null when unrated or below the threshold. */
+  ratingSignal: number | null;
 }
 
 function approxAgeBand(dateOfBirth: Date): number {
@@ -161,6 +169,9 @@ export class PublicSearchService {
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly ranking: RankingService,
     private readonly geo: GeoService,
+    // Optional so the search tests can build the service without ratings; then nobody has any.
+    @Optional() private readonly reviewStore?: ReviewStore,
+    @Optional() private readonly reviewSettings?: ReviewSettingsService,
   ) {}
 
   /** Caregiver IDs that have ALL of the given skill IDs - mirrors
@@ -374,6 +385,7 @@ export class PublicSearchService {
         dayDuty: e.dayDuty,
         nightDuty: e.nightDuty,
         liveIn24h: e.liveIn24h,
+        ratingSignal: e.ratingSignal,
       };
     });
 
@@ -649,6 +661,11 @@ export class PublicSearchService {
         .where(inArray(caregivers.id, caregiverIds)),
     ]);
 
+    const [ratingStats, reviewSettings] = await Promise.all([
+      this.reviewStore ? this.reviewStore.statsFor(caregiverIds) : Promise.resolve(new Map()),
+      this.reviewSettings?.getResolved(),
+    ]);
+
     const ownRows = new Map(ownLocationRows.map((r) => [r.caregiverId, r]));
     const places = await this.geo.all();
     const distanceTo = (point: GeoPoint | null) => (origin && point ? roundKm(haversineKm(origin, point)) : null);
@@ -740,6 +757,11 @@ export class PublicSearchService {
         preferredShift: myAvailability?.preferredShift ?? 'FLEXIBLE',
         availableFrom: myAvailability?.availableFrom ? String(myAvailability.availableFrom) : null,
         careTypes: careTypeValues.filter((type) => (myAvailability ? myAvailability[CARE_TYPE_COLUMNS[type]] : true)),
+        rating: reviewSettings ? publicSummary(ratingStats.get(id), reviewSettings) : null,
+        ratingSignal:
+          reviewSettings?.enabled && ratingStats.get(id)
+            ? ratingSignal(ratingStats.get(id)!.ratingCount, ratingStats.get(id)!.ratingSum, reviewSettings.minRatingsToShow)
+            : null,
       });
     }
 
@@ -786,6 +808,7 @@ export class PublicSearchService {
       homeLocation: enriched.homeLocation,
       distanceKm: enriched.homeDistanceKm,
       serviceArea: enriched.serviceArea,
+      rating: enriched.rating,
       reach: enriched.reach,
       matchScore: score,
       matchReasons: reasons,

@@ -164,6 +164,8 @@ export const bookingEventTypeEnum = [
   // Care plan: created (from a template, another plan or blank), or changed from a date.
   'CARE_PLAN_SET',
   'CARE_PLAN_CHANGED',
+  // A client rated a caregiver on it (or changed their rating).
+  'REVIEWED',
 ] as const;
 export type BookingEventType = (typeof bookingEventTypeEnum)[number];
 

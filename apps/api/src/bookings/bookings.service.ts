@@ -19,6 +19,8 @@ import {
   type IsoWeekday,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
+import { ReviewStore, reviewableView } from '../reviews/review-store.service';
+import { ReviewSettingsService } from '../reviews/review-settings.service';
 import {
   bookings,
   bookingShifts,
@@ -131,6 +133,8 @@ export class BookingsService {
     private readonly publicSearch: PublicSearchService,
     private readonly notifier: BookingNotifier,
     private readonly carePlans: CarePlansService,
+    private readonly reviewStore: ReviewStore,
+    private readonly reviewSettings: ReviewSettingsService,
   ) {}
 
   // --- pattern ---------------------------------------------------------------
@@ -1277,14 +1281,18 @@ export class BookingsService {
     if (!rows.length) return [];
 
     const since = new Date(Date.now() - 7 * 86_400_000);
-    const [shifts, profiles] = await Promise.all([
+    const reviewSettings = await this.reviewSettings.getResolved();
+    const [shifts, reviews] = await Promise.all([
       this.db
         .select()
         .from(bookingShifts)
         .where(and(inArray(bookingShifts.bookingId, rows.map((r) => r.id)), ne(bookingShifts.status, 'DRAFT'), gte(bookingShifts.endsAt, since)))
         .orderBy(asc(bookingShifts.startsAt)),
-      this.publicSearch.profilesFor(rows.map((r) => r.caregiverId), locale),
+      // Everyone who has worked on each booking - covers too - and the client's rating of them.
+      this.reviewStore.entriesForClient(user.patientId, rows.map((r) => r.id), new Date(), reviewSettings.windowDays),
     ]);
+    const reviewEntries = [...reviews.values()].flat();
+    const profiles = await this.publicSearch.profilesFor([...rows.map((r) => r.caregiverId), ...reviewEntries.map((e) => e.caregiverId)], locale);
     return rows.map((r) => ({
       id: r.id,
       reference: r.reference,
@@ -1306,6 +1314,7 @@ export class BookingsService {
           status: s.status,
           isCover: s.caregiverId !== r.caregiverId,
         })),
+      reviews: (reviews.get(r.id) ?? []).map((e) => reviewableView(e, profiles.get(e.caregiverId) ?? null, reviewSettings.enabled)),
     }));
   }
 
