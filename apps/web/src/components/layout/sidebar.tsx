@@ -3,11 +3,12 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2, GraduationCap, ClipboardList, UserX } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2, GraduationCap, ClipboardList, UserX, Star } from 'lucide-react';
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
 import { useAiStatus } from '@/lib/hooks/use-ai';
 import { useInternationalSummary } from '@/lib/hooks/use-international';
 import { useAccountDeletionSummary } from '@/lib/hooks/use-account-deletions';
+import { useReviewCounts } from '@/lib/hooks/use-reviews';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,8 @@ const INVOICES_ITEM = { href: '/invoices', key: 'nav.invoices', icon: ReceiptTex
 const PAYOUTS_ITEM = { href: '/payouts', key: 'nav.payouts', icon: Wallet };
 // People who asked to delete their account (app or website): ADMIN + STAFF, after Clients.
 const DELETIONS_ITEM = { href: '/account-deletions', key: 'nav.accountDeletions', icon: UserX };
+// Clients' ratings of caregivers, and written reviews to approve: ADMIN + STAFF, after Bookings.
+const REVIEWS_ITEM = { href: '/reviews', key: 'nav.reviews', icon: Star };
 // The AI assistant works requests and bookings, so it follows them: ADMIN + STAFF,
 // and only while an admin has it switched on in Settings > AI.
 const ASSISTANT_ITEM = { href: '/assistant', key: 'nav.assistant', icon: Bot };
@@ -58,11 +61,14 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { data: ai } = useAiStatus(canSeeClients);
   const { data: overseas } = useInternationalSummary(canSeeClients);
   const { data: deletions } = useAccountDeletionSummary(canSeeClients);
+  const { data: reviewCounts } = useReviewCounts(canSeeClients);
+  // Written reviews waiting for approval - the part of Reviews staff must act on.
+  const reviewsWaiting = reviewCounts?.pending ?? 0;
   const overseasWaiting = overseas ? overseas.new + overseas.pendingProfiles + overseas.pendingEmployers + overseas.interviewRequests : 0;
   // Requests lead for the roles that work them: it is the day's worklist.
   // Clients sit straight after Caregivers, the list they mirror.
   const base = canSeeClients
-    ? [ITEMS[0], REQUESTS_ITEM, OVERSEAS_ITEM, TRAINING_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, CARE_PLANS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM, DELETIONS_ITEM]
+    ? [ITEMS[0], REQUESTS_ITEM, OVERSEAS_ITEM, TRAINING_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, REVIEWS_ITEM, CARE_PLANS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM, DELETIONS_ITEM]
     : ITEMS;
   const items = [...base, ...(user?.role === 'ADMIN' ? ADMIN_ITEMS : []), SETTINGS_ITEM];
 
@@ -98,6 +104,14 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 aria-label={t('accountDeletions.waitingCount', { count: deletions.pending })}
               >
                 {deletions.pending}
+              </span>
+            )}
+            {item.href === '/reviews' && reviewsWaiting > 0 && (
+              <span
+                className="min-w-[1.25rem] rounded-full bg-accent px-1.5 text-center text-xs font-semibold tabular-nums text-white"
+                aria-label={t('reviews.waitingCount', { count: reviewsWaiting })}
+              >
+                {reviewsWaiting}
               </span>
             )}
             {item.href === '/international' && overseasWaiting > 0 && (
