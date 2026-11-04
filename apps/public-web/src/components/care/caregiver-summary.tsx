@@ -5,6 +5,7 @@ import { BadgeCheck, MapPin } from 'lucide-react';
 import type { PublicCaregiverProfile } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { VerifiedBadge } from '@/components/results/verified-badge';
+import { RatingLine } from '@/components/reviews/stars';
 
 /**
  * The one-line anonymous view of a caregiver used in the client's account
@@ -54,6 +55,11 @@ export function CaregiverSummary({
           </span>
         )}
       </p>
+      {caregiver.rating && (
+        <div className="mt-1">
+          <RatingLine rating={caregiver.rating} />
+        </div>
+      )}
     </div>
   );
 }

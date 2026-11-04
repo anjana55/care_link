@@ -25,6 +25,7 @@ function caregiver(overrides: Partial<PublicCaregiverSummary> = {}): PublicCareg
     homeLocation: { latitude: 6.9319, longitude: 79.8478, precision: 'city' },
     distanceKm: null,
     serviceArea: [],
+    rating: null,
     reach: null,
     matchScore: 42,
     matchReasons: ['works in the Colombo district', 'has a verified qualification'],

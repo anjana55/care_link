@@ -4,6 +4,7 @@ import type { CaregiverRelation, PublicCaregiverSummary } from '@care-platform/s
 import { useTranslation } from '@/lib/i18n';
 import { DeviceSaveButton, SaveButton } from '@/components/care/caregiver-actions';
 import { VerifiedBadge } from './verified-badge';
+import { RatingLine } from '@/components/reviews/stars';
 
 /**
  * `relation` is passed only for a signed-in client, and switches on the Save
@@ -60,6 +61,12 @@ export function ResultCard({
           {!relation && deviceSave && <DeviceSaveButton publicId={caregiver.publicId} caregiverLabel={caregiver.publicId.slice(0, 8)} variant="compact" />}
         </div>
       </div>
+
+      {caregiver.rating && (
+        <div className="mt-2">
+          <RatingLine rating={caregiver.rating} showTopBadge />
+        </div>
+      )}
 
       <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-sm text-ink/70">
         <MapPin className="h-4 w-4 text-ink/40" aria-hidden />
