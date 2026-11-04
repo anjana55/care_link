@@ -6,6 +6,7 @@ import { formatLkr } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { useMyPayouts } from '@/lib/hooks/use-caregiver-portal';
 import { fmtDate } from '@/lib/colombo-time';
+import { useMarkPathsRead } from '@/lib/hooks/use-notifications';
 
 /**
  * The caregiver's payout statements: what they are being paid for which
@@ -13,6 +14,7 @@ import { fmtDate } from '@/lib/colombo-time';
  * only approved or paid statements are shown.
  */
 export default function PaymentsPage() {
+  useMarkPathsRead(['/payments']);
   const { t, locale } = useTranslation();
   const { data, isLoading, isError } = useMyPayouts();
   const [open, setOpen] = useState<string | null>(null);

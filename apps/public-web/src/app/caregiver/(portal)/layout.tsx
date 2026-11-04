@@ -8,6 +8,7 @@ import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { BrandMark } from '@/components/layout/brand-mark';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { hardNavigate } from '@/lib/navigation';
 
 const SECTIONS = [
@@ -18,6 +19,7 @@ const SECTIONS = [
   { href: '/caregiver/payments', key: 'portal.nav.payments' },
   { href: '/caregiver/ratings', key: 'portal.nav.ratings' },
   { href: '/caregiver/work-abroad', key: 'portal.nav.workAbroad' },
+  { href: '/caregiver/notifications', key: 'portal.nav.notifications' },
 ];
 
 /**
@@ -60,6 +62,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             <BrandMark />
           </Link>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <LanguageSwitcher />
             <span className="hidden text-xs text-ink/50 lg:inline">{user.email ?? user.phone}</span>
             <Button

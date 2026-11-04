@@ -696,7 +696,8 @@
       "shifts": "Shifts",
       "payments": "Payments",
       "ratings": "Ratings",
-      "workAbroad": "Work abroad"
+      "workAbroad": "Work abroad",
+      "notifications": "Notifications"
     },
     "loadError": "We could not load this page. Please refresh and try again.",
     "saveError": "We could not save that. Please try again.",
@@ -1234,7 +1235,8 @@
       "saved": "Saved caregivers",
       "bookings": "Bookings",
       "invoices": "Invoices",
-      "signIn": "Sign-in methods"
+      "signIn": "Sign-in methods",
+      "notifications": "Notifications"
     },
     "findCaregivers": "Find caregivers",
     "requests": {
@@ -2394,6 +2396,58 @@
       "badges": "Badges clients gave you",
       "noReviews": "No written reviews yet.",
       "view": "See my ratings"
+    }
+  },
+  "notifications": {
+    "bell": "Notifications",
+    "bellCount": "Notifications, {count} new",
+    "title": "Notifications",
+    "todo": "To do",
+    "todoEmpty": "Nothing to do right now.",
+    "recent": "Notifications",
+    "empty": "No notifications yet.",
+    "markAllRead": "Mark all as read",
+    "seeAll": "See all",
+    "loadMore": "Show older",
+    "new": "New",
+    "important": "Important",
+    "openLink": "Open link",
+    "loadError": "Couldn't load your notifications. Try again shortly.",
+    "text": {
+      "PAY_INVOICE": "Pay invoice {number} ({amount})",
+      "PAY_INVOICE_OVERDUE": "Invoice {number} ({amount}) is overdue",
+      "RATE_CAREGIVER": "How was your care? Rate your caregiver on booking {reference}",
+      "TICK_OFF_CARE": "Tick off today's care: {count} still open",
+      "UPLOAD_DOCUMENT": "Upload your {document}",
+      "DOCUMENT_REJECTED": "Upload your {document} again - the last one could not be accepted",
+      "DOCUMENT_EXPIRING": "Your {document} expires in {days} days",
+      "DOCUMENT_EXPIRING_TODAY": "Your {document} expires today",
+      "DOCUMENT_EXPIRED": "Your {document} has expired",
+      "SHIFT_TODAY": "Shift today at {time} ({reference})"
+    },
+    "due": "Due {date}",
+    "action": {
+      "PAY_INVOICE": "Pay now",
+      "RATE_CAREGIVER": "Rate",
+      "TICK_OFF_CARE": "Tick off",
+      "UPLOAD_DOCUMENT": "Upload",
+      "DOCUMENT_REJECTED": "Upload again",
+      "DOCUMENT_EXPIRING": "Upload new",
+      "SHIFT_TODAY": "View shift"
+    },
+    "document": {
+      "identity": "proof of identity",
+      "police": "police clearance certificate",
+      "gn": "Grama Niladhari certificate",
+      "NIC": "national identity card",
+      "PASSPORT": "passport",
+      "GRAMA_NILADHARI_CERTIFICATE": "Grama Niladhari certificate",
+      "POLICE_CLEARANCE": "police clearance certificate",
+      "CAREGIVER_CERTIFICATE": "caregiver certificate",
+      "NVQ_CERTIFICATE": "NVQ certificate",
+      "NURSING_CERTIFICATE": "nursing certificate",
+      "CV": "CV",
+      "OTHER": "document"
     }
   }
 }

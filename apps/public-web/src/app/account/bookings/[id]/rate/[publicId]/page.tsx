@@ -13,6 +13,7 @@ import { CaregiverSummary } from '@/components/care/caregiver-summary';
 import { ReviewForm } from '@/components/reviews/review-form';
 import { Stars, BadgeChip } from '@/components/reviews/stars';
 import { Button } from '@/components/ui/button';
+import { useMarkPathsRead } from '@/lib/hooks/use-notifications';
 
 /**
  * Rating one caregiver for one booking - the booked caregiver or a cover.
@@ -22,6 +23,7 @@ import { Button } from '@/components/ui/button';
 export default function RateCaregiverPage() {
   const { t, locale } = useTranslation();
   const params = useParams<{ id: string; publicId: string }>();
+  useMarkPathsRead([`/bookings/${params.id}/rate/${params.publicId}`]);
   const { data, isLoading, isError, error, refetch } = useBookingReview(params.id, params.publicId);
   const submit = useSubmitReview(params.id, params.publicId);
   const remove = useDeleteReview(params.id, params.publicId);

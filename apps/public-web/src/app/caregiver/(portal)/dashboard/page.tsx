@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n';
+import { TodoCards } from '@/components/notifications/notifications-page';
 import { ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { RegistrationStatusBadge } from '@/components/portal/status-badge';
@@ -37,6 +38,7 @@ export default function CaregiverDashboardPage() {
 
   return (
     <div className="space-y-5">
+      <TodoCards />
       <section className="rounded-lg border border-border bg-white p-5">
         <p className="text-xs text-ink/50">{t('portal.welcome')}</p>
         <h1 className="text-xl font-semibold text-ink">{caregiver.fullName}</h1>

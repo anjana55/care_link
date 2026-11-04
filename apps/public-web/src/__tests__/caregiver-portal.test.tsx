@@ -26,6 +26,8 @@ jest.mock('@/lib/navigation', () => ({ hardNavigate: jest.fn() }));
 
 const get = jest.fn();
 const post = jest.fn();
+/** Calls other than the bell's "mark read" (each portal page clears its own notices when it opens). */
+const sent = () => post.mock.calls.filter((c) => c[0] !== '/me/notifications/read');
 const put = jest.fn();
 const patch = jest.fn();
 const del = jest.fn();
@@ -166,13 +168,13 @@ describe('who may see the area', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it('shows a caregiver the seven sections and marks the current one', () => {
+  it('shows a caregiver the eight sections and marks the current one', () => {
     pathname = '/caregiver/documents';
     renderPage(<PortalLayout><p>inside</p></PortalLayout>);
 
     const nav = screen.getByRole('navigation');
     expect(within(nav).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual([
-      '/caregiver/dashboard', '/caregiver/profile', '/caregiver/documents', '/caregiver/shifts', '/caregiver/payments', '/caregiver/ratings', '/caregiver/work-abroad',
+      '/caregiver/dashboard', '/caregiver/profile', '/caregiver/documents', '/caregiver/shifts', '/caregiver/payments', '/caregiver/ratings', '/caregiver/work-abroad', '/caregiver/notifications',
     ]);
     expect(within(nav).getByRole('link', { name: 'Documents' }).getAttribute('aria-current')).toBe('page');
     expect(within(nav).getByRole('link', { name: 'Profile' }).getAttribute('aria-current')).toBeNull();
@@ -188,7 +190,7 @@ describe('who may see the area', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'සිං' }));
     expect(nav().getAllByRole('link').map((l) => l.textContent)).toEqual([
-      si.portal.nav.overview, si.portal.nav.profile, si.portal.nav.documents, si.portal.nav.shifts, si.portal.nav.payments, si.portal.nav.ratings, si.portal.nav.workAbroad,
+      si.portal.nav.overview, si.portal.nav.profile, si.portal.nav.documents, si.portal.nav.shifts, si.portal.nav.payments, si.portal.nav.ratings, si.portal.nav.workAbroad, si.portal.nav.notifications,
     ]);
     expect(screen.getByRole('button', { name: si.caregiverDashboard.signOut })).toBeDefined();
 
@@ -399,8 +401,8 @@ describe('documents', () => {
     pick(file('police.pdf'));
     fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
 
-    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
-    const [path, body] = post.mock.calls[0];
+    await waitFor(() => expect(sent()).toHaveLength(1));
+    const [path, body] = sent()[0];
     expect(path).toBe('/caregivers/cg-1/documents');
     expect(body).toBeInstanceOf(FormData);
     expect((body as FormData).get('documentType')).toBe('POLICE_CLEARANCE');
@@ -418,7 +420,7 @@ describe('documents', () => {
     expect(await screen.findByText(/larger than 10 MB/i)).toBeDefined();
 
     expect((screen.getByRole('button', { name: 'Upload' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(post).not.toHaveBeenCalled();
+    expect(sent()).toEqual([]);
   });
 
   describe('choosing what is being uploaded', () => {
@@ -442,8 +444,8 @@ describe('documents', () => {
       choose?.();
       pick(file('scan.pdf'));
       fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
-      await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
-      expect((post.mock.calls[0][1] as FormData).get('documentType')).toBe(expected);
+      await waitFor(() => expect(sent()).toHaveLength(1));
+      expect((sent()[0][1] as FormData).get('documentType')).toBe(expected);
     };
     const choosing = (value: string) => () => fireEvent.change(screen.getByLabelText('Document type'), { target: { value } });
 
@@ -670,7 +672,7 @@ describe('profile', () => {
 
       fireEvent.click(section.getByRole('button', { name: 'Save' }));
       expect((await screen.findAllByText(/this field is required/i)).length).toBeGreaterThanOrEqual(2);
-      expect(post).not.toHaveBeenCalled();
+      expect(sent()).toEqual([]);
 
       fireEvent.change(screen.getByRole('textbox', { name: /^Qualification/ }), { target: { value: 'NVQ Level 3' } });
       fireEvent.change(screen.getByLabelText(/^Institution/), { target: { value: 'VTA' } });

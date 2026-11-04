@@ -23,7 +23,7 @@ const post = jest.fn();
 const get = jest.fn();
 const push = jest.fn();
 
-jest.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: jest.fn() }) }));
+jest.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: jest.fn() }), usePathname: () => '/login' }));
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a>,

@@ -9,6 +9,7 @@ import { Input, Label, Select, FieldError } from '@/components/ui/input';
 import { useAvailability, useSaveAvailability } from '@/lib/hooks/use-caregiver-portal';
 import { SHIFT_PREFERENCES, type Availability, type ShiftPreference } from '@/lib/api/portal-types';
 import { careTypeValues, type CareType } from '@care-platform/shared';
+import { useMarkPathsRead } from '@/lib/hooks/use-notifications';
 
 interface Form {
   dayDuty: boolean;
@@ -64,6 +65,7 @@ const MONEY = /^\d{1,8}(\.\d{1,2})?$/;
  * numeric strings and an empty string is not one.
  */
 export default function CaregiverShiftsPage() {
+  useMarkPathsRead(['/shifts']);
   const { t } = useTranslation();
   const { data, isLoading, isError } = useAvailability();
   const save = useSaveAvailability();

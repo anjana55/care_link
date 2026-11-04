@@ -11,6 +11,7 @@ import { ApiError } from '@/lib/api/client';
 import { useMyInvoice, useStartOnlinePayment } from '@/lib/hooks/use-client-care';
 import { LoadingState, ErrorState } from '@/components/common/states';
 import { InvoiceView } from '@/components/care/invoice-view';
+import { useMarkPathsRead } from '@/lib/hooks/use-notifications';
 
 /** Hands the browser to PayHere: a plain form post, the way PayHere's checkout expects. */
 function postToPayhere({ action, fields }: PayhereCheckout) {
@@ -36,6 +37,8 @@ function postToPayhere({ action, fields }: PayhereCheckout) {
 function InvoicePage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
+  // Opening the invoice clears its notices from the bell.
+  useMarkPathsRead([`/invoices/${id}`]);
   const params = useSearchParams();
   const payment = params.get('payment');
   const { user } = useAuth();
