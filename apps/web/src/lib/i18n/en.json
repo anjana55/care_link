@@ -24,7 +24,8 @@
     "training": "Training",
     "carePlans": "Care plans",
     "accountDeletions": "Account deletions",
-    "reviews": "Reviews"
+    "reviews": "Reviews",
+    "announcements": "Announcements"
   },
   "login": {
     "title": "Sign in",
@@ -1070,7 +1071,8 @@
       "referenceData": "Reference data",
       "data": "Data"
     },
-    "reviews": "Reviews"
+    "reviews": "Reviews",
+    "notifications": "Notifications"
   },
   "brandingAdmin": {
     "companyTitle": "Company",
@@ -3711,5 +3713,71 @@
       "saveError": "We could not save the settings."
     },
     "waitingCount": "{count} waiting"
+  },
+  "announcements": {
+    "title": "Announcements",
+    "subtitle": "Tell every client, every caregiver, or both - office hours, a rate change, a safety notice. It goes into their notifications on the website and in the app.",
+    "newTitle": "New announcement",
+    "editTitle": "Edit draft",
+    "audience": "Who it is for",
+    "audiences": {
+      "CLIENTS": "All clients",
+      "CAREGIVERS": "All caregivers",
+      "ALL": "Clients and caregivers"
+    },
+    "language": "Language",
+    "languages": {
+      "en": "English",
+      "si": "Sinhala",
+      "ta": "Tamil"
+    },
+    "fallbackHint": "Leave empty to send the English text to people who read in this language.",
+    "messageTitle": "Title",
+    "message": "Message",
+    "link": "Link (optional)",
+    "linkHint": "A page on the website, starting with / (for example /account/bookings), or an https:// address.",
+    "important": "Important",
+    "importantHint": "Pinned to the top of their notifications until they open it.",
+    "sendPush": "Send a push to the app",
+    "sendPushHint": "To everyone who has the app. Not in quiet hours (Settings > Notifications).",
+    "sendWhatsapp": "Also send by WhatsApp",
+    "sendWhatsappHint": "One WhatsApp message to each person with a phone number. Costs per message - use only for important news.",
+    "saveDraft": "Save draft",
+    "savedDraft": "Draft saved. Publish it from the list below.",
+    "saveError": "Could not save that. Please try again.",
+    "loadError": "Could not load announcements.",
+    "listTitle": "Drafts and sent",
+    "empty": "No announcements yet.",
+    "draft": "Draft",
+    "published": "Published",
+    "push": "Push",
+    "publish": "Publish",
+    "edit": "Edit",
+    "delete": "Delete",
+    "unpublish": "Unpublish",
+    "publishedLine": "Published {date} to {recipients} people · {read} opened it",
+    "createdLine": "Saved {date} by {name}",
+    "confirmPublishTitle": "Publish this announcement?",
+    "confirmPublish": "It goes to {audience} straight away and can't be changed afterwards - only unpublished.",
+    "confirmUnpublishTitle": "Unpublish this announcement?",
+    "confirmUnpublish": "It is taken out of everyone's notifications. Pushes and WhatsApp messages already sent can't be called back.",
+    "confirmDeleteTitle": "Delete this draft?",
+    "confirmDelete": "The draft is deleted."
+  },
+  "notificationsAdmin": {
+    "title": "Notifications",
+    "subtitle": "How clients and caregivers are reminded about what is waiting on them. The bell and the notices about bookings, invoices and requests always work.",
+    "remindersEnabled": "Send reminders",
+    "remindersEnabledHint": "Invoices due tomorrow, a rejected document still not replaced, a shift today. Each is reminded once. Things to do stay on their To do list either way.",
+    "quietHours": "Quiet hours (Sri Lanka time)",
+    "quietHoursHint": "No reminders, digests or announcement pushes between these hours. Changes to a shift happening today still go at once.",
+    "from": "From",
+    "until": "Until",
+    "dailyCap": "Reminders a day, at most",
+    "dailyCapHint": "1 to 5. Reminders due at the same time are combined into one message.",
+    "retention": "Keep notifications for (days)",
+    "retentionHint": "30 to 730. Older notifications are deleted.",
+    "saved": "Saved.",
+    "saveError": "Could not save the settings. Please try again."
   }
 }
