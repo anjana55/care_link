@@ -35,6 +35,7 @@ import { CorrectBookingPanel } from '@/components/bookings/correct-booking-panel
 import { BookingCorrections } from '@/components/bookings/booking-corrections';
 import { BookingCarePlan } from '@/components/bookings/booking-care-plan';
 import { BookingCareLog } from '@/components/bookings/booking-care-log';
+import { BookingRatingsCard } from '@/components/reviews/rating-panels';
 import {
   emptyShiftRates,
   ShiftRateChips,
@@ -218,6 +219,7 @@ export default function BookingPage() {
           {booking.status !== 'DRAFT' && (
             <BookingCorrections bookingId={booking.id} canCorrect={booking.status === 'CONFIRMED' || booking.status === 'COMPLETED'} onCorrectFrom={(issue) => startCorrecting({ issue })} />
           )}
+          {booking.status !== 'DRAFT' && <BookingRatingsCard bookingId={booking.id} />}
         </div>
         <BookingHistory booking={booking} />
       </div>
