@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { NormalSearchForm } from '@/components/search/normal-search-form';
 import { renderWithProviders } from '@/lib/test/test-utils';
-import type { SearchRequest } from '@care-platform/shared';
+import { colomboToday, type SearchRequest } from '@care-platform/shared';
 
 // The meta hooks power the district/city dropdowns. Stubbed at the module
 // boundary so this test exercises form validation, not the network.
@@ -127,6 +127,31 @@ describe('NormalSearchForm', () => {
     expect(startDate()).toHaveAttribute('aria-required', 'true');
     expect(district()).not.toHaveAttribute('required');
     expect(startDate()).not.toHaveAttribute('required');
+  });
+
+  it('starts the desired start date on today, so it need not be picked', async () => {
+    const onSubmit = jest.fn();
+    render(renderWithProviders(<NormalSearchForm onSubmit={onSubmit} />));
+
+    expect(startDate()).toHaveValue(colomboToday());
+    chooseDistrict();
+    chooseCareType();
+    fireEvent.click(submit());
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ desiredStartDate: colomboToday() });
+  });
+
+  it('keeps the start date of a restored search', () => {
+    render(renderWithProviders(<NormalSearchForm onSubmit={jest.fn()} initialValues={{ desiredStartDate: '2026-12-01', page: 1, pageSize: 20 }} />));
+    expect(startDate()).toHaveValue('2026-12-01');
+  });
+
+  it('puts the start date back to today on Clear filters', () => {
+    render(renderWithProviders(<NormalSearchForm onSubmit={jest.fn()} />));
+    chooseStartDate();
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+    expect(startDate()).toHaveValue(colomboToday());
   });
 
   it('tells the user the start date does not affect results yet', () => {
