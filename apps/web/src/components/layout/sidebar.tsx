@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2, GraduationCap, ClipboardList, UserX, Star } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2, GraduationCap, ClipboardList, UserX, Star, Megaphone } from 'lucide-react';
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
 import { useAiStatus } from '@/lib/hooks/use-ai';
 import { useInternationalSummary } from '@/lib/hooks/use-international';
@@ -43,6 +43,8 @@ const PAYOUTS_ITEM = { href: '/payouts', key: 'nav.payouts', icon: Wallet };
 const DELETIONS_ITEM = { href: '/account-deletions', key: 'nav.accountDeletions', icon: UserX };
 // Clients' ratings of caregivers, and written reviews to approve: ADMIN + STAFF, after Bookings.
 const REVIEWS_ITEM = { href: '/reviews', key: 'nav.reviews', icon: Star };
+// Messages from the office to every client, caregiver or both: ADMIN + STAFF, after Reviews.
+const ANNOUNCEMENTS_ITEM = { href: '/announcements', key: 'nav.announcements', icon: Megaphone };
 // The AI assistant works requests and bookings, so it follows them: ADMIN + STAFF,
 // and only while an admin has it switched on in Settings > AI.
 const ASSISTANT_ITEM = { href: '/assistant', key: 'nav.assistant', icon: Bot };
@@ -68,7 +70,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   // Requests lead for the roles that work them: it is the day's worklist.
   // Clients sit straight after Caregivers, the list they mirror.
   const base = canSeeClients
-    ? [ITEMS[0], REQUESTS_ITEM, OVERSEAS_ITEM, TRAINING_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, REVIEWS_ITEM, CARE_PLANS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM, DELETIONS_ITEM]
+    ? [ITEMS[0], REQUESTS_ITEM, OVERSEAS_ITEM, TRAINING_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, REVIEWS_ITEM, ANNOUNCEMENTS_ITEM, CARE_PLANS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM, DELETIONS_ITEM]
     : ITEMS;
   const items = [...base, ...(user?.role === 'ADMIN' ? ADMIN_ITEMS : []), SETTINGS_ITEM];
 
