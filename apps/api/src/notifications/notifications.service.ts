@@ -3,6 +3,7 @@ import { randomUUID as uuid } from 'crypto';
 import { and, count, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import {
   DEFAULT_COMPANY_NAME,
+  greetingName,
   NOTIFICATION_LANGUAGES,
   notificationCategory,
   type NotificationCategory,
@@ -12,7 +13,7 @@ import {
   type NotificationText,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { notifications } from '../database/schema';
+import { caregivers, notifications, patients } from '../database/schema';
 import { PushService, type PushExtras, type PushLanguage, type PushText } from '../push/push.service';
 import { BrandingSettingsService } from '../branding/branding-settings.service';
 import { withBrand } from '../common/branding/brand-text';
@@ -163,6 +164,29 @@ export class NotificationsService {
 
   async unreadCount(userId: string): Promise<number> {
     return (await this.unreadCounts([userId])).get(userId) ?? 0;
+  }
+
+  /** One person's unread notices by category (the bell's number is their sum). */
+  async unreadByCategory(userId: string): Promise<Partial<Record<NotificationCategory, number>>> {
+    const rows = await this.db
+      .select({ category: notifications.category, n: count() })
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)))
+      .groupBy(notifications.category);
+    return Object.fromEntries(rows.filter((r) => Number(r.n) > 0).map((r) => [r.category, Number(r.n)]));
+  }
+
+  /** The first name to greet a client or caregiver by, from the record their login owns. */
+  async firstName(user: { patientId?: string; caregiverId?: string }): Promise<string | null> {
+    if (user.patientId) {
+      const [row] = await this.db.select({ name: patients.fullName }).from(patients).where(eq(patients.id, user.patientId)).limit(1);
+      return greetingName(row?.name);
+    }
+    if (user.caregiverId) {
+      const [row] = await this.db.select({ name: caregivers.fullName }).from(caregivers).where(eq(caregivers.id, user.caregiverId)).limit(1);
+      return greetingName(row?.name);
+    }
+    return null;
   }
 
   private async brand() {

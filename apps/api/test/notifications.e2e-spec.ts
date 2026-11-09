@@ -153,13 +153,18 @@ describe('In-app notifications (e2e)', () => {
     expect(si.id).toBe(items[0].id);
     expect(si.title).not.toBe(items[0].title);
 
-    expect((await summary(client.token).expect(200)).body.unread).toBe(1);
+    const before = (await summary(client.token).expect(200)).body;
+    expect(before.unread).toBe(1);
+    // By category for the app's home cards, and the name to greet by (registered as "Bell Client <letters>").
+    expect(before.unreadBy).toEqual({ BOOKING: 1 });
+    expect(before.firstName).toBe('Bell');
     // Someone else can't mark it read.
     expect((await api().post('/me/notifications/read').set(bearer(other.token)).send({ ids: [items[0].id] }).expect(200)).body.marked).toBe(0);
     expect((await api().post('/me/notifications/read').set(bearer(client.token)).send({ paths: [`/bookings/${id}`] }).expect(200)).body.marked).toBe(1);
     const after = await summary(client.token).expect(200);
     expect(after.body.unread).toBe(0);
     expect(after.body.badge).toBe(after.body.todos.length);
+    expect(after.body.unreadBy).toEqual({});
     expect((await list(client.token).expect(200)).body.items[0].readAt).not.toBeNull();
   });
 

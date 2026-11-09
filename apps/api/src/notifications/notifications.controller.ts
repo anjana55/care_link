@@ -23,12 +23,13 @@ export class MyNotificationsController {
     private readonly todos: TodosService,
   ) {}
 
-  /** The bell's number and the To do list, in one call. Polled, so cheap. */
+  /** The bell's number, unread by category, the To do list and the name to greet by, in one call. Polled, so cheap: three indexed queries. */
   @Get('summary')
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async summary(@CurrentUser() user: AuthenticatedUser): Promise<NotificationsSummary> {
-    const [unread, todos] = await Promise.all([this.notices.unreadCount(user.userId), this.todos.forUser(user)]);
-    return { unread, todos, badge: unread + todos.length };
+    const [unreadBy, todos, firstName] = await Promise.all([this.notices.unreadByCategory(user.userId), this.todos.forUser(user), this.notices.firstName(user)]);
+    const unread = Object.values(unreadBy).reduce((a, b) => a + (b ?? 0), 0);
+    return { unread, unreadBy, todos, badge: unread + todos.length, firstName };
   }
 
   @Get()

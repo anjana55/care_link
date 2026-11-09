@@ -11,6 +11,7 @@ import { PageHeader } from '@/ui/PageHeader';
 import { formatDate } from '@/ui/dates';
 import { useCancelRequest, useClient, useMyRequests } from '@/care/api';
 import { RequestSheet } from '@/care/RequestSheet';
+import { useMarkPathsRead } from '@/notifications/api';
 import { SignInPrompt } from '@/care/SignInPrompt';
 import { shortId } from '@/search/ResultCard';
 
@@ -25,6 +26,8 @@ export default function Requests() {
   const router = useRouter();
   const client = useClient();
   const requests = useMyRequests();
+  // Opening the list clears its updates from the bell and the number on Home's My requests card.
+  useMarkPathsRead((requests.data ?? []).slice(0, 20).map((r) => `/requests/${r.id}`));
   const [findForMe, setFindForMe] = useState(false);
 
   const head = (

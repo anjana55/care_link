@@ -1,4 +1,4 @@
-import { inQuietHours, notificationCategory, webPathFor, type TodoItem } from '@care-platform/shared';
+import { greetingName, inQuietHours, notificationCategory, webPathFor, type TodoItem } from '@care-platform/shared';
 import { NotificationsService, textFor } from './notifications.service';
 import { daysBetween, sortTodos, TodosService } from './todos.service';
 import { digestNotice, documentCheckedNotice, documentExpiryNotice, type ReminderLine } from './notification-messages';
@@ -7,6 +7,24 @@ import { byPerson, ReminderSweepService, type Candidate } from './reminder-sweep
 import { messagesFor } from '../push/push.service';
 
 const UUID = '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b';
+
+describe('greeting name', () => {
+  it('greets by the first word that is a name, not an initial or a title', () => {
+    expect(greetingName('Kamala Perera')).toBe('Kamala');
+    expect(greetingName('W.A. Kamala Perera')).toBe('Kamala');
+    expect(greetingName('W. A. Kamala Perera')).toBe('Kamala');
+    expect(greetingName('K Nimal Silva')).toBe('Nimal');
+    expect(greetingName('Mrs. Kamala Perera')).toBe('Kamala');
+    expect(greetingName('Dr Sunil Fernando')).toBe('Sunil');
+    expect(greetingName('  කමලා  පෙරේරා ')).toBe('කමලා');
+  });
+
+  it('gives nothing to greet by when there is no name left', () => {
+    expect(greetingName('W.A.')).toBeNull();
+    expect(greetingName('')).toBeNull();
+    expect(greetingName(null)).toBeNull();
+  });
+});
 
 describe('notification paths', () => {
   it('maps every app path a notice carries to the right website page, by role', () => {
