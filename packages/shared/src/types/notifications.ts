@@ -94,6 +94,33 @@ export interface NotificationsSummary {
   todos: TodoItem[];
   /** unread + todos.length: the bell's number and the app icon's badge. */
   badge: number;
+  /**
+   * Unread notices by category, for numbers on the app's home cards (REQUEST
+   * on My requests). Categories with none are left out. Optional: an older
+   * API doesn't send it, and the app then shows no number.
+   */
+  unreadBy?: Partial<Record<NotificationCategory, number>>;
+  /** The signed-in person's first name, for a greeting (see greetingName). Null when there is none to show. */
+  firstName?: string | null;
+}
+
+/**
+ * The name to greet someone by, from their full name: the first word that
+ * isn't an initial or a title, so "W.A. Kamala Perera" and "Mrs. Kamala
+ * Perera" are both greeted as Kamala. Null when nothing is left (a name of
+ * initials only), so the greeting falls back to a plain one.
+ */
+export function greetingName(fullName: string | null | undefined): string | null {
+  const TITLES = new Set(['mr', 'mrs', 'ms', 'miss', 'dr', 'rev', 'prof', 'sir', 'madam']);
+  for (const word of (fullName ?? '').trim().split(/\s+/)) {
+    const bare = word.replace(/[.,]/g, '');
+    if (!bare) continue;
+    if (word.includes('.') && bare.length <= 3) continue; // W.A., K.
+    if (bare.length === 1) continue; // K
+    if (TITLES.has(bare.toLowerCase())) continue;
+    return bare.length > 40 ? bare.slice(0, 40) : bare;
+  }
+  return null;
 }
 
 /**

@@ -207,8 +207,10 @@ describe('the client home', () => {
       'GET /me/notifications/summary': () => ({
         status: 200,
         body: {
-          unread: 0,
-          badge: 3,
+          unread: 2,
+          unreadBy: { REQUEST: 2 },
+          firstName: 'Kamala',
+          badge: 5,
           todos: [
             todo({ key: 'care', kind: 'TICK_OFF_CARE', path: '/bookings', params: { count: 2 } }),
             todo({ key: 'inv-1', params: { number: 'INV-7', amount: 'LKR 12,500.00', overdue: 0 } }),
@@ -229,6 +231,9 @@ describe('the client home', () => {
     expect(screen.getByTestId('count-bills', { includeHiddenElements: true })).toHaveTextContent('2');
     expect(screen.getByRole('button', { name: en.account.nav.invoices })).toHaveProp('accessibilityHint', `${en.clientHome.hints.bills}. 2 waiting`);
     expect(screen.queryByTestId('count-saved', { includeHiddenElements: true })).toBeNull();
+    // New replies from the office: a number on My requests. Greeted by name.
+    expect(screen.getByTestId('count-requests', { includeHiddenElements: true })).toHaveTextContent('2');
+    expect(screen.getByText('Kamala')).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: "Tick off: Tick off today's care: 2 still open" }));
     expect(mockRouter.push).toHaveBeenLastCalledWith('/bookings');

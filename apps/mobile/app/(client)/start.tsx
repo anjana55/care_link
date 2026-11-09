@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { TodoKind } from '@care-platform/shared';
+import type { NotificationCategory, TodoKind } from '@care-platform/shared';
 import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { useClient } from '@/care/api';
@@ -33,6 +33,9 @@ const TILES: { key: TileKey; label: string; to: Route }[] = [
 /** Which to-dos a card's number counts: what is waiting behind that card. */
 const COUNTS: Partial<Record<TileKey, TodoKind>> = { bookings: 'RATE_CAREGIVER', care: 'TICK_OFF_CARE', bills: 'PAY_INVOICE' };
 
+/** Cards whose number is unread notices of a kind instead: new replies from the office. */
+const UNREAD: Partial<Record<TileKey, NotificationCategory>> = { requests: 'REQUEST' };
+
 /** The card that leads to the same place as a to-do: left out while that to-do is the one on top, so it isn't shown twice. */
 const CARD_FOR: Partial<Record<TodoKind, TileKey>> = { TICK_OFF_CARE: 'care' };
 
@@ -57,9 +60,12 @@ export default function Start() {
   const next = client && bookings.data ? nextVisit(bookings.data) : null;
   const todos = client ? (summary.data?.todos ?? []) : [];
   const onTop = todos[0] ? CARD_FOR[todos[0].kind] : undefined;
+  const firstName = client ? summary.data?.firstName : null;
   const countFor = (key: TileKey) => {
     const kind = COUNTS[key];
-    return kind ? todos.filter((i) => i.kind === kind).length : 0;
+    const category = UNREAD[key];
+    if (kind) return todos.filter((i) => i.kind === kind).length;
+    return client && category ? (summary.data?.unreadBy?.[category] ?? 0) : 0;
   };
 
   return (
@@ -68,9 +74,10 @@ export default function Start() {
         <HeroBand style={{ paddingTop: insets.top + 16, paddingBottom: 22, gap: 18 }}>
           <View style={styles.top}>
             <View style={{ flex: 1, gap: 2 }}>
+              {/* Their own name once the server sends it; the brand's until then, and for someone not signed in. */}
               <Text style={styles.hello}>{client ? t('home.welcome') : t('clientHome.welcome')}</Text>
               <Text accessibilityRole="header" style={styles.title}>
-                {t('app.name')}
+                {firstName || t('app.name')}
               </Text>
             </View>
             <Bell />
