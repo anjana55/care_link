@@ -1161,7 +1161,19 @@
     "search": "Search for a caregiver",
     "whatToDo": "What would you like to do?",
     "nextVisit": "Next visit",
-    "nextVisitWhen": "{day} · {from} – {to}"
+    "nextVisitWhen": "{day} · {from} – {to}",
+    "nextForYou": "Next for you",
+    "nextOf": "{n} of {total}",
+    "seeAll": "See all {count} things to do",
+    "waiting": "{count} waiting",
+    "hints": {
+      "find": "Search by area and care needed",
+      "bookings": "Your current and past care",
+      "care": "Tick off what was done",
+      "bills": "See and pay your bills",
+      "saved": "Caregivers you liked",
+      "requests": "Talk to the office"
+    }
   },
   "calendar": {
     "previousMonth": "Previous month",

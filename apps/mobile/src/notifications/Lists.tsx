@@ -11,7 +11,7 @@ import { Text } from '@/ui/Text';
 import { tint, type IconName } from '@/ui/visual';
 import { useMarkRead } from './api';
 
-const TODO_ICONS: Record<TodoKind, IconName> = {
+export const TODO_ICONS: Record<TodoKind, IconName> = {
   PAY_INVOICE: 'receipt-outline',
   RATE_CAREGIVER: 'star-outline',
   TICK_OFF_CARE: 'checkbox-outline',

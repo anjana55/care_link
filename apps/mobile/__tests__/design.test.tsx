@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import type { ClientBooking } from '@care-platform/shared';
+import type { ClientBooking, TodoItem } from '@care-platform/shared';
 import en from '../src/i18n/en.json';
 import Start from '../app/(client)/start';
 import { AppProviders, serveApi } from '../test-utils/app';
@@ -163,19 +163,28 @@ describe('the client home', () => {
     expect(nextVisit([], now)).toBeNull();
   });
 
-  it('has a big tile for everything a client does, and their next visit', async () => {
+  it('has a big card for everything a client does, the search box when nothing is waiting, and their next visit', async () => {
     await tokenStore.set(tokensFor('PATIENT_GUARDIAN'));
     const soon = new Date(Date.now() + 86_400_000);
     soon.setUTCHours(2, 30, 0, 0);
     const end = new Date(soon.getTime() + 12 * 3_600_000);
-    serveApi({ 'GET /me/bookings': () => ({ status: 200, body: [booking({ shifts: [shift('s-1', soon.toISOString(), end.toISOString())] })] }) });
+    serveApi({
+      'GET /me/bookings': () => ({ status: 200, body: [booking({ shifts: [shift('s-1', soon.toISOString(), end.toISOString())] })] }),
+      'GET /me/notifications/summary': () => ({ status: 200, body: { unread: 0, todos: [], badge: 0 } }),
+    });
     await show(<Start />);
 
     expect(await screen.findByText(en.clientHome.nextVisit)).toBeTruthy();
     expect(screen.getByText(/08:00/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: en.nav.home })).toHaveProp('accessibilityState', { selected: true });
+    // Home is where they are: no Back or Home button on it.
+    expect(screen.queryByRole('button', { name: en.nav.back })).toBeNull();
+    expect(screen.queryByRole('button', { name: en.nav.home })).toBeNull();
+    expect(screen.queryByText(en.clientHome.nextForYou)).toBeNull();
+    expect(screen.getByText(en.clientHome.hints.bills)).toBeTruthy();
+    expect(screen.getByTestId('home-art-find', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByTestId('count-bills', { includeHiddenElements: true })).toBeNull();
 
-    const tiles: [string, string][] = [
+    const cards: [string, string][] = [
       [en.welcome.findCare, '/find'],
       [en.account.nav.bookings, '/bookings'],
       [en.carePlan.todayTitle, '/bookings'],
@@ -184,10 +193,47 @@ describe('the client home', () => {
       [en.account.nav.requests, '/requests'],
       [en.clientHome.search, '/find'],
     ];
-    for (const [name, to] of tiles) {
+    for (const [name, to] of cards) {
       await fireEvent.press(screen.getByRole('button', { name }));
       expect(mockRouter.navigate).toHaveBeenLastCalledWith(to);
     }
+  });
+
+  it('puts the next thing to do on the band, numbers on the cards it concerns, and the whole list one tap away', async () => {
+    await tokenStore.set(tokensFor('PATIENT_GUARDIAN'));
+    const todo = (over: Partial<TodoItem>): TodoItem => ({ key: 'k', kind: 'PAY_INVOICE', path: '/invoices/i-1', urgent: false, dueOn: null, params: {}, ...over });
+    serveApi({
+      'GET /me/bookings': () => ({ status: 200, body: [] }),
+      'GET /me/notifications/summary': () => ({
+        status: 200,
+        body: {
+          unread: 0,
+          badge: 3,
+          todos: [
+            todo({ key: 'care', kind: 'TICK_OFF_CARE', path: '/bookings', params: { count: 2 } }),
+            todo({ key: 'inv-1', params: { number: 'INV-7', amount: 'LKR 12,500.00', overdue: 0 } }),
+            todo({ key: 'inv-2', path: '/invoices/i-2', params: { number: 'INV-8', amount: 'LKR 3,000.00', overdue: 0 } }),
+          ],
+        },
+      }),
+    });
+    await show(<Start />);
+
+    expect(await screen.findByText(`${en.clientHome.nextForYou} · 1 of 3`)).toBeTruthy();
+    expect(screen.getByText("Tick off today's care: 2 still open")).toBeTruthy();
+    // The search box makes way; Find a caregiver is still a card.
+    expect(screen.queryByRole('button', { name: en.clientHome.search })).toBeNull();
+    // Today's care is the thing on top, so its card isn't shown twice.
+    expect(screen.queryByRole('button', { name: en.carePlan.todayTitle })).toBeNull();
+    // Two bills waiting: a 2 on the Invoices picture, said in words to a screen reader.
+    expect(screen.getByTestId('count-bills', { includeHiddenElements: true })).toHaveTextContent('2');
+    expect(screen.getByRole('button', { name: en.account.nav.invoices })).toHaveProp('accessibilityHint', `${en.clientHome.hints.bills}. 2 waiting`);
+    expect(screen.queryByTestId('count-saved', { includeHiddenElements: true })).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: "Tick off: Tick off today's care: 2 still open" }));
+    expect(mockRouter.push).toHaveBeenLastCalledWith('/bookings');
+    await fireEvent.press(screen.getByRole('link', { name: 'See all 3 things to do' }));
+    expect(mockRouter.push).toHaveBeenLastCalledWith('/notifications');
   });
 
   it('works for someone not signed in yet: no next visit, the same tiles', async () => {
