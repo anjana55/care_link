@@ -696,7 +696,8 @@
       "shifts": "සේවා මුර",
       "payments": "ගෙවීම්",
       "ratings": "ශ්‍රේණිගත කිරීම්",
-      "workAbroad": "විදෙස් රැකියා"
+      "workAbroad": "විදෙස් රැකියා",
+      "notifications": "දැනුම්දීම්"
     },
     "loadError": "මෙම පිටුව පූරණය කිරීමට නොහැකි විය. කරුණාකර පිටුව යාවත්කාලීන කර නැවත උත්සාහ කරන්න.",
     "saveError": "එය සුරැකීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
@@ -1234,7 +1235,8 @@
       "saved": "සුරැකි සාත්තු සේවකයින්",
       "bookings": "වෙන්කිරීම්",
       "invoices": "ඉන්වොයිසි",
-      "signIn": "පුරනය වීමේ ක්‍රම"
+      "signIn": "පුරනය වීමේ ක්‍රම",
+      "notifications": "දැනුම්දීම්"
     },
     "findCaregivers": "සාත්තු සේවකයින් සොයන්න",
     "requests": {
@@ -2394,6 +2396,58 @@
       "badges": "සේවාදායකයින් ඔබට දුන් ලාංඡන",
       "noReviews": "තවම ලිඛිත සමාලෝචන නැත.",
       "view": "මගේ ශ්‍රේණිගත කිරීම් බලන්න"
+    }
+  },
+  "notifications": {
+    "bell": "දැනුම්දීම්",
+    "bellCount": "දැනුම්දීම්, අලුත් {count}ක්",
+    "title": "දැනුම්දීම්",
+    "todo": "කළ යුතු දේ",
+    "todoEmpty": "දැනට කළ යුතු කිසිවක් නැත.",
+    "recent": "දැනුම්දීම්",
+    "empty": "තවම දැනුම්දීම් නැත.",
+    "markAllRead": "සියල්ල කියවූ ලෙස සලකුණු කරන්න",
+    "seeAll": "සියල්ල බලන්න",
+    "loadMore": "පැරණි ඒවා පෙන්වන්න",
+    "new": "අලුත්",
+    "important": "වැදගත්",
+    "openLink": "සබැඳිය විවෘත කරන්න",
+    "loadError": "ඔබගේ දැනුම්දීම් පූරණය කළ නොහැකි විය. මොහොතකින් නැවත උත්සාහ කරන්න.",
+    "text": {
+      "PAY_INVOICE": "ඉන්වොයිසිය {number} ({amount}) ගෙවන්න",
+      "PAY_INVOICE_OVERDUE": "ඉන්වොයිසිය {number} ({amount}) ගෙවීමේ දිනය පසු වී ඇත",
+      "RATE_CAREGIVER": "ඔබගේ සත්කාරය කෙසේද? වෙන්කිරීම {reference} හි සත්කාරකයා ශ්‍රේණිගත කරන්න",
+      "TICK_OFF_CARE": "අද සත්කාරය සලකුණු කරන්න: තවම {count}ක් ඉතිරියි",
+      "UPLOAD_DOCUMENT": "ඔබගේ {document} උඩුගත කරන්න",
+      "DOCUMENT_REJECTED": "ඔබගේ {document} නැවත උඩුගත කරන්න - පෙර එක පිළිගත නොහැකි විය",
+      "DOCUMENT_EXPIRING": "ඔබගේ {document} දින {days}කින් කල් ඉකුත් වේ",
+      "DOCUMENT_EXPIRING_TODAY": "ඔබගේ {document} අද කල් ඉකුත් වේ",
+      "DOCUMENT_EXPIRED": "ඔබගේ {document} කල් ඉකුත් වී ඇත",
+      "SHIFT_TODAY": "අද {time} ට සේවා කාලය ({reference})"
+    },
+    "due": "ගෙවිය යුතු දිනය {date}",
+    "action": {
+      "PAY_INVOICE": "දැන් ගෙවන්න",
+      "RATE_CAREGIVER": "ශ්‍රේණිගත කරන්න",
+      "TICK_OFF_CARE": "සලකුණු කරන්න",
+      "UPLOAD_DOCUMENT": "උඩුගත කරන්න",
+      "DOCUMENT_REJECTED": "නැවත උඩුගත කරන්න",
+      "DOCUMENT_EXPIRING": "අලුත් එක උඩුගත කරන්න",
+      "SHIFT_TODAY": "සේවා කාලය බලන්න"
+    },
+    "document": {
+      "identity": "අනන්‍යතා සාධනය",
+      "police": "පොලිස් නිෂ්කාශන සහතිකය",
+      "gn": "ග්‍රාම නිලධාරී සහතිකය",
+      "NIC": "ජාතික හැඳුනුම්පත",
+      "PASSPORT": "විදේශ ගමන් බලපත්‍රය",
+      "GRAMA_NILADHARI_CERTIFICATE": "ග්‍රාම නිලධාරී සහතිකය",
+      "POLICE_CLEARANCE": "පොලිස් නිෂ්කාශන සහතිකය",
+      "CAREGIVER_CERTIFICATE": "සත්කාරක සහතිකය",
+      "NVQ_CERTIFICATE": "NVQ සහතිකය",
+      "NURSING_CERTIFICATE": "හෙද සහතිකය",
+      "CV": "CV",
+      "OTHER": "ලේඛනය"
     }
   }
 }

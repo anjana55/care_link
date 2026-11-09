@@ -8,12 +8,14 @@ import { useTranslation } from '@/lib/i18n';
 import { rememberReturnTo } from '@/lib/return-to';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
+import { TodoCards } from '@/components/notifications/notifications-page';
 
 const SECTIONS = [
   { href: '/account/requests', key: 'account.nav.requests' },
   { href: '/account/bookings', key: 'account.nav.bookings' },
   { href: '/account/invoices', key: 'account.nav.invoices' },
   { href: '/account/saved', key: 'account.nav.saved' },
+  { href: '/account/notifications', key: 'account.nav.notifications' },
   { href: '/account/sign-in', key: 'account.nav.signIn' },
 ];
 
@@ -70,7 +72,11 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
               })}
             </div>
           </nav>
-          <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 print:max-w-none print:p-0">{children}</main>
+          <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 print:max-w-none print:p-0">
+            {/* The landing page leads with what is waiting on them. */}
+            {pathname === '/account/requests' && <TodoCards />}
+            {children}
+          </main>
         </>
       ) : (
         <div className="flex flex-1 items-center justify-center">

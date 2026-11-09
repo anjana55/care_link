@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/api/auth-context';
 import { accountHome } from '@/lib/account-home';
 import { cn } from '@/lib/utils';
 import { hardNavigate } from '@/lib/navigation';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 
 interface SiteHeaderProps {
   /**
@@ -85,6 +86,7 @@ export function SiteHeader({
           <LanguageSwitcher />
           {user ? (
             <>
+              <NotificationBell />
               <Link
                 href={accountHome(user)}
                 className="whitespace-nowrap text-sm font-medium text-brand-dark transition-colors hover:text-brand"

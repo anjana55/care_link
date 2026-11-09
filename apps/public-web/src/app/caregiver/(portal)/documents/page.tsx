@@ -9,6 +9,7 @@ import { fmtDate } from '@/lib/colombo-time';
 import { VerificationBadge, isWithdrawable } from '@/components/portal/status-badge';
 import { useCaregiverId, useDeleteDocument, useDocuments, useUploadDocument } from '@/lib/hooks/use-caregiver-portal';
 import type { CaregiverDocument, DocumentType } from '@/lib/api/portal-types';
+import { useMarkPathsRead } from '@/lib/hooks/use-notifications';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp';
@@ -63,6 +64,7 @@ const size = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024)
  * the Authorization header, which a link cannot send.
  */
 export default function CaregiverDocumentsPage() {
+  useMarkPathsRead(['/documents']);
   const { t, locale } = useTranslation();
   const caregiverId = useCaregiverId();
   const { data: documents, isLoading, isError } = useDocuments();

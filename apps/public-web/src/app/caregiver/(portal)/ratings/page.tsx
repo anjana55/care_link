@@ -2,9 +2,11 @@
 
 import { useTranslation } from '@/lib/i18n';
 import { MyRatings } from '@/components/reviews/my-ratings';
+import { useMarkPathsRead } from '@/lib/hooks/use-notifications';
 
 /** The caregiver's own ratings: average, badges and approved written reviews - never who gave which. */
 export default function CaregiverRatingsPage() {
+  useMarkPathsRead(['/me/ratings']);
   const { t } = useTranslation();
   return (
     <section className="rounded-lg border border-border bg-white p-5" aria-labelledby="ratings-title">

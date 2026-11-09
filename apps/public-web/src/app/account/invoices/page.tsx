@@ -6,6 +6,7 @@ import { useTranslation } from '@/lib/i18n';
 import { useMyInvoices } from '@/lib/hooks/use-client-care';
 import { fmtDate } from '@/lib/colombo-time';
 import { LoadingState, ErrorState } from '@/components/common/states';
+import { useMarkPathsRead } from '@/lib/hooks/use-notifications';
 
 const TONE: Record<ClientInvoice['status'], string> = {
   ISSUED: 'bg-accent-light text-accent',
@@ -15,6 +16,7 @@ const TONE: Record<ClientInvoice['status'], string> = {
 
 /** The client's invoices, unpaid first, each opening the full invoice to read, print or pay. */
 export default function MyInvoicesPage() {
+  useMarkPathsRead(['/invoices']);
   const { t, locale } = useTranslation();
   const { data, isLoading, isError, refetch } = useMyInvoices();
   const sorted = data ? [...data].sort((a, b) => Number(b.status === 'ISSUED') - Number(a.status === 'ISSUED')) : [];

@@ -12,6 +12,7 @@ import { ShiftList } from '@/components/care/shift-list';
 import { IssueReportList, ReportIssueForm } from '@/components/care/report-issue';
 import { TodaysCare } from '@/components/care/todays-care';
 import { BookingReviews, PendingReviewsBanner } from '@/components/reviews/booking-reviews';
+import { useMarkPathsRead } from '@/lib/hooks/use-notifications';
 
 const TONE: Record<BookingStatus, string> = {
   DRAFT: 'bg-paper text-ink/60',
@@ -27,6 +28,7 @@ const TONE: Record<BookingStatus, string> = {
  * the care-plan checklist the client ticks off.
  */
 export default function MyBookingsPage() {
+  useMarkPathsRead(['/care']);
   const { t, locale } = useTranslation();
   const { data, isLoading, isError, refetch } = useMyBookings();
   const { data: reports } = useMyIssueReports();
