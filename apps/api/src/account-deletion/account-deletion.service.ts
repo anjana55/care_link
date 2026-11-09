@@ -22,6 +22,8 @@ import {
   caregiverSkills,
   careRequests,
   deviceTokens,
+  notifications,
+  reminderSends,
   documentExpiryReminders,
   employerShortlist,
   experiences,
@@ -370,6 +372,9 @@ export class AccountDeletionService {
       await releaseLogin(tx as unknown as Database, { userId: r.userId, caregiverId: r.caregiverId });
       await tx.update(users).set({ fullName: ERASED_NAME.USER, lastLoginAt: null }).where(eq(users.id, r.userId));
       await tx.delete(deviceTokens).where(eq(deviceTokens.userId, r.userId));
+      // The bell: their notifications and reminder history go with the account.
+      await tx.delete(notifications).where(eq(notifications.userId, r.userId));
+      await tx.delete(reminderSends).where(eq(reminderSends.userId, r.userId));
       await tx.update(accountDeletionRequests).set({ status: 'ERASED', erasedAt: now, updatedAt: now }).where(eq(accountDeletionRequests.id, r.id));
       return true;
     });

@@ -4,14 +4,17 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomUUID as uuid } from 'crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { caregiverDocuments, type DocumentType } from '../database/schema';
+import { caregiverDocuments, caregivers, type DocumentType } from '../database/schema';
 import { STORAGE_SERVICE, type StorageService } from '../storage/storage.interface';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { documentCheckedNotice } from '../notifications/notification-messages';
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -65,6 +68,7 @@ export class DocumentsService {
     @Inject(STORAGE_SERVICE) private readonly storage: StorageService,
     private readonly config: ConfigService,
     private readonly auditService: AuditService,
+    @Optional() private readonly notices?: NotificationsService,
   ) {
     this.maxFileSizeBytes = Number(this.config.get('STORAGE_MAX_FILE_SIZE_BYTES') ?? 10 * 1024 * 1024);
   }
@@ -177,7 +181,7 @@ export class DocumentsService {
     verifiedByUserId: string,
     expiresOn?: string | null,
   ) {
-    await this.findOne(caregiverId, id);
+    const before = await this.findOne(caregiverId, id);
     await this.db
       .update(caregiverDocuments)
       .set({
@@ -187,7 +191,23 @@ export class DocumentsService {
         ...(expiresOn !== undefined ? { expiresOn } : {}),
       })
       .where(and(eq(caregiverDocuments.id, id), eq(caregiverDocuments.caregiverId, caregiverId)));
+    if ((status === 'VERIFIED' || status === 'REJECTED') && before.verificationStatus !== status) void this.tellCaregiver(caregiverId, status, before.documentType);
     return this.findOne(caregiverId, id);
+  }
+
+  /** The caregiver hears, in the app and on the website, that a document was accepted or needs uploading again. Never throws. */
+  private async tellCaregiver(caregiverId: string, status: 'VERIFIED' | 'REJECTED', documentType: string) {
+    try {
+      if (!this.notices) return;
+      const [c] = await this.db.select({ userId: caregivers.userId }).from(caregivers).where(eq(caregivers.id, caregiverId)).limit(1);
+      if (!c?.userId) return;
+      this.notices.notify([c.userId], (lang) => documentCheckedNotice(status, documentType, lang), '/documents', `document ${status.toLowerCase()}`, {
+        category: 'DOCUMENT',
+        important: status === 'REJECTED',
+      });
+    } catch {
+      /* the bell is an extra */
+    }
   }
 
   async remove(caregiverId: string, id: string, requesterRole?: string) {

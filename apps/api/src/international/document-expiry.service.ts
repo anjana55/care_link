@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID as uuid } from 'crypto';
 import { and, eq, inArray, isNotNull, isNull, lt, lte, ne } from 'drizzle-orm';
@@ -14,6 +14,8 @@ import { caregiverDocuments, caregiverOverseasProfiles, caregivers, documentExpi
 import { InternationalNotifier } from './international-notifier.service';
 import { PlacementsService } from './placements.service';
 import { addDays, todayColombo } from './dates';
+import { NotificationsService } from '../notifications/notifications.service';
+import { documentExpiryNotice } from '../notifications/notification-messages';
 
 /** Expired documents are chased for this long, then left to staff: no point emailing about a passport that lapsed years ago. */
 const EXPIRED_REMINDER_WINDOW_DAYS = 30;
@@ -70,6 +72,7 @@ export class DocumentExpiryService implements OnApplicationBootstrap, OnModuleDe
     private readonly placements: PlacementsService,
     private readonly notifier: InternationalNotifier,
     private readonly config: ConfigService,
+    @Optional() private readonly notices?: NotificationsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -211,12 +214,16 @@ export class DocumentExpiryService implements OnApplicationBootstrap, OnModuleDe
 
   private async remindCaregiver(d: Dated, stage: ExpiryReminderStage) {
     const [row] = await this.db
-      .select({ email: users.email, fullName: caregivers.fullName, deletedAt: caregivers.deletedAt })
+      .select({ userId: users.id, email: users.email, fullName: caregivers.fullName, deletedAt: caregivers.deletedAt })
       .from(caregivers)
       .innerJoin(users, eq(caregivers.userId, users.id))
       .where(eq(caregivers.id, d.caregiverId))
       .limit(1);
     if (!row || row.deletedAt) return;
+    // The bell and the app as well as the email.
+    this.notices?.notify([row.userId], (lang) => documentExpiryNotice(stage === 'EXPIRED', d.documentType, d.expiresOn, lang), '/documents', `expiry ${stage} ${d.documentType}`, {
+      category: 'DOCUMENT',
+    });
     const what = DOCUMENT_NAMES[d.documentType] ?? 'document';
     const first =
       stage === 'EXPIRED'

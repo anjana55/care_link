@@ -27,5 +27,7 @@ export class ReviewsCoreModule {}
   imports: [PublicSearchModule, EmailModule, WhatsappModule],
   controllers: [MyReviewsController, PublicReviewsController, StaffReviewsController, ReviewSettingsController],
   providers: [ReviewsService, ReviewsNotifier, ReviewRequestSweepService],
+  // The To do list asks which caregivers a client can rate.
+  exports: [ReviewsService],
 })
 export class ReviewsModule {}

@@ -11,7 +11,8 @@ import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
 import { normalizePhone } from '../common/utils/phone.util';
 import { chooseClientChannel } from '../care-requests/care-request-notifier.service';
 import { CLIENT_FOOTER } from '../care-requests/notification-messages';
-import { PushService, fromBlocks, fromNotice } from '../push/push.service';
+import { fromBlocks, fromNotice } from '../push/push.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { IMPROVEMENT_LABELS_EN, praiseNotice, reviewAskNotice, reviewRejectedNotice, type ClientNotice } from './review-messages';
 import { parseTags } from './review-rules';
 
@@ -35,7 +36,7 @@ export class ReviewsNotifier {
     private readonly emailSettings: EmailSettingsService,
     private readonly whatsappSettings: WhatsappSettingsService,
     private readonly whatsapp: WhatsappProviderService,
-    private readonly push: PushService,
+    private readonly notices: NotificationsService,
   ) {}
 
   private publicUrl(path: string) {
@@ -53,7 +54,7 @@ export class ReviewsNotifier {
       const text = reviewAskNotice(stage, p.language, p.reference);
       const who = await this.client(p.patientId);
       if (!who) return false;
-      this.push.notify([who.userId], (lang) => fromNotice(reviewAskNotice(stage, lang, p.reference)), `/bookings/${p.bookingId}/rate/${p.caregiverPublicId}`, `review ${stage.toLowerCase()} ${p.reference}`);
+      this.notices.notify([who.userId], (lang) => fromNotice(reviewAskNotice(stage, lang, p.reference)), `/bookings/${p.bookingId}/rate/${p.caregiverPublicId}`, `review ${stage.toLowerCase()} ${p.reference}`);
       return await this.deliverToClient(who, p.language, text, path, `review ${stage.toLowerCase()} ${p.reference}`);
     } catch (err) {
       this.logger.error(`Review request failed: ${(err as Error).message}`);
@@ -69,7 +70,7 @@ export class ReviewsNotifier {
       const who = await this.client(r.patientId);
       if (!who) return;
       const text = reviewRejectedNotice(r.language, r.reference, r.commentRejectReason);
-      this.push.notify([who.userId], (lang) => fromNotice(reviewRejectedNotice(lang, r.reference, r.commentRejectReason!)), `/bookings/${r.bookingId}/rate/${r.caregiverPublicId}`, `review rejected ${r.reference}`);
+      this.notices.notify([who.userId], (lang) => fromNotice(reviewRejectedNotice(lang, r.reference, r.commentRejectReason!)), `/bookings/${r.bookingId}/rate/${r.caregiverPublicId}`, `review rejected ${r.reference}`);
       await this.deliverToClient(who, r.language, text, ratePath(r.bookingId, r.caregiverPublicId), `review rejected ${r.reference}`);
     } catch (err) {
       this.logger.error(`Review rejection notice failed: ${(err as Error).message}`);
@@ -87,7 +88,7 @@ export class ReviewsNotifier {
         .where(eq(caregivers.id, caregiverId))
         .limit(1);
       if (!c) return;
-      this.push.notify([c.userId], (lang) => fromBlocks(msg.pushBlocks, lang), '/me/ratings', 'caregiver praise');
+      this.notices.notify([c.userId], (lang) => fromBlocks(msg.pushBlocks, lang), '/me/ratings', 'caregiver praise');
       const [account] = c.userId ? await this.db.select({ email: users.email, phone: users.phone }).from(users).where(eq(users.id, c.userId)).limit(1) : [];
       const cc = await this.whatsappSettings.getDefaultCountryCode();
       const phone = account?.phone ?? normalizePhone(c.phone ?? null, cc);

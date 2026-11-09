@@ -603,6 +603,20 @@ export class CarePlansService {
     return [...out.values()];
   }
 
+  /** How many of today's care items one client hasn't ticked off yet - their "Tick off today's care" to-do. */
+  async openCountForPatient(patientId: string, now = new Date()): Promise<number> {
+    const today = colomboToday(now);
+    const shifts = (
+      await this.shiftContexts(
+        and(eq(bookings.patientId, patientId), gte(bookingShifts.startsAt, colomboToUtc(addDays(today, -1), '00:00')), lt(bookingShifts.startsAt, now)),
+        200,
+      )
+    ).filter((s) => careCutOff(s.endsAt) > now);
+    if (!shifts.length) return 0;
+    const lists = await this.checklists(shifts, 'CLIENT', 'en', now);
+    return lists.reduce((n, l) => n + l.items.filter((it) => it.status === null).length, 0);
+  }
+
   // --- attention -------------------------------------------------------------------------------
 
   /** Critical items marked Not done, and critical items nobody confirmed, over the last 7 days. */

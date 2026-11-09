@@ -14,7 +14,8 @@ import { CLIENT_FOOTER } from '../care-requests/notification-messages';
 import { rowToFields, type ActivityRow } from './activity-rows';
 import { careReminderNotice } from './care-messages';
 import { CarePlansService } from './care-plans.service';
-import { PushService, fromNotice } from '../push/push.service';
+import { fromNotice } from '../push/push.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 /** How often the sweep wakes. */
 const TICK_MS = 5 * 60_000;
@@ -57,7 +58,7 @@ export class CarePlanSweepService implements OnApplicationBootstrap, OnModuleDes
     private readonly email: EmailService,
     private readonly whatsappSettings: WhatsappSettingsService,
     private readonly whatsapp: WhatsappProviderService,
-    private readonly push: PushService,
+    private readonly notices: NotificationsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -211,7 +212,7 @@ export class CarePlanSweepService implements OnApplicationBootstrap, OnModuleDes
       const canWa = Boolean(phone) && this.whatsapp.canSendUpdates(wa);
       const text = careReminderNotice(language, count);
       // Push to the app as well - in addition to the message below, never instead of it.
-      this.push.notify([p.userId], (lang) => fromNotice(careReminderNotice(lang, count)), '/care', 'care plan reminder');
+      this.notices.notify([p.userId], (lang) => fromNotice(careReminderNotice(lang, count)), '/care', 'care plan reminder');
       const channel = chooseClientChannel({ hasEmail: Boolean(p.email), canWhatsapp: canWa, preferred: p.preferred });
       if (channel === 'WHATSAPP') {
         await this.whatsapp.sendUpdate(wa, phone!, language, `${text.heading}. ${text.body}`);
