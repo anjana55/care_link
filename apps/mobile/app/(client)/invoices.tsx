@@ -11,9 +11,11 @@ import { formatDate } from '@/ui/dates';
 import { useClient } from '@/care/api';
 import { useMyInvoices } from '@/care/billing-api';
 import { SignInPrompt } from '@/care/SignInPrompt';
+import { useMarkPathsRead } from '@/notifications/api';
 
 /** The client's invoices, as on the website: what's still to pay first, with the total owing. */
 export default function Invoices() {
+  useMarkPathsRead(['/invoices']);
   const { t } = useTranslation();
   const colors = useColors();
   const client = useClient();

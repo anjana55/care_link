@@ -31,7 +31,7 @@ describe('Delete my account', () => {
     await fireEvent.press(screen.getByRole('checkbox', { name: en.deleteAccount.confirm }));
     await fireEvent.press(deleteButton());
     expect(await screen.findByText(en.deleteAccount.done.replace('{date}', '15 Nov 2026'))).toBeTruthy();
-    expect(calls.map((c) => c.route).filter((r) => r !== 'GET /branding')).toEqual(['POST /me/account/deletion']);
+    expect(calls.map((c) => c.route).filter((r) => r !== 'GET /branding' && r !== 'GET /me/notifications/summary')).toEqual(['POST /me/account/deletion']);
     // The session is gone from the phone; the API already ended it, so no sign-out call.
     await waitFor(() => expect(tokenStore.get()).toBeNull());
 

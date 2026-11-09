@@ -13,6 +13,7 @@ import { ShiftCarePlan } from '@/caregiver/ShiftCarePlan';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@/auth/AuthProvider';
 import { caregiverOnly } from '@/auth/sides';
+import { useMarkPathsRead } from '@/notifications/api';
 
 /**
  * The caregiver's confirmed shifts, as on the website - read-only: staff
@@ -22,6 +23,7 @@ import { caregiverOnly } from '@/auth/sides';
  * reports and our answers are listed underneath.
  */
 export default function Shifts() {
+  useMarkPathsRead(['/shifts']);
   const { t } = useTranslation();
   const colors = useColors();
   const shifts = useMyShifts();

@@ -11,6 +11,7 @@ import { useMyPayouts } from '@/caregiver/api';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@/auth/AuthProvider';
 import { caregiverOnly } from '@/auth/sides';
+import { useMarkPathsRead } from '@/notifications/api';
 
 /**
  * The caregiver's payout statements, as on the website: what they're paid for
@@ -18,6 +19,7 @@ import { caregiverOnly } from '@/auth/sides';
  * and only approved or paid statements are shown. Tap one for its lines.
  */
 export default function Payments() {
+  useMarkPathsRead(['/payments']);
   const { t, locale } = useTranslation();
   const colors = useColors();
   const payouts = useMyPayouts();

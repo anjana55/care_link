@@ -20,10 +20,18 @@ const mockNotifications = {
     mockTapListeners.push(fn);
     return { remove: () => mockTapListeners.splice(mockTapListeners.indexOf(fn), 1) };
   },
+  // A push arriving while the app is open.
+  addNotificationReceivedListener: (fn: (r: unknown) => void) => {
+    mockReceivedListeners.push(fn);
+    return { remove: () => mockReceivedListeners.splice(mockReceivedListeners.indexOf(fn), 1) };
+  },
+  setBadgeCountAsync: jest.fn(async (_n: number) => true),
 };
+const mockReceivedListeners: ((r: unknown) => void)[] = [];
 jest.mock('../src/push/notifications', () => ({
   ...jest.requireActual('../src/push/notifications'),
   notifications: () => mockNotifications,
+  localNotifications: () => mockNotifications,
 }));
 const tap = (path: string) => ({ notification: { request: { content: { data: { path } } } } });
 
@@ -115,6 +123,14 @@ describe('tapping a notification', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/home');
     expect(mockNotifications.clearLastNotificationResponseAsync).toHaveBeenCalled();
   });
+
+  it('marks the bell row it was about read', async () => {
+    const calls = serveApi({ 'POST /me/notifications/read': () => ({ status: 200, body: { marked: 1 } }) });
+    await showApp(async () => null);
+    await act(async () => mockTapListeners.forEach((fn) => fn({ notification: { request: { content: { data: { path: '/documents', notificationId: 'n-7' } } } } })));
+    expect(mockRouter.push).toHaveBeenCalledWith('/documents');
+    await waitFor(() => expect(calls.find((c) => c.route === 'POST /me/notifications/read')?.body).toEqual({ ids: ['n-7'] }));
+  });
 });
 
 describe('where push works', () => {
@@ -131,6 +147,9 @@ describe('where push works', () => {
     expect(screenFor('/requests/r-1')).toBe('/requests');
     expect(screenFor('/bookings/b-1/../../admin')).toBe('/home');
     expect(screenFor('/invoices/9')).toBe('/home');
+    expect(screenFor('/documents')).toBe('/documents');
+    expect(screenFor('/invoices')).toBe('/invoices');
+    expect(screenFor('/notifications')).toBe('/notifications');
     expect(screenFor(undefined)).toBe('/home');
   });
 });

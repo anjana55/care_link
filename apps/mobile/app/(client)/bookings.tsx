@@ -18,6 +18,7 @@ import { BookingIssues } from '@/care/BookingIssues';
 import { useMyIssues } from '@/care/billing-api';
 import { shortId } from '@/search/ResultCard';
 import { BookingReviews, PendingReviewsBanner } from '@/reviews/BookingReviews';
+import { useMarkPathsRead } from '@/notifications/api';
 
 /**
  * The client's bookings, as on the website: today's care checklist first, then
@@ -25,6 +26,7 @@ import { BookingReviews, PendingReviewsBanner } from '@/reviews/BookingReviews';
  * time, and "Something's not right?" on each. Pull down to refresh.
  */
 export default function Bookings() {
+  useMarkPathsRead(['/care']);
   const { t } = useTranslation();
   const colors = useColors();
   const router = useRouter();

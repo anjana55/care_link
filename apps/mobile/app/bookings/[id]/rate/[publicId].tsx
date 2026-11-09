@@ -14,6 +14,7 @@ import { shortId } from '@/search/ResultCard';
 import { useBookingReview, useDeleteReview, useSubmitReview } from '@/reviews/api';
 import { ReviewForm } from '@/reviews/ReviewForm';
 import { BadgeChip, Stars } from '@/reviews/Stars';
+import { useMarkPathsRead } from '@/notifications/api';
 
 /**
  * Rating one caregiver for one booking - the booked caregiver or a cover.
@@ -26,6 +27,7 @@ export default function RateCaregiver() {
   const router = useRouter();
   const client = useClient();
   const { id, publicId } = useLocalSearchParams<{ id?: string; publicId?: string }>();
+  useMarkPathsRead([id && publicId ? `/bookings/${id}/rate/${publicId}` : null]);
   const { data, isLoading, isError, error, refetch } = useBookingReview(id ?? null, publicId ?? null);
   const submit = useSubmitReview(id ?? '', publicId ?? '');
   const remove = useDeleteReview(id ?? '', publicId ?? '');

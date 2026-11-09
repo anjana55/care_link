@@ -16,6 +16,7 @@ import { useCaregiver, useMyShifts, useOwnCaregiver } from '@/caregiver/api';
 import { missingCore } from '@/caregiver/documents';
 import { ShiftCarePlan } from '@/caregiver/ShiftCarePlan';
 import { remindersFor, useCareReminders } from '@/caregiver/reminders';
+import { TodoCards } from '@/notifications/TodoCards';
 
 /** Shifts shown on Today: the one under way and the next ones. */
 const SHOWN = 3;
@@ -96,6 +97,9 @@ export default function Today() {
             <Text style={{ color: colors.brandText }}>{t('portal.loadError')}</Text>
           ) : null}
         </PageHeader>
+
+        {/* Today's shift and expiring documents; missing or rejected ones have their own card below. */}
+        <TodoCards skip={['UPLOAD_DOCUMENT', 'DOCUMENT_REJECTED']} style={{ marginHorizontal: 20 }} />
 
         {c && (missing.length || rejected) ? (
           <Card style={[styles.card, { borderColor: tint(colors.danger, 0.3) }]}>
