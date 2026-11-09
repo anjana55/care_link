@@ -23,7 +23,8 @@
     "dataTransfer": "Import & export",
     "training": "Training",
     "carePlans": "Care plans",
-    "accountDeletions": "Account deletions"
+    "accountDeletions": "Account deletions",
+    "reviews": "Reviews"
   },
   "login": {
     "title": "Sign in",
@@ -1068,7 +1069,8 @@
       "services": "Services",
       "referenceData": "Reference data",
       "data": "Data"
-    }
+    },
+    "reviews": "Reviews"
   },
   "brandingAdmin": {
     "companyTitle": "Company",
@@ -1561,7 +1563,8 @@
       "ISSUE_REPORTED": "Issue reported",
       "ISSUE_CLOSED": "Issue answered",
       "CARE_PLAN_SET": "Care plan created",
-      "CARE_PLAN_CHANGED": "Care plan changed"
+      "CARE_PLAN_CHANGED": "Care plan changed",
+      "REVIEWED": "Rated by the client"
     },
     "shiftRateUnit": {
       "HOURLY": "per hour",
@@ -3612,5 +3615,101 @@
     "next": "Next",
     "position": "{n} of {total}",
     "failed": "Couldn't load the next records"
+  },
+  "reviews": {
+    "title": "Reviews",
+    "subtitle": "Clients' ratings of caregivers. Written reviews go on the caregiver's profile only once you approve them. Low ratings (1-2 stars) need a follow-up call.",
+    "tabs": {
+      "pending": "Waiting for approval",
+      "low": "Low ratings",
+      "hidden": "Hidden",
+      "all": "All"
+    },
+    "search": "Search by caregiver, client or booking reference",
+    "empty": {
+      "pending": "No written reviews are waiting.",
+      "low": "No low ratings.",
+      "hidden": "No hidden reviews.",
+      "all": "No ratings yet."
+    },
+    "noun": "reviews",
+    "client": "Client",
+    "caregiver": "Caregiver",
+    "booking": "Booking",
+    "outOfFive": "{rating} out of 5 stars",
+    "badges": "Badges",
+    "couldBeBetter": "Could be better (private)",
+    "privateNote": "Note to the office (private)",
+    "writtenReview": "Written review",
+    "language": {
+      "en": "English",
+      "si": "Sinhala",
+      "ta": "Tamil"
+    },
+    "status": {
+      "NONE": "No text",
+      "PENDING": "Waiting for approval",
+      "APPROVED": "Published",
+      "REJECTED": "Not published"
+    },
+    "reviewedBy": "{status} by {name}, {date}",
+    "rejectReason": "Reason given to the client: {reason}",
+    "hiddenBy": "Hidden by {name}, {date}: {reason}",
+    "hiddenNote": "Hidden - this rating counts for nothing.",
+    "given": "Given {date}",
+    "approve": "Approve review",
+    "reject": "Don't publish",
+    "hide": "Hide rating",
+    "unhide": "Show again",
+    "rejectTitle": "Don't publish this written review?",
+    "rejectHint": "The stars and badges still count. The client is told this reason and can edit their review.",
+    "hideTitle": "Hide this whole rating?",
+    "hideHint": "For abuse, the wrong person or a fake rating. A hidden rating counts for nothing anywhere and the client can no longer change it. The reason is kept for staff.",
+    "reason": "Reason",
+    "low": "Low rating",
+    "badge": {
+      "PUNCTUAL": "Always on time",
+      "KIND_PATIENT": "Kind and patient",
+      "CLEAN_TIDY": "Clean and hygienic",
+      "SKILLED_CARE": "Skilled with care tasks",
+      "SAFE_HANDLING": "Safe lifting and moving",
+      "GOOD_COMMUNICATION": "Keeps the family informed",
+      "RESPECTFUL": "Respectful, protects dignity",
+      "TRUSTWORTHY": "Honest and trustworthy",
+      "GOOD_COOK": "Good with meals",
+      "EXTRA_MILE": "Goes the extra mile"
+    },
+    "tag": {
+      "TIMEKEEPING": "Timekeeping",
+      "COMMUNICATION": "Communication",
+      "HYGIENE": "Hygiene and cleanliness",
+      "CARE_QUALITY": "Quality of care",
+      "ATTITUDE": "Attitude",
+      "OTHER": "Something else"
+    },
+    "panel": {
+      "tab": "Ratings",
+      "summary": "{average} from {count} ratings",
+      "shown": "Shown on the public profile.",
+      "notShown": "Not shown publicly yet.",
+      "none": "No ratings yet.",
+      "improvements": "What clients said could be better",
+      "reviews": "All ratings"
+    },
+    "bookingTitle": "Ratings",
+    "bookingNone": "The client hasn't rated anyone on this booking yet.",
+    "settings": {
+      "title": "Reviews",
+      "subtitle": "How clients rate caregivers and what the public sees.",
+      "enabled": "Ratings switched on",
+      "enabledHint": "Off: clients can't rate, nothing is shown publicly and no rating requests go out. Existing ratings are kept.",
+      "minRatings": "Ratings needed before the average is shown",
+      "minRatingsHint": "Between 1 and 20. Below this, a caregiver's profile and search card show no rating, so one early rating can't define them.",
+      "windowDays": "Days to rate after the last shift",
+      "windowHint": "Between 7 and 365. Clients can rate, and change their rating, until this many days after the caregiver's last shift on the booking.",
+      "saved": "Saved",
+      "saveError": "We could not save the settings."
+    },
+    "waitingCount": "{count} waiting"
   }
 }

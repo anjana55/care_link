@@ -40,6 +40,7 @@ import { useTranslation } from '@/lib/i18n/provider';
 import { RecordPager } from '@/components/ui/record-pager';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { CaregiverRatingsPanel } from '@/components/reviews/rating-panels';
 import { RelatedRequests } from '@/components/requests/related-requests';
 import { RelatedBookings } from '@/components/bookings/related-bookings';
 import { StatusBadge, VerificationBadge } from '@/components/ui/badge';
@@ -369,6 +370,7 @@ export default function CaregiverProfilePage() {
           {canSeeHealth && <TabsTrigger value="restricted">{t('caregivers.profile.tabs.restricted')}</TabsTrigger>}
           {isAdminOrStaff && <TabsTrigger value="signIn">{t('caregivers.profile.tabs.signIn')}</TabsTrigger>}
           {isAdminOrStaff && <TabsTrigger value="requests">{t('requests.related.title')}</TabsTrigger>}
+          {isAdminOrStaff && <TabsTrigger value="ratings">{t('reviews.panel.tab')}</TabsTrigger>}
           {user?.role === 'ADMIN' && <TabsTrigger value="audit">{t('caregivers.profile.tabs.audit')}</TabsTrigger>}
         </TabsList>
 
@@ -1188,6 +1190,11 @@ export default function CaregiverProfilePage() {
               <RelatedRequests caregiverId={caregiver.id} />
               <RelatedBookings caregiverId={caregiver.id} />
             </div>
+          </TabsContent>
+        )}
+        {isAdminOrStaff && (
+          <TabsContent value="ratings">
+            <CaregiverRatingsPanel caregiverId={caregiver.id} />
           </TabsContent>
         )}
 

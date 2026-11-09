@@ -38,6 +38,7 @@ function caregiver(n: number, extra: Partial<PublicCaregiverSummary> = {}): Publ
     homeLocation: null,
     distanceKm: 3,
     serviceArea: [],
+    rating: null,
     ...extra,
   };
 }

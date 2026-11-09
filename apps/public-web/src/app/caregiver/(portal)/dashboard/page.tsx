@@ -5,6 +5,7 @@ import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { RegistrationStatusBadge } from '@/components/portal/status-badge';
+import { MyRatingsTile } from '@/components/reviews/my-ratings';
 import { useAvailability, useDocuments, useOwnCaregiver, useSubmitRegistration } from '@/lib/hooks/use-caregiver-portal';
 
 /**
@@ -47,6 +48,8 @@ export default function CaregiverDashboardPage() {
         </div>
         <p className="mt-3 text-sm text-ink/70">{t(`portal.statusHelp.${caregiver.status}`)}</p>
       </section>
+
+      <MyRatingsTile />
 
       <section className="rounded-lg border border-border bg-white p-5">
         <h2 className="mb-3 text-sm font-semibold text-ink">{t('portal.checklist.title')}</h2>

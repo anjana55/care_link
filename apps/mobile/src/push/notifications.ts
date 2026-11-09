@@ -88,8 +88,12 @@ const SCREENS: [RegExp, string][] = [
 ];
 /** An invoice notice opens that invoice (ids are uuids: nothing else gets through). */
 const INVOICE = /^\/invoices\/[0-9a-fA-F-]{36}$/;
+/** "How was your care?" opens the rate screen for that booking and caregiver. */
+const RATE = /^\/bookings\/[0-9a-fA-F-]{36}\/rate\/[A-Za-z0-9_-]{1,36}$/;
 export function screenFor(path: unknown): string {
   if (typeof path !== 'string') return '/home';
-  if (INVOICE.test(path)) return path;
+  if (INVOICE.test(path) || RATE.test(path)) return path;
+  // A caregiver's praise notice opens their ratings.
+  if (path === '/me/ratings') return '/ratings';
   return SCREENS.find(([re]) => re.test(path))?.[1] ?? '/home';
 }

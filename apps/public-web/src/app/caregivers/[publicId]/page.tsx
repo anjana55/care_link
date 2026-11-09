@@ -11,6 +11,8 @@ import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { AdSlot } from '@/components/ads/adsense';
 import { VerifiedBadge } from '@/components/results/verified-badge';
+import { RatingLine } from '@/components/reviews/stars';
+import { CaregiverReviews } from '@/components/reviews/caregiver-reviews';
 
 export default function CaregiverProfilePage() {
   const { t, locale } = useTranslation();
@@ -42,6 +44,11 @@ export default function CaregiverProfilePage() {
               {t('results.approxAge', { age: caregiver.approxAge })}
             </h1>
             <p className="mt-1 text-sm text-ink/60">{t('results.yearsExperience', { years: caregiver.yearsExperience })}</p>
+            {caregiver.rating && (
+              <a href="#reviews-title" className="mt-2 inline-block hover:underline">
+                <RatingLine rating={caregiver.rating} />
+              </a>
+            )}
 
             {caregiver.hasVerifiedQualification && (
               <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-brand-dark">
@@ -141,6 +148,8 @@ export default function CaregiverProfilePage() {
             <CaregiverActions publicId={caregiver.publicId} caregiverLabel={caregiver.publicId.slice(0, 8)} />
           </article>
         )}
+
+        {caregiver && <CaregiverReviews publicId={caregiver.publicId} />}
 
         {caregiver && <AdSlot placement="profile" className="mt-8 px-0" />}
       </main>

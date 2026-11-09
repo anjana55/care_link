@@ -8,7 +8,7 @@ import { HIDDEN_TAB } from '@/ui/tabs';
 /**
  * The caregiver side of the app: Today (status, the next shifts and today's
  * care plan), Shifts, Payments and Me. Documents opens from Me and from
- * Today's "documents needed"; Profile opens from Me.
+ * Today's "documents needed"; Profile and Ratings open from Me.
  */
 export default function CaregiverLayout() {
   const { t, locale } = useTranslation();
@@ -33,6 +33,7 @@ export default function CaregiverLayout() {
       <Tabs.Screen name="me" options={{ tabBarLabel: t('nav.myAccount'), tabBarIcon: icon('person-circle-outline') }} />
       <Tabs.Screen name="documents" options={HIDDEN_TAB} />
       <Tabs.Screen name="profile" options={HIDDEN_TAB} />
+      <Tabs.Screen name="ratings" options={HIDDEN_TAB} />
     </Tabs>
   );
 }

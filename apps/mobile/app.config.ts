@@ -59,6 +59,7 @@ export const APP_LINK_PATHS = [
   '/caregiver/payments',
   '/caregiver/documents',
   '/caregiver/profile',
+  '/caregiver/ratings',
   '/caregivers/',
   '/find',
 ];

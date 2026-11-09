@@ -24,10 +24,13 @@ const SCREENS: [RegExp, string][] = [
   [/^\/caregiver\/payments$/, '/payments'],
   [/^\/caregiver\/documents$/, '/documents'],
   [/^\/caregiver\/profile$/, '/profile'],
+  [/^\/caregiver\/ratings$/, '/ratings'],
   [/^\/find$/, '/find'],
 ];
 /** An invoice: ids are uuids, so nothing else gets through. */
 const INVOICE = /^\/account\/invoices\/([0-9a-fA-F-]{36})$/;
+/** Rating a caregiver on a booking (the link in "How was your care?"). */
+const RATE = /^\/account\/bookings\/([0-9a-fA-F-]{36})\/rate\/([A-Za-z0-9_-]{1,36})$/;
 /** A caregiver's public profile. */
 const PROFILE = /^\/caregivers\/([A-Za-z0-9_-]{1,64})$/;
 
@@ -40,6 +43,8 @@ export function appScreenFor(path: string): string {
   const p = path.replace(/\/+$/, '') || '/';
   const invoice = INVOICE.exec(p);
   if (invoice) return `/invoices/${invoice[1].toLowerCase()}`;
+  const rate = RATE.exec(p);
+  if (rate) return `/bookings/${rate[1].toLowerCase()}/rate/${rate[2]}`;
   const profile = PROFILE.exec(p);
   if (profile) return `/caregivers/${profile[1]}`;
   return SCREENS.find(([re]) => re.test(p))?.[1] ?? '/';

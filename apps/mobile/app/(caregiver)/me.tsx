@@ -41,6 +41,8 @@ export default function Me() {
           <MenuRow icon="person-outline" label={t('portal.profile.title')} onPress={() => router.navigate('/profile')} />
           <Divider />
           <MenuRow icon="document-text-outline" tone="accent" label={t('portal.nav.documents')} onPress={() => router.navigate('/documents')} />
+          <Divider />
+          <MenuRow icon="star-outline" label={t('reviews.caregiver.title')} onPress={() => router.navigate('/ratings')} />
         </Card>
 
         <View style={styles.section}>
