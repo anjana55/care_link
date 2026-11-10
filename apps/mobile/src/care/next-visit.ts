@@ -15,3 +15,22 @@ export function nextVisit(bookings: ClientBooking[], now = Date.now()): { bookin
   }
   return best;
 }
+
+/** The Sri Lanka calendar day (yyyy-mm-dd) an instant falls on. */
+function colomboDay(iso: string): string {
+  return new Date(new Date(iso).getTime() + 330 * 60_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Whether a client has care today: a shift of a confirmed booking, not
+ * cancelled, that starts or ends on today's date in Sri Lanka (a night shift
+ * from yesterday still counts). Home shows "Today's care" only then.
+ */
+export function hasCareToday(bookings: ClientBooking[], now = Date.now()): boolean {
+  const today = colomboDay(new Date(now).toISOString());
+  return bookings.some(
+    (booking) =>
+      booking.status === 'CONFIRMED' &&
+      booking.shifts.some((shift) => shift.status !== 'CANCELLED' && (colomboDay(shift.startsAt) === today || colomboDay(shift.endsAt) === today)),
+  );
+}

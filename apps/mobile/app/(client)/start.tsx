@@ -7,7 +7,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { useClient } from '@/care/api';
 import { useMyBookings } from '@/care/bookings-api';
-import { nextVisit } from '@/care/next-visit';
+import { hasCareToday, nextVisit } from '@/care/next-visit';
 import { shortId } from '@/search/ResultCard';
 import { fmtDay, fmtTime } from '@/ui/dates';
 import { Bell, badgeLabel } from '@/notifications/Bell';
@@ -40,17 +40,27 @@ const UNREAD: Partial<Record<TileKey, NotificationCategory>> = { requests: 'REQU
 const CARD_FOR: Partial<Record<TodoKind, TileKey>> = { TICK_OFF_CARE: 'care' };
 
 /**
+ * What the brand band shows - one thing, the most useful first: the next
+ * thing to do, else the next caregiver visit, else the search box. `waiting`
+ * holds the band's place until we know, so it doesn't flash the search box
+ * and then jump to a to-do.
+ */
+type Band = 'waiting' | 'todo' | 'visit' | 'search';
+
+/**
  * A client's home - what Home opens. On the brand band: a greeting and the
- * bell, then the one thing to do next with a big button for it (or, with
- * nothing to do, the search box). Under it a full-width card with a picture
- * for each thing they can do - a number on the picture when something is
- * waiting there - and their next caregiver visit. Home is where they already
+ * bell, then one thing: the next thing to do with a big button for it,
+ * else their next caregiver visit, else the search box. Under it a
+ * full-width card with a picture for each thing they can do - a number on
+ * the picture when something is waiting there. The card for whatever the
+ * band shows is left out, so nothing appears twice (search is also the Find
+ * tab), and "Today's care" shows only on a day with care. Home is where they already
  * are, so there is no Back or Home button here; every other screen keeps both.
  * Open to anyone: the screens behind the cards ask a signed-out person to
  * sign in where they need to.
  */
 export default function Start() {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -59,7 +69,23 @@ export default function Start() {
   const summary = useNotificationsSummary();
   const next = client && bookings.data ? nextVisit(bookings.data) : null;
   const todos = client ? (summary.data?.todos ?? []) : [];
-  const onTop = todos[0] ? CARD_FOR[todos[0].kind] : undefined;
+  // A failed load counts as known (nothing to show) so the band never waits forever.
+  const band: Band = !client
+    ? 'search'
+    : summary.isPending
+      ? 'waiting'
+      : todos.length
+        ? 'todo'
+        : bookings.isPending
+          ? 'waiting'
+          : next
+            ? 'visit'
+            : 'search';
+  // Whatever the band shows is left out of the cards, so nothing is there twice.
+  const onTop: TileKey | undefined = band === 'todo' ? CARD_FOR[todos[0].kind] : band === 'search' ? 'find' : undefined;
+  // "Today's care" only on a day with care, or while there is care to tick off.
+  const careToday = Boolean(client && (todos.some((i) => i.kind === 'TICK_OFF_CARE') || (bookings.data && hasCareToday(bookings.data))));
+  const tiles = TILES.filter((tile) => tile.key !== onTop && (tile.key !== 'care' || careToday));
   const firstName = client ? summary.data?.firstName : null;
   const countFor = (key: TileKey) => {
     const kind = COUNTS[key];
@@ -82,9 +108,9 @@ export default function Start() {
             </View>
             <Bell />
           </View>
-          {todos.length ? (
-            <NextForYou items={todos} />
-          ) : (
+          {band === 'todo' ? <NextForYou items={todos} /> : null}
+          {band === 'visit' && next ? <NextVisit next={next} onPress={() => router.navigate('/bookings')} /> : null}
+          {band === 'search' ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('clientHome.search')}
@@ -96,14 +122,22 @@ export default function Start() {
                 <Ionicons name="search" size={24} color={colors.brandText} />
               </View>
             </Pressable>
-          )}
+          ) : null}
+          {band === 'waiting' ? (
+            <View
+              testID="band-waiting"
+              style={[styles.search, { backgroundColor: tint('#FFFFFF', 0.18) }]}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            />
+          ) : null}
         </HeroBand>
         <View style={styles.body}>
           <Text accessibilityRole="header" style={[styles.section, { color: colors.deep }]}>
             {t('clientHome.whatToDo')}
           </Text>
           <View style={{ gap: 14 }}>
-            {TILES.filter((tile) => tile.key !== onTop).map((tile) => {
+            {tiles.map((tile) => {
               const count = countFor(tile.key);
               const label = t(tile.label);
               const hint = t(`clientHome.hints.${tile.key}`);
@@ -133,30 +167,32 @@ export default function Start() {
             })}
           </View>
 
-          {next ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.navigate('/bookings')}
-              style={[styles.next, { backgroundColor: colors.deep }]}
-            >
-              <View style={[styles.nextIcon, { backgroundColor: colors.surface }]}>
-                <Ionicons name="person" size={28} color={colors.deep} />
-              </View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.nextLabel}>{t('clientHome.nextVisit')}</Text>
-                <Text style={styles.nextWho}>
-                  {next.booking.caregiver ? t('profile.anonymousId', { id: shortId(next.booking.caregiver.publicId) }) : next.booking.reference}
-                </Text>
-                <Text style={styles.nextWhen}>
-                  {t('clientHome.nextVisitWhen', { day: fmtDay(next.shift.startsAt, locale), from: fmtTime(next.shift.startsAt), to: fmtTime(next.shift.endsAt) })}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={28} color={colors.brandText} />
-            </Pressable>
-          ) : null}
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+/** The next caregiver visit, on the band when nothing is waiting to be done. */
+function NextVisit({ next, onPress }: { next: NonNullable<ReturnType<typeof nextVisit>>; onPress: () => void }) {
+  const { t, locale } = useTranslation();
+  const colors = useColors();
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={[styles.next, { backgroundColor: colors.deep }]}>
+      <View style={[styles.nextIcon, { backgroundColor: colors.surface }]}>
+        <Ionicons name="person" size={28} color={colors.deep} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.nextLabel}>{t('clientHome.nextVisit')}</Text>
+        <Text style={styles.nextWho}>
+          {next.booking.caregiver ? t('profile.anonymousId', { id: shortId(next.booking.caregiver.publicId) }) : next.booking.reference}
+        </Text>
+        <Text style={styles.nextWhen}>
+          {t('clientHome.nextVisitWhen', { day: fmtDay(next.shift.startsAt, locale), from: fmtTime(next.shift.startsAt), to: fmtTime(next.shift.endsAt) })}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={28} color={colors.brandText} />
+    </Pressable>
   );
 }
 
@@ -175,7 +211,7 @@ const styles = StyleSheet.create({
   art: { width: 108, height: 84, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   count: { position: 'absolute', top: -8, right: -8, minWidth: 32, height: 32, borderRadius: 16, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#FFFFFF' },
   countText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', lineHeight: 20 },
-  next: { borderRadius: 20, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 4 },
+  next: { borderRadius: 20, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14 },
   nextIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   nextLabel: { fontSize: 15, fontWeight: '600', color: '#D7E9EE' },
   nextWho: { fontSize: 19, fontWeight: '800', color: '#FFFFFF' },
