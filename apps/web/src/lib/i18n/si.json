@@ -135,7 +135,10 @@
       "documentsPending": "සමාලෝචනය කළ යුතු ලේඛන",
       "clientsPending": "සමාලෝචනය කළ යුතු නව සේවාලාභීන්",
       "careCriticalNotDone": "\"නොකළා\" ලෙස සලකුණු කළ තීරණාත්මක රැකවරණ අයිතම (දින 7)",
-      "careCriticalUnconfirmed": "කිසිවෙකු තහවුරු නොකළ තීරණාත්මක රැකවරණ අයිතම (දින 7)"
+      "careCriticalUnconfirmed": "කිසිවෙකු තහවුරු නොකළ තීරණාත්මක රැකවරණ අයිතම (දින 7)",
+      "reviewsPending": "අනුමත කළ යුතු ලිඛිත සමාලෝචන",
+      "accountDeletions": "ගිණුම් මකා දැමීමේ ඉල්ලීම්",
+      "overseasWaiting": "බලා සිටින විදෙස් විමසීම් සහ අනුමැතීන්"
     },
     "severity": {
       "act": "අද ක්‍රියා කරන්න",
