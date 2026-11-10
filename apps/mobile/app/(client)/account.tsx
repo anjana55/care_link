@@ -7,6 +7,7 @@ import { useColors } from '@/theme';
 import { Button, Screen } from '@/ui/controls';
 import { LanguagePicker } from '@/ui/LanguagePicker';
 import { AppLockSetting } from '@/auth/AppLock';
+import { useWaitingCounts } from '@/notifications/tab-counts';
 import { Text } from '@/ui/Text';
 import { Avatar, Card, Divider, IconBadge, MenuRow } from '@/ui/visual';
 
@@ -17,6 +18,10 @@ import { Avatar, Card, Divider, IconBadge, MenuRow } from '@/ui/visual';
  */
 export default function Account() {
   const { t } = useTranslation();
+  const waiting = useWaitingCounts();
+  const said = (count: number) => t('clientHome.waiting', { count });
+  const replies = waiting.unread('REQUEST');
+  const toPay = waiting.todos('PAY_INVOICE');
   const colors = useColors();
   const router = useRouter();
   const { user, signOut } = useAuth();
@@ -49,11 +54,11 @@ export default function Account() {
 
         {user ? (
           <Card style={styles.menu}>
-            <MenuRow icon="chatbubbles-outline" label={t('account.nav.requests')} onPress={() => router.navigate('/requests')} />
+            <MenuRow icon="chatbubbles-outline" label={t('account.nav.requests')} count={replies} countLabel={said(replies)} onPress={() => router.navigate('/requests')} />
             <Divider />
             <MenuRow icon="heart-outline" tone="accent" label={t('account.nav.saved')} onPress={() => router.navigate('/saved')} />
             <Divider />
-            <MenuRow icon="receipt-outline" label={t('account.nav.invoices')} onPress={() => router.navigate('/invoices')} />
+            <MenuRow icon="receipt-outline" label={t('account.nav.invoices')} count={toPay} countLabel={said(toPay)} onPress={() => router.navigate('/invoices')} />
           </Card>
         ) : null}
 

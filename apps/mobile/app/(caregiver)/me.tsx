@@ -7,6 +7,7 @@ import { Button, Screen } from '@/ui/controls';
 import { LanguagePicker } from '@/ui/LanguagePicker';
 import { AppLockSetting } from '@/auth/AppLock';
 import { Text } from '@/ui/Text';
+import { useWaitingCounts } from '@/notifications/tab-counts';
 import { Avatar, Card, Divider, MenuRow, Pill } from '@/ui/visual';
 import { useOwnCaregiver } from '@/caregiver/api';
 
@@ -16,6 +17,9 @@ import { useOwnCaregiver } from '@/caregiver/api';
  */
 export default function Me() {
   const { t } = useTranslation();
+  const waiting = useWaitingCounts();
+  const said = (count: number) => t('clientHome.waiting', { count });
+  const documents = waiting.todos('UPLOAD_DOCUMENT', 'DOCUMENT_REJECTED', 'DOCUMENT_EXPIRING');
   const colors = useColors();
   const router = useRouter();
   const { user, signOut } = useAuth();
@@ -41,7 +45,7 @@ export default function Me() {
         <Card style={styles.menu}>
           <MenuRow icon="person-outline" label={t('portal.profile.title')} onPress={() => router.navigate('/profile')} />
           <Divider />
-          <MenuRow icon="document-text-outline" tone="accent" label={t('portal.nav.documents')} onPress={() => router.navigate('/documents')} />
+          <MenuRow icon="document-text-outline" tone="accent" label={t('portal.nav.documents')} count={documents} countLabel={said(documents)} onPress={() => router.navigate('/documents')} />
           <Divider />
           <MenuRow icon="star-outline" label={t('reviews.caregiver.title')} onPress={() => router.navigate('/ratings')} />
         </Card>
