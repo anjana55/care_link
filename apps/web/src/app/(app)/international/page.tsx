@@ -25,6 +25,20 @@ const TABS = ['enquiries', 'interviews', 'offers', 'vacancies', 'placements', 'w
 type Tab = (typeof TABS)[number];
 
 /**
+ * Thirteen tabs in one strip ran off the side of the window, so they sit in
+ * five sections: pick a section, then one of its few tabs. The tab is still
+ * what the address carries (?tab=offers), so every existing link works.
+ */
+const SECTIONS: readonly { key: string; label: string; tabs: readonly Tab[] }[] = [
+  { key: 'employers', label: 'international.tabs.employers', tabs: ['enquiries', 'employers', 'invoices'] },
+  { key: 'hiring', label: 'international.sections.hiring', tabs: ['vacancies', 'interviews', 'offers'] },
+  { key: 'caregivers', label: 'nav.caregivers', tabs: ['pool', 'profiles', 'results', 'expiring'] },
+  { key: 'placements', label: 'international.tabs.placements', tabs: ['placements', 'welfare'] },
+  { key: 'reports', label: 'international.tabs.reports', tabs: ['reports'] },
+];
+const sectionOf = (tab: Tab) => SECTIONS.find((s) => s.tabs.includes(tab)) ?? SECTIONS[0];
+
+/**
  * Overseas: the staff side of the international paths. Employer enquiries
  * (worked like the Requests queue), interviews, job offers to review, the
  * vacancy board and its applicants, placements with their welfare check-ins,
@@ -71,29 +85,33 @@ export default function InternationalPage() {
     results: summary?.pendingAssessments,
   };
   const badge = (key: Tab) => counts[key];
+  const section = sectionOf(tab);
 
   return (
     <div>
       <h1 className="mb-2 text-xl font-semibold text-ink">{t('international.title')}</h1>
       <p className="mb-6 text-sm text-ink/60">{t('international.subtitle')}</p>
 
-      <div className="mb-5 flex gap-1 overflow-x-auto border-b border-border" role="tablist">
-        {TABS.map((key) => {
-          const n = badge(key);
+      {/* Sections: each carries the total waiting inside it, so nothing is hidden behind a section. */}
+      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label={t('international.title')}>
+        {SECTIONS.map((s) => {
+          const current = s.key === section.key;
+          const n = s.tabs.reduce((sum, key) => sum + (badge(key) ?? 0), 0);
+          const urgent = s.tabs.includes('welfare') && !!summary?.urgentWelfare;
           return (
             <button
-              key={key}
+              key={s.key}
               role="tab"
-              aria-selected={tab === key}
-              onClick={() => setTab(key)}
+              aria-selected={current}
+              onClick={() => setTab(s.tabs[0])}
               className={cn(
-                '-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors',
-                tab === key ? 'border-brand text-brand-dark' : 'border-transparent text-ink/60 hover:text-ink',
+                'flex items-center gap-2 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
+                current ? 'border-brand bg-brand text-white' : 'border-border bg-white text-ink/70 hover:bg-paper hover:text-ink',
               )}
             >
-              {t(`international.tabs.${key}`)}
-              {!!n && (
-                <span className={cn('rounded-full px-1.5 text-xs font-semibold tabular-nums text-white', key === 'welfare' && summary?.urgentWelfare ? 'bg-danger' : 'bg-accent')}>
+              {t(s.label)}
+              {n > 0 && (
+                <span className={cn('rounded-full px-1.5 text-xs font-semibold tabular-nums', urgent ? 'bg-danger text-white' : current ? 'bg-white text-brand-dark' : 'bg-accent text-white')}>
                   {n}
                 </span>
               )}
@@ -101,6 +119,33 @@ export default function InternationalPage() {
           );
         })}
       </div>
+
+      {section.tabs.length > 1 && (
+        <div className="mb-5 flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label={t(section.label)}>
+          {section.tabs.map((key) => {
+            const n = badge(key);
+            return (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={tab === key}
+                onClick={() => setTab(key)}
+                className={cn(
+                  '-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+                  tab === key ? 'border-brand text-brand-dark' : 'border-transparent text-ink/60 hover:text-ink',
+                )}
+              >
+                {t(`international.tabs.${key}`)}
+                {!!n && (
+                  <span className={cn('rounded-full px-1.5 text-xs font-semibold tabular-nums text-white', key === 'welfare' && summary?.urgentWelfare ? 'bg-danger' : 'bg-accent')}>
+                    {n}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {tab === 'enquiries' && <EnquiriesTab />}
       {tab === 'interviews' && <InterviewRequestsTab />}

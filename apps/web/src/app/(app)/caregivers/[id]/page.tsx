@@ -367,13 +367,12 @@ export default function CaregiverProfilePage() {
           <TabsTrigger value="qualifications">{t('caregivers.profile.tabs.qualifications')}</TabsTrigger>
           <TabsTrigger value="experience">{t('caregivers.profile.tabs.experience')}</TabsTrigger>
           <TabsTrigger value="documents">{t('caregivers.profile.tabs.documents')}</TabsTrigger>
-          <TabsTrigger value="references">{t('caregivers.profile.tabs.references')}</TabsTrigger>
-          <TabsTrigger value="verification">{t('caregivers.profile.tabs.verification')}</TabsTrigger>
+          {/* References, verification and (for admins) the audit history share one tab: the checks made on this caregiver. */}
+          <TabsTrigger value="checks">{t('caregivers.profile.tabs.checks')}</TabsTrigger>
           {canSeeHealth && <TabsTrigger value="restricted">{t('caregivers.profile.tabs.restricted')}</TabsTrigger>}
           {isAdminOrStaff && <TabsTrigger value="signIn">{t('caregivers.profile.tabs.signIn')}</TabsTrigger>}
           {isAdminOrStaff && <TabsTrigger value="requests">{t('requests.related.title')}</TabsTrigger>}
           {isAdminOrStaff && <TabsTrigger value="ratings">{t('reviews.panel.tab')}</TabsTrigger>}
-          {user?.role === 'ADMIN' && <TabsTrigger value="audit">{t('caregivers.profile.tabs.audit')}</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -839,7 +838,8 @@ export default function CaregiverProfilePage() {
           )}
         </TabsContent>
 
-        <TabsContent value="references">
+        <TabsContent value="checks">
+          <h3 className="mb-3 text-sm font-semibold text-ink">{t('caregivers.profile.tabs.references')}</h3>
           <Card>
             <CardContent className="divide-y divide-border py-5">
               <div className="rounded border border-dashed border-border bg-white p-5 space-y-2">
@@ -973,7 +973,8 @@ export default function CaregiverProfilePage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="verification">
+        <TabsContent value="checks">
+          <h3 className="mb-3 text-sm font-semibold text-ink">{t('caregivers.profile.tabs.verification')}</h3>
           <Card>
             <CardContent className="divide-y divide-border py-5">
               <div className="rounded border border-dashed border-border bg-white p-5 space-y-2">
@@ -1211,7 +1212,8 @@ export default function CaregiverProfilePage() {
         )}
 
         {user?.role === 'ADMIN' && (
-          <TabsContent value="audit">
+          <TabsContent value="checks">
+            <h3 className="mb-3 text-sm font-semibold text-ink">{t('caregivers.profile.tabs.audit')}</h3>
             <Card>
               <CardContent className="divide-y divide-border py-5">
                 {auditEntries?.map((a: any) => (
