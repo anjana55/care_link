@@ -161,6 +161,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           microphonePermission: false,
         },
       ],
+      // Face ID / fingerprint unlock, only for people who turn it on (src/auth/AppLock). iOS needs the reason.
+      ['expo-local-authentication', { faceIDPermission: `${brand.name} uses Face ID, only if you turn it on, to unlock the app.` }],
     ],
     // The iPhone permission message in Sinhala and Tamil (locales/*.json; English is above).
     locales: { si: './locales/si.json', ta: './locales/ta.json' },

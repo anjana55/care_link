@@ -6,6 +6,7 @@ import { useTranslation } from '@/i18n';
 import { useColors } from '@/theme';
 import { Button, Screen } from '@/ui/controls';
 import { LanguagePicker } from '@/ui/LanguagePicker';
+import { AppLockSetting } from '@/auth/AppLock';
 import { Text } from '@/ui/Text';
 import { Avatar, Card, Divider, IconBadge, MenuRow } from '@/ui/visual';
 
@@ -60,6 +61,7 @@ export default function Account() {
           <Text style={[styles.label, { color: colors.ink }]}>{t('common.language')}</Text>
           <LanguagePicker />
         </View>
+        {user ? <AppLockSetting /> : null}
 
         {user ? (
           <Button

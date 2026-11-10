@@ -4,6 +4,7 @@ import { createQueryClient } from '@/api/query-client';
 import { BrandingProvider } from '@/branding/BrandingProvider';
 import { I18nProvider } from '@/i18n';
 import { AuthProvider } from '@/auth/AuthProvider';
+import { AppLockGate, AppLockProvider } from '@/auth/AppLock';
 
 /** The app's providers around a single screen, as the root layout arranges them. */
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -11,7 +12,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <QueryClientProvider client={createQueryClient()}>
       <BrandingProvider>
         <I18nProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <AppLockProvider>
+              <AppLockGate>{children}</AppLockGate>
+            </AppLockProvider>
+          </AuthProvider>
         </I18nProvider>
       </BrandingProvider>
     </QueryClientProvider>

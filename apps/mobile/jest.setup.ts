@@ -19,6 +19,16 @@ jest.mock('expo-secure-store', () => {
   };
 });
 
+// Face / fingerprint unlock: a phone without it set up, unless a test says otherwise
+// (mockLocalAuth in test-utils/app-lock).
+jest.mock('expo-local-authentication', () => ({
+  AuthenticationType: { FINGERPRINT: 1, FACIAL_RECOGNITION: 2, IRIS: 3 },
+  hasHardwareAsync: jest.fn(async () => false),
+  isEnrolledAsync: jest.fn(async () => false),
+  supportedAuthenticationTypesAsync: jest.fn(async () => []),
+  authenticateAsync: jest.fn(async () => ({ success: false, error: 'not_available' })),
+}));
+
 // Fonts load instantly; the font files themselves aren't the subject of these tests.
 jest.mock('expo-font', () => ({ ...jest.requireActual('expo-font'), useFonts: () => [true, null] }));
 
