@@ -349,7 +349,8 @@
         "verification": "Verification",
         "restricted": "Restricted information",
         "audit": "Audit history",
-        "signIn": "Sign-in"
+        "signIn": "Sign-in",
+        "checks": "Checks"
       }
     },
     "edit": {
@@ -3200,6 +3201,9 @@
       "accountHint": "Link it to the employer's account so it shows in their employer area. It can't be moved once offers, vacancies or placements belong to that account.",
       "message": "Their message",
       "changed": "{n} change(s) to save"
+    },
+    "sections": {
+      "hiring": "Hiring"
     }
   },
   "dataTransfer": {
