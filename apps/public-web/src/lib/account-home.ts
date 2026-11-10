@@ -6,5 +6,5 @@ import type { AuthUser } from './api/auth-context';
  * mocking) the whole session provider.
  */
 export function accountHome(user: Pick<AuthUser, 'role'>): string {
-  return user.role === 'PATIENT_GUARDIAN' ? '/account/requests' : user.role === 'EMPLOYER' ? '/employer' : '/caregiver/dashboard';
+  return user.role === 'PATIENT_GUARDIAN' ? '/account' : user.role === 'EMPLOYER' ? '/employer' : '/caregiver/dashboard';
 }

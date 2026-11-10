@@ -8,10 +8,11 @@ import { useTranslation } from '@/lib/i18n';
 import { rememberReturnTo } from '@/lib/return-to';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
-import { TodoCards } from '@/components/notifications/notifications-page';
 
 // Notifications have no tab: they open from the bell in the header.
-const SECTIONS = [
+const SECTIONS: { href: string; key: string; exact?: boolean }[] = [
+  // Home first: what is waiting, and a card for everything else.
+  { href: '/account', key: 'nav.home', exact: true },
   { href: '/account/requests', key: 'account.nav.requests' },
   { href: '/account/bookings', key: 'account.nav.bookings' },
   { href: '/account/invoices', key: 'account.nav.invoices' },
@@ -20,7 +21,7 @@ const SECTIONS = [
 ];
 
 /**
- * The signed-in client's area: their requests, saved caregivers, bookings and invoices.
+ * The signed-in client's area: a home page, then their requests, saved caregivers, bookings and invoices.
  *
  * Guarded here for every page under it. A visitor who is signed out is sent to
  * sign in and brought back; a caregiver session goes to the caregiver's own
@@ -56,7 +57,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
           <nav aria-label={t('account.navLabel')} className="border-b border-border bg-white print:hidden">
             <div className="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-4">
               {SECTIONS.map((section) => {
-                const active = pathname === section.href || Boolean(pathname?.startsWith(`${section.href}/`));
+                const active = pathname === section.href || (!section.exact && Boolean(pathname?.startsWith(`${section.href}/`)));
                 return (
                   <Link
                     key={section.href}
@@ -73,8 +74,6 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
             </div>
           </nav>
           <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 print:max-w-none print:p-0">
-            {/* The landing page leads with what is waiting on them. */}
-            {pathname === '/account/requests' && <TodoCards />}
             {children}
           </main>
         </>
