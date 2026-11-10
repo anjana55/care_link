@@ -3808,7 +3808,10 @@
     "open": "Search",
     "placeholder": "Name, phone, or a request, booking or invoice number",
     "placeholderCaregivers": "Caregiver name, phone or registration number",
-    "hint": "Type at least 2 characters",
-    "none": "Nothing found for \"{term}\""
+    "none": "Nothing found for \"{term}\"",
+    "idle": "Find a record by name, phone number or reference",
+    "toMove": "to move",
+    "toOpen": "to open",
+    "toClose": "Close"
   }
 }
