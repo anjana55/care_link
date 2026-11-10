@@ -26,6 +26,7 @@ import { releaseCaregiverIdentity } from '../account-access/identity.util';
 import { AuditService } from '../audit/audit.service';
 import { assertNoPendingDeletion } from '../account-deletion/pending-deletion.util';
 import { AccountDeletionService } from '../account-deletion/account-deletion.service';
+import { caregiverRefCondition, generateUniquePublicId } from './caregiver-ref.util';
 
 /** A condition that always evaluates to false - used to short-circuit a
  * filter to "no results" without ever building an invalid `IN ()` clause. */
@@ -93,7 +94,8 @@ export class CaregiversService {
     const id = uuid();
     // Generated at creation time, independent of `id`, so the public-search
     // API never has to expose (or derive from) the internal primary key.
-    const publicId = uuid();
+    // Its first 8 characters are the ID customers see, so they must be unique too.
+    const publicId = await generateUniquePublicId(this.db);
     const registrationNumber = await generateRegistrationNumber(this.db);
 
     await this.db.insert(caregivers).values({
@@ -190,7 +192,7 @@ export class CaregiversService {
     if (query.search) {
       const term = `%${query.search}%`;
       conditions.push(
-        or(like(caregivers.fullName, term), like(caregivers.registrationNumber, term), like(caregivers.primaryPhone, term))!,
+        or(like(caregivers.fullName, term), like(caregivers.registrationNumber, term), like(caregivers.primaryPhone, term), ...caregiverRefCondition(query.search))!,
       );
     }
     if (query.status) {

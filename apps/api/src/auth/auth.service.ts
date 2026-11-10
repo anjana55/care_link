@@ -22,6 +22,7 @@ import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
 import { assertNoWhatsappLoginForPhone } from './phone-accounts.util';
 import { normalizePhone } from '../common/utils/phone.util';
 import { buildPatientIntake } from '../clients/patient-profile.util';
+import { generateUniquePublicId } from '../caregivers/caregiver-ref.util';
 
 // Self-registering roles must verify their email before their first login;
 // staff/admin/verifier accounts are created by an already-authenticated admin
@@ -123,7 +124,7 @@ export class AuthService {
       await tx.insert(caregivers).values(
         selfRegisteredCaregiverValues({
           id: caregiverId,
-          publicId: uuid(),
+          publicId: await generateUniquePublicId(txDb),
           userId,
           registrationNumber,
           fields: caregiverFields,

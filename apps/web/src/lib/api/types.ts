@@ -21,6 +21,8 @@ export type ClientStatus = 'PENDING_REVIEW' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED
 
 export interface CaregiverListItem {
   id: string;
+  /** Full public id; its first 8 characters are the ID customers see. */
+  publicId: string;
   registrationNumber: string;
   fullName: string;
   nic: string | null;
@@ -74,6 +76,8 @@ export interface DashboardStats {
 
 export interface CaregiverDetail {
   id: string;
+  /** Full public id; its first 8 characters are the ID customers see. */
+  publicId: string;
   registrationNumber: string;
   fullName: string;
   permanentAddress: string;

@@ -20,6 +20,7 @@ import { canUsePortal, type LoginPortal } from '../common/auth/login-portal';
 import { maskPhone } from '../common/utils/masking.util';
 import { buildPatientIntake } from '../clients/patient-profile.util';
 import { RegisterCaregiverWhatsappDto, RegisterPatientWhatsappDto, RequestWhatsappOtpDto, VerifyWhatsappOtpDto } from './dto/whatsapp-auth.dto';
+import { generateUniquePublicId } from '../caregivers/caregiver-ref.util';
 
 // Same set the email flow treats as self-registering. Staff/admin/verifier
 // accounts are created by an admin and never sign in with WhatsApp.
@@ -102,7 +103,7 @@ export class WhatsappAuthService {
         const caregiverId = uuid();
         const registrationNumber = await generateRegistrationNumber(txDb);
         await tx.insert(caregivers).values(
-          selfRegisteredCaregiverValues({ id: caregiverId, publicId: uuid(), userId, registrationNumber, fields: caregiverFields, location }),
+          selfRegisteredCaregiverValues({ id: caregiverId, publicId: await generateUniquePublicId(txDb), userId, registrationNumber, fields: caregiverFields, location }),
         );
         return { userId, caregiverId, registrationNumber };
       }),

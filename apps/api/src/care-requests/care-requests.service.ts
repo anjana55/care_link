@@ -38,6 +38,7 @@ import { assertWhatsappNumberAvailable } from '../auth/phone-accounts.util';
 import { buildPatientIntake } from '../clients/patient-profile.util';
 import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
 import { GeoService, localName } from '../geo/geo.service';
+import { caregiverRefCondition } from '../caregivers/caregiver-ref.util';
 
 /** How many open requests one client may have at once - enough for a real search, too few to spam staff. */
 export const MAX_OPEN_REQUESTS_PER_CLIENT = 10;
@@ -334,6 +335,7 @@ export class CareRequestsService {
           like(patients.phone, term),
           like(caregivers.fullName, term),
           like(caregivers.registrationNumber, term),
+          ...caregiverRefCondition(query.search),
         )!,
       );
     }

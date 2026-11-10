@@ -12,6 +12,7 @@ import { fromBuilt, normalizeLines, type StoredLine } from './billing-lines';
 import { openAdjustmentLines } from './adjustments';
 import { CreatePayoutDto, GeneratePayoutsDto, PayPayoutDto, PayoutQueryDto, ReplaceLinesDto, UpdatePayoutDto } from './dto/billing.dto';
 import { MAX_INVOICE_DAYS } from './invoices.service';
+import { caregiverRefCondition } from '../caregivers/caregiver-ref.util';
 
 type Tx = Database;
 type Row = typeof payoutStatements.$inferSelect;
@@ -54,7 +55,7 @@ export class PayoutsService {
     if (query.caregiverId) conditions.push(eq(payoutStatements.caregiverId, query.caregiverId));
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
-      conditions.push(or(like(payoutStatements.reference, term), like(caregivers.fullName, term), like(caregivers.registrationNumber, term))!);
+      conditions.push(or(like(payoutStatements.reference, term), like(caregivers.fullName, term), like(caregivers.registrationNumber, term), ...caregiverRefCondition(query.search))!);
     }
     const where = conditions.length ? and(...conditions) : undefined;
     const [{ total }] = await this.db.select({ total: count() }).from(payoutStatements).innerJoin(caregivers, eq(payoutStatements.caregiverId, caregivers.id)).where(where);

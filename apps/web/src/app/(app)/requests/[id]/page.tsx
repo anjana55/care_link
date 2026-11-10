@@ -27,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/badge';
 import { PhoneLink } from '@/components/clients/contact-links';
 import { RequestStatusBadge } from '@/components/requests/request-status-badge';
+import { CaregiverRef } from '@/components/caregivers/caregiver-ref';
 import type { CareRequestCloseReason, CareRequestDetail, CareRequestEvent, CareRequestStatus } from '@/lib/api/types';
 
 const CLOSE_REASONS: CareRequestCloseReason[] = [
@@ -352,6 +353,9 @@ function CaregiverPanel({ request }: { request: CareRequestDetail }) {
         )}
         <Row label={t('requests.detail.registration')}>
           <span className="tabular-nums">{g.registrationNumber}</span>
+        </Row>
+        <Row label={t('caregivers.publicRef.label')}>
+          <CaregiverRef publicId={g.publicId} status={g.status} detailed showLabel={false} />
         </Row>
         <Row label={t('requests.detail.phone')}>{g.primaryPhone ? <PhoneLink phone={g.primaryPhone} whatsapp /> : '—'}</Row>
         {g.secondaryPhone && (

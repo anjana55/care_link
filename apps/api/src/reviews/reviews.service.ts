@@ -29,6 +29,7 @@ import { ReviewStore, reviewableView, type BookingReviewEntry } from './review-s
 import { ReviewsNotifier } from './reviews-notifier.service';
 import { formatTags, parseTags, publicSummary, shownPublicly, sortBadgeCounts } from './review-rules';
 import type { ReviewReasonDto, StaffReviewQueryDto, SubmitReviewDto } from './dto/review.dto';
+import { caregiverRefCondition } from '../caregivers/caregiver-ref.util';
 
 type Tx = Database;
 type ReviewRow = typeof caregiverReviews.$inferSelect;
@@ -281,7 +282,7 @@ export class ReviewsService {
     if (q.caregiverId) conditions.push(eq(caregiverReviews.caregiverId, q.caregiverId));
     if (q.search) {
       const term = `%${q.search.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
-      conditions.push(or(like(caregivers.fullName, term), like(patients.fullName, term), like(bookings.reference, term)));
+      conditions.push(or(like(caregivers.fullName, term), like(patients.fullName, term), like(bookings.reference, term), ...caregiverRefCondition(q.search)));
     }
     const where = and(...conditions);
     const base = () =>

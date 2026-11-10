@@ -31,6 +31,7 @@ import {
 } from './import-types';
 import { headerKey } from './csv.util';
 import type { CaregiverExportDto } from './dto/transfer.dto';
+import { caregiverRefCondition, generateUniquePublicId } from '../caregivers/caregiver-ref.util';
 
 /**
  * The caregiver spreadsheet: one row per caregiver. The same columns are
@@ -120,7 +121,7 @@ export class CaregiverTransferService {
     const conditions: SQL[] = [isNull(caregivers.deletedAt)];
     if (filter.search) {
       const term = `%${filter.search}%`;
-      conditions.push(or(like(caregivers.fullName, term), like(caregivers.registrationNumber, term), like(caregivers.primaryPhone, term), like(caregivers.nic, term))!);
+      conditions.push(or(like(caregivers.fullName, term), like(caregivers.registrationNumber, term), like(caregivers.primaryPhone, term), like(caregivers.nic, term), ...caregiverRefCondition(filter.search))!);
     }
     if (filter.status) conditions.push(eq(caregivers.status, filter.status));
     if (filter.districtId) conditions.push(eq(caregivers.districtId, filter.districtId));
@@ -429,7 +430,7 @@ export class CaregiverTransferService {
       await tx.insert(caregivers).values({
         ...p.values,
         id,
-        publicId: uuid(),
+        publicId: await generateUniquePublicId(txDb),
         registrationNumber,
         district: location?.district ?? null,
         city: location?.city ?? null,
