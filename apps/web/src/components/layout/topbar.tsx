@@ -1,18 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowLeft, KeyRound, LogOut, Menu } from 'lucide-react';
+import { ArrowLeft, Menu } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { LanguageToggle } from '@/components/layout/language-toggle';
-import { useAuth } from '@/lib/api/auth-context';
-import { ChangePasswordModal } from '@/components/users/change-password-modal';
+import { AccountMenu } from '@/components/layout/account-menu';
 import { PublicSiteLink } from '@/components/layout/brand-mark';
 import { QuickSearch } from '@/components/layout/quick-search';
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
   const { t } = useTranslation();
-  const { user, logout } = useAuth();
-  const [changingPassword, setChangingPassword] = useState(false);
 
   return (
     // Sticky: it holds the language switch, the account menu and (below md) the
@@ -35,34 +31,8 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
       <div className="flex shrink-0 items-center gap-4">
         <QuickSearch />
         <LanguageToggle />
-        {user && (
-          <div className="flex items-center gap-3 border-l border-border pl-4">
-            {/* Name/role only: on a narrow screen the buttons matter more. */}
-            <div className="hidden text-right sm:block">
-              <div className="text-sm font-medium text-ink">{user.email ?? user.phone}</div>
-              <div className="text-xs text-ink/50">{user.role}</div>
-            </div>
-            {/* WhatsApp-only accounts have no password to change. */}
-            {user.email && (
-              <button
-                onClick={() => setChangingPassword(true)}
-                className="flex h-9 w-9 items-center justify-center rounded text-ink/60 hover:bg-paper hover:text-ink"
-                title={t('changePassword.title')}
-              >
-                <KeyRound size={16} />
-              </button>
-            )}
-            <button
-              onClick={logout}
-              className="flex h-9 w-9 items-center justify-center rounded text-ink/60 hover:bg-paper hover:text-ink"
-              title={t('nav.logout')}
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        )}
+        <AccountMenu />
       </div>
-      {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
     </header>
   );
 }
