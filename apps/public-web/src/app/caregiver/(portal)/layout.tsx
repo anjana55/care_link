@@ -11,15 +11,16 @@ import { LanguageSwitcher } from '@/components/common/language-switcher';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { hardNavigate } from '@/lib/navigation';
 
-const SECTIONS = [
+// Six tabs, so the strip fits a phone without scrolling sideways. Two pages have
+// no tab: ratings open from the profile (which stays lit on them), and
+// notifications from the bell in the header.
+const SECTIONS: { href: string; key: string; also?: string }[] = [
   { href: '/caregiver/dashboard', key: 'portal.nav.overview' },
-  { href: '/caregiver/profile', key: 'portal.nav.profile' },
+  { href: '/caregiver/profile', key: 'portal.nav.profile', also: '/caregiver/ratings' },
   { href: '/caregiver/documents', key: 'portal.nav.documents' },
   { href: '/caregiver/shifts', key: 'portal.nav.shifts' },
   { href: '/caregiver/payments', key: 'portal.nav.payments' },
-  { href: '/caregiver/ratings', key: 'portal.nav.ratings' },
   { href: '/caregiver/work-abroad', key: 'portal.nav.workAbroad' },
-  { href: '/caregiver/notifications', key: 'portal.nav.notifications' },
 ];
 
 /**
@@ -79,7 +80,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         </div>
         <nav aria-label={t('portal.nav.label')} className="mx-auto flex max-w-4xl gap-1 overflow-x-auto px-4">
           {SECTIONS.map((section) => {
-            const active = pathname === section.href;
+            const active = pathname === section.href || pathname === section.also;
             return (
               <Link
                 key={section.href}
