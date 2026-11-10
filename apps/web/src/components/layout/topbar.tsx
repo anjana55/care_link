@@ -7,6 +7,7 @@ import { LanguageToggle } from '@/components/layout/language-toggle';
 import { useAuth } from '@/lib/api/auth-context';
 import { ChangePasswordModal } from '@/components/users/change-password-modal';
 import { PublicSiteLink } from '@/components/layout/brand-mark';
+import { QuickSearch } from '@/components/layout/quick-search';
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
   const { t } = useTranslation();
@@ -32,6 +33,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         </PublicSiteLink>
       </div>
       <div className="flex shrink-0 items-center gap-4">
+        <QuickSearch />
         <LanguageToggle />
         {user && (
           <div className="flex items-center gap-3 border-l border-border pl-4">
