@@ -8,7 +8,7 @@ import { mockRouter } from '../test-utils/router';
 import { tokensFor } from '../test-utils/helpers';
 import { pickDate } from '../test-utils/calendar';
 import { tokenStore } from '@/api';
-import { nextVisit } from '@/care/next-visit';
+import { hasCareToday, nextVisit } from '@/care/next-visit';
 import { Calendar, DateField, longDay, monthGrid } from '@/ui/Calendar';
 import { PageHeader } from '@/ui/PageHeader';
 
@@ -163,9 +163,21 @@ describe('the client home', () => {
     expect(nextVisit([], now)).toBeNull();
   });
 
-  it('has a big card for everything a client does, the search box when nothing is waiting, and their next visit', async () => {
+  it('knows when there is care today: a confirmed shift starting or ending today in Sri Lanka', () => {
+    const now = Date.parse('2026-11-02T06:00:00Z'); // 11:30 on 2 Nov in Colombo
+    expect(hasCareToday([booking({ shifts: [shift('today', '2026-11-02T02:30:00Z', '2026-11-02T14:30:00Z')] })], now)).toBe(true);
+    // Started at 20:00 yesterday, ends this morning.
+    expect(hasCareToday([booking({ shifts: [shift('night', '2026-11-01T14:30:00Z', '2026-11-02T02:30:00Z')] })], now)).toBe(true);
+    // 05:00 on 2 Nov in Colombo is still 1 Nov in UTC.
+    expect(hasCareToday([booking({ shifts: [shift('early', '2026-11-01T23:30:00Z', '2026-11-02T01:30:00Z')] })], now)).toBe(true);
+    expect(hasCareToday([booking({ shifts: [shift('tomorrow', '2026-11-03T02:30:00Z', '2026-11-03T14:30:00Z')] })], now)).toBe(false);
+    expect(hasCareToday([booking({ shifts: [shift('off', '2026-11-02T02:30:00Z', '2026-11-02T14:30:00Z', 'CANCELLED')] })], now)).toBe(false);
+    expect(hasCareToday([booking({ status: 'DRAFT', shifts: [shift('draft', '2026-11-02T02:30:00Z', '2026-11-02T14:30:00Z')] })], now)).toBe(false);
+  });
+
+  it('with nothing to do, puts the next visit on the band and keeps Find a caregiver as a card', async () => {
     await tokenStore.set(tokensFor('PATIENT_GUARDIAN'));
-    const soon = new Date(Date.now() + 86_400_000);
+    const soon = new Date(Date.now() + 2 * 86_400_000);
     soon.setUTCHours(2, 30, 0, 0);
     const end = new Date(soon.getTime() + 12 * 3_600_000);
     serveApi({
@@ -176,27 +188,87 @@ describe('the client home', () => {
 
     expect(await screen.findByText(en.clientHome.nextVisit)).toBeTruthy();
     expect(screen.getByText(/08:00/)).toBeTruthy();
+    // Shown once, on the band.
+    expect(screen.getAllByText(en.clientHome.nextVisit)).toHaveLength(1);
     // Home is where they are: no Back or Home button on it.
     expect(screen.queryByRole('button', { name: en.nav.back })).toBeNull();
     expect(screen.queryByRole('button', { name: en.nav.home })).toBeNull();
     expect(screen.queryByText(en.clientHome.nextForYou)).toBeNull();
-    expect(screen.getByText(en.clientHome.hints.bills)).toBeTruthy();
+    // The visit is on the band, so search is a card (and the Find tab), not a box too.
+    expect(screen.queryByRole('button', { name: en.clientHome.search })).toBeNull();
     expect(screen.getByTestId('home-art-find', { includeHiddenElements: true })).toBeTruthy();
+    // No care today, so no "Today's care" card.
+    expect(screen.queryByRole('button', { name: en.carePlan.todayTitle })).toBeNull();
+    expect(screen.getByText(en.clientHome.hints.bills)).toBeTruthy();
     expect(screen.queryByTestId('count-bills', { includeHiddenElements: true })).toBeNull();
 
     const cards: [string, string][] = [
       [en.welcome.findCare, '/find'],
       [en.account.nav.bookings, '/bookings'],
-      [en.carePlan.todayTitle, '/bookings'],
       [en.account.nav.invoices, '/invoices'],
       [en.account.nav.saved, '/saved'],
       [en.account.nav.requests, '/requests'],
-      [en.clientHome.search, '/find'],
     ];
     for (const [name, to] of cards) {
       await fireEvent.press(screen.getByRole('button', { name }));
       expect(mockRouter.navigate).toHaveBeenLastCalledWith(to);
     }
+    await fireEvent.press(screen.getByText(en.clientHome.nextVisit));
+    expect(mockRouter.navigate).toHaveBeenLastCalledWith('/bookings');
+  });
+
+  it('with nothing to do and no visit booked, shows the search box once: no Find a caregiver card under it', async () => {
+    await tokenStore.set(tokensFor('PATIENT_GUARDIAN'));
+    serveApi({
+      'GET /me/bookings': () => ({ status: 200, body: [] }),
+      'GET /me/notifications/summary': () => ({ status: 200, body: { unread: 0, todos: [], badge: 0 } }),
+    });
+    await show(<Start />);
+
+    await fireEvent.press(await screen.findByRole('button', { name: en.clientHome.search }));
+    expect(mockRouter.navigate).toHaveBeenLastCalledWith('/find');
+    expect(screen.queryByRole('button', { name: en.welcome.findCare })).toBeNull();
+    expect(screen.queryByTestId('home-art-find', { includeHiddenElements: true })).toBeNull();
+    expect(screen.queryByRole('button', { name: en.carePlan.todayTitle })).toBeNull();
+    expect(screen.queryByText(en.clientHome.nextVisit)).toBeNull();
+    expect(screen.getByRole('button', { name: en.account.nav.bookings })).toBeTruthy();
+  });
+
+  it('shows "Today\'s care" on a day with care', async () => {
+    await tokenStore.set(tokensFor('PATIENT_GUARDIAN'));
+    const start = new Date(Date.now() - 3_600_000);
+    const end = new Date(Date.now() + 3_600_000);
+    serveApi({
+      'GET /me/bookings': () => ({ status: 200, body: [booking({ shifts: [shift('now', start.toISOString(), end.toISOString())] })] }),
+      'GET /me/notifications/summary': () => ({ status: 200, body: { unread: 0, todos: [], badge: 0 } }),
+    });
+    await show(<Start />);
+
+    await fireEvent.press(await screen.findByRole('button', { name: en.carePlan.todayTitle }));
+    expect(mockRouter.navigate).toHaveBeenLastCalledWith('/bookings');
+  });
+
+  it('holds the band while loading instead of flashing the search box before a to-do', async () => {
+    await tokenStore.set(tokensFor('PATIENT_GUARDIAN'));
+    let answer: (value: { status: number; body: unknown }) => void = () => {};
+    serveApi({
+      'GET /me/bookings': () => ({ status: 200, body: [] }),
+      'GET /me/notifications/summary': () => new Promise((resolve) => (answer = resolve)),
+    });
+    await show(<Start />);
+
+    expect(screen.getByTestId('band-waiting', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: en.clientHome.search })).toBeNull();
+
+    answer({
+      status: 200,
+      body: { unread: 0, badge: 1, todos: [{ key: 'inv', kind: 'PAY_INVOICE', path: '/invoices/i-1', urgent: false, dueOn: null, params: { number: 'INV-7', amount: 'LKR 12,500.00', overdue: 0 } }] },
+    });
+    expect(await screen.findByText(en.clientHome.nextForYou)).toBeTruthy();
+    expect(screen.queryByTestId('band-waiting', { includeHiddenElements: true })).toBeNull();
+    expect(screen.queryByRole('button', { name: en.clientHome.search })).toBeNull();
+    // A to-do on the band: search is a card again.
+    expect(screen.getByRole('button', { name: en.welcome.findCare })).toBeTruthy();
   });
 
   it('puts the next thing to do on the band, numbers on the cards it concerns, and the whole list one tap away', async () => {
@@ -241,11 +313,15 @@ describe('the client home', () => {
     expect(mockRouter.push).toHaveBeenLastCalledWith('/notifications');
   });
 
-  it('works for someone not signed in yet: no next visit, the same tiles', async () => {
+  it('works for someone not signed in yet: the search box, no next visit, the other tiles', async () => {
     serveApi({});
     await show(<Start />);
     expect(await screen.findByText(en.clientHome.welcome)).toBeTruthy();
     expect(screen.queryByText(en.clientHome.nextVisit)).toBeNull();
     expect(screen.getByRole('button', { name: en.account.nav.bookings })).toBeTruthy();
+    // The search box, and no Find a caregiver card or Today's care under it.
+    expect(screen.getByRole('button', { name: en.clientHome.search })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: en.welcome.findCare })).toBeNull();
+    expect(screen.queryByRole('button', { name: en.carePlan.todayTitle })).toBeNull();
   });
 });
