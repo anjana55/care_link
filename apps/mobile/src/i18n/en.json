@@ -1341,5 +1341,27 @@
       "CV": "CV",
       "OTHER": "document"
     }
+  },
+  "appLock": {
+    "lockedTitle": "{brand} is locked",
+    "lockedBody": "Use {method} to open it.",
+    "unlock": "Unlock",
+    "unlockPrompt": "Unlock {brand}",
+    "confirmPrompt": "Confirm it's you",
+    "notUnlocked": "Not unlocked. Tap Unlock to try again, or use your phone's PIN.",
+    "signInAnotherWay": "Sign in another way",
+    "offerTitle": "Open {brand} with {method}?",
+    "offerBody": "Next time, use {method} instead of signing in. You can change this in My account.",
+    "offerYes": "Yes, turn it on",
+    "offerNo": "Not now",
+    "settingLabel": "Unlock with {method}",
+    "settingHint": "Asks when you open the app, and after 5 minutes away.",
+    "kind": {
+      "faceId": "Face ID",
+      "face": "your face",
+      "fingerprint": "your fingerprint",
+      "iris": "your eyes",
+      "any": "your fingerprint or face"
+    }
   }
 }

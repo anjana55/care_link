@@ -7,6 +7,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { I18nProvider, useTranslation } from '@/i18n';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
+import { AppLockGate, AppLockProvider, useAppLock } from '@/auth/AppLock';
 import { BrandingProvider, useBranding } from '@/branding/BrandingProvider';
 import { FONT_ASSETS } from '@/ui/fonts';
 import { createQueryClient } from '@/api/query-client';
@@ -34,9 +35,11 @@ function BrandedI18n({ children }: { children: ReactNode }) {
 function ShowWhenReady({ children }: { children: ReactNode }) {
   const { ready: languageReady } = useTranslation();
   const { ready: sessionReady } = useAuth();
+  // And whether to show the face/fingerprint lock, so a locked app never shows its screens first.
+  const { ready: lockReady } = useAppLock();
   // A font that fails to load falls back to the system font rather than holding the app.
   const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
-  const ready = languageReady && sessionReady && (fontsLoaded || fontError !== null);
+  const ready = languageReady && sessionReady && lockReady && (fontsLoaded || fontError !== null);
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => undefined);
   }, [ready]);
@@ -52,13 +55,17 @@ export default function RootLayout() {
         <BrandingProvider>
           <BrandedI18n>
             <AuthProvider>
-              <ShowWhenReady>
-                <StatusBar style="auto" />
-                <PushRegistration />
-                <UpdateGate>
-                  <Stack screenOptions={{ headerShown: false }} />
-                </UpdateGate>
-              </ShowWhenReady>
+              <AppLockProvider>
+                <ShowWhenReady>
+                  <StatusBar style="auto" />
+                  <PushRegistration />
+                  <UpdateGate>
+                    <AppLockGate>
+                      <Stack screenOptions={{ headerShown: false }} />
+                    </AppLockGate>
+                  </UpdateGate>
+                </ShowWhenReady>
+              </AppLockProvider>
             </AuthProvider>
           </BrandedI18n>
         </BrandingProvider>
