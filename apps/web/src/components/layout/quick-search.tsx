@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, HeartHandshake, Inbox, Loader2, ReceiptText, Search, Users, type LucideIcon } from 'lucide-react';
+import { CalendarDays, CornerDownLeft, HeartHandshake, Inbox, Loader2, ReceiptText, Search, SearchX, Users, type LucideIcon } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/api/auth-context';
 import { useTranslation } from '@/lib/i18n/provider';
@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 /** How many of each kind to show: enough to find a record by name, short enough to read at a glance. */
 const PER_KIND = 4;
 const MIN_CHARS = 2;
+const KEY = 'rounded border border-border bg-white px-1.5 py-0.5 font-sans text-[11px] font-medium text-ink/60';
 
 interface Hit {
   href: string;
@@ -147,11 +148,11 @@ export function QuickSearch() {
         onClick={() => setOpen(true)}
         aria-label={t('quickSearch.open')}
         aria-keyshortcuts="Control+K Meta+K"
-        className="flex h-9 shrink-0 items-center gap-2 rounded border border-border px-2.5 text-sm text-ink/60 hover:bg-paper hover:text-ink sm:w-56 sm:px-3"
+        className="flex h-9 shrink-0 items-center gap-2 rounded-lg border border-border bg-paper px-2.5 text-sm text-ink/55 transition-colors hover:border-brand/40 hover:bg-white hover:text-ink sm:w-64 sm:px-3"
       >
         <Search size={16} aria-hidden />
         <span className="hidden flex-1 text-left sm:inline">{t('quickSearch.open')}</span>
-        <kbd className="hidden rounded border border-border bg-paper px-1.5 text-[11px] font-medium text-ink/50 sm:inline">Ctrl K</kbd>
+        <kbd className={cn(KEY, 'hidden sm:inline')}>Ctrl K</kbd>
       </button>
       {open && <QuickSearchDialog onClose={() => setOpen(false)} />}
     </>
@@ -206,14 +207,18 @@ function QuickSearchDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[10vh]" role="dialog" aria-modal="true" aria-label={t('quickSearch.open')} onKeyDown={onKeyDown}>
-      <button type="button" className="absolute inset-0 bg-black/30" onClick={onClose} aria-label={t('common.cancel')} tabIndex={-1} />
-      <div className="relative w-full max-w-xl overflow-hidden rounded-lg border border-border bg-white shadow-xl">
-        <div className="flex items-center gap-3 border-b border-border px-4">
-          {isFetching ? <Loader2 size={18} className="shrink-0 animate-spin text-brand" aria-hidden /> : <Search size={18} className="shrink-0 text-ink/40" aria-hidden />}
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[12vh]" role="dialog" aria-modal="true" aria-label={t('quickSearch.open')} onKeyDown={onKeyDown}>
+      <button type="button" className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]" onClick={onClose} aria-label={t('common.cancel')} tabIndex={-1} />
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-white shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-border px-5">
+          {isFetching ? <Loader2 size={20} className="shrink-0 animate-spin text-brand" aria-hidden /> : <Search size={20} className="shrink-0 text-brand" aria-hidden />}
+          {/* The page-wide focus outline would draw a box inside the dialog; the caret and the open dialog already show where typing goes. */}
           <input
             ref={inputRef}
-            type="search"
+            type="text"
+            inputMode="search"
+            autoComplete="off"
+            spellCheck={false}
             value={text}
             onChange={(e) => {
               setText(e.target.value);
@@ -222,40 +227,89 @@ function QuickSearchDialog({ onClose }: { onClose: () => void }) {
             placeholder={office ? t('quickSearch.placeholder') : t('quickSearch.placeholderCaregivers')}
             aria-label={t('quickSearch.open')}
             aria-controls="quick-search-results"
-            className="h-12 w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink/40"
+            style={{ outline: 'none' }}
+            className="h-14 w-full min-w-0 border-0 bg-transparent text-base text-ink placeholder:text-ink/40"
           />
+          <button type="button" onClick={onClose} className="shrink-0 rounded border border-border bg-paper px-2 py-0.5 text-[11px] font-medium text-ink/55 hover:text-ink" aria-label={t('quickSearch.toClose')}>
+            Esc
+          </button>
         </div>
 
-        <div id="quick-search-results" className="max-h-[60vh] overflow-y-auto p-2" aria-live="polite">
-          {!ready && <p className="px-3 py-6 text-center text-sm text-ink/50">{t('quickSearch.hint')}</p>}
-          {ready && groups && shown.length === 0 && !isFetching && <p className="px-3 py-6 text-center text-sm text-ink/60">{t('quickSearch.none', { term })}</p>}
-          {shown.map(({ kind, hits }, g) => {
-            const offset = shown.slice(0, g).reduce((n, prev) => n + prev.hits.length, 0);
-            return (
-            <div key={kind.key} className="mb-1">
-              <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink/45">{t(kind.label)}</p>
-              <ul>
-                {hits.map((hit, h) => {
-                  const i = offset + h;
-                  return (
-                    <li key={hit.href}>
-                      <button
-                        type="button"
-                        onClick={() => go(hit)}
-                        onMouseEnter={() => setCursor(i)}
-                        className={cn('flex w-full items-center gap-3 rounded px-3 py-2 text-left text-sm', i === active ? 'bg-brand-light text-brand-dark' : 'text-ink hover:bg-paper')}
-                      >
-                        <kind.icon size={16} className="shrink-0 text-ink/45" aria-hidden />
-                        <span className="min-w-0 flex-1 truncate font-medium">{hit.title}</span>
-                        {hit.detail && <span className="max-w-[50%] shrink-0 truncate text-xs text-ink/55">{hit.detail}</span>}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+        <div id="quick-search-results" className="max-h-[55vh] overflow-y-auto" aria-live="polite">
+          {!ready && (
+            <div className="px-5 py-8 text-center">
+              <p className="text-sm text-ink/60">{t('quickSearch.idle')}</p>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {kinds.map((k) => (
+                  <span key={k.key} className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1 text-xs font-medium text-ink/65">
+                    <k.icon size={13} aria-hidden />
+                    {t(k.label)}
+                  </span>
+                ))}
+              </div>
             </div>
-            );
-          })}
+          )}
+          {ready && groups && shown.length === 0 && !isFetching && (
+            <div className="px-5 py-10 text-center">
+              <SearchX size={28} className="mx-auto text-ink/30" aria-hidden />
+              <p className="mt-3 text-sm text-ink/65">{t('quickSearch.none', { term })}</p>
+            </div>
+          )}
+          {shown.length > 0 && (
+            <div className="p-2">
+              {shown.map(({ kind, hits }, g) => {
+                const offset = shown.slice(0, g).reduce((n, prev) => n + prev.hits.length, 0);
+                return (
+                  <div key={kind.key} className="mb-1 last:mb-0">
+                    <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink/45">{t(kind.label)}</p>
+                    <ul>
+                      {hits.map((hit, h) => {
+                        const i = offset + h;
+                        const current = i === active;
+                        return (
+                          <li key={hit.href}>
+                            <button
+                              type="button"
+                              onClick={() => go(hit)}
+                              onMouseEnter={() => setCursor(i)}
+                              style={{ outline: 'none' }}
+                              className={cn('flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left', current ? 'bg-brand-light' : 'hover:bg-paper')}
+                            >
+                              <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', current ? 'bg-white text-brand-dark' : 'bg-paper text-ink/50')}>
+                                <kind.icon size={16} aria-hidden />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className={cn('block truncate text-sm font-medium', current ? 'text-brand-dark' : 'text-ink')}>{hit.title}</span>
+                                {hit.detail && <span className="block truncate text-xs text-ink/55">{hit.detail}</span>}
+                              </span>
+                              {current && <CornerDownLeft size={15} className="shrink-0 text-brand-dark/70" aria-hidden />}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Keys: for people who never touch the mouse. Hidden on phones, where there are none. */}
+        <div className="hidden items-center gap-4 border-t border-border bg-paper px-5 py-2 text-xs text-ink/55 sm:flex">
+          <span className="inline-flex items-center gap-1.5">
+            <kbd className={KEY}>↑</kbd>
+            <kbd className={KEY}>↓</kbd>
+            {t('quickSearch.toMove')}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <kbd className={KEY}>Enter</kbd>
+            {t('quickSearch.toOpen')}
+          </span>
+          <span className="ml-auto inline-flex items-center gap-1.5">
+            <kbd className={KEY}>Esc</kbd>
+            {t('quickSearch.toClose')}
+          </span>
         </div>
       </div>
     </div>
