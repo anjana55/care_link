@@ -25,7 +25,15 @@
     "carePlans": "Care plans",
     "accountDeletions": "Account deletions",
     "reviews": "Reviews",
-    "announcements": "Announcements"
+    "announcements": "Announcements",
+    "recruitment": "Recruitment",
+    "groups": {
+      "care": "Care",
+      "people": "People",
+      "money": "Money",
+      "overseas": "Overseas",
+      "office": "Office"
+    }
   },
   "login": {
     "title": "Sign in",
@@ -1077,7 +1085,8 @@
       "signInMessaging": "Sign-in & messages",
       "services": "Services",
       "referenceData": "Reference data",
-      "data": "Data"
+      "data": "Data",
+      "team": "Team"
     },
     "reviews": "Reviews",
     "notifications": "Notifications"

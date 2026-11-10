@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowDownUp, Search, SlidersHorizontal } from 'lucide-react';
+import { useAccountDeletionSummary } from '@/lib/hooks/use-account-deletions';
+import { ArrowDownUp, Search, SlidersHorizontal, UserX } from 'lucide-react';
 import { useRecordTrail } from '@/lib/record-trail';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
@@ -40,6 +41,8 @@ import { useInitialParam } from '@/lib/use-initial-param';
 export default function ClientsListPage() {
   const { t, locale } = useTranslation();
   const { user, loading: authLoading } = useAuth();
+  const { data: deletions } = useAccountDeletionSummary(user?.role === 'ADMIN' || user?.role === 'STAFF');
+  const deletionsWaiting = deletions?.pending ?? 0;
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -100,14 +103,28 @@ export default function ClientsListPage() {
     <div>
       <div className="mb-2 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ink">{t('clients.title')}</h1>
-        {user?.role === 'ADMIN' && (
-          <Link href="/settings/import-export?type=clients">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Account deletions have no menu item of their own: the queue opens from here, with what is waiting. */}
+          <Link href="/account-deletions">
             <Button variant="secondary">
-              <ArrowDownUp size={16} />
-              {t('dataTransfer.button')}
+              <UserX size={16} />
+              {t('accountDeletions.title')}
+              {deletionsWaiting > 0 && (
+                <span className="min-w-[1.25rem] rounded-full bg-accent px-1.5 text-center text-xs font-semibold tabular-nums text-white" aria-label={t('accountDeletions.waitingCount', { count: deletionsWaiting })}>
+                  {deletionsWaiting}
+                </span>
+              )}
             </Button>
           </Link>
-        )}
+          {user?.role === 'ADMIN' && (
+            <Link href="/settings/import-export?type=clients">
+              <Button variant="secondary">
+                <ArrowDownUp size={16} />
+                {t('dataTransfer.button')}
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
       <p className="mb-6 text-sm text-ink/60">{t('clients.subtitle')}</p>
 

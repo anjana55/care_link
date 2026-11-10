@@ -25,7 +25,15 @@
     "carePlans": "රැකවරණ සැලසුම්",
     "accountDeletions": "ගිණුම් මකා දැමීම්",
     "reviews": "සමාලෝචන",
-    "announcements": "නිවේදන"
+    "announcements": "නිවේදන",
+    "recruitment": "බඳවා ගැනීම",
+    "groups": {
+      "care": "සත්කාර",
+      "people": "පුද්ගලයින්",
+      "money": "මුදල්",
+      "overseas": "විදෙස්",
+      "office": "කාර්යාලය"
+    }
   },
   "login": {
     "title": "පුරනය වන්න",
@@ -1077,7 +1085,8 @@
       "signInMessaging": "පුරනය සහ පණිවිඩ",
       "services": "සේවා",
       "referenceData": "යොමු දත්ත",
-      "data": "දත්ත"
+      "data": "දත්ත",
+      "team": "කණ්ඩායම"
     },
     "reviews": "සමාලෝචන",
     "notifications": "දැනුම්දීම්"

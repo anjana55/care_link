@@ -25,7 +25,15 @@
     "carePlans": "பராமரிப்புத் திட்டங்கள்",
     "accountDeletions": "கணக்கு நீக்கங்கள்",
     "reviews": "மதிப்புரைகள்",
-    "announcements": "அறிவிப்புகள்"
+    "announcements": "அறிவிப்புகள்",
+    "recruitment": "ஆட்சேர்ப்பு",
+    "groups": {
+      "care": "பராமரிப்பு",
+      "people": "நபர்கள்",
+      "money": "பணம்",
+      "overseas": "வெளிநாடு",
+      "office": "அலுவலகம்"
+    }
   },
   "login": {
     "title": "உள்நுழையவும்",
@@ -1077,7 +1085,8 @@
       "signInMessaging": "உள்நுழைவு & செய்திகள்",
       "services": "சேவைகள்",
       "referenceData": "குறிப்புத் தரவு",
-      "data": "தரவு"
+      "data": "தரவு",
+      "team": "குழு"
     },
     "reviews": "மதிப்புரைகள்",
     "notifications": "அறிவிப்புகள்"

@@ -56,6 +56,11 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
     ],
   },
   {
+    // Staff, verifier and admin accounts: it had its own menu item until the menu was grouped.
+    key: 'settings.groups.team',
+    sections: [{ href: '/settings/users', key: 'nav.users', roles: ADMIN }],
+  },
+  {
     key: 'settings.groups.data',
     sections: [
       // Spreadsheet import/export: exports hold every NIC and phone number, so admins only.

@@ -3,9 +3,8 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, ShieldCheck, Settings, ReceiptText, Wallet, Bot, Globe2, GraduationCap, ClipboardList, UserX, Star, Megaphone } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, Settings, ReceiptText, Wallet, Globe2, GraduationCap, Star, Megaphone, type LucideIcon } from 'lucide-react';
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
-import { useAiStatus } from '@/lib/hooks/use-ai';
 import { useInternationalSummary } from '@/lib/hooks/use-international';
 import { useAccountDeletionSummary } from '@/lib/hooks/use-account-deletions';
 import { useReviewCounts } from '@/lib/hooks/use-reviews';
@@ -14,119 +13,150 @@ import { useAuth } from '@/lib/api/auth-context';
 import { cn } from '@/lib/utils';
 import { BrandMark } from '@/components/layout/brand-mark';
 
-const ITEMS = [
-  { href: '/dashboard', key: 'nav.dashboard', icon: LayoutDashboard },
-  { href: '/caregivers', key: 'nav.caregivers', icon: Users },
-];
+interface NavItem {
+  href: string;
+  key: string;
+  icon: LucideIcon;
+  /** Pages that have no menu item of their own and are reached from this one: it stays lit on them. */
+  also?: readonly string[];
+  /** What is waiting on staff here, and how a screen reader says it. */
+  badge?: number;
+  badgeLabel?: string;
+}
 
-// Every role has a Settings area: admins see all of it, staff and verifiers
-// the reference data (skills, languages, locations). See lib/settings-sections.
-const SETTINGS_ITEM = { href: '/settings', key: 'nav.settings', icon: Settings };
+interface NavGroup {
+  /** Heading above the group; none for the items that stand alone. */
+  key?: string;
+  items: NavItem[];
+}
 
-// Clients = registered patients/guardians. Separate from both ITEMS and
-// ADMIN_ITEMS because the API allows ADMIN + STAFF: in ITEMS it would leak to
-// VERIFIER, in ADMIN_ITEMS it would hide from STAFF.
-const CLIENT_ITEM = { href: '/clients', key: 'nav.clients', icon: HeartHandshake };
-// Requests sit with Clients for the same reason: ADMIN + STAFF only.
-const REQUESTS_ITEM = { href: '/requests', key: 'nav.requests', icon: Inbox };
-// Overseas employer enquiries, shared-profile review and training: ADMIN + STAFF, like Requests.
-const OVERSEAS_ITEM = { href: '/international', key: 'nav.international', icon: Globe2 };
-// Training programmes and sign-ups: ADMIN + STAFF, like Overseas, which it used to sit under.
-const TRAINING_ITEM = { href: '/training', key: 'nav.training', icon: GraduationCap };
-const BOOKINGS_ITEM = { href: '/bookings', key: 'nav.bookings', icon: CalendarDays };
-// The care plan template library sits with the bookings it is applied to: ADMIN + STAFF.
-const CARE_PLANS_ITEM = { href: '/care-plans', key: 'nav.carePlans', icon: ClipboardList };
-// Billing follows the work it bills: ADMIN + STAFF, like Bookings.
-const INVOICES_ITEM = { href: '/invoices', key: 'nav.invoices', icon: ReceiptText };
-const PAYOUTS_ITEM = { href: '/payouts', key: 'nav.payouts', icon: Wallet };
-// People who asked to delete their account (app or website): ADMIN + STAFF, after Clients.
-const DELETIONS_ITEM = { href: '/account-deletions', key: 'nav.accountDeletions', icon: UserX };
-// Clients' ratings of caregivers, and written reviews to approve: ADMIN + STAFF, after Bookings.
-const REVIEWS_ITEM = { href: '/reviews', key: 'nav.reviews', icon: Star };
-// Messages from the office to every client, caregiver or both: ADMIN + STAFF, after Reviews.
-const ANNOUNCEMENTS_ITEM = { href: '/announcements', key: 'nav.announcements', icon: Megaphone };
-// The AI assistant works requests and bookings, so it follows them: ADMIN + STAFF,
-// and only while an admin has it switched on in Settings > AI.
-const ASSISTANT_ITEM = { href: '/assistant', key: 'nav.assistant', icon: Bot };
+const DASHBOARD: NavItem = { href: '/dashboard', key: 'nav.dashboard', icon: LayoutDashboard };
+const CAREGIVERS: NavItem = { href: '/caregivers', key: 'nav.caregivers', icon: Users };
+// Every role has a Settings area: admins see all of it (staff users included),
+// staff and verifiers the reference data. See lib/settings-sections.
+const SETTINGS: NavItem = { href: '/settings', key: 'nav.settings', icon: Settings };
 
-// Admin-only: rendered separately from ITEMS so they never show for STAFF/VERIFIER.
-// Spreadsheet import/export lives in Settings > Import & export (admins only).
-const ADMIN_ITEMS = [{ href: '/users', key: 'nav.users', icon: ShieldCheck }];
+/**
+ * The menu, in groups, so it reads as a few topics rather than one long list.
+ *
+ * Three pages have no item of their own and open from the page they belong to:
+ * care plan templates from Bookings, account deletions from Clients, and staff
+ * users from Settings. The assistant has its floating button on every page.
+ *
+ * Everything but Dashboard, Caregivers and Settings is ADMIN + STAFF only, as
+ * the API has it; a VERIFIER gets those three with no headings.
+ */
+function useNavGroups(): NavGroup[] {
+  const { user } = useAuth();
+  const { t } = useTranslation();
+  const office = user?.role === 'ADMIN' || user?.role === 'STAFF';
+  const { data: summary } = useCareRequestSummary(office);
+  const { data: overseas } = useInternationalSummary(office);
+  const { data: deletions } = useAccountDeletionSummary(office);
+  const { data: reviewCounts } = useReviewCounts(office);
+
+  if (!office) return [{ items: [DASHBOARD, CAREGIVERS, SETTINGS] }];
+
+  const requestsNew = summary?.new ?? 0;
+  const deletionsWaiting = deletions?.pending ?? 0;
+  // Written reviews waiting for approval - the part of Reviews staff must act on.
+  const reviewsWaiting = reviewCounts?.pending ?? 0;
+  const overseasWaiting = overseas ? overseas.new + overseas.pendingProfiles + overseas.pendingEmployers + overseas.interviewRequests : 0;
+
+  return [
+    { items: [DASHBOARD] },
+    {
+      key: 'nav.groups.care',
+      items: [
+        // Requests lead: they are the day's worklist.
+        { href: '/requests', key: 'nav.requests', icon: Inbox, badge: requestsNew, badgeLabel: t('requests.newCount', { count: requestsNew }) },
+        { href: '/bookings', key: 'nav.bookings', icon: CalendarDays, also: ['/care-plans'] },
+      ],
+    },
+    {
+      key: 'nav.groups.people',
+      items: [
+        CAREGIVERS,
+        {
+          href: '/clients',
+          key: 'nav.clients',
+          icon: HeartHandshake,
+          also: ['/account-deletions'],
+          badge: deletionsWaiting,
+          badgeLabel: t('accountDeletions.waitingCount', { count: deletionsWaiting }),
+        },
+        { href: '/reviews', key: 'nav.reviews', icon: Star, badge: reviewsWaiting, badgeLabel: t('reviews.waitingCount', { count: reviewsWaiting }) },
+      ],
+    },
+    {
+      key: 'nav.groups.money',
+      items: [
+        { href: '/invoices', key: 'nav.invoices', icon: ReceiptText },
+        { href: '/payouts', key: 'nav.payouts', icon: Wallet },
+      ],
+    },
+    {
+      key: 'nav.groups.overseas',
+      items: [
+        {
+          href: '/international',
+          key: 'nav.recruitment',
+          icon: Globe2,
+          badge: overseasWaiting,
+          badgeLabel: t('international.waitingCount', { count: overseasWaiting }),
+        },
+        { href: '/training', key: 'nav.training', icon: GraduationCap },
+      ],
+    },
+    {
+      key: 'nav.groups.office',
+      items: [{ href: '/announcements', key: 'nav.announcements', icon: Megaphone }, SETTINGS],
+    },
+  ];
+}
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const canSeeClients = user?.role === 'ADMIN' || user?.role === 'STAFF';
-  // New, unhandled requests - the number staff should act on.
-  const { data: summary } = useCareRequestSummary(canSeeClients);
-  const { data: ai } = useAiStatus(canSeeClients);
-  const { data: overseas } = useInternationalSummary(canSeeClients);
-  const { data: deletions } = useAccountDeletionSummary(canSeeClients);
-  const { data: reviewCounts } = useReviewCounts(canSeeClients);
-  // Written reviews waiting for approval - the part of Reviews staff must act on.
-  const reviewsWaiting = reviewCounts?.pending ?? 0;
-  const overseasWaiting = overseas ? overseas.new + overseas.pendingProfiles + overseas.pendingEmployers + overseas.interviewRequests : 0;
-  // Requests lead for the roles that work them: it is the day's worklist.
-  // Clients sit straight after Caregivers, the list they mirror.
-  const base = canSeeClients
-    ? [ITEMS[0], REQUESTS_ITEM, OVERSEAS_ITEM, TRAINING_ITEM, ...(ai?.assistant ? [ASSISTANT_ITEM] : []), BOOKINGS_ITEM, REVIEWS_ITEM, ANNOUNCEMENTS_ITEM, CARE_PLANS_ITEM, INVOICES_ITEM, PAYOUTS_ITEM, ITEMS[1], CLIENT_ITEM, DELETIONS_ITEM]
-    : ITEMS;
-  const items = [...base, ...(user?.role === 'ADMIN' ? ADMIN_ITEMS : []), SETTINGS_ITEM];
+  const groups = useNavGroups();
 
   return (
-    <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-      {items.map((item) => {
-        const active = pathname?.startsWith(item.href);
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            aria-current={active ? 'page' : undefined}
-            className={cn(
-              'flex items-center gap-3 rounded px-3 py-2 text-sm font-medium transition-colors',
-              active ? 'bg-brand-light text-brand-dark' : 'text-ink/70 hover:bg-paper hover:text-ink',
-            )}
-          >
-            <Icon size={17} strokeWidth={2} />
-            <span className="flex-1">{t(item.key)}</span>
-            {item.href === '/requests' && summary && summary.new > 0 && (
-              <span
-                className="min-w-[1.25rem] rounded-full bg-accent px-1.5 text-center text-xs font-semibold tabular-nums text-white"
-                aria-label={t('requests.newCount', { count: summary.new })}
-              >
-                {summary.new}
-              </span>
-            )}
-            {item.href === '/account-deletions' && deletions && deletions.pending > 0 && (
-              <span
-                className="min-w-[1.25rem] rounded-full bg-accent px-1.5 text-center text-xs font-semibold tabular-nums text-white"
-                aria-label={t('accountDeletions.waitingCount', { count: deletions.pending })}
-              >
-                {deletions.pending}
-              </span>
-            )}
-            {item.href === '/reviews' && reviewsWaiting > 0 && (
-              <span
-                className="min-w-[1.25rem] rounded-full bg-accent px-1.5 text-center text-xs font-semibold tabular-nums text-white"
-                aria-label={t('reviews.waitingCount', { count: reviewsWaiting })}
-              >
-                {reviewsWaiting}
-              </span>
-            )}
-            {item.href === '/international' && overseasWaiting > 0 && (
-              <span
-                className="min-w-[1.25rem] rounded-full bg-accent px-1.5 text-center text-xs font-semibold tabular-nums text-white"
-                aria-label={t('international.waitingCount', { count: overseasWaiting })}
-              >
-                {overseasWaiting}
-              </span>
-            )}
-          </Link>
-        );
-      })}
+    <nav className="flex-1 space-y-3 overflow-y-auto p-3">
+      {groups.map((group, i) => (
+        <div key={group.key ?? i} role={group.key ? 'group' : undefined} aria-label={group.key ? t(group.key) : undefined}>
+          {group.key && (
+            <p aria-hidden className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-ink/45">
+              {t(group.key)}
+            </p>
+          )}
+          <div className="space-y-0.5">
+            {group.items.map((item) => {
+              const active = [item.href, ...(item.also ?? [])].some((href) => pathname?.startsWith(href));
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center gap-3 rounded px-3 py-2 text-sm font-medium transition-colors',
+                    active ? 'bg-brand-light text-brand-dark' : 'text-ink/70 hover:bg-paper hover:text-ink',
+                  )}
+                >
+                  <Icon size={17} strokeWidth={2} />
+                  <span className="flex-1">{t(item.key)}</span>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="min-w-[1.25rem] rounded-full bg-accent px-1.5 text-center text-xs font-semibold tabular-nums text-white" aria-label={item.badgeLabel}>
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 }

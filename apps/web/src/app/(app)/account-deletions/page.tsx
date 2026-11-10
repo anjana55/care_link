@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { openItemCount, type AccountOpenItems, type StaffAccountDeletion } from '@care-platform/shared';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
@@ -52,6 +53,10 @@ export default function AccountDeletionsPage() {
   return (
     <div className="space-y-5">
       <div>
+        <Link href="/clients" className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-brand-dark">
+          <ArrowLeft size={15} aria-hidden />
+          {t('nav.clients')}
+        </Link>
         <h1 className="text-xl font-semibold text-ink">{t('accountDeletions.title')}</h1>
         <p className="mt-1 max-w-3xl text-sm text-ink/60">{t('accountDeletions.subtitle')}</p>
       </div>

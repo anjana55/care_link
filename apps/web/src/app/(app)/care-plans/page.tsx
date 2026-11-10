@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Copy, Plus } from 'lucide-react';
+import { ArrowLeft, Copy, Plus } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { useCarePlanTemplates, useDuplicateCarePlanTemplate } from '@/lib/hooks/use-care-plans';
@@ -33,6 +33,10 @@ export default function CarePlanTemplatesPage() {
 
   return (
     <div>
+      <Link href="/bookings" className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-brand-dark">
+        <ArrowLeft size={15} aria-hidden />
+        {t('nav.bookings')}
+      </Link>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-ink">{t('carePlans.templates.title')}</h1>
         <Link href="/care-plans/new" className="inline-flex h-9 items-center gap-2 rounded bg-brand px-4 text-sm font-medium text-white hover:bg-brand-dark">
