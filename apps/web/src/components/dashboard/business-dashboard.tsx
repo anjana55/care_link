@@ -14,12 +14,14 @@ import {
   ClipboardX,
   Clock3,
   FileWarning,
+  Globe2,
   HandCoins,
   Inbox,
   Loader2,
   ReceiptText,
   RefreshCw,
   ShieldCheck,
+  Star,
   UserPlus,
   UserX,
   Wallet,
@@ -28,6 +30,9 @@ import {
 import { formatLkr, type BusinessInsights, type InsightKpi, type InsightRange, type InsightRatio } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useBusinessInsights } from '@/lib/hooks/use-insights';
+import { useInternationalSummary } from '@/lib/hooks/use-international';
+import { useAccountDeletionSummary } from '@/lib/hooks/use-account-deletions';
+import { useReviewCounts } from '@/lib/hooks/use-reviews';
 import { cn } from '@/lib/utils';
 import { ColumnChart, Funnel, Gauge, HBarList, Legend, LineChart, PairedBars, Sparkline, SplitBar, type HealthLevel } from './charts';
 
@@ -278,6 +283,13 @@ function DashboardBody({ data }: { data: BusinessInsights }) {
 
   // --- attention ---
   const a = data.attention;
+  // The queues the menu badges count. They come from their own summaries (the
+  // same queries the menu runs, so nothing extra is fetched), not from the
+  // insights: this list is the one place that shows everything waiting.
+  const { data: reviewCounts } = useReviewCounts();
+  const { data: deletions } = useAccountDeletionSummary();
+  const { data: overseas } = useInternationalSummary();
+  const overseasWaiting = overseas ? overseas.new + overseas.pendingProfiles + overseas.pendingEmployers + overseas.interviewRequests : 0;
   const attention: AttentionItem[] = [
     { key: 'overdue', count: a.overdueInvoices, label: t('dashboard.attention.overdueInvoices'), detail: formatLkr(a.overdueAmount), href: '/invoices?tab=overdue', severity: 'act', Icon: ReceiptText },
     { key: 'stale', count: a.newRequestsOver24h, label: t('dashboard.attention.newRequestsOver24h'), href: '/requests?tab=open', severity: 'act', Icon: Inbox },
@@ -292,6 +304,9 @@ function DashboardBody({ data }: { data: BusinessInsights }) {
     { key: 'verify', count: a.caregiversAwaitingVerification, label: t('dashboard.attention.caregiversAwaiting'), href: '/caregivers?status=UNDER_VERIFICATION', severity: 'watch', Icon: ShieldCheck },
     { key: 'docs', count: a.documentsPending, label: t('dashboard.attention.documentsPending'), href: '/caregivers?status=DOCUMENTS_PENDING', severity: 'watch', Icon: FileWarning },
     { key: 'clients', count: a.clientsPendingReview, label: t('dashboard.attention.clientsPending'), href: '/clients?status=PENDING_REVIEW', severity: 'watch', Icon: UserPlus },
+    { key: 'reviews', count: reviewCounts?.pending ?? 0, label: t('dashboard.attention.reviewsPending'), href: '/reviews?filter=pending', severity: 'watch', Icon: Star },
+    { key: 'deletions', count: deletions?.pending ?? 0, label: t('dashboard.attention.accountDeletions'), href: '/account-deletions', severity: 'watch', Icon: UserX },
+    { key: 'overseas', count: overseasWaiting, label: t('dashboard.attention.overseasWaiting'), href: '/international', severity: 'watch', Icon: Globe2 },
   ].filter((i) => i.count > 0) as AttentionItem[];
 
   const d = data.dials;

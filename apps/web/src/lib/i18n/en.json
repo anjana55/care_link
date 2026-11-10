@@ -127,7 +127,10 @@
       "documentsPending": "Documents to review",
       "clientsPending": "New clients to review",
       "careCriticalNotDone": "Critical care items marked Not done (7 days)",
-      "careCriticalUnconfirmed": "Critical care items nobody confirmed (7 days)"
+      "careCriticalUnconfirmed": "Critical care items nobody confirmed (7 days)",
+      "reviewsPending": "Written reviews to approve",
+      "accountDeletions": "Account deletion requests",
+      "overseasWaiting": "Overseas enquiries and approvals waiting"
     },
     "severity": {
       "act": "Act today",
