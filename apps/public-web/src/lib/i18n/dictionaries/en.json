@@ -12,7 +12,8 @@
     "backHome": "Back to home",
     "myAccount": "My account",
     "signOut": "Sign out",
-    "hireAbroad": "Hire from Sri Lanka"
+    "hireAbroad": "Hire from Sri Lanka",
+    "home": "Home"
   },
   "hero": {
     "title": "Find the right caregiver",
@@ -2448,6 +2449,19 @@
       "NURSING_CERTIFICATE": "nursing certificate",
       "CV": "CV",
       "OTHER": "document"
+    }
+  },
+  "clientHome": {
+    "welcomeBack": "Welcome back",
+    "nextForYou": "Next for you",
+    "whatToDo": "What would you like to do?",
+    "waiting": "{count} waiting",
+    "hints": {
+      "find": "Search by area and care needed",
+      "bookings": "Your current and past care",
+      "bills": "See and pay your bills",
+      "saved": "Caregivers you liked",
+      "requests": "Talk to the office"
     }
   }
 }
