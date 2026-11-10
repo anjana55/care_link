@@ -10,12 +10,12 @@ import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { TodoCards } from '@/components/notifications/notifications-page';
 
+// Notifications have no tab: they open from the bell in the header.
 const SECTIONS = [
   { href: '/account/requests', key: 'account.nav.requests' },
   { href: '/account/bookings', key: 'account.nav.bookings' },
   { href: '/account/invoices', key: 'account.nav.invoices' },
   { href: '/account/saved', key: 'account.nav.saved' },
-  { href: '/account/notifications', key: 'account.nav.notifications' },
   { href: '/account/sign-in', key: 'account.nav.signIn' },
 ];
 
