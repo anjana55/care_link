@@ -38,6 +38,7 @@ import { normalizePhone } from '../common/utils/phone.util';
 import { SocialProviderRegistry } from './social/social-provider';
 import { parseSocialProvider } from './social/social-settings.service';
 import { socialRedirectUri } from './social/social-redirect.util';
+import { generateUniquePublicId } from '../caregivers/caregiver-ref.util';
 
 /** Whether `verifier` is the secret behind `challenge` (base64url sha256), compared in constant time. */
 export function matchesChallenge(verifier: unknown, challenge: string): boolean {
@@ -208,7 +209,7 @@ export class SocialAuthService {
         await tx.insert(caregivers).values(
           selfRegisteredCaregiverValues({
             id: caregiverId,
-            publicId: uuid(),
+            publicId: await generateUniquePublicId(txDb),
             userId,
             registrationNumber,
             fields: caregiverFields,

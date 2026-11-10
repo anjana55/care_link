@@ -31,7 +31,7 @@ export const READ_TOOLS: ToolSpec[] = [
         open_only: { type: 'boolean', description: 'Only NEW and IN_PROGRESS' },
         unmatched: { type: 'boolean', description: 'Only requests with no caregiver attached yet' },
         assigned: { type: 'string', enum: ['me', 'unassigned'] },
-        search: { type: 'string', description: 'Reference, client or care-recipient name, caregiver name or registration number' },
+        search: { type: 'string', description: 'Reference, client or care-recipient name, caregiver name, registration number or caregiver ID (the 8-character ID customers see, e.g. "Caregiver abcd1234")' },
         limit: { type: 'integer', minimum: 1, maximum: 20 },
       },
     },
@@ -48,7 +48,7 @@ export const READ_TOOLS: ToolSpec[] = [
       type: 'object',
       properties: {
         status: { type: 'string', enum: ['DRAFT', 'CONFIRMED', 'COMPLETED', 'CANCELLED'] },
-        search: { type: 'string', description: 'Booking reference, client, care recipient or caregiver name' },
+        search: { type: 'string', description: 'Booking reference, client, care recipient, caregiver name or caregiver ID' },
         client_id: { type: 'string' },
         caregiver_id: { type: 'string' },
         request: ref('request'),
@@ -68,7 +68,7 @@ export const READ_TOOLS: ToolSpec[] = [
   },
   {
     name: 'find_caregivers',
-    description: 'Find caregivers by name or registration number (to get their id).',
+    description: 'Find caregivers by name, registration number or caregiver ID - the 8-character ID customers see on the public site, e.g. "Caregiver abcd1234" (to get their internal id).',
     parameters: { type: 'object', properties: { search: { type: 'string' } }, required: ['search'] },
   },
   {

@@ -58,6 +58,7 @@ import {
   UpdateBookingDto,
   UpdateShiftDto,
 } from './dto/booking.dto';
+import { caregiverRefCondition } from '../caregivers/caregiver-ref.util';
 
 /** Longest single booking pattern, so one form submission can't generate years of rows. */
 export const MAX_BOOKING_DAYS = 366;
@@ -182,6 +183,7 @@ export class BookingsService {
           like(patients.recipientName, term),
           like(caregivers.fullName, term),
           like(caregivers.registrationNumber, term),
+          ...caregiverRefCondition(query.search),
         )!,
       );
     }

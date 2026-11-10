@@ -198,7 +198,7 @@
   },
   "caregivers": {
     "title": "Caregivers",
-    "search": "Search by name, phone or registration number",
+    "search": "Search by name, phone, registration number or caregiver ID",
     "addNew": "Register caregiver",
     "delete": "Delete caregiver",
     "confirmDelete": "Delete this caregiver? Their sign-in is removed at once, and their email, phone number and NIC become free to register again. Their record stays in the audit history.",
@@ -468,7 +468,15 @@
     },
     "notFound": "This caregiver doesn't exist or has been deleted.",
     "backToList": "Back to caregivers",
-    "confirmDeleteRequested": "Delete {name}? They asked to delete their account, so this carries it out now instead of on {erase}: their details, documents and files are erased, and their email, phone number and NIC become free to register again. This can't be undone."
+    "confirmDeleteRequested": "Delete {name}? They asked to delete their account, so this carries it out now instead of on {erase}: their details, documents and files are erased, and their email, phone number and NIC become free to register again. This can't be undone.",
+    "publicRef": {
+      "label": "Caregiver ID",
+      "short": "ID {id}",
+      "hint": "The ID customers see on the public site, e.g. \"Caregiver abcd1234\". You can search by it.",
+      "copy": "Copy caregiver ID",
+      "viewPublic": "View public profile",
+      "notListed": "Not visible to customers"
+    }
   },
   "clients": {
     "title": "Clients",
@@ -1346,7 +1354,7 @@
       "WEB": "Website"
     },
     "picker": {
-      "caregiverSearch": "Search caregivers by name, registration no. or phone",
+      "caregiverSearch": "Search caregivers by name, registration no., phone or caregiver ID",
       "clientSearch": "Search clients by name, phone or email",
       "noMatches": "No caregivers match.",
       "noClientMatches": "No clients match - add them as a new caller."

@@ -7,6 +7,7 @@ import { useCaregivers } from '@/lib/hooks/use-caregivers';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/badge';
 import type { CaregiverStatus } from '@/lib/api/types';
+import { CaregiverRef } from '@/components/caregivers/caregiver-ref';
 
 export interface PickedCaregiver {
   id: string;
@@ -26,7 +27,8 @@ export function useDebounced<T>(value: T, ms = 300): T {
 }
 
 /**
- * Find a caregiver by name, registration number or phone. Any caregiver whose
+ * Find a caregiver by name, registration number, phone or the caregiver ID
+ * customers see on the public site (what a caller reads out over the phone). Any caregiver whose
  * record has not been removed can be chosen - staff may know someone who is
  * verified but not yet live on the public site - and the status is shown so
  * that choice is a deliberate one.
@@ -73,6 +75,7 @@ export function CaregiverPicker({ onPick, onCancel, autoFocus }: { onPick: (c: P
                     {c.registrationNumber}
                     {c.locations?.length ? ` · ${c.locations.slice(0, 2).join(', ')}` : ''}
                   </span>
+                  <CaregiverRef publicId={c.publicId} />
                 </span>
                 <StatusBadge status={c.status} label={t(`caregivers.status.${c.status}`)} />
               </button>

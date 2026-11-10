@@ -2,7 +2,7 @@ import { HttpException, Inject, Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { and, eq, isNull, like, or } from 'drizzle-orm';
-import { colomboToday, isValidDate, type AssistantLink, type SearchRequest } from '@care-platform/shared';
+import { caregiverRef, colomboToday, isValidDate, type AssistantLink, type SearchRequest } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../../database/database.module';
 import { bookings, careRequests, caregivers, districts, patients } from '../../database/schema';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -13,6 +13,7 @@ import { UpdateCareRequestStatusDto } from '../../care-requests/dto/update-care-
 import { CreateStaffCareRequestDto } from '../../care-requests/dto/create-staff-care-request.dto';
 import { BookingQueryDto, CreateBookingDto } from '../../bookings/dto/booking.dto';
 import { AiMatchingService } from '../ai-matching.service';
+import { caregiverRefCondition } from '../../caregivers/caregiver-ref.util';
 
 /** A tool was called with arguments that cannot work. The message goes back to the model to correct. */
 export class ToolInputError extends Error {}
@@ -298,16 +299,16 @@ export class AssistantToolbox {
       }
       case 'find_caregivers': {
         const term = str(args.search);
-        if (!term) throw new ToolInputError('Give a name or registration number to search for');
+        if (!term) throw new ToolInputError('Give a name, registration number or caregiver ID to search for');
         const like_ = `%${term.slice(0, 100)}%`;
         const rows = await this.db
-          .select({ id: caregivers.id, fullName: caregivers.fullName, registrationNumber: caregivers.registrationNumber, status: caregivers.status, district: districts.nameEn })
+          .select({ id: caregivers.id, fullName: caregivers.fullName, registrationNumber: caregivers.registrationNumber, publicId: caregivers.publicId, status: caregivers.status, district: districts.nameEn })
           .from(caregivers)
           .leftJoin(districts, eq(caregivers.districtId, districts.id))
-          .where(and(isNull(caregivers.deletedAt), or(like(caregivers.fullName, like_), like(caregivers.registrationNumber, like_))))
+          .where(and(isNull(caregivers.deletedAt), or(like(caregivers.fullName, like_), like(caregivers.registrationNumber, like_), ...caregiverRefCondition(term))))
           .limit(10);
         return {
-          data: rows,
+          data: rows.map(({ publicId, ...r }) => ({ ...r, caregiverId: caregiverRef(publicId) })),
           links: rows.slice(0, 5).map((r) => ({ kind: 'caregiver' as const, id: r.id, label: r.fullName })),
         };
       }

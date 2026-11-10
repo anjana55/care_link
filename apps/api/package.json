@@ -20,7 +20,8 @@
     "db:seed:production": "ts-node src/database/seed-production.ts",
     "db:studio": "drizzle-kit studio",
     "db:load-locations": "ts-node src/database/scripts/load-location-csv.ts",
-    "db:export-locations": "ts-node src/database/scripts/export-locations.ts"
+    "db:export-locations": "ts-node src/database/scripts/export-locations.ts",
+    "db:check-public-refs": "ts-node src/database/scripts/reissue-duplicate-public-refs.ts"
   },
   "dependencies": {
     "@care-platform/shared": "*",

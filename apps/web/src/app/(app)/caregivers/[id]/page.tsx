@@ -50,6 +50,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { StatusMoveSelect, type StatusMoveConfirmation } from '@/components/ui/status-move-select';
 import { allowedNextStatuses } from '@/lib/caregiver-status';
 import { AutoNotifyToggle } from '@/components/caregivers/auto-notify-toggle';
+import { CaregiverRef } from '@/components/caregivers/caregiver-ref';
 import { CaregiverResultsCard } from '@/components/international/caregiver-results-card';
 import { ExperienceCard } from '@/components/caregivers/experience-card';
 import type { CaregiverStatus } from '@/lib/api/types';
@@ -308,6 +309,7 @@ export default function CaregiverProfilePage() {
         <div>
           <h1 className="text-xl font-semibold text-ink">{caregiver.fullName}</h1>
           <p className="text-sm text-ink/50">{caregiver.registrationNumber}</p>
+          <CaregiverRef publicId={caregiver.publicId} status={caregiver.status} detailed className="mt-1" />
         </div>
         <div className="flex items-center gap-3">
           {isEditing ? (

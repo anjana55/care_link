@@ -25,6 +25,7 @@ import {
   type AdvancedFilters,
 } from '@/components/caregivers/advanced-filters';
 import { CAREGIVER_STATUS_OPTIONS } from '@/lib/caregiver-status';
+import { CaregiverRef } from '@/components/caregivers/caregiver-ref';
 import { useInitialParam } from '@/lib/use-initial-param';
 
 export default function CaregiversListPage() {
@@ -223,6 +224,7 @@ export default function CaregiversListPage() {
                   <Link href={`/caregivers/${c.id}`} className="font-medium text-brand-dark hover:underline">
                     {c.registrationNumber}
                   </Link>
+                  <CaregiverRef publicId={c.publicId} className="block" />
                 </td>
                 <td className="px-4 py-3 text-ink">{c.fullName}</td>
                 <td className="px-4 py-3 tabular-nums text-ink/70">{c.primaryPhone}</td>
