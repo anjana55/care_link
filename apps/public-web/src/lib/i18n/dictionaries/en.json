@@ -13,7 +13,9 @@
     "myAccount": "My account",
     "signOut": "Sign out",
     "hireAbroad": "Hire from Sri Lanka",
-    "home": "Home"
+    "home": "Home",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
   },
   "hero": {
     "title": "Find the right caregiver",
