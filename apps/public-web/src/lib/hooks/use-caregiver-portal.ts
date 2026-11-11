@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CareChecklistShift, CaregiverPayout, CaregiverShift, CreateIssueReportBody, MyIssueReport } from '@care-platform/shared';
+import type { CareChecklistShift, CareType, CaregiverPayout, CaregiverRateCard, CaregiverShift, CreateIssueReportBody, MyIssueReport } from '@care-platform/shared';
 import { api } from '../api/client';
 import { useAuth } from '../api/auth-context';
 import type {
@@ -206,5 +206,22 @@ export function useShiftCarePlan(shiftId: string | null) {
     queryKey: ['portal', id, 'shift-care', shiftId],
     queryFn: () => api.get<CareChecklistShift>(`/me/shifts/${shiftId}/care`),
     enabled: Boolean(id && shiftId),
+  });
+}
+
+// --- own rates -------------------------------------------------------------------
+
+/** The caregiver's rate card: each kind of care, the limits, their rate and what clients are shown. */
+export function useRateCard() {
+  const id = useCaregiverId();
+  return useQuery({ queryKey: ['portal', id, 'rates'], queryFn: () => api.get<CaregiverRateCard>(`${base(id!)}/rates`), enabled: Boolean(id) });
+}
+
+export function useSaveRates() {
+  const id = useCaregiverId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (rates: { careType: CareType; amount: number | null }[]) => api.put<CaregiverRateCard>(`${base(id!)}/rates`, { rates }),
+    onSuccess: (data) => queryClient.setQueryData(['portal', id, 'rates'], data),
   });
 }

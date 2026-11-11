@@ -1095,7 +1095,8 @@
     },
     "reviews": "Reviews",
     "notifications": "Notifications",
-    "automation": "Automation"
+    "automation": "Automation",
+    "pricing": "Rates and fees"
   },
   "brandingAdmin": {
     "companyTitle": "Company",
@@ -4048,5 +4049,37 @@
     "limit": "Most it may approve (LKR)",
     "limitDefault": "No limit set: {amount} applies",
     "limitSave": "Save limit"
+  },
+  "pricing": {
+    "title": "Rates and fees",
+    "subtitle": "Let caregivers set their own rate for each kind of care, inside limits you choose. The client is shown one price: the caregiver's rate plus your fee. Kinds of care left switched off are priced by staff on each booking, as before.",
+    "enabled": "Caregivers set their own rate",
+    "unit": "Priced",
+    "units": {
+      "HOURLY": "per hour",
+      "DAILY": "per day",
+      "MONTHLY": "per month"
+    },
+    "min": "Lowest rate (LKR)",
+    "max": "Highest rate (LKR)",
+    "fee": "Your fee (%)",
+    "example": "A caregiver asking LKR {rate} {unit} is shown to clients at LKR {price}.",
+    "save": "Save",
+    "saved": "Saved",
+    "error": "That could not be saved. Please try again.",
+    "card": {
+      "title": "Rates",
+      "hint": "What this caregiver asks for each kind of care. Clients see the price with your fee added.",
+      "band": "LKR {min} to {max} {unit}",
+      "clientSees": "Clients see LKR {price} {unit}",
+      "notSet": "Not set",
+      "notOffered": "Does not take this kind of care",
+      "office": "Priced by the office",
+      "allOffice": "Caregiver-set rates are switched off. An admin can switch them on in Settings > Rates and fees.",
+      "outOfBand": "This rate is outside the current limits, so it is not used until it is updated.",
+      "tooLow": "Below the lowest rate",
+      "tooHigh": "Above the highest rate",
+      "rate": "Rate (LKR)"
+    }
   }
 }

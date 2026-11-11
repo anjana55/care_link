@@ -47,6 +47,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { AiCoreModule, AiModule } from './ai/ai.module';
 import { AutomationModule } from './automation/automation.module';
 import { JobsModule } from './jobs/jobs.module';
+import { PricingModule } from './pricing/pricing.module';
 import { InternationalModule } from './international/international.module';
 import { PushModule } from './push/push.module';
 import { MobileAppModule } from './mobile-app/mobile-app.module';
@@ -113,6 +114,7 @@ import { NotificationsCoreModule, NotificationsModule } from './notifications/no
     AiModule,
     AutomationModule,
     JobsModule,
+    PricingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

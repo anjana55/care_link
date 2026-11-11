@@ -5,6 +5,7 @@ import { ChevronRight, Star } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { PersonalDetailsForm } from '@/components/portal/personal-details-form';
 import { CatalogPicker } from '@/components/portal/catalog-picker';
+import { RatesSection } from '@/components/portal/rates-section';
 import { RecordSection, type FieldSpec } from '@/components/portal/record-section';
 import { useExperiences, useOwnCaregiver, useQualifications } from '@/lib/hooks/use-caregiver-portal';
 import { QUALIFICATION_TYPES, type Experience, type Qualification } from '@/lib/api/portal-types';
@@ -67,6 +68,8 @@ export default function CaregiverProfilePage() {
         <CatalogPicker kind="skills" selectedIds={caregiver.skills.map((s) => s.skillId)} />
         <CatalogPicker kind="languages" selectedIds={caregiver.languages.map((l) => l.languageId)} />
       </section>
+
+      <RatesSection />
 
       <RecordSection
         i18n="portal.qualifications"
