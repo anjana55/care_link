@@ -19,6 +19,7 @@ import { ClientPicker } from '@/components/requests/client-picker';
 import { CaregiverPicker, type PickedCaregiver } from '@/components/requests/caregiver-picker';
 import { cn } from '@/lib/utils';
 import type { Client, RateType, ScheduleType } from '@/lib/api/types';
+import { useAcceptedOffer } from '@/lib/hooks/use-care-offers';
 
 const TYPES: ScheduleType[] = ['DAY', 'NIGHT', 'LIVE_IN', 'CUSTOM'];
 const RATE_TYPES: RateType[] = ['DAILY', 'MONTHLY', 'HOURLY'];
@@ -45,6 +46,7 @@ function NewBookingPage() {
   const requestId = params.get('requestId') ?? '';
   const { data: request } = useCareRequest(requestId);
   const create = useCreateBooking();
+  const { data: accepted } = useAcceptedOffer(requestId);
 
   const [client, setClient] = useState<Client | null>(null);
   const [caregiver, setCaregiver] = useState<PickedCaregiver | null>(null);
@@ -60,6 +62,21 @@ function NewBookingPage() {
   const [payRateAmount, setPayRateAmount] = useState('');
   const [language, setLanguage] = useState<'en' | 'si' | 'ta'>('en');
   const [notes, setNotes] = useState('');
+  const [ratesFromOffer, setRatesFromOffer] = useState(false);
+
+  // A booking made from a request whose caregiver accepted an offer starts with
+  // the rates agreed in that offer. Filled in once; staff can still change them.
+  useEffect(() => {
+    const o = accepted?.offer;
+    if (!o || ratesFromOffer || o.payRate === null || !o.rateType) return;
+    setPayRateType(o.rateType);
+    setPayRateAmount(o.payRate.toFixed(2));
+    if (o.clientRate !== null) {
+      setRateType(o.rateType);
+      setRateAmount(o.clientRate.toFixed(2));
+    }
+    setRatesFromOffer(true);
+  }, [accepted, ratesFromOffer]);
 
   useEffect(() => {
     if (!authLoading && user && user.role !== 'ADMIN' && user.role !== 'STAFF') router.replace('/dashboard');
@@ -253,6 +270,7 @@ function NewBookingPage() {
         <Card>
           <CardHeader>
             <CardTitle>{t('bookings.new.rateTitle')}</CardTitle>
+            {ratesFromOffer && <p className="mt-1 text-xs text-brand-dark">{t('careOffers.prefilled')}</p>}
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-3">
             <div>

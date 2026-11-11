@@ -10,6 +10,7 @@ import { BrandMark } from '@/components/layout/brand-mark';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { hardNavigate } from '@/lib/navigation';
+import { useCareOfferCount } from '@/lib/hooks/use-caregiver-portal';
 
 // Six tabs, so the strip fits a phone without scrolling sideways. Two pages have
 // no tab: ratings open from the profile (which stays lit on them), and
@@ -18,6 +19,7 @@ const SECTIONS: { href: string; key: string; also?: string }[] = [
   { href: '/caregiver/dashboard', key: 'nav.home' },
   { href: '/caregiver/profile', key: 'portal.nav.profile', also: '/caregiver/ratings' },
   { href: '/caregiver/documents', key: 'portal.nav.documents' },
+  { href: '/caregiver/care-offers', key: 'portal.offers.nav' },
   { href: '/caregiver/shifts', key: 'portal.nav.shifts' },
   { href: '/caregiver/payments', key: 'portal.nav.payments' },
   { href: '/caregiver/work-abroad', key: 'portal.nav.workAbroad' },
@@ -40,6 +42,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const { user, loading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const { data: offerCount } = useCareOfferCount();
+  const waitingOffers = offerCount?.waiting ?? 0;
 
   useEffect(() => {
     if (loading) return;
@@ -91,6 +95,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 }`}
               >
                 {t(section.key)}
+                {section.href === '/caregiver/care-offers' && waitingOffers > 0 && (
+                  <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-semibold text-white" aria-hidden>
+                    {waitingOffers}
+                  </span>
+                )}
               </Link>
             );
           })}

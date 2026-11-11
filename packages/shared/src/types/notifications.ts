@@ -143,7 +143,7 @@ export const TODO_EXPIRY_DAYS = 30;
 export function notificationCategory(path: string): NotificationCategory {
   if (/^\/bookings\/[^/]+\/rate\//.test(path) || path === '/me/ratings') return 'REVIEW';
   if (/^\/(bookings|shifts)(\/|$)/.test(path)) return 'BOOKING';
-  if (/^\/requests(\/|$)/.test(path)) return 'REQUEST';
+  if (/^\/requests(\/|$)/.test(path) || path === '/care-offers') return 'REQUEST';
   if (/^\/invoices(\/|$)/.test(path)) return 'INVOICE';
   if (path === '/payments') return 'PAYOUT';
   if (path === '/care') return 'CARE';
@@ -171,6 +171,7 @@ export function webPathFor(path: string, role: 'PATIENT_GUARDIAN' | 'CAREGIVER' 
     if (path === '/payments') return '/caregiver/payments';
     if (path === '/me/ratings') return '/caregiver/ratings';
     if (path === '/documents') return '/caregiver/documents';
+    if (path === '/care-offers') return '/caregiver/care-offers';
     if (/^\/requests(\/|$)/.test(path)) return '/caregiver/dashboard';
     return home;
   }
