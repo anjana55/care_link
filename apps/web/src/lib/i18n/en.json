@@ -4005,6 +4005,14 @@
       "main": "AI model",
       "backup": "Backup model",
       "noModel": "None"
+    },
+    "jobs": {
+      "title": "Background work",
+      "hint": "Follow-up steps the agents have queued, such as checking an offer when it expires. A failed step is retried several times before it is listed here.",
+      "counts": "{pending} waiting, {running} running, {failed} failed",
+      "late": "The oldest has been waiting {minutes} minutes. If this keeps growing, check that the server is running.",
+      "retry": "Try again",
+      "noError": "No error recorded"
     }
   }
 }

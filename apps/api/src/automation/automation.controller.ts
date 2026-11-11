@@ -7,6 +7,7 @@ import { Audit } from '../common/decorators/audit.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AutomationService } from './automation.service';
 import { AutomationEndpointsService } from './automation-endpoints.service';
+import { JobsService } from '../jobs/jobs.service';
 import {
   CreateEndpointDto,
   DecisionsQueryDto,
@@ -38,6 +39,7 @@ export class AutomationSettingsController {
   constructor(
     private readonly automation: AutomationService,
     private readonly endpoints: AutomationEndpointsService,
+    private readonly jobs: JobsService,
   ) {}
 
   @Get()
@@ -105,6 +107,15 @@ export class AutomationSettingsController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   testEndpoint(@Param('id', ParseUUIDPipe) id: string) {
     return this.endpoints.test(id);
+  }
+
+  /** Puts a failed background job back in the queue. */
+  @Post('jobs/:id/retry')
+  @HttpCode(200)
+  @Audit({ action: 'RETRY_JOB', entityType: 'Job' })
+  async retryJob(@Param('id', ParseUUIDPipe) id: string) {
+    await this.jobs.retry(id);
+    return this.automation.overview();
   }
 
   @Patch('actions/:action')
