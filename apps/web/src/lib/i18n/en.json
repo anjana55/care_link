@@ -3963,7 +3963,8 @@
       "failed": "Could not be carried out: {error}",
       "waitingForYou": "Waiting for approval",
       "openInvoice": "Open invoice {number}",
-      "done": "Carried out {when}"
+      "done": "Carried out {when}",
+      "openPayout": "Open statement {reference}"
     },
     "models": {
       "title": "AI models",
@@ -4027,7 +4028,8 @@
       "subtitle": "Steps an agent has worked out and is waiting for a person to approve. Approving carries the step out under your name.",
       "none": "Nothing is waiting for approval.",
       "open": "Open the record",
-      "attention": "Agent proposals to approve"
+      "attention": "Agent proposals to approve",
+      "caregiver": "Caregiver {reference}"
     },
     "run": {
       "button": "Run now",
@@ -4042,6 +4044,9 @@
       "INVOICE": "Invoice",
       "PAYOUT": "Payout",
       "CAREGIVER": "Caregiver"
-    }
+    },
+    "limit": "Most it may approve (LKR)",
+    "limitDefault": "No limit set: {amount} applies",
+    "limitSave": "Save limit"
   }
 }

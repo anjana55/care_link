@@ -14,6 +14,9 @@ import { AutomationService } from '../src/automation/automation.service';
 import { AgentModelService, AiNotClearedError, TRIP_AFTER_FAILURES } from '../src/automation/agent-model.service';
 import { AiProviderService, AiUnavailableError } from '../src/ai/ai-provider.service';
 import { SEED_PASSWORD } from './seed-password';
+// The billing agent's cases run in this file's worker, one after the other: both
+// suites move the same dials, and separate files would run at the same time.
+import './billing-agent.cases';
 
 /**
  * The automation rail over real HTTP and MySQL: everything starts Manual, the

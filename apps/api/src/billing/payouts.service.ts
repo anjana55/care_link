@@ -225,6 +225,18 @@ export class PayoutsService {
     return { lines: fromBuilt(built.lines, startAt), skipped: built.skipped, unpriced: built.unpriced };
   }
 
+  /**
+   * What a statement for this caregiver and period would hold, without
+   * creating anything: exactly the lines `create` would build. `earliest` is
+   * the first day any of that work was done. Used by the billing agent.
+   */
+  async previewCaregiver(caregiverId: string, from: string, to: string) {
+    const built = await this.linesFor(this.db, caregiverId, from, to, 0);
+    const carried = await openAdjustmentLines(this.db, { side: 'CAREGIVER', partyId: caregiverId, language: 'en', startAt: built.lines.length, baseCents: linesCents(built.lines) });
+    const days = built.lines.map((l) => l.serviceDate ?? l.periodStart).filter((d): d is string => Boolean(d)).sort();
+    return { lines: built.lines.length, corrections: carried.length, unpriced: built.unpriced, totalCents: linesCents([...built.lines, ...carried]), earliest: days[0] ?? null };
+  }
+
   async insertLines(db: Tx, statementId: string, lines: StoredLine[]) {
     for (let i = 0; i < lines.length; i += 200) {
       await db.insert(payoutLines).values(lines.slice(i, i + 200).map(({ taxable: _taxable, ...l }) => ({ ...l, statementId })));

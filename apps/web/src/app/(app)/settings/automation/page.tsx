@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ACTION_LIMITS,
   AUTOMATION_MODES,
   BUILT_AGENTS,
   type AgentRunResult,
@@ -113,6 +114,7 @@ export default function AutomationSettingsPage() {
           : t('automation.noRecord')}
         {a.record.serious > 0 && <span className="ml-1 text-danger">· {t('automation.recordSerious', { n: a.record.serious })}</span>}
       </span>
+      {ACTION_LIMITS[a.key] && <ActionLimit action={a} disabled={setPolicy.isPending} onSave={(limits) => setPolicy.mutate({ action: a.key, limits }, { onError: fail })} />}
       {a.tier === 2 && (
         <span className="flex basis-full flex-wrap items-center gap-2 sm:basis-auto">
           {a.autoAllowed ? (
@@ -371,6 +373,33 @@ export default function AutomationSettingsPage() {
         />
       )}
     </div>
+  );
+}
+
+/** The admin's limit for one action (an amount in LKR), with the default shown while none is set. */
+function ActionLimit({ action, disabled, onSave }: { action: AutomationActionStatus; disabled: boolean; onSave: (limits: Record<string, number>) => void }) {
+  const { t } = useTranslation();
+  const def = ACTION_LIMITS[action.key]!;
+  const current = action.limits?.[def.key];
+  const [value, setValue] = useState(current === undefined ? '' : String(current));
+  const n = Number(value);
+  const bad = value.trim() === '' || !/^\d+(\.\d{1,2})?$/.test(value.trim()) || n < def.min || n > def.max;
+  const id = `limit-${action.key}`;
+  return (
+    <span className="flex basis-full flex-wrap items-end gap-2">
+      <span>
+        <Label htmlFor={id}>{t('automation.limit')}</Label>
+        <Input id={id} inputMode="decimal" className="h-8 w-36" value={value} placeholder={String(def.default)} aria-describedby={`${id}-hint`} onChange={(e) => setValue(e.target.value)} />
+      </span>
+      <Button size="sm" variant="secondary" disabled={disabled || bad || n === current} onClick={() => onSave({ [def.key]: n })}>
+        {t('automation.limitSave')}
+      </Button>
+      {current === undefined && (
+        <span id={`${id}-hint`} className="pb-1.5 text-xs text-ink/50">
+          {t('automation.limitDefault', { amount: def.default.toLocaleString('en-LK') })}
+        </span>
+      )}
+    </span>
   );
 }
 

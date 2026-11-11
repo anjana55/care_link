@@ -66,6 +66,13 @@ export function ProposalActions({ decision }: { decision: AgentDecisionView }) {
 export function DecisionResult({ decision }: { decision: AgentDecisionView }) {
   const { t } = useTranslation();
   const r = decision.result;
+  if (r && typeof r.payoutId === 'string') {
+    return (
+      <Link href={`/payouts/${r.payoutId}`} className="text-xs font-medium text-brand-dark hover:underline">
+        {t('automation.case.openPayout', { reference: String(r.reference ?? '') })}
+      </Link>
+    );
+  }
   if (!r || typeof r.invoiceId !== 'string') return null;
   return (
     <Link href={`/invoices/${r.invoiceId}`} className="text-xs font-medium text-brand-dark hover:underline">

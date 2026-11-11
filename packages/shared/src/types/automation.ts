@@ -20,6 +20,14 @@ import type { AiProvider } from './ai';
 export const AUTOMATION_FUNCTIONS = ['INTAKE', 'MATCHING', 'BOOKING', 'BILLING', 'LIVE_CARE', 'ONBOARDING'] as const;
 export type AutomationFunction = (typeof AUTOMATION_FUNCTIONS)[number];
 
+/**
+ * The limits an admin can set per action, and what applies when they set
+ * none. Amounts are in LKR.
+ */
+export const ACTION_LIMITS: Partial<Record<string, { key: string; default: number; min: number; max: number }>> = {
+  'billing.approve_payout': { key: 'maxAmount', default: 50_000, min: 0, max: 10_000_000 },
+};
+
 /** The agents that exist so far. The others have a dial, but nothing behind it yet. */
 export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING'];
 
@@ -332,6 +340,8 @@ export interface AutomationActionStatus extends AutomationActionDef {
   eligibleForAuto: boolean;
   promotedAt: string | null;
   demotedAt: string | null;
+  /** Admin limits for this action, e.g. { maxAmount: 50000 } (LKR). Null: the agent's own default. */
+  limits: Record<string, number> | null;
 }
 
 export interface AutomationFunctionStatus {

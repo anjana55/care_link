@@ -41,8 +41,8 @@ export const useResetAutomationTrip = () =>
   useOverviewMutation((v: { key: AutomationFunction }) => api.post<AutomationOverview>(`/settings/automation/functions/${v.key}/reset`, {}));
 
 export const useSetActionPolicy = () =>
-  useOverviewMutation((v: { action: AutomationActionKey; autoAllowed?: boolean; resetRecord?: boolean }) =>
-    api.patch<AutomationOverview>(`/settings/automation/actions/${v.action}`, { autoAllowed: v.autoAllowed, resetRecord: v.resetRecord }),
+  useOverviewMutation((v: { action: AutomationActionKey; autoAllowed?: boolean; resetRecord?: boolean; limits?: Record<string, number> }) =>
+    api.patch<AutomationOverview>(`/settings/automation/actions/${v.action}`, { autoAllowed: v.autoAllowed, resetRecord: v.resetRecord, limits: v.limits }),
   );
 
 export const useUpdatePromotionBar = () => useOverviewMutation((v: Partial<PromotionBar>) => api.patch<AutomationOverview>('/settings/automation', v));
