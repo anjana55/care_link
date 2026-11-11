@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AutomationActionKey,
   AutomationCaseType,
+  AutomationEndpointInput,
+  AutomationEndpointTestResult,
   AutomationFunction,
   AutomationMode,
   AutomationOverview,
@@ -42,6 +44,21 @@ export const useSetActionPolicy = () =>
   );
 
 export const useUpdatePromotionBar = () => useOverviewMutation((v: Partial<PromotionBar>) => api.patch<AutomationOverview>('/settings/automation', v));
+
+export const useSetFunctionEndpoints = () =>
+  useOverviewMutation((v: { key: AutomationFunction; endpointId?: string | null; fallbackEndpointId?: string | null }) =>
+    api.patch<AutomationOverview>(`/settings/automation/functions/${v.key}/endpoints`, { endpointId: v.endpointId, fallbackEndpointId: v.fallbackEndpointId }),
+  );
+
+export const useSaveEndpoint = () =>
+  useOverviewMutation((v: { id?: string; input: AutomationEndpointInput & { copyDefault?: boolean } }) =>
+    v.id ? api.patch<AutomationOverview>(`/settings/automation/endpoints/${v.id}`, v.input) : api.post<AutomationOverview>('/settings/automation/endpoints', v.input),
+  );
+
+export const useDeleteEndpoint = () => useOverviewMutation((v: { id: string }) => api.delete<AutomationOverview>(`/settings/automation/endpoints/${v.id}`));
+
+export const useTestEndpoint = () =>
+  useMutation({ mutationFn: (id: string) => api.post<AutomationEndpointTestResult>(`/settings/automation/endpoints/${id}/test`, {}) });
 
 // --- on a case page (staff and admin) -------------------------------------------
 

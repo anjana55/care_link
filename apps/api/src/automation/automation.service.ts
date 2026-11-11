@@ -45,6 +45,7 @@ import {
   users,
 } from '../database/schema';
 import { EmailService } from '../email/email.service';
+import { AutomationEndpointsService } from './automation-endpoints.service';
 
 const SETTINGS_ID = 'default';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -104,6 +105,7 @@ export class AutomationService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly config: ConfigService,
+    private readonly endpoints: AutomationEndpointsService,
     @Optional() private readonly email?: EmailService,
   ) {}
 
@@ -192,6 +194,30 @@ export class AutomationService {
       throw new BadRequestException('This function has tripped. Reset it before moving its dial.');
     }
     await this.upsertFunction(key, { mode, updatedBy: userId });
+    return this.overview();
+  }
+
+  /** The model this agent uses and the one it falls back to. */
+  async functionEndpoints(key: AutomationFunction): Promise<{ endpointId: string | null; fallbackEndpointId: string | null }> {
+    const row = await this.functionRow(key);
+    return { endpointId: row?.endpointId ?? null, fallbackEndpointId: row?.fallbackEndpointId ?? null };
+  }
+
+  /** Points an agent at its AI models. null clears a choice. */
+  async setFunctionEndpoints(
+    key: AutomationFunction,
+    patch: { endpointId?: string | null; fallbackEndpointId?: string | null },
+    userId: string,
+  ): Promise<AutomationOverview> {
+    for (const id of [patch.endpointId, patch.fallbackEndpointId]) {
+      if (id && !(await this.endpoints.exists(id))) throw new BadRequestException('That AI model no longer exists');
+    }
+    const current = await this.functionEndpoints(key);
+    const next = { ...current, ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) };
+    if (next.endpointId && next.endpointId === next.fallbackEndpointId) {
+      throw new BadRequestException('Choose a different model as the backup');
+    }
+    await this.upsertFunction(key, { endpointId: next.endpointId, fallbackEndpointId: next.fallbackEndpointId, updatedBy: userId });
     return this.overview();
   }
 
@@ -584,7 +610,8 @@ export class AutomationService {
     const disabledByServer = this.disabledByServer();
     const weekAgo = new Date(Date.now() - 7 * DAY_MS);
 
-    const [functionRows, policies, recentRows, awaitingRows, takenOverRows, verdictRows] = await Promise.all([
+    const [endpoints, functionRows, policies, recentRows, awaitingRows, takenOverRows, verdictRows] = await Promise.all([
+      this.endpoints.list(),
       this.db.select().from(automationFunctions),
       this.policyRows(),
       this.db
@@ -653,6 +680,8 @@ export class AutomationService {
         effectiveMode: disabledByServer ? 'MANUAL' : effectiveMode(mode, { masterManual: settings.masterManual, tripped: Boolean(row?.trippedAt) }),
         trippedAt: row?.trippedAt?.toISOString() ?? null,
         tripReason: row?.tripReason ?? null,
+        endpointId: row?.endpointId ?? null,
+        fallbackEndpointId: row?.fallbackEndpointId ?? null,
         actions,
         recent,
         awaitingStaff: Number(awaitingRows.find((r) => r.function === key)?.n ?? 0),
@@ -666,6 +695,7 @@ export class AutomationService {
       masterAt: settings.masterAt?.toISOString() ?? null,
       bar,
       casesTakenOver,
+      endpoints,
       functions,
     };
   }

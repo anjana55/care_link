@@ -43,6 +43,7 @@ const EXEMPT_FILES: Record<string, string> = {
   'notifications/dto/notifications.dto.ts': 'staff Announcements page and Settings > Notifications (staff UI); the client endpoints in it have no messages',
   'ai/ai.controller.ts': 'admin configuration screen (staff UI); relays the model provider\'s own diagnostics',
   'automation/automation.service.ts': 'Settings > Automation and the staff case controls (staff UI); no client or caregiver endpoint reaches it',
+  'automation/automation-endpoints.service.ts': 'Settings > Automation and the staff case controls (staff UI); no client or caregiver endpoint reaches it',
 };
 
 /** Single messages that are developer-facing. */

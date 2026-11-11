@@ -11,6 +11,8 @@ import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
 import { agentDecisions, auditLogs, users } from '../src/database/schema';
 import { AutomationService } from '../src/automation/automation.service';
+import { AgentModelService, AiNotClearedError, TRIP_AFTER_FAILURES } from '../src/automation/agent-model.service';
+import { AiProviderService, AiUnavailableError } from '../src/ai/ai-provider.service';
 import { SEED_PASSWORD } from './seed-password';
 
 /**
@@ -50,7 +52,7 @@ describe('Automation rail (e2e)', () => {
   const action = (o: AutomationOverview, key: string) => o.functions.flatMap((f) => f.actions).find((a) => a.key === key)!;
 
   async function wipe() {
-    for (const table of ['agent_decisions', 'automation_cases', 'automation_action_policies', 'automation_functions', 'automation_settings']) {
+    for (const table of ['automation_endpoints', 'agent_decisions', 'automation_cases', 'automation_action_policies', 'automation_functions', 'automation_settings']) {
       await db.execute(sql.raw(`DELETE FROM ${table}`));
     }
   }
@@ -314,6 +316,125 @@ describe('Automation rail (e2e)', () => {
       spy.mockRestore();
     }
     expect((await automation.gate('billing.issue_invoice')).outcome).toBe('EXECUTE');
+  });
+
+  describe('AI models and data classes', () => {
+    const ep = {
+      create: (body: object) => api().post('/settings/automation/endpoints').set(bearer(adminToken)).send(body),
+      update: (id: string, body: object) => api().patch(`/settings/automation/endpoints/${id}`).set(bearer(adminToken)).send(body),
+      remove: (id: string) => api().delete(`/settings/automation/endpoints/${id}`).set(bearer(adminToken)),
+      assign: (key: string, body: object) => api().patch(`/settings/automation/functions/${key}/endpoints`).set(bearer(adminToken)).send(body),
+    };
+    const idOf = (o: AutomationOverview, name: string) => o.endpoints.find((e) => e.name === name)!.id;
+    const local = { name: 'Office server', provider: 'OLLAMA', baseUrl: 'http://10.0.0.5:11434', model: 'qwen2.5:14b', clearedFor: 'SENSITIVE' };
+    const cloud = { name: 'Cloud', provider: 'ANTHROPIC', baseUrl: 'https://api.anthropic.com', model: 'claude-sonnet', apiKey: 'sk-test-secret-1234' };
+    let chat: jest.SpyInstance;
+    let models: AgentModelService;
+
+    beforeEach(() => {
+      models = app.get(AgentModelService);
+      chat = jest.spyOn(app.get(AiProviderService), 'chat');
+    });
+    afterEach(() => chat.mockRestore());
+
+    it('sets up models: public-only by default, the key never comes back, names are unique', async () => {
+      await ep.create({ name: 'No key', provider: 'ANTHROPIC', baseUrl: 'https://api.anthropic.com', model: 'm' }).expect(400);
+      await ep.create({ name: 'Bad address', provider: 'OLLAMA', baseUrl: 'office-server', model: 'm' }).expect(400);
+      await ep.create({ ...cloud, clearedFor: 'TOP_SECRET' }).expect(400);
+      await api().post('/settings/automation/endpoints').set(bearer(staffToken)).send(cloud).expect(403);
+
+      const o = (await ep.create(cloud).expect(201)).body as AutomationOverview;
+      expect(o.endpoints).toHaveLength(1);
+      expect(o.endpoints[0]).toMatchObject({ name: 'Cloud', clearedFor: 'PUBLIC', enabled: true, apiKeySet: true, apiKeyHint: '••••1234', usedBy: [] });
+      expect(JSON.stringify(o)).not.toContain('sk-test-secret');
+      await ep.create(cloud).expect(409);
+
+      const two = (await ep.create(local).expect(201)).body as AutomationOverview;
+      expect(two.endpoints.map((e) => e.name)).toEqual(['Cloud', 'Office server']);
+      await ep.update(idOf(two, 'Office server'), { name: 'Cloud' }).expect(409);
+      await ep.update(idOf(two, 'Cloud'), { clearApiKey: true }).expect(400);
+      const renamed = (await ep.update(idOf(two, 'Cloud'), { name: 'Cloud model', clearedFor: 'PERSONAL' }).expect(200)).body as AutomationOverview;
+      expect(renamed.endpoints[0]).toMatchObject({ name: 'Cloud model', clearedFor: 'PERSONAL', apiKeySet: true });
+
+      // Copying Settings > AI needs only a name.
+      const copied = (await ep.create({ name: 'Same as search', copyDefault: true }).expect(201)).body as AutomationOverview;
+      expect(copied.endpoints.find((e) => e.name === 'Same as search')).toMatchObject({ provider: 'OLLAMA', clearedFor: 'PUBLIC' });
+    });
+
+    it('assigns a main and a backup model to an agent, and will not delete one in use', async () => {
+      let o = (await ep.create(cloud).expect(201)).body as AutomationOverview;
+      o = (await ep.create(local).expect(201)).body;
+      const [cloudId, localId] = [idOf(o, 'Cloud'), idOf(o, 'Office server')];
+
+      await ep.assign('BILLING', { endpointId: uuid() }).expect(400);
+      await ep.assign('BILLING', { endpointId: cloudId, fallbackEndpointId: cloudId }).expect(400);
+      o = (await ep.assign('BILLING', { endpointId: cloudId, fallbackEndpointId: localId }).expect(200)).body;
+      expect(fn(o, 'BILLING')).toMatchObject({ endpointId: cloudId, fallbackEndpointId: localId, mode: 'MANUAL' });
+      expect(o.endpoints.find((e) => e.id === cloudId)!.usedBy).toEqual(['BILLING']);
+
+      await ep.remove(cloudId).expect(409);
+      o = (await ep.assign('BILLING', { endpointId: null }).expect(200)).body;
+      expect(fn(o, 'BILLING')).toMatchObject({ endpointId: null, fallbackEndpointId: localId });
+      o = (await ep.remove(cloudId).expect(200)).body;
+      expect(o.endpoints.map((e) => e.name)).toEqual(['Office server']);
+    });
+
+    it('never sends data to a model that is not cleared for it', async () => {
+      chat.mockResolvedValue({ content: 'ok', toolCalls: [] });
+      const ask = (dataClass: 'PUBLIC' | 'PERSONAL' | 'SENSITIVE') =>
+        models.chat({ function: 'ONBOARDING', dataClass, messages: [{ role: 'user', content: 'x' }] });
+
+      // No model chosen at all: nothing is sent.
+      await expect(ask('PUBLIC')).rejects.toBeInstanceOf(AiNotClearedError);
+
+      let o = (await ep.create(cloud).expect(201)).body as AutomationOverview; // cleared for PUBLIC
+      o = (await ep.create(local).expect(201)).body; // cleared for SENSITIVE
+      const [cloudId, localId] = [idOf(o, 'Cloud'), idOf(o, 'Office server')];
+      await ep.assign('ONBOARDING', { endpointId: cloudId }).expect(200);
+
+      expect(await ask('PUBLIC')).toMatchObject({ content: 'ok', endpointName: 'Cloud', model: 'claude-sonnet' });
+      await expect(ask('PERSONAL')).rejects.toBeInstanceOf(AiNotClearedError);
+      await expect(ask('SENSITIVE')).rejects.toBeInstanceOf(AiNotClearedError);
+      expect(chat).toHaveBeenCalledTimes(1);
+
+      // With a cleared backup, sensitive data goes to it and only to it.
+      await ep.assign('ONBOARDING', { fallbackEndpointId: localId }).expect(200);
+      chat.mockClear();
+      expect(await ask('SENSITIVE')).toMatchObject({ endpointName: 'Office server' });
+      expect(chat).toHaveBeenCalledTimes(1);
+      expect(chat.mock.calls[0][0]).toMatchObject({ name: 'Office server', baseUrl: 'http://10.0.0.5:11434' });
+
+      // A switched-off model is not used, even when cleared.
+      await ep.update(localId, { enabled: false }).expect(200);
+      await expect(ask('SENSITIVE')).rejects.toBeInstanceOf(AiNotClearedError);
+      // And nothing is logged as a failure: the function has not tripped.
+      expect(fn(await admin.overview(), 'ONBOARDING').trippedAt).toBeNull();
+    });
+
+    it('falls back to the backup model, and trips the agent when its models keep failing', async () => {
+      let o = (await ep.create({ ...cloud, clearedFor: 'PERSONAL' }).expect(201)).body as AutomationOverview;
+      o = (await ep.create(local).expect(201)).body;
+      await ep.assign('MATCHING', { endpointId: idOf(o, 'Cloud'), fallbackEndpointId: idOf(o, 'Office server') }).expect(200);
+      await admin.mode('MATCHING', 'AUTO').expect(200);
+      const ask = () => models.chat({ function: 'MATCHING', dataClass: 'PERSONAL', messages: [{ role: 'user', content: 'x' }] });
+
+      chat.mockImplementation(async (target: { name?: string }) => {
+        if (target.name === 'Cloud') throw new AiUnavailableError('The AI model took too long to answer');
+        return { content: 'from backup', toolCalls: [] };
+      });
+      expect(await ask()).toMatchObject({ content: 'from backup', endpointName: 'Office server' });
+      expect(fn(await admin.overview(), 'MATCHING').trippedAt).toBeNull();
+
+      chat.mockRejectedValue(new AiUnavailableError('The AI model could not be reached'));
+      for (let i = 0; i < TRIP_AFTER_FAILURES - 1; i++) await expect(ask()).rejects.toBeInstanceOf(AiUnavailableError);
+      expect(fn(await admin.overview(), 'MATCHING').trippedAt).toBeNull();
+      await expect(ask()).rejects.toBeInstanceOf(AiUnavailableError);
+
+      const tripped = fn(await admin.overview(), 'MATCHING');
+      expect(tripped).toMatchObject({ mode: 'AUTO', effectiveMode: 'MANUAL' });
+      expect(tripped.tripReason).toMatch(/AI models failed 5 times/);
+      expect((await automation.gate('matching.send_offer')).outcome).toBe('NONE');
+    });
   });
 
   it('writes every switch to the audit log', async () => {

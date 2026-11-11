@@ -253,6 +253,13 @@
       "when": 1794370361349,
       "tag": "0035_automation",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "5",
+      "when": 1794385966606,
+      "tag": "0036_automation_endpoints",
+      "breakpoints": true
     }
   ]
 }
