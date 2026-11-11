@@ -190,7 +190,7 @@ describe('who may see the area', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'සිං' }));
     expect(nav().getAllByRole('link').map((l) => l.textContent)).toEqual([
-      si.portal.nav.overview, si.portal.nav.profile, si.portal.nav.documents, si.portal.nav.shifts, si.portal.nav.payments, si.portal.nav.workAbroad,
+      si.nav.home, si.portal.nav.profile, si.portal.nav.documents, si.portal.nav.shifts, si.portal.nav.payments, si.portal.nav.workAbroad,
     ]);
     expect(screen.getByRole('button', { name: si.caregiverDashboard.signOut })).toBeDefined();
 

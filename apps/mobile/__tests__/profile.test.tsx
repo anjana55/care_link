@@ -271,6 +271,6 @@ it('Me opens the profile', async () => {
   await signIn();
   serveApi({ 'GET /caregivers/cg-1': () => ({ status: 200, body: record() }) });
   await show(<Me />);
-  await fireEvent.press(screen.getByRole('button', { name: en.portal.profile.title }));
+  await fireEvent.press(screen.getByRole('button', { name: en.portal.nav.profile }));
   expect(mockRouter.navigate).toHaveBeenCalledWith('/profile');
 });

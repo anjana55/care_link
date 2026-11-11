@@ -15,7 +15,7 @@ import { hardNavigate } from '@/lib/navigation';
 // no tab: ratings open from the profile (which stays lit on them), and
 // notifications from the bell in the header.
 const SECTIONS: { href: string; key: string; also?: string }[] = [
-  { href: '/caregiver/dashboard', key: 'portal.nav.overview' },
+  { href: '/caregiver/dashboard', key: 'nav.home' },
   { href: '/caregiver/profile', key: 'portal.nav.profile', also: '/caregiver/ratings' },
   { href: '/caregiver/documents', key: 'portal.nav.documents' },
   { href: '/caregiver/shifts', key: 'portal.nav.shifts' },

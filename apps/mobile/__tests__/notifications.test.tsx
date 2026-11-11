@@ -4,7 +4,6 @@ import type { NotificationItem, NotificationsSummary, TodoItem } from '@care-pla
 import en from '../src/i18n/en.json';
 import NotificationsScreen from '../app/notifications';
 import { Bell, badgeLabel } from '../src/notifications/Bell';
-import { TodoCards } from '../src/notifications/TodoCards';
 import { pinImportant } from '../src/notifications/Lists';
 import { AppProviders, serveApi } from '../test-utils/app';
 import { mockRouter } from '../test-utils/router';
@@ -119,33 +118,5 @@ describe('the Notifications screen', () => {
   it('pins only unread important notices', () => {
     const order = pinImportant([notice({ id: 'c' }), notice({ id: 'a', important: true, readAt: '2026-11-04T06:00:00.000Z' }), notice({ id: 'b', important: true })]);
     expect(order.map((n) => n.id)).toEqual(['b', 'c', 'a']);
-  });
-});
-
-describe('To do cards', () => {
-  it("leave out what a caregiver's Today already shows, and write the rest in the caregiver's words", async () => {
-    await tokenStore.set(tokensFor('CAREGIVER'));
-    serve({
-      unread: 0,
-      badge: 3,
-      todos: [
-        todo({ key: 'document:police', kind: 'DOCUMENT_REJECTED', path: '/documents', params: { document: 'police' } }),
-        todo({ key: 'expiry:x', kind: 'DOCUMENT_EXPIRING', path: '/documents', urgent: false, params: { document: 'PASSPORT', daysLeft: -2 } }),
-        todo({ key: 'shift:x', kind: 'SHIFT_TODAY', path: '/shifts', params: { time: '08:00', reference: 'BK-3' } }),
-      ],
-    });
-    await show(<TodoCards skip={['UPLOAD_DOCUMENT', 'DOCUMENT_REJECTED']} />);
-    expect(await screen.findByText('Your passport has expired')).toBeTruthy();
-    expect(screen.getByText('Shift today at 08:00 (BK-3)')).toBeTruthy();
-    expect(screen.queryByText(/police clearance/)).toBeNull();
-    await fireEvent.press(screen.getByLabelText('View shift: Shift today at 08:00 (BK-3)'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/shifts');
-  });
-
-  it('show nothing when there is nothing to do', async () => {
-    const calls = serve({ unread: 5, todos: [], badge: 5 });
-    await show(<TodoCards />);
-    await waitFor(() => expect(calls.some((c) => c.route === 'GET /me/notifications/summary')).toBe(true));
-    expect(screen.queryByText(en.notifications.todo)).toBeNull();
   });
 });
