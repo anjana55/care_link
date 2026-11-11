@@ -109,13 +109,30 @@ export function Pill({ label, tone = 'brand', icon }: { label: string; tone?: To
   );
 }
 
-/** A row in a menu: icon, label, an optional line under it, and a chevron. */
-export function MenuRow({ icon, label, detail, onPress, tone = 'brand' }: { icon: IconName; label: string; detail?: string; onPress: () => void; tone?: Tone }) {
+/** A row in a menu: icon, label, an optional line under it, a number when things are waiting behind it, and a chevron. */
+export function MenuRow({
+  icon,
+  label,
+  detail,
+  count = 0,
+  countLabel,
+  onPress,
+  tone = 'brand',
+}: {
+  icon: IconName;
+  label: string;
+  detail?: string;
+  /** How many things are waiting behind the row; `countLabel` is how a screen reader says it ("2 waiting"). */
+  count?: number;
+  countLabel?: string;
+  onPress: () => void;
+  tone?: Tone;
+}) {
   const colors = useColors();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={count > 0 && countLabel ? `${label}, ${countLabel}` : label}
       onPress={onPress}
       style={({ pressed }) => [styles.menuRow, { backgroundColor: pressed ? tint(colors.brand, 0.05) : 'transparent' }]}
     >
@@ -124,6 +141,11 @@ export function MenuRow({ icon, label, detail, onPress, tone = 'brand' }: { icon
         <Text style={{ fontSize: 16, fontWeight: '600', color: tone === 'danger' ? colors.danger : colors.ink }}>{label}</Text>
         {detail ? <Text style={{ fontSize: 13, color: colors.muted }}>{detail}</Text> : null}
       </View>
+      {count > 0 ? (
+        <View style={[styles.menuCount, { backgroundColor: colors.accent }]}>
+          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{count}</Text>
+        </View>
+      ) : null}
       <Ionicons name="chevron-forward" size={20} color={colors.muted} />
     </Pressable>
   );
@@ -226,6 +248,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 19, fontWeight: '700', textAlign: 'center' },
   emptyBody: { fontSize: 15, lineHeight: 22, textAlign: 'center' },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  menuCount: { minWidth: 26, height: 26, borderRadius: 13, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center' },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 64, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12 },
   hero: { borderBottomLeftRadius: 32, borderBottomRightRadius: 32, paddingHorizontal: 24, paddingBottom: 28, overflow: 'hidden' },
   blob: { position: 'absolute', borderRadius: 999 },
