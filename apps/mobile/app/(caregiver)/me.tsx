@@ -9,7 +9,7 @@ import { AppLockSetting } from '@/auth/AppLock';
 import { Text } from '@/ui/Text';
 import { useWaitingCounts } from '@/notifications/tab-counts';
 import { Avatar, Card, Divider, MenuRow, Pill } from '@/ui/visual';
-import { useOwnCaregiver } from '@/caregiver/api';
+import { useCareOfferCount, useOwnCaregiver, useRateCard } from '@/caregiver/api';
 
 /**
  * The caregiver's account: who they are, their profile and documents, the
@@ -24,6 +24,9 @@ export default function Me() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { data: c } = useOwnCaregiver();
+  const offers = useCareOfferCount().data?.waiting ?? 0;
+  // Shown only once the office lets caregivers set a rate for a kind of care this caregiver takes on.
+  const hasRates = useRateCard().data?.lines.some((l) => l.pricing.enabled && l.offered) ?? false;
 
   return (
     <Screen title={t('nav.myAccount')}>
@@ -43,8 +46,16 @@ export default function Me() {
         </Card>
 
         <Card style={styles.menu}>
+          <MenuRow icon="briefcase-outline" tone="accent" label={t('portal.offers.nav')} count={offers} countLabel={said(offers)} onPress={() => router.navigate('/offers')} />
+          <Divider />
           <MenuRow icon="person-outline" label={t('portal.nav.profile')} onPress={() => router.navigate('/profile')} />
           <Divider />
+          {hasRates ? (
+            <>
+              <MenuRow icon="cash-outline" label={t('portal.rates.title')} onPress={() => router.navigate('/rates')} />
+              <Divider />
+            </>
+          ) : null}
           <MenuRow icon="document-text-outline" tone="accent" label={t('portal.nav.documents')} count={documents} countLabel={said(documents)} onPress={() => router.navigate('/documents')} />
           <Divider />
           <MenuRow icon="star-outline" label={t('portal.nav.ratings')} onPress={() => router.navigate('/ratings')} />

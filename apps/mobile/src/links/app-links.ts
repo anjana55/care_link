@@ -25,6 +25,7 @@ const SCREENS: [RegExp, string][] = [
   [/^\/caregiver\/documents$/, '/documents'],
   [/^\/caregiver\/profile$/, '/profile'],
   [/^\/caregiver\/ratings$/, '/ratings'],
+  [/^\/caregiver\/care-offers$/, '/offers'],
   [/^\/find$/, '/find'],
 ];
 /** An invoice: ids are uuids, so nothing else gets through. */

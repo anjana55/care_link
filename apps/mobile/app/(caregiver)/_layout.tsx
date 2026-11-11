@@ -5,14 +5,17 @@ import { useColors } from '@/theme';
 import { fontFamilyFor } from '@/ui/fonts';
 import { HIDDEN_TAB } from '@/ui/tabs';
 import { useTabBadge, useWaitingCounts } from '@/notifications/tab-counts';
+import { useCareOfferCount } from '@/caregiver/api';
 
 /**
  * The caregiver side of the app: Home (status, the next shifts and today's
  * care plan), Shifts, Payments and Me. Documents opens from Me and from
- * Home's "documents needed"; Profile and Ratings open from Me.
+ * Home's "documents needed"; Profile, Ratings, Job offers and Your rates
+ * open from Me (Job offers also from Home and from its notification).
  *
  * Me carries a number while documents are waiting on the caregiver (to
- * upload, rejected or about to expire), so it shows from any screen.
+ * upload, rejected or about to expire) or job offers are waiting for an
+ * answer, so it shows from any screen.
  */
 export default function CaregiverLayout() {
   const { t, locale } = useTranslation();
@@ -20,6 +23,7 @@ export default function CaregiverLayout() {
   const waiting = useWaitingCounts();
   const badge = useTabBadge();
   const documents = waiting.todos('UPLOAD_DOCUMENT', 'DOCUMENT_REJECTED', 'DOCUMENT_EXPIRING');
+  const offers = useCareOfferCount().data?.waiting ?? 0;
   const icon = (name: keyof typeof Ionicons.glyphMap) =>
     function TabIcon({ color, size }: { color: unknown; size: number }) {
       return <Ionicons name={name} color={color as string} size={size} />;
@@ -37,10 +41,12 @@ export default function CaregiverLayout() {
       <Tabs.Screen name="home" options={{ tabBarLabel: t('nav.home'), tabBarIcon: icon('home-outline') }} />
       <Tabs.Screen name="shifts" options={{ tabBarLabel: t('portal.nav.shifts'), tabBarIcon: icon('calendar-outline') }} />
       <Tabs.Screen name="payments" options={{ tabBarLabel: t('portal.nav.payments'), tabBarIcon: icon('wallet-outline') }} />
-      <Tabs.Screen name="me" options={{ tabBarLabel: t('nav.myAccount'), tabBarIcon: icon('person-circle-outline'), ...badge(t('nav.myAccount'), documents) }} />
+      <Tabs.Screen name="me" options={{ tabBarLabel: t('nav.myAccount'), tabBarIcon: icon('person-circle-outline'), ...badge(t('nav.myAccount'), documents + offers) }} />
       <Tabs.Screen name="documents" options={HIDDEN_TAB} />
       <Tabs.Screen name="profile" options={HIDDEN_TAB} />
       <Tabs.Screen name="ratings" options={HIDDEN_TAB} />
+      <Tabs.Screen name="offers" options={HIDDEN_TAB} />
+      <Tabs.Screen name="rates" options={HIDDEN_TAB} />
     </Tabs>
   );
 }

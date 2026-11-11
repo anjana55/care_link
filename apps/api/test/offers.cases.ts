@@ -9,7 +9,10 @@ import type { CaregiverCareOffer, StaffCareOffer } from '@care-platform/shared';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
 import { careRequests, caregivers, jobs, notifications, patients } from '../src/database/schema';
-import { OffersService } from '../src/offers/offers.service';
+import { OffersService, offerDeadline } from '../src/offers/offers.service';
+import { WhatsappProviderService } from '../src/whatsapp/whatsapp-provider.service';
+import { EmailService } from '../src/email/email.service';
+import { users } from '../src/database/schema';
 import { SEED_PASSWORD } from './seed-password';
 
 /**
@@ -143,6 +146,55 @@ describe('Job offers (e2e)', () => {
     await decline(sent[0].id, other.token).expect(404);
     await api().get('/me/care-offers').set(bearer(staffToken)).expect(403);
     await api().get('/me/care-offers').expect(401);
+  });
+
+  it('messages the caregiver about a new offer on WhatsApp, or by email, with nothing about the client in it', async () => {
+    const wa = app.get(WhatsappProviderService);
+    const can = jest.spyOn(wa, 'canSendUpdates').mockReturnValue(true);
+    const sendUpdate = jest.spyOn(wa, 'sendUpdate').mockResolvedValue({ provider: 'CONSOLE' });
+    const sendEmail = jest.spyOn(app.get(EmailService), 'sendNotificationEmail').mockResolvedValue();
+    try {
+      const req = await newRequest();
+      const first = await newCaregiver(3000);
+      const [sent] = (await send(req.id, { caregiverId: first.id }).expect(201)).body as StaffCareOffer[];
+      expect(sendUpdate).toHaveBeenCalledTimes(1);
+      const [, to, , text] = sendUpdate.mock.calls[0];
+      const [account] = await db.select({ phone: users.phone }).from(users).where(eq(users.id, first.userId));
+      expect(to).toBe(account.phone);
+      expect(text).toContain('A new job offer');
+      expect(text).toContain(`Please answer by ${offerDeadline(new Date(sent.expiresAt))}.`);
+      expect(text).toMatch(/\/caregiver\/care-offers$/);
+      // Who the client is, where they live and what they need stay behind the sign-in.
+      for (const secret of ['Nimal', 'Perera', 'Sunil', 'Fernando', req.phone, req.reference, 'surgery', '3000', '3,000']) expect(text).not.toContain(secret);
+      // (Other emails go out too - the client's "we have your request" - so look for this one by its label.)
+      const offerEmails = () => sendEmail.mock.calls.filter(([, , label]) => label.startsWith('offer '));
+      expect(offerEmails()).toHaveLength(0);
+
+      // WhatsApp updates off: an email instead, when they have an address.
+      can.mockReturnValue(false);
+      const second = await newCaregiver(3000);
+      await db.update(users).set({ email: `offered-${run}-${++n}@example.com` }).where(eq(users.id, second.userId));
+      await send(req.id, { caregiverId: second.id }).expect(201);
+      expect(sendUpdate).toHaveBeenCalledTimes(1);
+      expect(offerEmails()).toHaveLength(1);
+      expect(offerEmails()[0][0]).toMatch(/^offered-/);
+      expect(JSON.stringify(offerEmails()[0][1])).not.toMatch(/Nimal|Sunil|surgery|CR-/);
+
+      // A caregiver who asked to be phoned is not messaged, and a message that fails does not fail the offer.
+      can.mockReturnValue(true);
+      const third = await newCaregiver(3000);
+      await db.update(caregivers).set({ preferredContactMethod: 'PHONE_CALL' }).where(eq(caregivers.id, third.id));
+      await send(req.id, { caregiverId: third.id }).expect(201);
+      expect(sendUpdate).toHaveBeenCalledTimes(1);
+      sendUpdate.mockRejectedValue(new Error('WhatsApp is down'));
+      const fourth = await newCaregiver(3000);
+      await send(req.id, { caregiverId: fourth.id }).expect(201);
+      expect(await mine(fourth.token)).toHaveLength(1);
+    } finally {
+      can.mockRestore();
+      sendUpdate.mockRestore();
+      sendEmail.mockRestore();
+    }
   });
 
   it('gives the job to the first caregiver who accepts and withdraws the rest', async () => {

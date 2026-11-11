@@ -1,8 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CareChecklistShift,
+  CareOfferDeclineReason,
+  CareType,
+  CaregiverCareOffer,
   CaregiverDocument,
   CaregiverPayout,
+  CaregiverRateCard,
   CaregiverShift,
   CreateIssueReportBody,
   DocumentType,
@@ -215,5 +219,59 @@ export function useMyRecords<T extends Qualification | Experience>(kind: 'qualif
     queryKey: [...key(me?.userId), kind],
     queryFn: () => api.get<T[]>(`${caregiverPath(me!.caregiverId)}/${kind}`),
     enabled: Boolean(me),
+  });
+}
+
+// --- job offers ------------------------------------------------------------------
+
+/** The caregiver's job offers, waiting ones first. Refetched while open: an offer can be withdrawn or run out. */
+export function useCareOffers() {
+  const me = useCaregiver();
+  return useQuery({ queryKey: [...key(me?.userId), 'care-offers'], queryFn: () => api.get<CaregiverCareOffer[]>('/me/care-offers'), enabled: Boolean(me), refetchInterval: 60_000 });
+}
+
+/** How many offers are waiting, for the numbers on Home and Me. */
+export function useCareOfferCount() {
+  const me = useCaregiver();
+  return useQuery({
+    queryKey: [...key(me?.userId), 'care-offers', 'count'],
+    queryFn: () => api.get<{ waiting: number }>('/me/care-offers/count'),
+    enabled: Boolean(me),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useAnswerCareOffer() {
+  const me = useCaregiver();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { offerId: string; accept: true } | { offerId: string; accept: false; reason?: CareOfferDeclineReason }) =>
+      v.accept
+        ? api.post<CaregiverCareOffer[]>(`/me/care-offers/${encodeURIComponent(v.offerId)}/accept`, {})
+        : api.post<CaregiverCareOffer[]>(`/me/care-offers/${encodeURIComponent(v.offerId)}/decline`, { reason: v.reason }),
+    onSuccess: (data) => queryClient.setQueryData([...key(me?.userId), 'care-offers'], data),
+    // Whatever happened, the list and the number may have changed (someone else may have taken the job).
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...key(me?.userId), 'care-offers'] }),
+  });
+}
+
+// --- own rates -------------------------------------------------------------------
+
+/** Each kind of care with its limits, the caregiver's rate and what clients are shown. */
+export function useRateCard() {
+  const me = useCaregiver();
+  return useQuery({
+    queryKey: [...key(me?.userId), 'rates'],
+    queryFn: () => api.get<CaregiverRateCard>(`/caregivers/${encodeURIComponent(me!.caregiverId)}/rates`),
+    enabled: Boolean(me),
+  });
+}
+
+export function useSaveRates() {
+  const me = useCaregiver();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (rates: { careType: CareType; amount: number | null }[]) => api.put<CaregiverRateCard>(`/caregivers/${encodeURIComponent(me!.caregiverId)}/rates`, { rates }),
+    onSuccess: (data) => queryClient.setQueryData([...key(me?.userId), 'rates'], data),
   });
 }
