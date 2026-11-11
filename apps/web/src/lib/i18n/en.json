@@ -1094,7 +1094,8 @@
       "team": "Team"
     },
     "reviews": "Reviews",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "automation": "Automation"
   },
   "brandingAdmin": {
     "companyTitle": "Company",
@@ -3814,5 +3815,107 @@
     "toMove": "to move",
     "toOpen": "to open",
     "toClose": "Close"
+  },
+  "automation": {
+    "title": "Automation",
+    "subtitle": "How much each AI agent may do without staff. Everything starts as Manual, and you can go back to manual at any time: nothing in progress is cancelled.",
+    "serverDisabled": "Automation is switched off on the server (AUTOMATION_ENABLED=false). Everything is manual, and this page cannot change that.",
+    "takenOver": "{n} cases taken over by staff",
+    "master": {
+      "title": "Master switch",
+      "offText": "Each function follows its own dial below.",
+      "onText": "Everything is manual. The dials below are kept and apply again when you switch automation back on.",
+      "since": "Since {when}",
+      "reasonGiven": "Reason: {reason}",
+      "switchManual": "Switch everything to manual",
+      "switchBack": "Switch automation back on",
+      "confirmTitle": "Switch everything to manual?",
+      "confirmMessage": "Every agent stops at once. Their open cases appear in the usual staff queues. Nothing is cancelled.",
+      "confirmBackTitle": "Switch automation back on?",
+      "confirmBackMessage": "Each function returns to where its dial is set.",
+      "reason": "Reason (optional)"
+    },
+    "functions": {
+      "INTAKE": {
+        "name": "Intake",
+        "desc": "Turns what a client says into a complete care request."
+      },
+      "MATCHING": {
+        "name": "Matching",
+        "desc": "Ranks caregivers for a request and sends offers."
+      },
+      "BOOKING": {
+        "name": "Booking",
+        "desc": "Builds the booking and shifts, takes payment, confirms."
+      },
+      "BILLING": {
+        "name": "Billing and payouts",
+        "desc": "Invoices completed shifts, chases payment, drafts payouts."
+      },
+      "LIVE_CARE": {
+        "name": "Live care",
+        "desc": "Watches check-ins, replaces a no-show, sorts issue reports."
+      },
+      "ONBOARDING": {
+        "name": "Caregiver onboarding",
+        "desc": "Checks documents and references and prepares the verification file."
+      }
+    },
+    "modes": {
+      "MANUAL": {
+        "name": "Manual",
+        "hint": "The agent does nothing. Staff do everything, as today."
+      },
+      "SHADOW": {
+        "name": "Shadow",
+        "hint": "The agent decides silently. Nothing changes; its choices are logged so you can compare them with what staff did."
+      },
+      "ASSIST": {
+        "name": "Assist",
+        "hint": "The agent proposes each step and staff approve it."
+      },
+      "AUTO": {
+        "name": "Auto",
+        "hint": "The agent acts within its limits. Staff see only the exceptions."
+      }
+    },
+    "dial": "How much may this agent do?",
+    "manualNow": "Running as Manual for now",
+    "tripped": "This agent stopped itself on {when} and is manual until you reset it.",
+    "reset": "Reset",
+    "resetTitle": "Reset this agent?",
+    "resetMessage": "Check that the cause is fixed first. The dial goes back to {mode}.",
+    "confirmAutoTitle": "Let this agent act without approval?",
+    "confirmAutoMessage": "In Auto it carries out reversible steps without asking. Commitments still need approval until each has earned it, and some actions always need a person.",
+    "recent": "Last 7 days: {executed} done, {proposed} proposed, {shadow} logged silently",
+    "awaiting": "{n} waiting for staff",
+    "showActions": "Show the {n} actions",
+    "hideActions": "Hide actions",
+    "tiers": {
+      "0": "Reads and drafts",
+      "1": "Reversible",
+      "2": "Commitment",
+      "3": "Always a person"
+    },
+    "record": "Staff agreed with {agreed} of {judged} ({percent}%)",
+    "recordSerious": "{n} serious mistakes",
+    "noRecord": "No staff verdicts yet",
+    "actsAlone": "Acts alone in Auto",
+    "allow": "Allow to act alone",
+    "withdraw": "Require approval again",
+    "notEarned": "Not earned yet",
+    "resetRecord": "Start record again",
+    "bar": {
+      "title": "Earning the right to act alone",
+      "hint": "A commitment may act alone only after staff have judged enough of its decisions and agreed with enough of them, with no serious mistake. It loses that again after too many reversals in one day.",
+      "cases": "Judged decisions needed",
+      "casesHint": "10 to 1000",
+      "agreement": "Agreement needed (%)",
+      "agreementHint": "50 to 100",
+      "reversals": "Reversals in a day that withdraw it",
+      "reversalsHint": "1 to 20"
+    },
+    "saved": "Saved",
+    "saveError": "That could not be saved. Please try again."
   }
 }
