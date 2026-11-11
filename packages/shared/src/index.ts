@@ -34,6 +34,7 @@ export * from './types/analytics';
 export * from './types/app-config';
 export * from './types/account-deletion';
 export * from './types/ai';
+export * from './types/automation';
 export * from './types/insights';
 export * from './types/international';
 export * from './types/international-phase4';
