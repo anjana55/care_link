@@ -4081,5 +4081,43 @@
       "tooHigh": "Above the highest rate",
       "rate": "Rate (LKR)"
     }
+  },
+  "careOffers": {
+    "title": "Offers to caregivers",
+    "hint": "Offer this request to one or more caregivers. Each answers in their own time; the first to accept is attached to the request and the others are withdrawn. A caregiver sees the kind of care, the area, the start date and the rate, never the client's details.",
+    "none": "No offers sent yet.",
+    "send": "Offer to a caregiver",
+    "sendNow": "Send offer",
+    "deadline": "Time to answer",
+    "deadlines": {
+      "60": "1 hour",
+      "240": "4 hours",
+      "1440": "24 hours",
+      "4320": "3 days"
+    },
+    "note": "Note to the caregiver (optional)",
+    "noteHint": "Do not put the client's name, address or health details here.",
+    "statuses": {
+      "OFFERED": "Waiting",
+      "ACCEPTED": "Accepted",
+      "DECLINED": "Declined",
+      "EXPIRED": "No answer in time",
+      "WITHDRAWN": "Withdrawn"
+    },
+    "reasons": {
+      "NOT_AVAILABLE": "Not available",
+      "TOO_FAR": "Too far",
+      "RATE_TOO_LOW": "Rate too low",
+      "OTHER": "Other reason"
+    },
+    "rate": "LKR {pay} {unit} to the caregiver, LKR {client} to the client",
+    "rateNoClient": "LKR {pay} {unit} to the caregiver",
+    "rateOpen": "Rate to be agreed",
+    "until": "Answer by {when}",
+    "answered": "Answered {when}",
+    "withdraw": "Withdraw",
+    "by": "Sent by {name}",
+    "error": "That did not work. Please try again.",
+    "prefilled": "The rates are those the caregiver accepted in the offer. Change them only if you have agreed something different."
   }
 }

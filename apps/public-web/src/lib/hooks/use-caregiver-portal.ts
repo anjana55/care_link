@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CareChecklistShift, CareType, CaregiverPayout, CaregiverRateCard, CaregiverShift, CreateIssueReportBody, MyIssueReport } from '@care-platform/shared';
+import type { CareChecklistShift, CareOfferDeclineReason, CareType, CaregiverCareOffer, CaregiverPayout, CaregiverRateCard, CaregiverShift, CreateIssueReportBody, MyIssueReport } from '@care-platform/shared';
 import { api } from '../api/client';
 import { useAuth } from '../api/auth-context';
 import type {
@@ -223,5 +223,31 @@ export function useSaveRates() {
   return useMutation({
     mutationFn: (rates: { careType: CareType; amount: number | null }[]) => api.put<CaregiverRateCard>(`${base(id!)}/rates`, { rates }),
     onSuccess: (data) => queryClient.setQueryData(['portal', id, 'rates'], data),
+  });
+}
+
+// --- job offers ----------------------------------------------------------------
+
+/** The caregiver's job offers, waiting ones first. Refetched while open: an offer can be withdrawn or run out. */
+export function useCareOffers() {
+  const id = useCaregiverId();
+  return useQuery({ queryKey: ['portal', id, 'care-offers'], queryFn: () => api.get<CaregiverCareOffer[]>('/me/care-offers'), enabled: Boolean(id), refetchInterval: 60_000 });
+}
+
+/** How many offers are waiting, for the number on the menu. */
+export function useCareOfferCount() {
+  const id = useCaregiverId();
+  return useQuery({ queryKey: ['portal', id, 'care-offers', 'count'], queryFn: () => api.get<{ waiting: number }>('/me/care-offers/count'), enabled: Boolean(id), refetchInterval: 60_000 });
+}
+
+export function useAnswerCareOffer() {
+  const id = useCaregiverId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { offerId: string; accept: true } | { offerId: string; accept: false; reason?: CareOfferDeclineReason }) =>
+      v.accept ? api.post<CaregiverCareOffer[]>(`/me/care-offers/${v.offerId}/accept`, {}) : api.post<CaregiverCareOffer[]>(`/me/care-offers/${v.offerId}/decline`, { reason: v.reason }),
+    onSuccess: (data) => queryClient.setQueryData(['portal', id, 'care-offers'], data),
+    // Whatever happened, the list and the number may have changed (someone else may have taken the job).
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['portal', id, 'care-offers'] }),
   });
 }

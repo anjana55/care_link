@@ -20,6 +20,7 @@ import {
 } from '@/lib/hooks/use-care-requests';
 import { CaregiverPicker } from '@/components/requests/caregiver-picker';
 import { CaregiverSuggestions } from '@/components/requests/caregiver-suggestions';
+import { OffersCard } from '@/components/requests/offers-card';
 import { RelatedBookings } from '@/components/bookings/related-bookings';
 import { Button } from '@/components/ui/button';
 import { Label, Select } from '@/components/ui/input';
@@ -144,6 +145,9 @@ export default function RequestDetailPage() {
 
       {/* Matching: while the request is open and the caregiver can still change. */}
       {request.canChangeCaregiver && <CaregiverSuggestions request={request} />}
+
+      {/* Offers: let caregivers answer for themselves instead of phoning each one. */}
+      <OffersCard requestId={request.id} canSend={request.canChangeCaregiver} />
 
       {/* Bookings: once an introduction is made (or while staff are arranging
           it), the next step is to book the caregiver's shifts. */}

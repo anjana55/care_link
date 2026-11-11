@@ -10,6 +10,8 @@ import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
 import { caregivers } from '../src/database/schema';
 import { SEED_PASSWORD } from './seed-password';
+// Job offers set prices too: their cases run here, in this worker, one after the other.
+import './offers.cases';
 
 /**
  * Caregiver-set rates over real HTTP: the admin sets a band and a fee per
