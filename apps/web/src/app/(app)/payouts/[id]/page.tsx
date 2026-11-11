@@ -29,6 +29,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PayoutStatusBadge } from '@/components/billing/billing-badges';
 import { LineEditor, TotalsBlock, liveTotals, rowProblem, rowsFrom, toInput, type EditableRow } from '@/components/billing/line-editor';
 import type { PayoutDetail } from '@/lib/api/types';
+import { CaseAutomationPanel } from '@/components/automation/case-automation-panel';
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError && err.message ? err.message : fallback);
 
@@ -66,6 +67,7 @@ export default function PayoutPage() {
         </Link>
         <RecordPager kind="payouts" id={id} />
       </div>
+      <CaseAutomationPanel caseType="PAYOUT" caseId={id} />
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="hidden text-xs uppercase tracking-wide text-ink/50 print:block">{t('billing.payout.printTitle')}</p>

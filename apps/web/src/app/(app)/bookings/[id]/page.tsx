@@ -47,6 +47,7 @@ import {
 } from '@/components/bookings/shift-rate-fields';
 import { cn } from '@/lib/utils';
 import type { BookingDetail, BookingShift, IssueReportView, RateType, ShiftStatus } from '@/lib/api/types';
+import { CaseAutomationPanel } from '@/components/automation/case-automation-panel';
 
 /** How the Correct panel was opened: plain, to close a booking billed in advance, or from a report. */
 type Correcting = { close?: 'COMPLETED' | 'CANCELLED'; issue?: IssueReportView };
@@ -107,6 +108,7 @@ export default function BookingPage() {
         </Link>
         <RecordPager kind="bookings" id={id} />
       </div>
+      <CaseAutomationPanel caseType="BOOKING" caseId={id} />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

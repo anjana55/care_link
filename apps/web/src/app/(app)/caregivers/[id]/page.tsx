@@ -63,6 +63,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { SignInAccessPanel } from '@/components/caregivers/sign-in-access-panel';
 import { usePendingAccountDeletion } from '@/lib/hooks/use-account-deletions';
 import { PendingDeletionBanner } from '@/components/accounts/pending-deletion-banner';
+import { CaseAutomationPanel } from '@/components/automation/case-automation-panel';
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
@@ -304,6 +305,7 @@ export default function CaregiverProfilePage() {
   return (
     <div>
       <RecordPager kind="caregivers" id={id} className="mb-4 justify-end print:hidden" />
+      <CaseAutomationPanel caseType="CAREGIVER" caseId={id} />
       {pendingDeletion && <PendingDeletionBanner request={pendingDeletion} />}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>

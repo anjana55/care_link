@@ -83,26 +83,28 @@ export class AutomationController {
 
   @Get('cases/:caseType/:caseId')
   caseControl(@Param('caseType', caseTypePipe) caseType: AutomationCaseType, @Param('caseId', ParseUUIDPipe) caseId: string) {
-    return this.automation.caseControl({ caseType, caseId });
+    return this.automation.caseAutomation({ caseType, caseId });
   }
 
   @Post('cases/:caseType/:caseId/take-over')
   @HttpCode(200)
   @Audit({ action: 'TAKE_OVER_CASE', entityType: 'AutomationCase' })
-  takeOver(
+  async takeOver(
     @Param('caseType', caseTypePipe) caseType: AutomationCaseType,
     @Param('caseId', ParseUUIDPipe) caseId: string,
     @Body() dto: TakeOverDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.automation.takeOver({ caseType, caseId }, { userId: user.userId, source: 'STAFF', reason: dto.reason });
+    await this.automation.takeOver({ caseType, caseId }, { userId: user.userId, source: 'STAFF', reason: dto.reason });
+    return this.automation.caseAutomation({ caseType, caseId });
   }
 
   @Post('cases/:caseType/:caseId/hand-back')
   @HttpCode(200)
   @Audit({ action: 'HAND_BACK_CASE', entityType: 'AutomationCase' })
-  handBack(@Param('caseType', caseTypePipe) caseType: AutomationCaseType, @Param('caseId', ParseUUIDPipe) caseId: string) {
-    return this.automation.handBack({ caseType, caseId });
+  async handBack(@Param('caseType', caseTypePipe) caseType: AutomationCaseType, @Param('caseId', ParseUUIDPipe) caseId: string) {
+    await this.automation.handBack({ caseType, caseId });
+    return this.automation.caseAutomation({ caseType, caseId });
   }
 
   @Get('decisions')

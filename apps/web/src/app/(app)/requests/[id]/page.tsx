@@ -29,6 +29,7 @@ import { PhoneLink } from '@/components/clients/contact-links';
 import { RequestStatusBadge } from '@/components/requests/request-status-badge';
 import { CaregiverRef } from '@/components/caregivers/caregiver-ref';
 import type { CareRequestCloseReason, CareRequestDetail, CareRequestEvent, CareRequestStatus } from '@/lib/api/types';
+import { CaseAutomationPanel } from '@/components/automation/case-automation-panel';
 
 const CLOSE_REASONS: CareRequestCloseReason[] = [
   'PLACED',
@@ -84,6 +85,7 @@ export default function RequestDetailPage() {
         </Link>
         <RecordPager kind="requests" id={id} />
       </div>
+      <CaseAutomationPanel caseType="REQUEST" caseId={id} />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

@@ -35,6 +35,7 @@ import { InvoiceDocument } from '@/components/billing/invoice-document';
 import { LineEditor, TotalsBlock, liveTotals, rowProblem, rowsFrom, toInput, type EditableRow } from '@/components/billing/line-editor';
 import { cn } from '@/lib/utils';
 import type { DiscountType, InvoiceDetail } from '@/lib/api/types';
+import { CaseAutomationPanel } from '@/components/automation/case-automation-panel';
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError && err.message ? err.message : fallback);
 
@@ -79,6 +80,7 @@ export default function InvoicePage() {
           </Link>
           <RecordPager kind="invoices" id={id} />
         </div>
+        <CaseAutomationPanel caseType="INVOICE" caseId={id} />
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="flex flex-wrap items-center gap-3 text-xl font-semibold tabular-nums text-ink">

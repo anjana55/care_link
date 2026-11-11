@@ -217,7 +217,13 @@ describe('Automation rail (e2e)', () => {
     const other = { caseType: 'REQUEST' as const, caseId: uuid() };
     const path = `/automation/cases/REQUEST/${mine.caseId}`;
 
-    expect((await api().get(path).set(bearer(staffToken)).expect(200)).body).toMatchObject({ driver: 'AGENT', handoverNote: null });
+    expect((await api().get(path).set(bearer(staffToken)).expect(200)).body).toMatchObject({
+      driver: 'AGENT',
+      handoverNote: null,
+      agentActive: true,
+      mode: 'AUTO',
+      decisions: [],
+    });
     await api().post(`${path}/hand-back`).set(bearer(staffToken)).expect(400);
 
     const note = { done: 'Offered to CG-2041 and CG-1187', waiting: 'CG-1187 to answer by 14:10', next: 'Offer to CG-3310 if no answer' };
@@ -227,13 +233,26 @@ describe('Automation rail (e2e)', () => {
     const taken = (await api().post(`${path}/take-over`).set(bearer(staffToken)).send({ reason: 'Client phoned the office' }).expect(200)).body;
     expect(taken).toMatchObject({ driver: 'STAFF', takeoverSource: 'STAFF', takeoverReason: 'Client phoned the office', handoverNote: note });
     expect(taken.takenOverByUserId).toBeTruthy();
+    expect(taken.takenOverByName).toBeTruthy();
 
     expect((await automation.decide({ action: 'matching.send_offer', case: mine, reason: 'Next best match' })).outcome).toBe('NONE');
     expect((await automation.gate('matching.send_offer', other)).outcome).toBe('EXECUTE');
     expect((await admin.overview()).casesTakenOver).toBe(1);
 
     const back = (await api().post(`${path}/hand-back`).set(bearer(staffToken)).expect(200)).body;
-    expect(back).toMatchObject({ driver: 'AGENT', takenOverAt: null, takeoverReason: null, handoverNote: note });
+    expect(back).toMatchObject({ driver: 'AGENT', takenOverAt: null, takenOverByName: null, takeoverReason: null, handoverNote: note });
+    // The page gets the agent's decisions on this case with it, and only this case's.
+    await automation.decide({ action: 'matching.send_offer', case: mine, reason: 'Closest verified match' });
+    await automation.decide({ action: 'matching.send_offer', case: other, reason: 'Someone else' });
+    const view = (await api().get(path).set(bearer(staffToken)).expect(200)).body;
+    expect(view.decisions).toHaveLength(1);
+    expect(view.decisions[0]).toMatchObject({ outcome: 'EXECUTED', reason: 'Closest verified match' });
+    // An invoice is not worked on by the matching agent: its page shows nothing.
+    expect((await api().get(`/automation/cases/INVOICE/${uuid()}`).set(bearer(staffToken)).expect(200)).body).toMatchObject({ agentActive: false, mode: 'MANUAL' });
+    // With the master switch on, no agent is active on any page.
+    await admin.master(true).expect(200);
+    expect((await api().get(path).set(bearer(staffToken)).expect(200)).body).toMatchObject({ agentActive: false, mode: 'MANUAL' });
+    await admin.master(false).expect(200);
     expect((await automation.gate('matching.send_offer', mine)).outcome).toBe('EXECUTE');
 
     await api().get('/automation/cases/TICKET/' + mine.caseId).set(bearer(staffToken)).expect(400);

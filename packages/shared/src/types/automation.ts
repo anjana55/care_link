@@ -115,6 +115,20 @@ export function automationAction(key: AutomationActionKey): AutomationActionDef 
 export const AUTOMATION_CASE_TYPES = ['REQUEST', 'BOOKING', 'SHIFT', 'INVOICE', 'PAYOUT', 'CAREGIVER'] as const;
 export type AutomationCaseType = (typeof AUTOMATION_CASE_TYPES)[number];
 
+/**
+ * Which agents work on which kind of record. A case page shows its automation
+ * panel only while one of these is switched on (or the case already has
+ * history), so with everything in Manual the pages look exactly as before.
+ */
+export const CASE_TYPE_FUNCTIONS: Record<AutomationCaseType, readonly AutomationFunction[]> = {
+  REQUEST: ['INTAKE', 'MATCHING'],
+  BOOKING: ['BOOKING', 'LIVE_CARE'],
+  SHIFT: ['LIVE_CARE'],
+  INVOICE: ['BILLING'],
+  PAYOUT: ['BILLING'],
+  CAREGIVER: ['ONBOARDING'],
+};
+
 /** STAFF once someone pressed "Take over"; AGENT otherwise (when the function's dial allows it). */
 export const CASE_DRIVERS = ['AGENT', 'STAFF'] as const;
 export type CaseDriver = (typeof CASE_DRIVERS)[number];
@@ -282,10 +296,22 @@ export interface CaseControlView {
   driver: CaseDriver;
   takenOverAt: string | null;
   takenOverByUserId: string | null;
+  /** The staff member's name, for "Taken over by ...". */
+  takenOverByName: string | null;
   takeoverSource: TakeoverSource | null;
   takeoverReason: string | null;
   handoverNote: HandoverNote | null;
   handoverNoteAt: string | null;
+}
+
+/** Everything a case page shows about automation, in one call. */
+export interface CaseAutomationView extends CaseControlView {
+  /** An agent that works on this kind of record is switched on right now. */
+  agentActive: boolean;
+  /** The highest dial among those agents, as it applies now. */
+  mode: AutomationMode;
+  /** The agents' latest decisions on this case, newest first. */
+  decisions: AgentDecisionView[];
 }
 
 export interface AgentDecisionView {

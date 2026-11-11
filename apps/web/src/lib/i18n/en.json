@@ -3916,6 +3916,46 @@
       "reversalsHint": "1 to 20"
     },
     "saved": "Saved",
-    "saveError": "That could not be saved. Please try again."
+    "saveError": "That could not be saved. Please try again.",
+    "case": {
+      "agentHandling": "An agent is working on this",
+      "staffHandling": "Staff are handling this",
+      "modeHint": {
+        "SHADOW": "It is only watching: staff do everything, and its choices are logged for comparison.",
+        "ASSIST": "It proposes steps for staff to approve.",
+        "AUTO": "It acts within its limits. Take over if you want to handle this yourself."
+      },
+      "agentOff": "The agent for this is switched off. What it did earlier is kept below.",
+      "takenOverBy": "Taken over by {name} on {when}",
+      "takenOverByPerson": "The client or caregiver asked for a person on {when}",
+      "reasonGiven": "Reason: {reason}",
+      "takeOver": "Take over",
+      "handBack": "Hand back to the agent",
+      "takeOverTitle": "Take over this case?",
+      "takeOverMessage": "The agent stops on this case only. Nothing is cancelled, and everything else carries on.",
+      "handBackTitle": "Hand this case back?",
+      "handBackMessage": "The agent may pick it up again from where things stand now.",
+      "reason": "Reason (optional)",
+      "note": {
+        "title": "Where things stand",
+        "done": "Done so far",
+        "waiting": "Waiting on",
+        "next": "Agent's next step",
+        "at": "Updated {when}"
+      },
+      "timeline": "What the agent decided",
+      "outcomes": {
+        "SHADOW": "Would have",
+        "PROPOSED": "Proposed",
+        "EXECUTED": "Did"
+      },
+      "verdicts": {
+        "AGREED": "Staff agreed",
+        "DIFFERED": "Staff chose otherwise",
+        "REVERSED": "Staff reversed it",
+        "SERIOUS": "Marked as a serious mistake"
+      },
+      "error": "That did not work. Please try again."
+    }
   }
 }
