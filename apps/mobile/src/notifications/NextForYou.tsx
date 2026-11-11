@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import type { TodoItem } from '@care-platform/shared';
@@ -11,13 +11,14 @@ import { tint } from '@/ui/visual';
 import { TODO_ICONS, useTodoText } from './Lists';
 
 /**
- * The one thing to do next, on the client home's brand band: what it is, one
- * big button for it, and - when there is more - a link to the whole To do
+ * The one thing to do next - on the client home's brand band, and at the top
+ * of a caregiver's Today (which passes `style` to stand on the page rather
+ * than the band): what it is, one big button for it, and - when there is more - a link to the whole To do
  * list behind the bell. The first to-do is the most pressing (the API puts
  * urgent ones first), so the person never has to work out where to start.
  * Urgent items take the To do list's warning colours.
  */
-export function NextForYou({ items }: { items: TodoItem[] }) {
+export function NextForYou({ items, style }: { items: TodoItem[]; style?: StyleProp<ViewStyle> }) {
   const { t, locale } = useTranslation();
   const colors = useColors();
   const router = useRouter();
@@ -27,7 +28,7 @@ export function NextForYou({ items }: { items: TodoItem[] }) {
   const tone = item.urgent ? '#B45309' : colors.brand;
   const action = t(`notifications.action.${item.kind}`);
   return (
-    <View accessibilityLabel={t('clientHome.nextForYou')} style={[styles.card, { backgroundColor: item.urgent ? '#FFF7E6' : colors.surface }]}>
+    <View accessibilityLabel={t('clientHome.nextForYou')} style={[styles.card, { backgroundColor: item.urgent ? '#FFF7E6' : colors.surface }, style]}>
       <View style={styles.row}>
         <View style={[styles.icon, { backgroundColor: tint(tone, 0.14) }]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
           <Ionicons name={TODO_ICONS[item.kind] ?? 'alert-circle-outline'} size={30} color={tone} />
