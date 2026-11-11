@@ -693,7 +693,6 @@
   "portal": {
     "nav": {
       "label": "Your caregiver area",
-      "overview": "Overview",
       "profile": "Profile",
       "documents": "Documents",
       "shifts": "Shifts",
@@ -2461,7 +2460,7 @@
     "hints": {
       "find": "Search by area and care needed",
       "bookings": "Your current and past care",
-      "bills": "See and pay your bills",
+      "bills": "See and pay your invoices",
       "saved": "Caregivers you liked",
       "requests": "Talk to the office"
     }
