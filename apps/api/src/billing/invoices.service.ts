@@ -320,6 +320,20 @@ export class InvoicesService {
     return { lines: fromBuilt(built.lines, opts.startAt), skipped: built.skipped, unpriced: built.unpriced };
   }
 
+  /**
+   * What billing one booking's completed shifts for a period would come to,
+   * without creating anything: exactly the lines `create` would build
+   * (unbilled shifts plus corrections waiting for the client). Used by the
+   * billing agent to decide, and again just before it acts.
+   */
+  async previewBooking(bookingId: string, from: string, to: string) {
+    const [b] = await this.db.select({ patientId: bookings.patientId, language: bookings.language }).from(bookings).where(eq(bookings.id, bookingId)).limit(1);
+    if (!b) throw new NotFoundException('Booking not found');
+    const built = await this.linesFromShifts(this.db, { bookingIds: [bookingId], from, to, statuses: BASIS_STATUSES.COMPLETED, language: b.language, startAt: 0 });
+    const carried = await openAdjustmentLines(this.db, { side: 'CLIENT', partyId: b.patientId, bookingIds: [bookingId], language: b.language, startAt: built.lines.length, baseCents: linesCents(built.lines) });
+    return { lines: built.lines.length, corrections: carried.length, unpriced: built.unpriced, subtotalCents: linesCents([...built.lines, ...carried]) };
+  }
+
   /** What is already on a live invoice - drafts count, void ones do not. */
   async billed(db: Tx, shiftIds: string[], bookingIds: string[]) {
     const billedShiftIds = new Set<string>();

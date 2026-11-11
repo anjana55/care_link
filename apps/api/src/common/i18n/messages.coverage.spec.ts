@@ -45,6 +45,7 @@ const EXEMPT_FILES: Record<string, string> = {
   'automation/automation.service.ts': 'Settings > Automation and the staff case controls (staff UI); no client or caregiver endpoint reaches it',
   'automation/automation-endpoints.service.ts': 'Settings > Automation and the staff case controls (staff UI); no client or caregiver endpoint reaches it',
   'automation/dto/automation.dto.ts': 'Settings > Automation and the staff case controls (staff UI); no client or caregiver endpoint reaches it',
+  'billing/billing-agent.service.ts': 'reasons from the billing agent, shown to staff on approval (staff UI); no client or caregiver endpoint reaches it',
 };
 
 /** Single messages that are developer-facing. */

@@ -3955,7 +3955,15 @@
         "REVERSED": "Staff reversed it",
         "SERIOUS": "Marked as a serious mistake"
       },
-      "error": "That did not work. Please try again."
+      "error": "That did not work. Please try again.",
+      "approve": "Approve",
+      "decline": "Decline",
+      "declineTitle": "Decline this proposal?",
+      "declineMessage": "Nothing will be done. The agent will not raise the same step again.",
+      "failed": "Could not be carried out: {error}",
+      "waitingForYou": "Waiting for approval",
+      "openInvoice": "Open invoice {number}",
+      "done": "Carried out {when}"
     },
     "models": {
       "title": "AI models",
@@ -4013,6 +4021,27 @@
       "late": "The oldest has been waiting {minutes} minutes. If this keeps growing, check that the server is running.",
       "retry": "Try again",
       "noError": "No error recorded"
+    },
+    "proposals": {
+      "title": "Agent proposals",
+      "subtitle": "Steps an agent has worked out and is waiting for a person to approve. Approving carries the step out under your name.",
+      "none": "Nothing is waiting for approval.",
+      "open": "Open the record",
+      "attention": "Agent proposals to approve"
+    },
+    "run": {
+      "button": "Run now",
+      "running": "Running...",
+      "result": "Looked at {considered}, decided {decided}, scored {scored}, left {leftToStaff} to staff",
+      "notBuilt": "This agent is not built yet. Its dial can be set, but nothing will happen until it is."
+    },
+    "caseTypes": {
+      "REQUEST": "Request",
+      "BOOKING": "Booking",
+      "SHIFT": "Shift",
+      "INVOICE": "Invoice",
+      "PAYOUT": "Payout",
+      "CAREGIVER": "Caregiver"
     }
   }
 }

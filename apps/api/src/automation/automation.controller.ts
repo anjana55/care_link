@@ -109,6 +109,15 @@ export class AutomationSettingsController {
     return this.endpoints.test(id);
   }
 
+  /** Runs an agent once, now, instead of waiting for its next turn. It still obeys its dial. */
+  @Post('functions/:key/run')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  @Audit({ action: 'RUN_AGENT_NOW', entityType: 'AutomationFunction' })
+  run(@Param('key', functionPipe) key: AutomationFunction) {
+    return this.automation.runNow(key);
+  }
+
   /** Puts a failed background job back in the queue. */
   @Post('jobs/:id/retry')
   @HttpCode(200)
@@ -165,6 +174,20 @@ export class AutomationController {
   @Get('decisions')
   decisions(@Query() query: DecisionsQueryDto) {
     return this.automation.decisions({ ...query, page: query.page ?? 1, pageSize: query.pageSize ?? 25 });
+  }
+
+  @Post('decisions/:id/approve')
+  @HttpCode(200)
+  @Audit({ action: 'APPROVE_AGENT_PROPOSAL', entityType: 'AgentDecision' })
+  approve(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.automation.approve(id, user);
+  }
+
+  @Post('decisions/:id/decline')
+  @HttpCode(200)
+  @Audit({ action: 'DECLINE_AGENT_PROPOSAL', entityType: 'AgentDecision' })
+  decline(@Param('id', ParseUUIDPipe) id: string, @Body() dto: TakeOverDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.automation.decline(id, dto.reason ?? null, user.userId);
   }
 
   @Post('decisions/:id/review')

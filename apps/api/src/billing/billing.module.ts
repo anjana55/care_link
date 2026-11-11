@@ -8,14 +8,15 @@ import { PayoutsService } from './payouts.service';
 import { PayhereService } from './payhere.service';
 import { AdjustmentsService } from './adjustments.service';
 import { BankAccountsService } from './bank-accounts.service';
+import { BillingAgentService } from './billing-agent.service';
 import { BankAccountsController, BillingAdjustmentsController, BillingSettingsController, InvoicesController, MyBillingController, PayhereNotifyController, PayoutsController } from './billing.controller';
 
 @Module({
   imports: [EmailModule, WhatsappModule],
   controllers: [BillingSettingsController, BankAccountsController, InvoicesController, PayoutsController, BillingAdjustmentsController, MyBillingController, PayhereNotifyController],
-  providers: [BillingSettingsService, BillingNotifier, InvoicesService, PayoutsService, PayhereService, AdjustmentsService, BankAccountsService],
+  providers: [BillingSettingsService, BillingNotifier, InvoicesService, PayoutsService, PayhereService, AdjustmentsService, BankAccountsService, BillingAgentService],
   // Booking corrections adjust invoices and pay statements through these;
   // placement fee invoices (international) take the business details and PayHere merchant from the settings.
-  exports: [InvoicesService, PayoutsService, AdjustmentsService, BillingSettingsService],
+  exports: [InvoicesService, PayoutsService, AdjustmentsService, BillingSettingsService, BillingAgentService],
 })
 export class BillingModule {}

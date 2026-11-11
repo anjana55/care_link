@@ -25,8 +25,7 @@ import {
   UserPlus,
   UserX,
   Wallet,
-  type LucideIcon,
-} from 'lucide-react';
+  type LucideIcon, Bot } from 'lucide-react';
 import { formatLkr, type BusinessInsights, type InsightKpi, type InsightRange, type InsightRatio } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useBusinessInsights } from '@/lib/hooks/use-insights';
@@ -35,6 +34,7 @@ import { useAccountDeletionSummary } from '@/lib/hooks/use-account-deletions';
 import { useReviewCounts } from '@/lib/hooks/use-reviews';
 import { cn } from '@/lib/utils';
 import { ColumnChart, Funnel, Gauge, HBarList, Legend, LineChart, PairedBars, Sparkline, SplitBar, type HealthLevel } from './charts';
+import { useAwaitingProposals } from '@/lib/hooks/use-automation';
 
 // --- formatting ---------------------------------------------------------------------
 
@@ -289,8 +289,10 @@ function DashboardBody({ data }: { data: BusinessInsights }) {
   const { data: reviewCounts } = useReviewCounts();
   const { data: deletions } = useAccountDeletionSummary();
   const { data: overseas } = useInternationalSummary();
+  const { data: proposals } = useAwaitingProposals();
   const overseasWaiting = overseas ? overseas.new + overseas.pendingProfiles + overseas.pendingEmployers + overseas.interviewRequests : 0;
   const attention: AttentionItem[] = [
+    { key: 'proposals', count: proposals?.length ?? 0, label: t('automation.proposals.attention'), href: '/agent-proposals', severity: 'act', Icon: Bot },
     { key: 'overdue', count: a.overdueInvoices, label: t('dashboard.attention.overdueInvoices'), detail: formatLkr(a.overdueAmount), href: '/invoices?tab=overdue', severity: 'act', Icon: ReceiptText },
     { key: 'stale', count: a.newRequestsOver24h, label: t('dashboard.attention.newRequestsOver24h'), href: '/requests?tab=open', severity: 'act', Icon: Inbox },
     { key: 'careNotDone', count: a.careCriticalNotDone, label: t('dashboard.attention.careCriticalNotDone'), href: '/bookings?tab=care', severity: 'act', Icon: ClipboardX },

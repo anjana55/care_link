@@ -141,6 +141,16 @@ export const agentDecisions = mysqlTable(
     staffNote: varchar('staff_note', { length: 500 }),
     reviewedByUserId: varchar('reviewed_by_user_id', { length: 36 }),
     reviewedAt: datetime('reviewed_at'),
+    /**
+     * Stops the same step being decided twice: an agent that sweeps hourly
+     * finds the same unbilled booking every hour. Unique per action and
+     * outcome in practice (checked in decide()), so moving a dial from Shadow
+     * to Assist does let the agent propose what it had only logged.
+     */
+    dedupeKey: varchar('dedupe_key', { length: 191 }),
+    executedAt: datetime('executed_at', { fsp: 3 }),
+    executionError: varchar('execution_error', { length: 500 }),
+    result: json('result').$type<Record<string, unknown>>(),
     createdAt: datetime('created_at', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
   },
   (t) => ({
@@ -148,6 +158,7 @@ export const agentDecisions = mysqlTable(
     actionCreatedIdx: index('agent_decisions_action_created_idx').on(t.action, t.createdAt),
     caseIdx: index('agent_decisions_case_idx').on(t.caseType, t.caseId, t.createdAt),
     reviewIdx: index('agent_decisions_review_idx').on(t.action, t.staffVerdict, t.reviewedAt),
+    dedupeIdx: index('agent_decisions_dedupe_idx').on(t.action, t.dedupeKey),
   }),
 );
 
