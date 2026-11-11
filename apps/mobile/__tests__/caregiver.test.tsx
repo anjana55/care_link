@@ -182,6 +182,29 @@ describe('Today', () => {
     expect(mockNotifications.set).toHaveLength(0);
   });
 
+  it('leads with the one thing to do next, leaving missing documents to their own card', async () => {
+    await signIn();
+    const todo = (kind: string, params: Record<string, string>) => ({ key: kind, kind, path: '/caregiver/shifts', urgent: false, dueOn: null, params });
+    serveApi({
+      'GET /caregivers/cg-1': () => ({ status: 200, body: caregiverRecord }),
+      'GET /me/shifts': () => ({ status: 200, body: [] }),
+      'GET /me/notifications/summary': () => ({
+        status: 200,
+        body: {
+          unread: 0,
+          badge: 3,
+          todos: [todo('UPLOAD_DOCUMENT', { document: 'identity' }), todo('SHIFT_TODAY', { time: '08:00', reference: 'BK-1' }), todo('DOCUMENT_EXPIRING', { document: 'police', days: '5' })],
+        },
+      }),
+    });
+    await show(<Today />);
+
+    expect(await screen.findByText('Shift today at 08:00 (BK-1)')).toBeTruthy();
+    expect(screen.getByText(`${en.clientHome.nextForYou} · 1 of 2`)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^View shift/ })).toBeTruthy();
+    expect(screen.queryByText(/proof of identity/)).toBeNull();
+  });
+
   it('says when nothing is booked, and sends a client to their own home', async () => {
     await signIn();
     serveApi({ 'GET /caregivers/cg-1': () => ({ status: 200, body: caregiverRecord }), 'GET /me/shifts': () => ({ status: 200, body: [] }) });

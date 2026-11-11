@@ -16,15 +16,20 @@ import { useCaregiver, useMyShifts, useOwnCaregiver } from '@/caregiver/api';
 import { missingCore } from '@/caregiver/documents';
 import { ShiftCarePlan } from '@/caregiver/ShiftCarePlan';
 import { remindersFor, useCareReminders } from '@/caregiver/reminders';
-import { TodoCards } from '@/notifications/TodoCards';
+import { useNotificationsSummary } from '@/notifications/api';
+import { NextForYou } from '@/notifications/NextForYou';
 
 /** Shifts shown on Today: the one under way and the next ones. */
 const SHOWN = 3;
 /** A shift's care plan opens on Today, and its reminders are set, from this long before it starts. */
 const AHEAD_MS = 24 * 60 * 60_000;
 
+/** To-dos Today shows its own way: the documents card lists exactly which ones staff still need. */
+const OWN_CARD = ['UPLOAD_DOCUMENT', 'DOCUMENT_REJECTED'];
+
 /**
- * A caregiver's home. Where their registration stands, their next shifts in
+ * A caregiver's home. Where their registration stands, the one thing to do
+ * next (the same card, with one big button, as a client's home), their next shifts in
  * Sri Lanka time, the documents staff still need, and the care plan for any shift starting within a day -
  * read-only, as decided - with the plan's activity reminders set on the phone.
  */
@@ -37,6 +42,8 @@ export default function Today() {
   const shifts = useMyShifts();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const summary = useNotificationsSummary();
+  const todos = (summary.data?.todos ?? []).filter((i) => !OWN_CARD.includes(i.kind));
 
   const now = Date.now();
   const upcoming = (shifts.data ?? []).filter((s) => s.status !== 'CANCELLED' && new Date(s.endsAt).getTime() > now).slice(0, SHOWN);
@@ -98,8 +105,8 @@ export default function Today() {
           ) : null}
         </PageHeader>
 
-        {/* Today's shift and expiring documents; missing or rejected ones have their own card below. */}
-        <TodoCards skip={['UPLOAD_DOCUMENT', 'DOCUMENT_REJECTED']} style={{ marginHorizontal: 20 }} />
+        {/* Today's shift, expiring documents: the most pressing one, with its button. Missing or rejected documents have their own card below. */}
+        <NextForYou items={todos} style={{ marginHorizontal: 20, borderWidth: 2, borderColor: colors.border }} />
 
         {c && (missing.length || rejected) ? (
           <Card style={[styles.card, { borderColor: tint(colors.danger, 0.3) }]}>
