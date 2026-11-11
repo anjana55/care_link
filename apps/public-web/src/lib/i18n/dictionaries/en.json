@@ -1156,6 +1156,25 @@
         "missing": "This certificate is not available.",
         "englishNote": "The certificate is in English, for employers abroad."
       }
+    },
+    "rates": {
+      "title": "Your rates",
+      "hint": "Set what you ask for each kind of care you take on. Clients see your rate with our service fee added. You can change it at any time; bookings already agreed keep their rate.",
+      "units": {
+        "HOURLY": "per hour",
+        "DAILY": "per day",
+        "MONTHLY": "per month"
+      },
+      "rate": "Your rate (LKR)",
+      "band": "Between LKR {min} and {max} {unit}",
+      "clientSees": "Clients see LKR {price} {unit}",
+      "tooLow": "This is below the lowest rate allowed",
+      "tooHigh": "This is above the highest rate allowed",
+      "invalid": "Enter an amount in rupees",
+      "outOfBand": "The limits have changed and this rate is now outside them. Please set a new one.",
+      "office": "For other kinds of care the office agrees the rate with you for each job.",
+      "save": "Save rates",
+      "saved": "Your rates are saved"
     }
   },
   "caregiverClaim": {

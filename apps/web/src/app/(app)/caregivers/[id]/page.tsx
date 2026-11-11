@@ -64,6 +64,7 @@ import { SignInAccessPanel } from '@/components/caregivers/sign-in-access-panel'
 import { usePendingAccountDeletion } from '@/lib/hooks/use-account-deletions';
 import { PendingDeletionBanner } from '@/components/accounts/pending-deletion-banner';
 import { CaseAutomationPanel } from '@/components/automation/case-automation-panel';
+import { CaregiverRatesCard } from '@/components/caregivers/rates-card';
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
@@ -564,6 +565,11 @@ export default function CaregiverProfilePage() {
               </CardContent>
             </Card>
           </div>
+          {isAdminOrStaff && (
+            <div className="mt-4">
+              <CaregiverRatesCard caregiverId={id} canEdit />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="qualifications">

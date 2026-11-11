@@ -30,3 +30,4 @@ export * from './reviews.schema';
 export * from './notifications.schema';
 export * from './automation.schema';
 export * from './jobs.schema';
+export * from './pricing.schema';
