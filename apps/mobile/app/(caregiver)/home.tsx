@@ -12,7 +12,7 @@ import { Text } from '@/ui/Text';
 import { Avatar, Card, EmptyState, IconBadge, Pill, tint } from '@/ui/visual';
 import { PageHeader } from '@/ui/PageHeader';
 import { ShiftRow } from '@/ui/ShiftRow';
-import { useCaregiver, useMyShifts, useOwnCaregiver } from '@/caregiver/api';
+import { useCareOfferCount, useCaregiver, useMyShifts, useOwnCaregiver } from '@/caregiver/api';
 import { missingCore } from '@/caregiver/documents';
 import { ShiftCarePlan } from '@/caregiver/ShiftCarePlan';
 import { remindersFor, useCareReminders } from '@/caregiver/reminders';
@@ -39,6 +39,7 @@ export default function Today() {
   const { user } = useAuth();
   const me = useCaregiver();
   const record = useOwnCaregiver();
+  const offers = useCareOfferCount().data?.waiting ?? 0;
   const shifts = useMyShifts();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -104,6 +105,18 @@ export default function Today() {
             <Text style={{ color: colors.brandText }}>{t('portal.loadError')}</Text>
           ) : null}
         </PageHeader>
+
+        {offers > 0 ? (
+          <Card style={[styles.card, { borderColor: tint(colors.accent, 0.4) }]}>
+            <View style={styles.sectionRow}>
+              <IconBadge name="briefcase-outline" tone="accent" />
+              <Text accessibilityRole="header" style={[styles.section, { color: colors.ink }]}>
+                {t('portal.offers.waiting')}
+              </Text>
+            </View>
+            <Button label={`${t('portal.offers.nav')} (${offers})`} onPress={() => router.navigate('/offers')} />
+          </Card>
+        ) : null}
 
         {/* Today's shift, expiring documents: the most pressing one, with its button. Missing or rejected documents have their own card below. */}
         <NextForYou items={todos} style={{ marginHorizontal: 20, borderWidth: 2, borderColor: colors.border }} />

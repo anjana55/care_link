@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, OnApplicationBootstrap } from '@nestjs/common';
 import { and, desc, eq, gt, inArray, isNull, lte, ne, sql } from 'drizzle-orm';
 import { randomUUID as uuid } from 'crypto';
+import { ConfigService } from '@nestjs/config';
 import {
   MAX_OPEN_CARE_OFFERS,
   CARE_OFFER_MINUTES,
@@ -18,6 +19,9 @@ import { PricingService } from '../pricing/pricing.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
 import { JobsService } from '../jobs/jobs.service';
+import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
+import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
+import { normalizePhone } from '../common/utils/phone.util';
 import type { SendOfferDto } from './dto/offers.dto';
 
 const EXPIRE_JOB = 'offers.expire';
@@ -31,6 +35,19 @@ const NEW_OFFER = {
   si: { title: 'නව රැකියා යෝජනාවක්', body: 'විස්තර බලා, කාලය ඉකුත් වීමට පෙර පිළිතුරු දීමට {brand} විවෘත කරන්න.' },
   ta: { title: 'புதிய வேலை வாய்ப்பு', body: 'விவரங்களைப் பார்த்து, நேரம் முடிவதற்குள் பதிலளிக்க {brand} ஐத் திறக்கவும்.' },
 } as const;
+/** The line a WhatsApp message or email adds: until when, in Sri Lanka time. */
+const NEW_OFFER_UNTIL = {
+  en: 'Please answer by {until}.',
+  si: '{until} ට පෙර පිළිතුරු දෙන්න.',
+  ta: '{until} க்குள் பதிலளிக்கவும்.',
+} as const;
+/** "12 Nov, 15:51" in Sri Lanka, wherever the server runs. */
+export function offerDeadline(at: Date): string {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Colombo', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(at).map((x) => [x.type, x.value]),
+  );
+  return `${p.day} ${p.month}, ${p.hour}:${p.minute}`;
+}
 const OFFER_FILLED = {
   en: { title: 'A job offer is no longer open', body: 'Someone else took it, or the office withdrew it. Nothing is needed from you.' },
   si: { title: 'රැකියා යෝජනාවක් තවදුරටත් විවෘත නැත', body: 'වෙනත් අයෙකු එය භාරගෙන ඇත, නැතහොත් කාර්යාලය එය ඉල්ලා අස්කර ගෙන ඇත. ඔබෙන් කිසිවක් අවශ්‍ය නොවේ.' },
@@ -57,6 +74,9 @@ export class OffersService implements OnApplicationBootstrap {
     private readonly notices: NotificationsService,
     private readonly email: EmailService,
     private readonly jobs: JobsService,
+    private readonly whatsappSettings: WhatsappSettingsService,
+    private readonly whatsapp: WhatsappProviderService,
+    private readonly config: ConfigService,
   ) {}
 
   onApplicationBootstrap() {
@@ -137,7 +157,50 @@ export class OffersService implements OnApplicationBootstrap {
     }
     await this.jobs.enqueue(EXPIRE_JOB, { offerId: id }, { runAt: expiresAt, uniqueKey: expiryKey(id), maxAttempts: 3 });
     this.notices.notify([caregiver.userId], (lang) => NEW_OFFER[lang], '/care-offers', `offer ${id}`);
+    await this.messageNewOffer(id, dto.caregiverId, expiresAt);
     return this.forRequest(requestId);
+  }
+
+  /**
+   * An offer runs out, so the caregiver also gets a message outside the app:
+   * WhatsApp when updates can go out that way, otherwise email. It says only
+   * that there is an offer, until when, and where to answer - nothing about
+   * the client or the job, which they read after signing in. A caregiver who
+   * asked to be phoned gets no message (staff call them; the bell still shows it).
+   * A message that fails never fails the offer.
+   */
+  private async messageNewOffer(offerId: string, caregiverId: string, expiresAt: Date): Promise<void> {
+    try {
+      const [who] = await this.db
+        .select({ accountPhone: users.phone, email: users.email, primaryPhone: caregivers.primaryPhone, preferred: caregivers.preferredContactMethod })
+        .from(caregivers)
+        .leftJoin(users, eq(users.id, caregivers.userId))
+        .where(eq(caregivers.id, caregiverId))
+        .limit(1);
+      if (!who || who.preferred === 'PHONE_CALL') return;
+      const url = `${(this.config.get<string>('PUBLIC_WEB_URL') ?? 'http://localhost:3002').replace(/\/+$/, '')}/caregiver/care-offers`;
+      const until = offerDeadline(expiresAt);
+      const wa = await this.whatsappSettings.getResolved();
+      const phone = who.accountPhone ?? normalizePhone(who.primaryPhone, await this.whatsappSettings.getDefaultCountryCode());
+      if (phone && this.whatsapp.canSendUpdates(wa)) {
+        const text = (['en', 'si', 'ta'] as const).map((l) => `${NEW_OFFER[l].title}. ${NEW_OFFER_UNTIL[l].replace('{until}', until)}`).join(' / ');
+        await this.whatsapp.sendUpdate(wa, phone, 'en', `{brand}: ${text} ${url}`);
+        return;
+      }
+      if (who.email) {
+        await this.email.sendNotificationEmail(
+          who.email,
+          {
+            subject: `{brand} - ${NEW_OFFER.en.title}`,
+            blocks: (['en', 'si', 'ta'] as const).map((l) => ({ lang: l, heading: NEW_OFFER[l].title, paragraphs: [NEW_OFFER_UNTIL[l].replace('{until}', until)] })),
+            cta: { label: '{brand}', url },
+          },
+          `offer ${offerId}`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(`Offer ${offerId}: the caregiver could not be messaged: ${(err as Error).message}`);
+    }
   }
 
   /** Staff take an offer back before it is answered. */

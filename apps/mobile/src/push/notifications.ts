@@ -102,5 +102,7 @@ export function screenFor(path: unknown): string {
   if (INVOICE.test(path) || RATE.test(path)) return path;
   // A caregiver's praise notice opens their ratings.
   if (path === '/me/ratings') return '/ratings';
+  // A job offer (new, or no longer open) opens the caregiver's offers.
+  if (path === '/care-offers') return '/offers';
   return SCREENS.find(([re]) => re.test(path))?.[1] ?? '/home';
 }
