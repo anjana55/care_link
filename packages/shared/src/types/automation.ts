@@ -349,6 +349,16 @@ export interface AutomationFunctionStatus {
   awaitingStaff: number;
 }
 
+/** The background job queue the agents' follow-up steps run on. */
+export interface JobsSummary {
+  pending: number;
+  running: number;
+  failed: number;
+  /** How long the oldest job that is already due has been waiting. */
+  oldestDueMinutes: number | null;
+  recentFailures: { id: string; type: string; lastError: string | null; finishedAt: string | null }[];
+}
+
 export interface AutomationOverview {
   /** The server was started with AUTOMATION_ENABLED=false: everything is manual and the page cannot change that. */
   disabledByServer: boolean;
@@ -359,6 +369,7 @@ export interface AutomationOverview {
   /** Cases a person has taken over and not handed back, across every function. */
   casesTakenOver: number;
   endpoints: AutomationEndpoint[];
+  jobs: JobsSummary;
   functions: AutomationFunctionStatus[];
 }
 

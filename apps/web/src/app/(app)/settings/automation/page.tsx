@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import {
   useAutomationOverview,
   useResetAutomationTrip,
+  useRetryJob,
   useSetActionPolicy,
   useSetAutomationMode,
   useSetFunctionEndpoints,
@@ -57,6 +58,7 @@ export default function AutomationSettingsPage() {
   const setMode = useSetAutomationMode();
   const resetTrip = useResetAutomationTrip();
   const setEndpoints = useSetFunctionEndpoints();
+  const retryJob = useRetryJob();
   const setPolicy = useSetActionPolicy();
   const updateBar = useUpdatePromotionBar();
 
@@ -265,6 +267,37 @@ export default function AutomationSettingsPage() {
       <div className="space-y-4">{data.functions.map(functionCard)}</div>
 
       <EndpointsCard overview={data} />
+
+      <Card className="mt-4">
+        <CardContent className="space-y-2 pt-5">
+          <div>
+            <h3 className="text-sm font-semibold text-ink">{t('automation.jobs.title')}</h3>
+            <p className="text-xs text-ink/60">{t('automation.jobs.hint')}</p>
+          </div>
+          <p className="text-sm text-ink">{t('automation.jobs.counts', { pending: data.jobs.pending, running: data.jobs.running, failed: data.jobs.failed })}</p>
+          {(data.jobs.oldestDueMinutes ?? 0) >= 5 && (
+            <p role="alert" className="rounded bg-accent-light px-3 py-2 text-sm text-accent">
+              {t('automation.jobs.late', { minutes: data.jobs.oldestDueMinutes ?? 0 })}
+            </p>
+          )}
+          {data.jobs.recentFailures.length > 0 && (
+            <ul>
+              {data.jobs.recentFailures.map((j) => (
+                <li key={j.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border py-2 text-sm first:border-t-0">
+                  <span className="min-w-0">
+                    <span className="font-medium text-ink">{j.type}</span>
+                    {j.finishedAt && <span className="ml-2 text-xs tabular-nums text-ink/50">{when(j.finishedAt)}</span>}
+                    <span className="block text-xs text-danger">{j.lastError ?? t('automation.jobs.noError')}</span>
+                  </span>
+                  <Button size="sm" variant="secondary" disabled={retryJob.isPending} onClick={() => retryJob.mutate({ id: j.id }, { onError: fail })}>
+                    {t('automation.jobs.retry')}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <PromotionBarCard overview={data} save={updateBar} />
 

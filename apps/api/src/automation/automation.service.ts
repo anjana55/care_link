@@ -46,6 +46,7 @@ import {
 } from '../database/schema';
 import { EmailService } from '../email/email.service';
 import { AutomationEndpointsService } from './automation-endpoints.service';
+import { JobsService } from '../jobs/jobs.service';
 
 const SETTINGS_ID = 'default';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -106,6 +107,7 @@ export class AutomationService {
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly config: ConfigService,
     private readonly endpoints: AutomationEndpointsService,
+    private readonly jobs: JobsService,
     @Optional() private readonly email?: EmailService,
   ) {}
 
@@ -610,7 +612,8 @@ export class AutomationService {
     const disabledByServer = this.disabledByServer();
     const weekAgo = new Date(Date.now() - 7 * DAY_MS);
 
-    const [endpoints, functionRows, policies, recentRows, awaitingRows, takenOverRows, verdictRows] = await Promise.all([
+    const [jobs, endpoints, functionRows, policies, recentRows, awaitingRows, takenOverRows, verdictRows] = await Promise.all([
+      this.jobs.summary(),
       this.endpoints.list(),
       this.db.select().from(automationFunctions),
       this.policyRows(),
@@ -696,6 +699,7 @@ export class AutomationService {
       bar,
       casesTakenOver,
       endpoints,
+      jobs,
       functions,
     };
   }

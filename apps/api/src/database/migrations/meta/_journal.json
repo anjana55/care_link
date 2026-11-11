@@ -260,6 +260,13 @@
       "when": 1794385966606,
       "tag": "0036_automation_endpoints",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "5",
+      "when": 1794386459075,
+      "tag": "0037_jobs",
+      "breakpoints": true
     }
   ]
 }

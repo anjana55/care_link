@@ -60,6 +60,8 @@ export const useDeleteEndpoint = () => useOverviewMutation((v: { id: string }) =
 export const useTestEndpoint = () =>
   useMutation({ mutationFn: (id: string) => api.post<AutomationEndpointTestResult>(`/settings/automation/endpoints/${id}/test`, {}) });
 
+export const useRetryJob = () => useOverviewMutation((v: { id: string }) => api.post<AutomationOverview>(`/settings/automation/jobs/${v.id}/retry`, {}));
+
 // --- on a case page (staff and admin) -------------------------------------------
 
 const caseKey = (caseType: AutomationCaseType, caseId: string) => ['automation-case', caseType, caseId] as const;

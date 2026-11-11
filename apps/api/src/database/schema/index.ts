@@ -29,3 +29,4 @@ export * from './account-deletion.schema';
 export * from './reviews.schema';
 export * from './notifications.schema';
 export * from './automation.schema';
+export * from './jobs.schema';
