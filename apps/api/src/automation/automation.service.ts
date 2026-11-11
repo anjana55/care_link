@@ -16,6 +16,7 @@ import {
   meetsPromotionBar,
   resolveGate,
   type ActionRecord,
+  type AgentRunResult,
   type AgentDecisionView,
   type AutomationActionKey,
   type AutomationActionStatus,
@@ -84,7 +85,12 @@ export interface RecordDecisionInput {
   proposal?: Record<string, unknown> | null;
   model?: string | null;
   promptVersion?: string | null;
+  /** The same key is decided only once per outcome - see agent_decisions.dedupe_key. */
+  dedupeKey?: string;
 }
+
+/** Carries out one approved or automatic step, through the normal services. Returns what it produced. */
+export type ActionExecutor = (decision: AgentDecisionView, actor: { userId: string; email: string | null; role: 'ADMIN' | 'STAFF' }) => Promise<Record<string, unknown>>;
 
 /**
  * The rail every agent runs on: the dials, the risk gate, the four switches
@@ -102,6 +108,8 @@ export interface RecordDecisionInput {
 @Injectable()
 export class AutomationService {
   private readonly logger = new Logger(AutomationService.name);
+  private readonly executors = new Map<AutomationActionKey, ActionExecutor>();
+  private readonly runners = new Map<AutomationFunction, () => Promise<AgentRunResult>>();
 
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
@@ -390,6 +398,15 @@ export class AutomationService {
     const gate = await this.gate(input.action, input.case);
     if (gate.outcome === 'NONE') return { ...gate, decisionId: null };
     const outcome: DecisionOutcome = gate.outcome === 'SHADOW' ? 'SHADOW' : gate.outcome === 'PROPOSE' ? 'PROPOSED' : 'EXECUTED';
+    if (input.dedupeKey) {
+      const [seen] = await this.db
+        .select({ id: agentDecisions.id })
+        .from(agentDecisions)
+        .where(and(eq(agentDecisions.action, input.action), eq(agentDecisions.dedupeKey, input.dedupeKey), eq(agentDecisions.outcome, outcome)))
+        .limit(1);
+      // Already logged, proposed (even if staff turned it down) or done: say nothing more.
+      if (seen) return { ...gate, outcome: 'NONE', decisionId: null };
+    }
     const id = uuid();
     await this.db.insert(agentDecisions).values({
       id,
@@ -405,10 +422,114 @@ export class AutomationService {
       proposal: input.proposal ?? null,
       model: input.model ?? null,
       promptVersion: input.promptVersion ?? null,
+      dedupeKey: input.dedupeKey ?? null,
       // From this process's clock, like record_since, so "since the reset" compares like with like.
       createdAt: new Date(),
     });
     return { ...gate, decisionId: id };
+  }
+
+  // --- carrying a step out --------------------------------------------------------
+
+  /** An agent says how one of its actions is carried out. Used for automatic steps and for approvals alike. */
+  registerExecutor(action: AutomationActionKey, executor: ActionExecutor) {
+    this.executors.set(action, executor);
+  }
+
+  /** An agent says how to run itself once, for its own timer and for "Run now". */
+  registerRunner(fn: AutomationFunction, run: () => Promise<AgentRunResult>) {
+    this.runners.set(fn, run);
+  }
+
+  async runNow(fn: AutomationFunction): Promise<AgentRunResult> {
+    const run = this.runners.get(fn);
+    if (!run) throw new BadRequestException('This agent has not been built yet.');
+    return run();
+  }
+
+  /**
+   * The identity an agent acts under when it does something alone: a user row
+   * that cannot sign in, so invoices, events and the audit log say plainly
+   * that an agent did it. Created the first time it is needed.
+   */
+  async agentActor(fn: AutomationFunction): Promise<{ userId: string; email: string | null; role: 'STAFF' }> {
+    const email = `${fn.toLowerCase().replace(/_/g, '-')}-agent@agents.invalid`;
+    const find = async () => (await this.db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1))[0];
+    let row = await find();
+    if (!row) {
+      const name = fn.charAt(0) + fn.slice(1).toLowerCase().replace(/_/g, ' ');
+      await this.db
+        .insert(users)
+        .values({ id: uuid(), email, fullName: `${name} agent (automated)`, role: 'STAFF', isActive: false })
+        .onDuplicateKeyUpdate({ set: { email } });
+      row = await find();
+    }
+    return { userId: row.id, email, role: 'STAFF' };
+  }
+
+  private async decisionRow(id: string): Promise<DecisionRow> {
+    const [row] = await this.db.select().from(agentDecisions).where(eq(agentDecisions.id, id)).limit(1);
+    if (!row) throw new NotFoundException('Decision not found');
+    return row;
+  }
+
+  /**
+   * Carries out a decision the gate answered EXECUTE for, and records how it
+   * went. A failure is recorded, never thrown: the agent moves on to its next
+   * case and staff see the error on this one.
+   */
+  async execute(decisionId: string): Promise<{ ok: boolean; result?: Record<string, unknown>; error?: string }> {
+    const row = await this.decisionRow(decisionId);
+    const executor = isAutomationAction(row.action) ? this.executors.get(row.action) : undefined;
+    try {
+      if (!executor) throw new Error('Nothing is set up to carry this action out');
+      const result = await executor(this.toDecisionView(row), await this.agentActor(row.function));
+      await this.db.update(agentDecisions).set({ executedAt: new Date(), executionError: null, result }).where(eq(agentDecisions.id, decisionId));
+      return { ok: true, result };
+    } catch (err) {
+      const error = ((err as Error)?.message ?? String(err)).slice(0, 500);
+      await this.db.update(agentDecisions).set({ executionError: error }).where(eq(agentDecisions.id, decisionId));
+      this.logger.warn(`Automation: ${row.action} could not be carried out - ${error}`);
+      return { ok: false, error };
+    }
+  }
+
+  /**
+   * A staff member approves a proposal: it is carried out now, under their
+   * name, and counts as agreement. If it cannot be carried out it stays
+   * waiting, with the reason, so nothing is half-approved.
+   */
+  async approve(decisionId: string, actor: { userId: string; email: string | null; role: string }): Promise<AgentDecisionView> {
+    const row = await this.decisionRow(decisionId);
+    if (row.outcome !== 'PROPOSED' || row.staffVerdict) throw new BadRequestException('This is not waiting for approval.');
+    const executor = isAutomationAction(row.action) ? this.executors.get(row.action) : undefined;
+    if (!executor) throw new BadRequestException('This step cannot be carried out from here yet. Do it by hand, then decline the proposal.');
+    // Claim it first, so two people approving at once cannot carry it out twice.
+    const reviewedAt = new Date();
+    const [claim] = await this.db
+      .update(agentDecisions)
+      .set({ staffVerdict: 'AGREED', reviewedByUserId: actor.userId, reviewedAt })
+      .where(and(eq(agentDecisions.id, decisionId), isNull(agentDecisions.staffVerdict)));
+    if (!(claim as { affectedRows: number }).affectedRows) throw new BadRequestException('Someone else has just dealt with this.');
+    try {
+      const result = await executor(this.toDecisionView(row), { userId: actor.userId, email: actor.email, role: actor.role === 'ADMIN' ? 'ADMIN' : 'STAFF' });
+      await this.db.update(agentDecisions).set({ executedAt: new Date(), executionError: null, result }).where(eq(agentDecisions.id, decisionId));
+    } catch (err) {
+      const error = ((err as Error)?.message ?? String(err)).slice(0, 500);
+      await this.db
+        .update(agentDecisions)
+        .set({ staffVerdict: null, reviewedByUserId: null, reviewedAt: null, executionError: error })
+        .where(eq(agentDecisions.id, decisionId));
+      throw new BadRequestException(error);
+    }
+    return this.toDecisionView(await this.decisionRow(decisionId));
+  }
+
+  /** A staff member turns a proposal down. Nothing is done, and it counts against the action's record. */
+  async decline(decisionId: string, note: string | null, userId: string): Promise<AgentDecisionView> {
+    const row = await this.decisionRow(decisionId);
+    if (row.outcome !== 'PROPOSED' || row.staffVerdict) throw new BadRequestException('This is not waiting for approval.');
+    return this.review(decisionId, 'DIFFERED', note, userId);
   }
 
   /**
@@ -578,6 +699,9 @@ export class AutomationService {
       staffVerdict: row.staffVerdict,
       staffNote: row.staffNote,
       reviewedAt: row.reviewedAt?.toISOString() ?? null,
+      executedAt: row.executedAt?.toISOString() ?? null,
+      executionError: row.executionError,
+      result: row.result ?? null,
       createdAt: row.createdAt.toISOString(),
     };
   }

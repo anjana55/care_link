@@ -2,6 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  AgentDecisionView,
+  AgentRunResult,
   AutomationActionKey,
   AutomationCaseType,
   AutomationEndpointInput,
@@ -86,3 +88,33 @@ export function useCaseDriverSwitch(caseType: AutomationCaseType, caseId: string
     onSuccess: (data) => queryClient.setQueryData(caseKey(caseType, caseId), data),
   });
 }
+
+// --- proposals waiting for a person ----------------------------------------------
+
+const PROPOSALS = ['automation-proposals'] as const;
+
+/** Every proposal still waiting for approval. Also what the dashboard counts. */
+export function useAwaitingProposals(enabled = true) {
+  return useQuery({
+    queryKey: PROPOSALS,
+    queryFn: () => api.get<AgentDecisionView[]>('/automation/decisions?awaitingStaff=true&pageSize=100'),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+/** Approve (carried out now, under your name) or decline one proposal. */
+export function useDecideProposal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; approve: boolean; reason?: string }) =>
+      v.approve
+        ? api.post<AgentDecisionView>(`/automation/decisions/${v.id}/approve`, {})
+        : api.post<AgentDecisionView>(`/automation/decisions/${v.id}/decline`, { reason: v.reason }),
+    // The step may have created or changed records anywhere: refetch what is on screen.
+    onSettled: () => queryClient.invalidateQueries(),
+  });
+}
+
+export const useRunAgent = () =>
+  useMutation({ mutationFn: (key: AutomationFunction) => api.post<AgentRunResult>(`/settings/automation/functions/${key}/run`, {}) });

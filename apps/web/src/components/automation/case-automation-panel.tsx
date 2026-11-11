@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Bot, UserRound } from 'lucide-react';
-import type { AutomationCaseType } from '@care-platform/shared';
+import { awaitsStaff, type AutomationCaseType } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { ApiError } from '@/lib/api/client';
 import { fmtDateTime } from '@/lib/colombo-time';
@@ -11,6 +11,7 @@ import { useCaseAutomation, useCaseDriverSwitch } from '@/lib/hooks/use-automati
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input, Label } from '@/components/ui/input';
+import { DecisionResult, ProposalActions } from './proposal-actions';
 
 const OUTCOME_STYLES = { SHADOW: 'bg-ink/10 text-ink/70', PROPOSED: 'bg-accent-light text-accent', EXECUTED: 'bg-brand-light text-brand-dark' } as const;
 
@@ -97,7 +98,7 @@ export function CaseAutomationPanel({ caseType, caseId, className }: { caseType:
       )}
 
       {data.decisions.length > 0 && (
-        <details className="mt-3 border-t border-border pt-3">
+        <details className="mt-3 border-t border-border pt-3" open={data.decisions.some(awaitsStaff)}>
           <summary className="cursor-pointer text-sm font-medium text-brand-dark">
             {t('automation.case.timeline')} ({data.decisions.length})
           </summary>
@@ -110,6 +111,9 @@ export function CaseAutomationPanel({ caseType, caseId, className }: { caseType:
                   <span className="text-xs tabular-nums text-ink/50">{when(d.createdAt)}</span>
                 </div>
                 <p className="text-ink/70">{d.reason}</p>
+                {awaitsStaff(d) && <ProposalActions decision={d} />}
+                <DecisionResult decision={d} />
+                {d.executionError && !awaitsStaff(d) && <p className="text-xs text-danger">{t('automation.case.failed', { error: d.executionError })}</p>}
                 {d.staffVerdict && (
                   <p className={cn('text-xs', d.staffVerdict === 'AGREED' ? 'text-ink/60' : 'text-danger')}>
                     {t(`automation.case.verdicts.${d.staffVerdict}`)}

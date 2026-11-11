@@ -20,6 +20,9 @@ import type { AiProvider } from './ai';
 export const AUTOMATION_FUNCTIONS = ['INTAKE', 'MATCHING', 'BOOKING', 'BILLING', 'LIVE_CARE', 'ONBOARDING'] as const;
 export type AutomationFunction = (typeof AUTOMATION_FUNCTIONS)[number];
 
+/** The agents that exist so far. The others have a dial, but nothing behind it yet. */
+export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING'];
+
 /**
  * The dial, lowest to highest.
  *  - MANUAL: the agent does nothing; staff do everything (how every function ships).
@@ -124,7 +127,7 @@ export type AutomationCaseType = (typeof AUTOMATION_CASE_TYPES)[number];
  */
 export const CASE_TYPE_FUNCTIONS: Record<AutomationCaseType, readonly AutomationFunction[]> = {
   REQUEST: ['INTAKE', 'MATCHING'],
-  BOOKING: ['BOOKING', 'LIVE_CARE'],
+  BOOKING: ['BOOKING', 'LIVE_CARE', 'BILLING'],
   SHIFT: ['LIVE_CARE'],
   INVOICE: ['BILLING'],
   PAYOUT: ['BILLING'],
@@ -415,5 +418,31 @@ export interface AgentDecisionView {
   staffVerdict: StaffVerdict | null;
   staffNote: string | null;
   reviewedAt: string | null;
+  /** When the step was actually carried out (at once in Auto; on approval in Assist). */
+  executedAt: string | null;
+  /** Why carrying it out failed, if it did. A failed approval stays waiting. */
+  executionError: string | null;
+  /** What carrying it out produced, e.g. { invoiceId, number }. */
+  result: Record<string, unknown> | null;
   createdAt: string;
+}
+
+/** A proposal still waiting for staff: approve it or turn it down. */
+export function awaitsStaff(d: Pick<AgentDecisionView, 'outcome' | 'staffVerdict'>): boolean {
+  return d.outcome === 'PROPOSED' && d.staffVerdict === null;
+}
+
+/** What one run of an agent did, for "Run now". */
+export interface AgentRunResult {
+  function: AutomationFunction;
+  /** The dial as it applied during the run. */
+  mode: AutomationMode;
+  /** Cases looked at. */
+  considered: number;
+  /** New decisions logged (silently, as proposals, or carried out). */
+  decided: number;
+  /** Shadow decisions scored against what staff did. */
+  scored: number;
+  /** Cases left to staff, with the reason in their handover note. */
+  leftToStaff: number;
 }

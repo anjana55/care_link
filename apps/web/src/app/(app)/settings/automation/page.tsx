@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AUTOMATION_MODES,
+  BUILT_AGENTS,
+  type AgentRunResult,
+  type AutomationFunction,
   type AutomationActionStatus,
   type AutomationFunctionStatus,
   type AutomationMode,
@@ -19,6 +22,7 @@ import {
   useAutomationOverview,
   useResetAutomationTrip,
   useRetryJob,
+  useRunAgent,
   useSetActionPolicy,
   useSetAutomationMode,
   useSetFunctionEndpoints,
@@ -59,6 +63,8 @@ export default function AutomationSettingsPage() {
   const resetTrip = useResetAutomationTrip();
   const setEndpoints = useSetFunctionEndpoints();
   const retryJob = useRetryJob();
+  const runAgent = useRunAgent();
+  const [ran, setRan] = useState<Partial<Record<AutomationFunction, AgentRunResult>>>({});
   const setPolicy = useSetActionPolicy();
   const updateBar = useUpdatePromotionBar();
 
@@ -200,6 +206,28 @@ export default function AutomationSettingsPage() {
                 </div>
               ))}
             </div>
+          )}
+
+          {!BUILT_AGENTS.includes(fn.key) ? (
+            <p className="rounded bg-paper px-3 py-2 text-xs text-ink/60">{t('automation.run.notBuilt')}</p>
+          ) : (
+            fn.effectiveMode !== 'MANUAL' && (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={runAgent.isPending}
+                  onClick={() => (setError(null), runAgent.mutate(fn.key, { onSuccess: (r) => setRan((prev) => ({ ...prev, [fn.key]: r })), onError: fail }))}
+                >
+                  {runAgent.isPending && runAgent.variables === fn.key ? t('automation.run.running') : t('automation.run.button')}
+                </Button>
+                {ran[fn.key] && (
+                  <span role="status" className="text-xs text-ink/70">
+                    {t('automation.run.result', { considered: ran[fn.key]!.considered, decided: ran[fn.key]!.decided, scored: ran[fn.key]!.scored, leftToStaff: ran[fn.key]!.leftToStaff })}
+                  </span>
+                )}
+              </div>
+            )
           )}
 
           <p className="text-xs text-ink/60">
