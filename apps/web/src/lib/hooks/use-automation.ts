@@ -1,7 +1,15 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AutomationActionKey, AutomationFunction, AutomationMode, AutomationOverview, PromotionBar } from '@care-platform/shared';
+import type {
+  AutomationActionKey,
+  AutomationCaseType,
+  AutomationFunction,
+  AutomationMode,
+  AutomationOverview,
+  CaseAutomationView,
+  PromotionBar,
+} from '@care-platform/shared';
 import { api } from '../api/client';
 
 const KEY = ['automation-overview'] as const;
@@ -34,3 +42,28 @@ export const useSetActionPolicy = () =>
   );
 
 export const useUpdatePromotionBar = () => useOverviewMutation((v: Partial<PromotionBar>) => api.patch<AutomationOverview>('/settings/automation', v));
+
+// --- on a case page (staff and admin) -------------------------------------------
+
+const caseKey = (caseType: AutomationCaseType, caseId: string) => ['automation-case', caseType, caseId] as const;
+
+/** Who is driving one case, the agent's handover note and its latest decisions. */
+export function useCaseAutomation(caseType: AutomationCaseType, caseId: string | undefined) {
+  return useQuery({
+    queryKey: caseKey(caseType, caseId ?? ''),
+    queryFn: () => api.get<CaseAutomationView>(`/automation/cases/${caseType}/${caseId}`),
+    enabled: Boolean(caseId),
+    staleTime: 30_000,
+  });
+}
+
+export function useCaseDriverSwitch(caseType: AutomationCaseType, caseId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { to: 'STAFF'; reason?: string } | { to: 'AGENT' }) =>
+      v.to === 'STAFF'
+        ? api.post<CaseAutomationView>(`/automation/cases/${caseType}/${caseId}/take-over`, { reason: v.reason })
+        : api.post<CaseAutomationView>(`/automation/cases/${caseType}/${caseId}/hand-back`, {}),
+    onSuccess: (data) => queryClient.setQueryData(caseKey(caseType, caseId), data),
+  });
+}

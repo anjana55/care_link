@@ -6,6 +6,8 @@ import {
   AUTOMATION_ACTIONS,
   AUTOMATION_ACTION_KEYS,
   AUTOMATION_FUNCTIONS,
+  AUTOMATION_MODES,
+  CASE_TYPE_FUNCTIONS,
   DECISION_OUTCOMES,
   HUMAN_ONLY_TIER,
   agreementPercent,
@@ -22,6 +24,7 @@ import {
   type AutomationFunctionStatus,
   type AutomationMode,
   type AutomationOverview,
+  type CaseAutomationView,
   type CaseControlView,
   type CaseDriver,
   type DecisionOutcome,
@@ -452,13 +455,19 @@ export class AutomationService {
       .onDuplicateKeyUpdate({ set: { ...set, updatedAt: new Date() } });
   }
 
-  private toCaseView(ref: CaseRef, row: CaseRow | null): CaseControlView {
+  private async toCaseView(ref: CaseRef, row: CaseRow | null): Promise<CaseControlView> {
+    let takenOverByName: string | null = null;
+    if (row?.driver === 'STAFF' && row.takenOverByUserId) {
+      const [user] = await this.db.select({ fullName: users.fullName }).from(users).where(eq(users.id, row.takenOverByUserId)).limit(1);
+      takenOverByName = user?.fullName ?? null;
+    }
     return {
       caseType: ref.caseType,
       caseId: ref.caseId,
       driver: row?.driver ?? 'AGENT',
       takenOverAt: row?.takenOverAt?.toISOString() ?? null,
       takenOverByUserId: row?.takenOverByUserId ?? null,
+      takenOverByName,
       takeoverSource: row?.takeoverSource ?? null,
       takeoverReason: row?.takeoverReason ?? null,
       handoverNote: row?.handoverNote ?? null,
@@ -468,6 +477,28 @@ export class AutomationService {
 
   async caseControl(ref: CaseRef): Promise<CaseControlView> {
     return this.toCaseView(ref, await this.caseRow(ref));
+  }
+
+  /**
+   * What a case page shows: who is driving, the handover note, whether an
+   * agent for this kind of record is switched on, and its latest decisions.
+   */
+  async caseAutomation(ref: CaseRef): Promise<CaseAutomationView> {
+    const keys = CASE_TYPE_FUNCTIONS[ref.caseType];
+    const [control, settings, rows, decisions] = await Promise.all([
+      this.caseControl(ref),
+      this.settingsRow(),
+      this.db.select().from(automationFunctions).where(inArray(automationFunctions.key, [...keys])),
+      this.decisions({ caseType: ref.caseType, caseId: ref.caseId, page: 1, pageSize: 20 }),
+    ]);
+    let mode: AutomationMode = 'MANUAL';
+    if (!this.disabledByServer()) {
+      for (const row of rows) {
+        const m = effectiveMode(row.mode, { masterManual: settings.masterManual, tripped: Boolean(row.trippedAt) });
+        if (AUTOMATION_MODES.indexOf(m) > AUTOMATION_MODES.indexOf(mode)) mode = m;
+      }
+    }
+    return { ...control, agentActive: mode !== 'MANUAL', mode, decisions };
   }
 
   /**
