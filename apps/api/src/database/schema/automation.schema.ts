@@ -1,15 +1,17 @@
-import { mysqlTable, varchar, datetime, mysqlEnum, boolean, int, decimal, json, index, uniqueIndex } from 'drizzle-orm/mysql-core';
+import { mysqlTable, varchar, datetime, mysqlEnum, boolean, int, decimal, json, text, index, uniqueIndex } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
 import {
   AUTOMATION_CASE_TYPES,
   AUTOMATION_FUNCTIONS,
   AUTOMATION_MODES,
   CASE_DRIVERS,
+  DATA_CLASSES,
   DECISION_OUTCOMES,
   STAFF_VERDICTS,
   TAKEOVER_SOURCES,
   type HandoverNote,
 } from '@care-platform/shared';
+import { aiProviderEnum } from './ai.schema';
 
 /**
  * Automation-wide settings (Settings > Automation) - a single row, id
@@ -51,6 +53,9 @@ export const automationFunctions = mysqlTable('automation_functions', {
   mode: mysqlEnum('mode', AUTOMATION_MODES).notNull().default('MANUAL'),
   trippedAt: datetime('tripped_at'),
   tripReason: varchar('trip_reason', { length: 500 }),
+  /** The AI model this agent uses (automation_endpoints.id), and the one it falls back to. */
+  endpointId: varchar('endpoint_id', { length: 36 }),
+  fallbackEndpointId: varchar('fallback_endpoint_id', { length: 36 }),
   updatedBy: varchar('updated_by', { length: 36 }),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -143,5 +148,38 @@ export const agentDecisions = mysqlTable(
     actionCreatedIdx: index('agent_decisions_action_created_idx').on(t.action, t.createdAt),
     caseIdx: index('agent_decisions_case_idx').on(t.caseType, t.caseId, t.createdAt),
     reviewIdx: index('agent_decisions_review_idx').on(t.action, t.staffVerdict, t.reviewedAt),
+  }),
+);
+
+/**
+ * The AI models agents can be pointed at (Settings > Automation). Kept apart
+ * from the single Settings > AI row, which goes on running search and the
+ * staff assistant exactly as before.
+ *
+ * `cleared_for` is the most sensitive class of data the endpoint may be sent.
+ * New endpoints start at PUBLIC: an admin has to say out loud that a model -
+ * normally a self-hosted one - may see personal or sensitive data. The API key
+ * is AES-GCM encrypted at rest, like the Settings > AI key.
+ */
+export const automationEndpoints = mysqlTable(
+  'automation_endpoints',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    name: varchar('name', { length: 80 }).notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    provider: mysqlEnum('provider', aiProviderEnum).notNull().default('OLLAMA'),
+    baseUrl: varchar('base_url', { length: 255 }).notNull(),
+    model: varchar('model', { length: 120 }).notNull(),
+    apiKeyEncrypted: text('api_key_encrypted'),
+    temperature: decimal('temperature', { precision: 3, scale: 2 }).default('0.20'),
+    maxTokens: int('max_tokens').notNull().default(1024),
+    timeoutMs: int('timeout_ms').notNull().default(30000),
+    clearedFor: mysqlEnum('cleared_for', DATA_CLASSES).notNull().default('PUBLIC'),
+    updatedBy: varchar('updated_by', { length: 36 }),
+    createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => ({
+    nameUnique: uniqueIndex('automation_endpoints_name_unique').on(t.name),
   }),
 );

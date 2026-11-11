@@ -3956,6 +3956,55 @@
         "SERIOUS": "Marked as a serious mistake"
       },
       "error": "That did not work. Please try again."
+    },
+    "models": {
+      "title": "AI models",
+      "hint": "The models agents may use. Search and the staff assistant keep using Settings > AI. Each model has a clearance: the most sensitive kind of data it may ever be sent. This is enforced on every call.",
+      "none": "No AI models yet. Agents that need one hand their work to staff.",
+      "add": "Add a model",
+      "copyDefault": "Copy from Settings > AI",
+      "copyName": "Same as Settings > AI",
+      "edit": "Edit",
+      "delete": "Delete",
+      "test": "Test",
+      "testing": "Testing...",
+      "testOk": "Answered in {ms} ms",
+      "off": "Switched off",
+      "usedBy": "Used by: {list}",
+      "unused": "Not used by any agent",
+      "deleteTitle": "Delete this AI model?",
+      "deleteMessage": "{name} will be removed. Nothing else changes.",
+      "classes": {
+        "PUBLIC": "Public data only",
+        "PERSONAL": "Up to personal data",
+        "SENSITIVE": "Up to sensitive data"
+      },
+      "classHints": {
+        "PUBLIC": "Districts, skills, ratings, reference numbers. Nothing that identifies a person.",
+        "PERSONAL": "Also names, contact details, addresses and money.",
+        "SENSITIVE": "Also health notes, NIC and passport numbers and uploaded documents. Choose this only for a model you host yourself."
+      },
+      "form": {
+        "addTitle": "Add an AI model",
+        "editTitle": "Edit AI model",
+        "name": "Name",
+        "provider": "Provider",
+        "baseUrl": "Address",
+        "model": "Model",
+        "apiKey": "API key",
+        "apiKeyKeep": "Leave empty to keep the stored key ({hint})",
+        "clearedFor": "May be sent",
+        "enabled": "Switched on",
+        "save": "Save"
+      },
+      "providers": {
+        "OLLAMA": "Ollama (self-hosted)",
+        "OPENAI_COMPATIBLE": "OpenAI-compatible",
+        "ANTHROPIC": "Anthropic"
+      },
+      "main": "AI model",
+      "backup": "Backup model",
+      "noModel": "None"
     }
   }
 }

@@ -20,13 +20,15 @@ import {
   useResetAutomationTrip,
   useSetActionPolicy,
   useSetAutomationMode,
+  useSetFunctionEndpoints,
   useSetMasterSwitch,
   useUpdatePromotionBar,
 } from '@/lib/hooks/use-automation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Input, Label } from '@/components/ui/input';
+import { Input, Label, Select } from '@/components/ui/input';
+import { EndpointsCard } from '@/components/automation/endpoints-card';
 
 type Confirm =
   | { kind: 'master'; on: boolean }
@@ -54,6 +56,7 @@ export default function AutomationSettingsPage() {
   const setMaster = useSetMasterSwitch();
   const setMode = useSetAutomationMode();
   const resetTrip = useResetAutomationTrip();
+  const setEndpoints = useSetFunctionEndpoints();
   const setPolicy = useSetActionPolicy();
   const updateBar = useUpdatePromotionBar();
 
@@ -174,6 +177,29 @@ export default function AutomationSettingsPage() {
             <p className="mt-1 text-xs text-ink/60">{t(`automation.modes.${fn.mode}.hint`)}</p>
           </fieldset>
 
+          {data.endpoints.length > 0 && (
+            <div className="flex flex-wrap gap-4">
+              {(['endpointId', 'fallbackEndpointId'] as const).map((field) => (
+                <div key={field} className="w-56">
+                  <Label htmlFor={`${fn.key}-${field}`}>{t(field === 'endpointId' ? 'automation.models.main' : 'automation.models.backup')}</Label>
+                  <Select
+                    id={`${fn.key}-${field}`}
+                    value={fn[field] ?? ''}
+                    disabled={setEndpoints.isPending}
+                    onChange={(e) => (setError(null), setEndpoints.mutate({ key: fn.key, [field]: e.target.value || null }, { onError: fail }))}
+                  >
+                    <option value="">{t('automation.models.noModel')}</option>
+                    {data.endpoints.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.name} ({t(`automation.models.classes.${e.clearedFor}`)})
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ))}
+            </div>
+          )}
+
           <p className="text-xs text-ink/60">
             {t('automation.recent', { executed: fn.recent.EXECUTED, proposed: fn.recent.PROPOSED, shadow: fn.recent.SHADOW })}
             {fn.awaitingStaff > 0 && <span className="ml-2 font-medium text-accent">· {t('automation.awaiting', { n: fn.awaitingStaff })}</span>}
@@ -237,6 +263,8 @@ export default function AutomationSettingsPage() {
       </Card>
 
       <div className="space-y-4">{data.functions.map(functionCard)}</div>
+
+      <EndpointsCard overview={data} />
 
       <PromotionBarCard overview={data} save={updateBar} />
 

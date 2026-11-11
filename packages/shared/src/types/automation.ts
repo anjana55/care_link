@@ -12,6 +12,8 @@
  * (which shows it), so the rules on screen are the rules that run.
  */
 
+import type { AiProvider } from './ai';
+
 // --- functions and their dial ---------------------------------------------------
 
 /** One agent per function, each with its own dial. */
@@ -249,6 +251,72 @@ export function meetsPromotionBar(record: ActionRecord, bar: PromotionBar): bool
   return record.agreed * 100 >= bar.agreementPercent * record.judged;
 }
 
+// --- data classes and AI endpoints ------------------------------------------------
+
+/**
+ * How sensitive a piece of data is, lowest to highest.
+ *  - PUBLIC:    what the public site already shows (district, skills, ratings), plus ids and references.
+ *  - PERSONAL:  names, contact details, addresses, money.
+ *  - SENSITIVE: health notes, NIC / passport numbers, uploaded documents.
+ */
+export const DATA_CLASSES = ['PUBLIC', 'PERSONAL', 'SENSITIVE'] as const;
+export type DataClass = (typeof DATA_CLASSES)[number];
+
+/** The higher of the classes given: a prompt is as sensitive as the most sensitive thing in it. */
+export function maxDataClass(...classes: DataClass[]): DataClass {
+  return classes.reduce<DataClass>((max, c) => (DATA_CLASSES.indexOf(c) > DATA_CLASSES.indexOf(max) ? c : max), 'PUBLIC');
+}
+
+/** May data of class `data` be sent to an endpoint cleared up to `clearedFor`? */
+export function isClearedFor(clearedFor: DataClass, data: DataClass): boolean {
+  return DATA_CLASSES.indexOf(clearedFor) >= DATA_CLASSES.indexOf(data);
+}
+
+/**
+ * One AI model an agent can be pointed at (Settings > Automation). Separate
+ * from Settings > AI, which keeps running search and the staff assistant.
+ * `clearedFor` is the most sensitive class of data this endpoint may ever be
+ * sent - enforced in code on every call, whatever the prompt says.
+ */
+export interface AutomationEndpoint {
+  id: string;
+  name: string;
+  enabled: boolean;
+  provider: AiProvider;
+  baseUrl: string;
+  model: string;
+  apiKeySet: boolean;
+  apiKeyHint: string | null;
+  temperature: number | null;
+  maxTokens: number;
+  timeoutMs: number;
+  clearedFor: DataClass;
+  /** The functions that use it, as main or backup model. */
+  usedBy: AutomationFunction[];
+}
+
+export interface AutomationEndpointInput {
+  name?: string;
+  enabled?: boolean;
+  provider?: AiProvider;
+  baseUrl?: string;
+  model?: string;
+  /** Write-only. Leave out to keep the stored key. */
+  apiKey?: string;
+  clearApiKey?: boolean;
+  temperature?: number | null;
+  maxTokens?: number;
+  timeoutMs?: number;
+  clearedFor?: DataClass;
+}
+
+export interface AutomationEndpointTestResult {
+  ok: boolean;
+  model: string;
+  latencyMs: number;
+  message: string;
+}
+
 // --- what the staff app reads ---------------------------------------------------
 
 export interface AutomationActionStatus extends AutomationActionDef {
@@ -271,6 +339,9 @@ export interface AutomationFunctionStatus {
   effectiveMode: AutomationMode;
   trippedAt: string | null;
   tripReason: string | null;
+  /** The model this agent uses, and the one it falls back to. Null: none chosen. */
+  endpointId: string | null;
+  fallbackEndpointId: string | null;
   actions: AutomationActionStatus[];
   /** Decisions in the last 7 days, by outcome. */
   recent: Record<DecisionOutcome, number>;
@@ -287,6 +358,7 @@ export interface AutomationOverview {
   bar: PromotionBar;
   /** Cases a person has taken over and not handed back, across every function. */
   casesTakenOver: number;
+  endpoints: AutomationEndpoint[];
   functions: AutomationFunctionStatus[];
 }
 

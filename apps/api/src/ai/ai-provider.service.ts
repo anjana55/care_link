@@ -9,6 +9,9 @@ export class AiUnavailableError extends Error {
   }
 }
 
+/** Just what a call needs to reach a model - Settings > AI and an automation endpoint both fit. */
+export type ModelTarget = Pick<ResolvedAiSettings, 'provider' | 'baseUrl' | 'model' | 'apiKey' | 'temperature' | 'maxTokens' | 'timeoutMs'>;
+
 /** What a model has refused, learned from its own 400 errors. */
 interface Quirks {
   noTemperature?: boolean;
@@ -48,7 +51,7 @@ export class AiProviderService {
   private readonly logger = new Logger(AiProviderService.name);
   private readonly quirks = new Map<string, Quirks>();
 
-  async chat(settings: ResolvedAiSettings, req: Omit<ChatRequest, 'temperature' | 'maxTokens'> & Partial<Pick<ChatRequest, 'temperature' | 'maxTokens'>>): Promise<ChatResult> {
+  async chat(settings: ModelTarget, req: Omit<ChatRequest, 'temperature' | 'maxTokens'> & Partial<Pick<ChatRequest, 'temperature' | 'maxTokens'>>): Promise<ChatResult> {
     const key = `${settings.provider}|${settings.baseUrl}|${settings.model}`;
     let quirks = this.quirks.get(key) ?? {};
 
@@ -87,7 +90,7 @@ export class AiProviderService {
     }
   }
 
-  private async post(settings: ResolvedAiSettings, call: { url: string; headers: Record<string, string>; body: Record<string, unknown> }) {
+  private async post(settings: ModelTarget, call: { url: string; headers: Record<string, string>; body: Record<string, unknown> }) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), settings.timeoutMs);
     try {

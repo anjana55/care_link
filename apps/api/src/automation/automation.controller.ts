@@ -1,19 +1,24 @@
-import { Body, Controller, Get, HttpCode, Param, ParseEnumPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseEnumPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AUTOMATION_CASE_TYPES, AUTOMATION_FUNCTIONS, type AutomationCaseType, type AutomationFunction } from '@care-platform/shared';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AutomationService } from './automation.service';
+import { AutomationEndpointsService } from './automation-endpoints.service';
 import {
+  CreateEndpointDto,
   DecisionsQueryDto,
   ResetTripDto,
   ReviewDecisionDto,
   SetActionPolicyDto,
+  SetFunctionEndpointsDto,
   SetMasterDto,
   SetModeDto,
   TakeOverDto,
   UpdateAutomationSettingsDto,
+  UpdateEndpointDto,
 } from './dto/automation.dto';
 
 const asEnum = <T extends readonly string[]>(values: T) => new ParseEnumPipe(Object.fromEntries(values.map((v) => [v, v])));
@@ -30,7 +35,10 @@ const caseTypePipe = asEnum(AUTOMATION_CASE_TYPES);
 @Controller('settings/automation')
 @Roles('ADMIN')
 export class AutomationSettingsController {
-  constructor(private readonly automation: AutomationService) {}
+  constructor(
+    private readonly automation: AutomationService,
+    private readonly endpoints: AutomationEndpointsService,
+  ) {}
 
   @Get()
   overview() {
@@ -61,6 +69,42 @@ export class AutomationSettingsController {
   @Audit({ action: 'RESET_AUTOMATION_TRIP', entityType: 'AutomationFunction' })
   reset(@Param('key', functionPipe) key: AutomationFunction, @Body() dto: ResetTripDto, @CurrentUser() user: AuthenticatedUser) {
     return this.automation.resetTrip(key, user.userId, dto.mode);
+  }
+
+  @Patch('functions/:key/endpoints')
+  @Audit({ action: 'SET_AUTOMATION_FUNCTION_MODELS', entityType: 'AutomationFunction' })
+  setEndpoints(@Param('key', functionPipe) key: AutomationFunction, @Body() dto: SetFunctionEndpointsDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.automation.setFunctionEndpoints(key, dto, user.userId);
+  }
+
+  // --- AI models. Each change answers with the whole page again, like the rest. ---
+
+  @Post('endpoints')
+  @Audit({ action: 'CREATE_AUTOMATION_ENDPOINT', entityType: 'AutomationEndpoint' })
+  async createEndpoint(@Body() dto: CreateEndpointDto, @CurrentUser() user: AuthenticatedUser) {
+    await this.endpoints.create(dto, user.userId);
+    return this.automation.overview();
+  }
+
+  @Patch('endpoints/:id')
+  @Audit({ action: 'UPDATE_AUTOMATION_ENDPOINT', entityType: 'AutomationEndpoint' })
+  async updateEndpoint(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateEndpointDto, @CurrentUser() user: AuthenticatedUser) {
+    await this.endpoints.update(id, dto, user.userId);
+    return this.automation.overview();
+  }
+
+  @Delete('endpoints/:id')
+  @Audit({ action: 'DELETE_AUTOMATION_ENDPOINT', entityType: 'AutomationEndpoint' })
+  async removeEndpoint(@Param('id', ParseUUIDPipe) id: string) {
+    await this.endpoints.remove(id);
+    return this.automation.overview();
+  }
+
+  @Post('endpoints/:id/test')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  testEndpoint(@Param('id', ParseUUIDPipe) id: string) {
+    return this.endpoints.test(id);
   }
 
   @Patch('actions/:action')
