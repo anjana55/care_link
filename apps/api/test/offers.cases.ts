@@ -58,12 +58,13 @@ describe('Job offers (e2e)', () => {
 
   /** A phone request for nursing-home care, logged by staff for a new client. */
   async function newRequest(careType: string | null = 'NURSING_HOME') {
+    const phone = newPhone('077');
     const reg = await api()
       .post('/auth/register-patient')
-      .send({ email: `offer-client-${run}-${++n}@example.com`, password: 'SelfRegPass123', fullName: 'Nimal Kumara Perera', phone: newPhone('077'), consentAccepted: true, ...intake });
+      .send({ email: `offer-client-${run}-${++n}@example.com`, password: 'SelfRegPass123', fullName: 'Nimal Kumara Perera', phone, consentAccepted: true, ...intake });
     if (reg.status !== 201) throw new Error(`register-patient: ${JSON.stringify(reg.body)}`);
     const res = await api().post('/care-requests').set(bearer(staffToken)).send({ language: 'en', patientId: reg.body.patientId, careType: careType ?? undefined, message: 'Mother needs help after surgery' }).expect(201);
-    return { id: res.body.id as string, reference: res.body.reference as string, patientId: reg.body.patientId as string };
+    return { id: res.body.id as string, reference: res.body.reference as string, patientId: reg.body.patientId as string, phone };
   }
 
   const send = (requestId: string, body: object, token = staffToken) => api().post(`/care-requests/${requestId}/offers`).set(bearer(token)).send(body);
@@ -130,7 +131,10 @@ describe('Job offers (e2e)', () => {
     expect(seen.district?.si).toBeTruthy();
     // Nothing about who the client is, what staff were told, or what the client pays.
     const raw = JSON.stringify(seen);
-    expect(raw).not.toMatch(/Perera|Fernando|surgery|077|clientRate|3450|patientId|message/);
+    expect(raw).not.toMatch(/Perera|Fernando|surgery|clientRate|patientId|message|example\.com/);
+    // The client's phone number, with or without its leading zero.
+    expect(raw).not.toContain(req.phone.slice(1));
+    expect(Object.keys(seen).sort()).toEqual(['careType', 'city', 'createdAt', 'desiredStartDate', 'district', 'expiresAt', 'id', 'note', 'payRate', 'rateType', 'reference', 'respondedAt', 'status']);
     expect((await api().get('/me/care-offers/count').set(bearer(cg.token)).expect(200)).body).toEqual({ waiting: 1 });
 
     // It is theirs alone.
