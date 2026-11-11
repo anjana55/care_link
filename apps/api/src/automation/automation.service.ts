@@ -798,6 +798,7 @@ export class AutomationService {
           eligibleForAuto: def.tier === 2 && meetsPromotionBar(record, bar),
           promotedAt: policy?.promotedAt?.toISOString() ?? null,
           demotedAt: policy?.demotedAt?.toISOString() ?? null,
+          limits: policy?.limits ?? null,
         };
       });
 

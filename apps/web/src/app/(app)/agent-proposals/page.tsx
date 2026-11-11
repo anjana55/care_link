@@ -39,7 +39,9 @@ export default function AgentProposalsPage() {
         <ul className="space-y-3">
           {data.map((d) => {
             const path = d.caseType && d.caseId ? CASE_PATHS[d.caseType] : undefined;
-            const reference = typeof d.proposal?.bookingReference === 'string' ? d.proposal.bookingReference : null;
+            const reference = [d.proposal?.bookingReference, d.proposal?.payoutReference].find((r): r is string => typeof r === 'string') ?? null;
+            // A proposed pay statement does not exist yet: point at the caregiver it is for.
+            const caregiver = !path && typeof d.proposal?.caregiverId === 'string' ? { id: d.proposal.caregiverId, reference: String(d.proposal.caregiverRegistration ?? '') } : null;
             return (
               <li key={d.id}>
                 <Card>
@@ -53,6 +55,11 @@ export default function AgentProposalsPage() {
                       <Link href={`${path}/${d.caseId}`} className="text-sm font-medium text-brand-dark hover:underline">
                         {t(`automation.caseTypes.${d.caseType}`)}
                         {reference ? ` ${reference}` : ''} · {t('automation.proposals.open')}
+                      </Link>
+                    )}
+                    {caregiver && (
+                      <Link href={`/caregivers/${caregiver.id}`} className="text-sm font-medium text-brand-dark hover:underline">
+                        {t('automation.proposals.caregiver', { reference: caregiver.reference })} · {t('automation.proposals.open')}
                       </Link>
                     )}
                     <ProposalActions decision={d} />

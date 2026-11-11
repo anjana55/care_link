@@ -8,7 +8,7 @@ import request from 'supertest';
 import { addDays, colomboToday, isoWeekday } from '@care-platform/shared';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
-import { agentDecisions, caregivers, invoices, patients, users } from '../src/database/schema';
+import { agentDecisions, caregivers, invoices, patients, payoutStatements, users } from '../src/database/schema';
 import { AutomationService } from '../src/automation/automation.service';
 import { BillingAgentService, endOfPreviousMonth } from '../src/billing/billing-agent.service';
 import { SEED_PASSWORD } from './seed-password';
@@ -307,6 +307,130 @@ describe('Billing agent (e2e)', () => {
       expect((await sweep(recent)).decided).toBe(0);
       expect(await decisionsFor(recent.booking.id)).toHaveLength(0);
     }
+  });
+
+  describe('caregiver pay statements', () => {
+    const HOURS = 3_600_000;
+    const later = () => new Date(Date.now() + 2 * HOURS);
+    const statementsFor = (caregiverId: string) => db.select().from(payoutStatements).where(eq(payoutStatements.caregiverId, caregiverId));
+    const payDecisions = async (caregiverId: string, action: string) =>
+      (await db.select().from(agentDecisions).where(eq(agentDecisions.action, action)).orderBy(agentDecisions.createdAt)).filter(
+        (d) => (d.proposal as { caregiverId?: string } | null)?.caregiverId === caregiverId,
+      );
+    const paySweep = (when: Date, ...made: { cg: { id: string } }[]) => agent.sweepPayouts(when, undefined, made.map((m) => m.cg.id));
+    const policy = (body: object) => api().patch('/settings/automation/actions/billing.approve_payout').set(bearer(adminToken)).send(body);
+
+    /** A caregiver who worked five days last month (or earlier) at LKR 2,500 a day = LKR 12,500, none of it on a statement. */
+    async function workedLastMonth() {
+      const lastMonthEnd = endOfPreviousMonth(colomboToday());
+      let weeks = 1;
+      while (addDays(mondayWeeksAgo(weeks), 4) > lastMonthEnd) weeks++;
+      const made = await pastBooking(weeks);
+      for (const s of made.booking.shifts) await setShift(made.booking.id, s.id, { status: 'COMPLETED' });
+      return { ...made, lastMonthEnd, monthOf: `${made.monday.slice(0, 8)}01` };
+    }
+
+    beforeEach(async () => {
+      await db.execute(sql`DELETE FROM automation_action_policies WHERE action = 'billing.approve_payout'`);
+      await api().patch('/settings/automation').set(bearer(adminToken)).send({ cases: 50, agreementPercent: 90, demoteAfterReversals: 3 }).expect(200);
+    });
+
+    it('Shadow: logs the draft and the approval it would make, and scores both against staff', async () => {
+      await mode('SHADOW');
+      const w = await workedLastMonth();
+      expect(await paySweep(new Date(), w)).toMatchObject({ mode: 'SHADOW', considered: 1, decided: 1 });
+      const [draft] = await payDecisions(w.cg.id, 'billing.draft_payout');
+      expect(draft).toMatchObject({ outcome: 'SHADOW', tier: 1, caseType: null });
+      expect(draft.proposal).toMatchObject({ periodStart: w.monthOf, periodEnd: w.lastMonthEnd, lines: 5, unpriced: 0, totalCents: 1_250_000 });
+      expect(await statementsFor(w.cg.id)).toHaveLength(0);
+      expect((await paySweep(new Date(), w)).decided).toBe(0);
+
+      // Staff make the statement themselves. Fresh from their hands it is left alone; an hour on, the agent looks at it.
+      const made = (await api().post('/payouts').set(bearer(staffToken)).send({ caregiverId: w.cg.id, periodStart: w.monthOf, periodEnd: w.lastMonthEnd }).expect(201)).body;
+      const soon = await paySweep(new Date(), w);
+      expect(soon).toMatchObject({ scored: 1, decided: 0 });
+      expect((await payDecisions(w.cg.id, 'billing.draft_payout'))[0]).toMatchObject({ staffVerdict: 'AGREED' });
+      expect((await paySweep(later(), w)).decided).toBe(1);
+      const [approval] = await payDecisions(w.cg.id, 'billing.approve_payout');
+      expect(approval).toMatchObject({ outcome: 'SHADOW', tier: 2, caseType: 'PAYOUT', caseId: made.id });
+      expect(approval.reason).toMatch(/every shift priced, LKR 12,500\.00 is within the limit of LKR 50,000\.00/);
+      expect((await statementsFor(w.cg.id))[0].status).toBe('DRAFT');
+
+      await api().post(`/payouts/${made.id}/approve`).set(bearer(staffToken)).expect(200);
+      expect((await paySweep(later(), w)).scored).toBe(1);
+      const [scored] = await payDecisions(w.cg.id, 'billing.approve_payout');
+      expect(scored).toMatchObject({ staffVerdict: 'AGREED', staffNote: 'Scored automatically: staff approved it unchanged' });
+    });
+
+    it('Assist: staff approve the draft, then the approval, each carried out under their name', async () => {
+      await mode('ASSIST');
+      const w = await workedLastMonth();
+      await paySweep(new Date(), w);
+      const [draft] = await payDecisions(w.cg.id, 'billing.draft_payout');
+      expect(draft).toMatchObject({ outcome: 'PROPOSED' });
+      expect(await statementsFor(w.cg.id)).toHaveLength(0);
+
+      const drafted = (await api().post(`/automation/decisions/${draft.id}/approve`).set(bearer(staffToken)).expect(200)).body;
+      const [statement] = await statementsFor(w.cg.id);
+      expect(statement).toMatchObject({ status: 'DRAFT', total: '12500.00', periodStart: w.monthOf, periodEnd: w.lastMonthEnd });
+      expect(drafted.result).toMatchObject({ payoutId: statement.id, reference: statement.reference });
+      const onPage = (await api().get(`/automation/cases/PAYOUT/${statement.id}`).set(bearer(staffToken)).expect(200)).body;
+      expect(onPage.handoverNote.done).toContain(statement.reference);
+
+      // Nothing is drafted twice, and the approval is proposed once the draft has settled.
+      expect((await paySweep(new Date(), w)).decided).toBe(0);
+      await paySweep(later(), w);
+      const [approval] = await payDecisions(w.cg.id, 'billing.approve_payout');
+      expect(approval).toMatchObject({ outcome: 'PROPOSED', caseId: statement.id });
+      await api().post(`/automation/decisions/${approval.id}/approve`).set(bearer(staffToken)).expect(200);
+      const [staff] = await db.select().from(users).where(eq(users.email, 'staff@care-platform.local'));
+      expect((await statementsFor(w.cg.id))[0]).toMatchObject({ status: 'APPROVED', approvedByUserId: staff.id });
+      expect(await statementsFor(w.cg.id)).toHaveLength(1);
+    });
+
+    it('Auto: drafts alone, but approves alone only once that has been earned, and never over the limit', async () => {
+      await mode('AUTO');
+      const first = await workedLastMonth();
+      await paySweep(new Date(), first);
+      const [agentUser] = await db.select().from(users).where(eq(users.email, 'billing-agent@agents.invalid'));
+      let [s1] = await statementsFor(first.cg.id);
+      expect(s1).toMatchObject({ status: 'DRAFT', total: '12500.00', createdByUserId: agentUser.id });
+      // Its own draft needs no settling time - but approving is a commitment it has not earned: it asks.
+      const [asked] = await payDecisions(first.cg.id, 'billing.approve_payout');
+      expect(asked).toMatchObject({ outcome: 'PROPOSED', mode: 'AUTO' });
+
+      // Earn it: ten approvals staff agree with, at a bar of ten.
+      await api().patch('/settings/automation').set(bearer(adminToken)).send({ cases: 10 }).expect(200);
+      await policy({ autoAllowed: true }).expect(400);
+      await api().post(`/automation/decisions/${asked.id}/approve`).set(bearer(staffToken)).expect(200);
+      for (let i = 0; i < 9; i++) {
+        const d = await automation.decide({ action: 'billing.approve_payout', reason: 'Statement within the limit' });
+        await api().post(`/automation/decisions/${d.decisionId}/review`).set(bearer(staffToken)).send({ verdict: 'AGREED' }).expect(200);
+      }
+      await policy({ autoAllowed: true }).expect(200);
+
+      const second = await workedLastMonth();
+      await paySweep(new Date(), second);
+      const [s2] = await statementsFor(second.cg.id);
+      expect(s2).toMatchObject({ status: 'APPROVED', approvedByUserId: agentUser.id });
+      expect((await payDecisions(second.cg.id, 'billing.approve_payout'))[0]).toMatchObject({ outcome: 'EXECUTED', executionError: null });
+      // Paying is never the agent's: the statement waits for staff.
+      expect(s2.paidAt ?? null).toBeNull();
+
+      // A limit of LKR 10,000: a LKR 12,500 statement is drafted and left for staff, with the reason.
+      const over = (await policy({ limits: { maxAmount: 10000 } }).expect(200)).body;
+      expect(over.functions.flatMap((f: { actions: { key: string; limits: unknown }[] }) => f.actions).find((a: { key: string }) => a.key === 'billing.approve_payout').limits).toEqual({ maxAmount: 10000 });
+      const third = await workedLastMonth();
+      const run = await paySweep(new Date(), third);
+      expect(run.leftToStaff).toBe(1);
+      const [s3] = await statementsFor(third.cg.id);
+      expect(s3.status).toBe('DRAFT');
+      expect(await payDecisions(third.cg.id, 'billing.approve_payout')).toHaveLength(0);
+      const note = (await api().get(`/automation/cases/PAYOUT/${s3.id}`).set(bearer(staffToken)).expect(200)).body.handoverNote;
+      expect(note.waiting).toBe("Staff: LKR 12,500.00 is over the agent's limit of LKR 10,000.00");
+      s1 = (await statementsFor(first.cg.id))[0];
+      expect(s1.status).toBe('APPROVED');
+    });
   });
 
   it('"Run now" runs the billing agent, and says so for agents not built yet', async () => {
