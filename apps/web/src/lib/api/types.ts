@@ -711,6 +711,11 @@ export interface BookingDetail {
   payRateAmount: string | null;
   language: 'en' | 'si' | 'ta';
   notes: string | null;
+  /** Where the draft stands with the client: null = not asked. Cleared when the draft's times, caregiver or client rate change. */
+  clientReviewStatus: 'ASKED' | 'ACCEPTED' | 'CHANGES_REQUESTED' | null;
+  clientAskedAt: string | null;
+  clientAnsweredAt: string | null;
+  clientReviewNote: string | null;
   cancelReason: string | null;
   confirmedAt: string | null;
   cancelledAt: string | null;

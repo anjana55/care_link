@@ -93,6 +93,8 @@ export function useCreateBooking() {
 }
 
 export const useConfirmBooking = (id: string) => useBookingWrite(id, () => api.post<BookingDetail>(`/bookings/${id}/confirm`, {}));
+/** Puts a draft in front of the client to accept or ask for changes. */
+export const useAskClient = (id: string) => useBookingWrite(id, () => api.post<BookingDetail>(`/bookings/${id}/ask-client`, {}));
 export const useCancelBooking = (id: string) => useBookingWrite(id, (reason: string) => api.post<BookingDetail>(`/bookings/${id}/cancel`, { reason }));
 export const useCompleteBooking = (id: string) => useBookingWrite(id, () => api.post<BookingDetail>(`/bookings/${id}/complete`, {}));
 export const useExtendBooking = (id: string) => useBookingWrite(id, (endDate: string) => api.post<BookingDetail>(`/bookings/${id}/extend`, { endDate }));

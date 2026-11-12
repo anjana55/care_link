@@ -18,6 +18,7 @@ import {
   ValidateIf,
   ValidateNested,
   IsBoolean,
+  MinLength,
 } from 'class-validator';
 import {
   bookingStatusEnum,
@@ -343,4 +344,14 @@ export class BookingQueryDto {
   @Min(1)
   @Max(100)
   pageSize: number = 20;
+}
+
+/** POST /me/booking-proposals/:id/request-changes - what the client wants changed in a draft. */
+export class RequestBookingChangesDto {
+  @ApiProperty({ example: 'Could the carer come at 9 instead of 8?' })
+  @Transform(trimToUndefined)
+  @IsString({ message: 'Tell us what you would like changed' })
+  @MinLength(3, { message: 'Tell us what you would like changed' })
+  @MaxLength(500, { message: 'Please keep it to 500 characters or fewer' })
+  note: string;
 }

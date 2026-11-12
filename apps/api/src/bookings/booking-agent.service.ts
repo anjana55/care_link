@@ -1,16 +1,17 @@
 import { BadRequestException, Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, eq, gte, inArray, isNull, ne } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, ne, or } from 'drizzle-orm';
 import { colomboToday, type AgentRunResult } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { OPEN_CARE_REQUEST_STATUSES, agentDecisions, bookings, careRequests, caregivers, patients, requestOffers } from '../database/schema';
 import { AutomationService, type ActionExecutor } from '../automation/automation.service';
 import { JobsService } from '../jobs/jobs.service';
 import { BookingsService } from './bookings.service';
-import { BOOKING_REQUEST_JOB, BOOKING_SWEEP_JOB } from './booking-agent-jobs';
+import { BOOKING_CONFIRM_JOB, BOOKING_REQUEST_JOB, BOOKING_SWEEP_JOB } from './booking-agent-jobs';
 import { draftBooking, type BookingDraft } from './booking-draft-rules';
 
 const DRAFT = 'booking.create_draft' as const;
+const CONFIRM = 'booking.confirm' as const;
 const SWEEP_MS = 5 * 60 * 1000;
 /** Accepted offers older than this are not picked up: by then a person is dealing with them. */
 const LOOKBACK_DAYS = 30;
@@ -23,6 +24,14 @@ export interface DraftBookingProposal extends Record<string, unknown> {
   caregiverId: string;
   caregiverRegistration: string;
   draft: BookingDraft;
+}
+
+/** What the agent proposes when it wants to confirm: which booking, and which acceptance it rests on. */
+export interface ConfirmBookingProposal extends Record<string, unknown> {
+  bookingId: string;
+  bookingReference: string;
+  /** When the client accepted. A later change to the draft clears that, and this proposal with it. */
+  acceptedAt: string;
 }
 
 type Candidate = {
@@ -50,8 +59,18 @@ type Candidate = {
  * in the offer. When the request does not say what hours or what start date,
  * it does not guess: the request goes to staff with the reason.
  *
- * It never confirms. A draft booking tells nobody and reserves nothing;
- * checking the times with the client and confirming stays with a person.
+ * A draft reserves nothing. Once it exists the agent asks the client to check
+ * it in their account - the times, the caregiver and the price - when the
+ * draft has a client price and the client has an account; otherwise that
+ * stays with staff. The agent never confirms a booking on its own say-so:
+ *
+ *  - the client accepts  -> "confirm the booking" (booking.confirm), a
+ *    higher-risk step: proposed to staff until it has earned Auto, and it can
+ *    still fail on a clash with the caregiver's other shifts;
+ *  - the client asks for changes -> staff, with what the client wrote.
+ *
+ * That second half works for any draft the client was asked about, whoever
+ * drafted it or asked.
  *
  *  - Shadow: logs the draft it would have made, then scores itself against
  *    the booking staff make (same schedule and start date = agreed).
@@ -75,11 +94,16 @@ export class BookingAgentService implements OnApplicationBootstrap, OnModuleDest
 
   onApplicationBootstrap() {
     this.automation.registerExecutor(DRAFT, this.createDraft);
+    this.automation.registerExecutor(CONFIRM, this.confirmBooking);
     this.automation.registerRunner('BOOKING', () => this.sweep());
     this.jobs.register(BOOKING_SWEEP_JOB, async () => void (await this.sweep()));
     this.jobs.register(BOOKING_REQUEST_JOB, async (payload) => {
       const requestId = (payload as { requestId?: unknown }).requestId;
       if (typeof requestId === 'string') await this.sweep(new Date(), [requestId]);
+    });
+    this.jobs.register(BOOKING_CONFIRM_JOB, async (payload) => {
+      const bookingId = (payload as { bookingId?: unknown }).bookingId;
+      if (typeof bookingId === 'string') await this.answers(new Date(), [bookingId]);
     });
     if (this.config.get<string>('NODE_ENV') === 'test') return;
     const schedule = () =>
@@ -101,6 +125,13 @@ export class BookingAgentService implements OnApplicationBootstrap, OnModuleDest
     if (gate.mode === 'MANUAL') return run;
     run.scored = await this.scoreShadows(only);
     if (only && !only.length) return run;
+    if (!only) {
+      const answered = await this.answers(now);
+      run.considered += answered.considered;
+      run.decided += answered.decided;
+      run.leftToStaff += answered.leftToStaff;
+      run.scored += answered.scored;
+    }
 
     const rows: Candidate[] = await this.db
       .select({
@@ -192,7 +223,7 @@ export class BookingAgentService implements OnApplicationBootstrap, OnModuleDest
     const decision = await this.automation.decide({
       action: DRAFT,
       case: ref,
-      reason: `Draft a booking with ${row.registration}: ${result.summary}`,
+      reason: `Draft a booking with ${row.registration}: ${result.summary}. Then ask the client to check it`,
       proposal,
       // Once per accepted offer: a draft staff turned down, or deleted, is not made again.
       dedupeKey: `${row.requestId}|${row.offerId}`,
@@ -244,16 +275,170 @@ export class BookingAgentService implements OnApplicationBootstrap, OnModuleDest
       { userId: actor.userId, email: actor.email, role: actor.role },
     );
     const clashes = booking.blockingConflicts ?? 0;
+    // Put it in front of the client, when that can be done in their account. A clash is for staff to sort out first.
+    let asked = false;
+    const [client] = await this.db.select({ userId: patients.userId }).from(patients).where(eq(patients.id, booking.patientId)).limit(1);
+    let whyNot = clashes
+      ? 'the caregiver already has shifts at these times'
+      : !booking.rateAmount
+        ? "the client's rate is not set yet"
+        : !client?.userId
+          ? 'the client has no account to answer in'
+          : '';
+    if (!whyNot) {
+      try {
+        await this.bookingsService.askClient(booking.id, { userId: actor.userId, email: actor.email, role: actor.role });
+        asked = true;
+      } catch (err) {
+        if (!(err instanceof BadRequestException)) throw err;
+        whyNot = 'the client could not be asked';
+      }
+    }
     await this.automation.setHandoverNote(
       { caseType: 'REQUEST', caseId: p.requestId },
-      {
-        done: `Drafted booking ${booking.reference} with ${p.caregiverRegistration}${clashes ? `. The caregiver already has ${clashes} shift${clashes === 1 ? '' : 's'} at these times` : ''}`,
-        waiting: 'Staff to check the times with the client and confirm the booking',
-        next: 'Nothing more from the booking agent on this request',
-      },
+      asked
+        ? {
+            done: `Drafted booking ${booking.reference} with ${p.caregiverRegistration} and asked the client to check it`,
+            waiting: 'The client to accept it or ask for changes',
+            next: 'Once the client accepts, the booking is confirmed or passed to staff to confirm',
+          }
+        : {
+            done: `Drafted booking ${booking.reference} with ${p.caregiverRegistration}`,
+            waiting: `Staff to check the times with the client and confirm the booking (${whyNot})`,
+            next: 'Nothing more from the booking agent on this request',
+          },
     );
-    return { bookingId: booking.id, bookingReference: booking.reference, shifts: booking.shifts.length, blockingConflicts: clashes };
+    return { bookingId: booking.id, bookingReference: booking.reference, shifts: booking.shifts.length, blockingConflicts: clashes, askedClient: asked };
   };
+
+  /**
+   * Drafts the client has answered about - all of the last 30 days, or just
+   * `only`. Accepted: confirm (or propose confirming). Changes wanted: staff.
+   */
+  async answers(now = new Date(), only?: string[]): Promise<Pick<AgentRunResult, 'considered' | 'decided' | 'leftToStaff' | 'scored'>> {
+    const out = { considered: 0, decided: 0, leftToStaff: 0, scored: 0 };
+    if ((await this.automation.gate(CONFIRM)).mode === 'MANUAL') return out;
+    out.scored = await this.scoreConfirmShadows(only);
+    const rows = await this.db
+      .select()
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.status, 'DRAFT'),
+          or(eq(bookings.clientReviewStatus, 'ACCEPTED'), eq(bookings.clientReviewStatus, 'CHANGES_REQUESTED')),
+          only ? inArray(bookings.id, only) : gte(bookings.clientAnsweredAt, new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000)),
+        ),
+      )
+      .orderBy(bookings.clientAnsweredAt)
+      .limit(200);
+
+    for (const b of rows) {
+      const ref = { caseType: 'BOOKING' as const, caseId: b.id };
+      try {
+        const gate = await this.automation.gate(CONFIRM, ref);
+        if (gate.outcome === 'NONE') continue;
+        out.considered++;
+        if (b.clientReviewStatus === 'CHANGES_REQUESTED') {
+          await this.automation.setHandoverNote(ref, {
+            done: `The client was asked to check the booking and wants changes: "${b.clientReviewNote ?? ''}"`,
+            waiting: 'Staff to change the draft and ask the client again',
+            next: 'Nothing from the booking agent until the client accepts',
+          });
+          out.leftToStaff++;
+          continue;
+        }
+        const acceptedAt = new Date(b.clientAnsweredAt!).toISOString();
+        const proposal: ConfirmBookingProposal = { bookingId: b.id, bookingReference: b.reference, acceptedAt };
+        const decision = await this.automation.decide({
+          action: CONFIRM,
+          case: ref,
+          reason: `Confirm ${b.reference}: the client accepted the times and the price as drafted`,
+          proposal,
+          // Once per acceptance: asking again after a change makes a new one.
+          dedupeKey: `${b.id}|${acceptedAt}`,
+        });
+        if (!decision.decisionId) continue;
+        out.decided++;
+        if (decision.outcome === 'EXECUTE') {
+          const done = await this.automation.execute(decision.decisionId);
+          if (!done.ok) {
+            await this.automation.setHandoverNote(ref, {
+              done: `The client accepted the booking; it could not be confirmed (${done.error})`,
+              waiting: 'Staff to sort that out and confirm',
+              next: 'Nothing more from the booking agent on this booking',
+            });
+            out.leftToStaff++;
+          }
+        } else if (decision.outcome === 'PROPOSE') {
+          await this.automation.setHandoverNote(ref, {
+            done: 'The client accepted the booking as drafted',
+            waiting: 'Staff to approve confirming it',
+            next: 'Confirm the booking once approved',
+          });
+        }
+      } catch (err) {
+        this.logger.warn(`Booking agent: ${b.reference} skipped - ${(err as Error).message}`);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Confirms a draft the client accepted, through the same service as the
+   * staff button - so the same checks apply, including clashes with the
+   * caregiver's other shifts. Refused if the acceptance it rests on is gone.
+   */
+  private readonly confirmBooking: ActionExecutor = async (decision, actor) => {
+    const p = decision.proposal as ConfirmBookingProposal | null;
+    if (!p?.bookingId) throw new BadRequestException('This proposal has no booking to confirm');
+    const [b] = await this.db.select().from(bookings).where(eq(bookings.id, p.bookingId)).limit(1);
+    if (!b || b.status !== 'DRAFT') throw new BadRequestException('This booking is no longer a draft');
+    if (b.clientReviewStatus !== 'ACCEPTED' || !b.clientAnsweredAt || new Date(b.clientAnsweredAt).toISOString() !== p.acceptedAt) {
+      throw new BadRequestException('The draft has changed since the client accepted it - ask them again');
+    }
+    const confirmed = await this.bookingsService.confirm(p.bookingId, { userId: actor.userId, email: actor.email, role: actor.role });
+    await this.automation.setHandoverNote(
+      { caseType: 'BOOKING', caseId: p.bookingId },
+      { done: `Confirmed ${confirmed.reference} after the client accepted it; the client and the caregiver have been told`, waiting: 'Nothing', next: 'Nothing more from the booking agent on this booking' },
+    );
+    return { bookingId: p.bookingId, bookingReference: confirmed.reference, shifts: confirmed.shifts.length };
+  };
+
+  /** A logged "would confirm" is scored when staff confirm (agreed), or cancel or change the draft instead (differed). */
+  private async scoreConfirmShadows(only?: string[]): Promise<number> {
+    const open = await this.db
+      .select()
+      .from(agentDecisions)
+      .where(
+        and(
+          eq(agentDecisions.action, CONFIRM),
+          eq(agentDecisions.outcome, 'SHADOW'),
+          isNull(agentDecisions.staffVerdict),
+          eq(agentDecisions.caseType, 'BOOKING'),
+          only?.length ? inArray(agentDecisions.caseId, only) : undefined,
+        ),
+      )
+      .limit(500);
+    if (!open.length) return 0;
+    const rows = await this.db.select().from(bookings).where(inArray(bookings.id, open.map((d) => d.caseId!)));
+    const agent = (await this.automation.agentActor('BOOKING')).userId;
+    let scored = 0;
+    for (const d of open) {
+      const b = rows.find((r) => r.id === d.caseId);
+      if (!b) continue;
+      const stillWaiting = b.status === 'DRAFT' && b.clientReviewStatus === 'ACCEPTED';
+      if (stillWaiting) continue;
+      const agreed = b.status === 'CONFIRMED' || b.status === 'COMPLETED';
+      await this.automation.review(
+        d.id,
+        agreed ? 'AGREED' : 'DIFFERED',
+        agreed ? 'Scored automatically: staff confirmed the booking' : b.status === 'CANCELLED' ? 'Scored automatically: staff cancelled the booking instead' : 'Scored automatically: staff changed the draft instead of confirming it',
+        b.confirmedByUserId ?? agent,
+      );
+      scored++;
+    }
+    return scored;
+  }
 
   /**
    * Shadow decisions are scored once staff have made the booking: the agent

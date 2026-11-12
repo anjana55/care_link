@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  ClientBookingProposal,
   CaregiverRelation,
   ClientCareRequest,
   CreateCareRequestBody,
@@ -113,6 +114,31 @@ export function useMyBookings() {
     queryKey: [...key, 'bookings', locale],
     queryFn: () => api.get<ClientBooking[]>('/me/bookings'),
     enabled: Boolean(client),
+  });
+}
+
+/** Draft bookings the office has asked this client to check (GET /me/booking-proposals). */
+export function useBookingProposals() {
+  const client = useIsClient();
+  const { locale } = useTranslation();
+  const key = useClientKey();
+  return useQuery({
+    queryKey: [...key, 'booking-proposals', locale],
+    queryFn: () => api.get<ClientBookingProposal[]>('/me/booking-proposals'),
+    enabled: Boolean(client),
+  });
+}
+
+/** Accept a draft as it is, or say what should change. Either way the list comes back. */
+export function useAnswerBookingProposal() {
+  const invalidate = useInvalidateClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) =>
+      note === undefined
+        ? api.post<ClientBookingProposal[]>(`/me/booking-proposals/${id}/accept`, {})
+        : api.post<ClientBookingProposal[]>(`/me/booking-proposals/${id}/request-changes`, { note }),
+    // Also on failure: "no longer waiting for your answer" means the list on screen is out of date.
+    onSettled: () => invalidate(),
   });
 }
 

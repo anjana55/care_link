@@ -4,13 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type { BookingStatus, ClientBooking, MyIssueReport } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
-import { useMyBookings, useMyIssueReports, useReportBookingIssue } from '@/lib/hooks/use-client-care';
+import { useBookingProposals, useMyBookings, useMyIssueReports, useReportBookingIssue } from '@/lib/hooks/use-client-care';
 import { fmtDate } from '@/lib/colombo-time';
 import { LoadingState, ErrorState } from '@/components/common/states';
 import { CaregiverSummary } from '@/components/care/caregiver-summary';
 import { ShiftList } from '@/components/care/shift-list';
 import { IssueReportList, ReportIssueForm } from '@/components/care/report-issue';
 import { TodaysCare } from '@/components/care/todays-care';
+import { BookingProposals } from '@/components/care/booking-proposals';
 import { BookingReviews, PendingReviewsBanner } from '@/components/reviews/booking-reviews';
 import { useMarkPathsRead } from '@/lib/hooks/use-notifications';
 
@@ -32,6 +33,7 @@ export default function MyBookingsPage() {
   const { t, locale } = useTranslation();
   const { data, isLoading, isError, refetch } = useMyBookings();
   const { data: reports } = useMyIssueReports();
+  const { data: proposals } = useBookingProposals();
 
   return (
     <div>
@@ -39,11 +41,14 @@ export default function MyBookingsPage() {
       <p className="mt-1 text-sm text-ink/60">{t('account.bookings.subtitle')}</p>
       <div className="mt-6">
         {/* Caregivers waiting for a rating, then the care-plan checklist for today. */}
+        {/* First, anything waiting for the client's answer: a booking we drafted for them to check. */}
+        <BookingProposals />
         <PendingReviewsBanner />
         <TodaysCare />
         {isLoading && <LoadingState label={t('common.loading')} />}
         {isError && <ErrorState onRetry={() => refetch()} />}
-        {data && data.length === 0 && (
+        {/* "No bookings yet" would contradict a booking waiting above for the client's answer. */}
+        {data && data.length === 0 && !proposals?.length && (
           <div className="rounded-lg border border-dashed border-border bg-white px-6 py-12 text-center">
             <p className="text-sm text-ink/60">{t('account.bookings.empty')}</p>
             <Link href="/account/requests" className="mt-4 inline-block text-sm font-medium text-brand hover:underline">
