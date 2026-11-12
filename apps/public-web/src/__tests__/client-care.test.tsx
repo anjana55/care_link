@@ -334,7 +334,7 @@ describe('client account', () => {
   it('shows confirmed bookings with their shifts in Sri Lanka time', async () => {
     auth = { user: CLIENT, loading: false };
     pathname = '/account/bookings';
-    get.mockResolvedValue([
+    get.mockImplementation((path: string) => Promise.resolve(path !== '/me/bookings' ? [] : [
       {
         id: 'b1', reference: 'BK-7K2QM9', status: 'CONFIRMED', scheduleType: 'NIGHT', startDate: '2026-11-02', endDate: '2026-11-30',
         rateType: 'DAILY', rateAmount: '4000.00', caregiverPublicId: PUBLIC_ID, caregiver: profile,
@@ -344,7 +344,7 @@ describe('client account', () => {
           { id: 's2', startsAt: '2026-11-03T14:30:00.000Z', endsAt: '2026-11-04T02:30:00.000Z', status: 'SCHEDULED', isCover: true },
         ],
       },
-    ]);
+    ]));
     renderUi(<MyBookingsPage />);
 
     expect(await screen.findByText('BK-7K2QM9')).toBeInTheDocument();
@@ -367,7 +367,7 @@ describe('client account', () => {
       id: 'r0', bookingId: 'b1', bookingReference: 'BK-7K2QM9', shiftId: null, shiftStartsAt: null, category: 'CHARGE',
       message: 'Charged twice for Monday', status: 'RESOLVED', resolutionNote: 'Refunded - sorry about that.', createdAt: '2026-10-10T04:00:00.000Z', closedAt: '2026-10-11T04:00:00.000Z',
     };
-    get.mockImplementation((path: string) => Promise.resolve(path === '/me/issues' ? [answered] : [booking]));
+    get.mockImplementation((path: string) => Promise.resolve(path === '/me/issues' ? [answered] : path === '/me/bookings' ? [booking] : []));
     post.mockResolvedValue({ ...answered, id: 'r1', status: 'OPEN', resolutionNote: null });
     renderUi(<MyBookingsPage />);
 
@@ -388,5 +388,48 @@ describe('client account', () => {
 
     await waitFor(() => expect(post).toHaveBeenCalledWith('/me/bookings/b1/issues', { category: 'TIMES', message: 'She stayed until 7 pm, not 4 pm', shiftId: 's1' }));
     expect(await screen.findByText(/your report has reached our team/)).toBeInTheDocument();
+  });
+
+  it('asks the client to check a drafted booking, and sends their answer', async () => {
+    auth = { user: CLIENT, loading: false };
+    pathname = '/account/bookings';
+    const proposal = {
+      id: 'd1', reference: 'BK-DRAFT1', status: 'ASKED', scheduleType: 'NIGHT', daysOfWeek: [1, 2, 3, 4, 5, 6, 7], shiftStartTime: '20:00', shiftEndTime: '08:00',
+      startDate: '2026-11-16', endDate: '2026-11-29', shiftCount: 14, rateType: 'DAILY', rateAmount: '3450.00', caregiver: profile,
+      askedAt: '2026-11-12T08:00:00.000Z', answeredAt: null, note: null,
+    };
+    let current: Record<string, unknown> = proposal;
+    get.mockImplementation((path: string) => Promise.resolve(path === '/me/booking-proposals' ? [current] : []));
+    post.mockImplementation((path: string, body: { note?: string }) => {
+      current = path.endsWith('/accept') ? { ...proposal, status: 'ACCEPTED', answeredAt: '2026-11-12T09:00:00.000Z' } : { ...proposal, status: 'CHANGES_REQUESTED', note: body.note };
+      return Promise.resolve([current]);
+    });
+    const view = renderUi(<MyBookingsPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Please check this booking' })).toBeInTheDocument();
+    expect(screen.getByText('Every day')).toBeInTheDocument();
+    expect(screen.getByText(/20:00 – 08:00/)).toBeInTheDocument();
+    expect(screen.getByText('(ends the next day)')).toBeInTheDocument();
+    expect(screen.getByText('(14 visits)')).toBeInTheDocument();
+    expect(screen.getByText(/LKR 3,450.00 per day/)).toBeInTheDocument();
+    expect(screen.getByText('Nothing is booked until you accept and we confirm it.')).toBeInTheDocument();
+    expect(screen.queryByText(/No bookings yet/)).not.toBeInTheDocument();
+
+    // Asking for a change needs a few words.
+    fireEvent.click(screen.getByRole('button', { name: 'Ask for a change' }));
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('What would you like changed?'), { target: { value: 'Weekdays only, please' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/me/booking-proposals/d1/request-changes', { note: 'Weekdays only, please' }));
+    expect(await screen.findByRole('heading', { name: 'You asked us to change this booking' })).toBeInTheDocument();
+    expect(screen.getByText('Weekdays only, please')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept this booking' })).not.toBeInTheDocument();
+    view.unmount();
+
+    current = proposal;
+    renderUi(<MyBookingsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept this booking' }));
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/me/booking-proposals/d1/accept', {}));
+    expect(await screen.findByRole('heading', { name: 'You accepted this booking' })).toBeInTheDocument();
   });
 });

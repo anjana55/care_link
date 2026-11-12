@@ -16,6 +16,7 @@ import {
   MAX_SHIFT_HOURS,
   type CaregiverShift,
   type ClientBooking,
+  type ClientBookingProposal,
   type IsoWeekday,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
@@ -47,6 +48,9 @@ import {
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { PublicSearchService } from '../public-search/public-search.service';
 import { BookingNotifier } from './booking-notifier.service';
+import { JobsService } from '../jobs/jobs.service';
+import { AutomationService } from '../automation/automation.service';
+import { nudgeBookingConfirm } from './booking-agent-jobs';
 import { CarePlansService } from '../care-plans/care-plans.service';
 import { buildLines } from '../billing/line-builder';
 import { planRoster } from './roster-plan';
@@ -127,6 +131,9 @@ export interface ShiftConflict {
  * first locks the caregivers involved, so two staff confirming two bookings for
  * the same person at the same moment cannot both succeed.
  */
+/** Back to "the client has not been asked". */
+const CLIENT_CHECK_CLEARED = { clientReviewStatus: null, clientAskedAt: null, clientAskedByUserId: null, clientAnsweredAt: null, clientReviewNote: null } as const;
+
 @Injectable()
 export class BookingsService {
   constructor(
@@ -136,6 +143,8 @@ export class BookingsService {
     private readonly carePlans: CarePlansService,
     private readonly reviewStore: ReviewStore,
     private readonly reviewSettings: ReviewSettingsService,
+    private readonly jobs: JobsService,
+    private readonly automation: AutomationService,
   ) {}
 
   // --- pattern ---------------------------------------------------------------
@@ -747,6 +756,11 @@ export class BookingsService {
     if (dto.language && dto.language !== booking.language) changes.push(`updates in ${dto.language}`);
     if (dto.notes !== undefined && (dto.notes.trim() || null) !== booking.notes) changes.push('notes');
 
+    // The client answered about the draft as it was. New times, another caregiver or another price: ask again.
+    const clientRateChanged = rate(rateType, rateType ? rateAmount : null) !== rate(booking.rateType, booking.rateAmount);
+    const voidsClientCheck = draft && booking.clientReviewStatus !== null && (reshaping || clientRateChanged);
+    if (voidsClientCheck) changes.push("the client's check no longer applies - ask them again");
+
     // Filled inside the transaction; sent only once it has committed.
     const after: { notify?: { from: string; caregiverIds: string[] } } = {};
     await this.db.transaction(async (tx) => {
@@ -829,6 +843,7 @@ export class BookingsService {
           ...(dto.notes !== undefined ? { notes: dto.notes.trim() || null } : {}),
           ...(dto.language ? { language: dto.language } : {}),
           ...(newCaregiverId ? { caregiverId: newCaregiverId } : {}),
+          ...(voidsClientCheck ? CLIENT_CHECK_CLEARED : {}),
           ...(dto.pattern
             ? {
                 scheduleType: dto.pattern.scheduleType,
@@ -946,6 +961,110 @@ export class BookingsService {
 
     void this.notifier.bookingConfirmed(id);
     return this.findOne(id);
+  }
+
+  // --- the client's check of a draft ---------------------------------------------
+
+  /** A draft shift was added, changed or removed by hand: what the client said about the draft no longer applies. */
+  private async voidClientCheck(id: string, actor: AuthenticatedUser) {
+    const [result] = await this.db
+      .update(bookings)
+      .set(CLIENT_CHECK_CLEARED)
+      .where(and(eq(bookings.id, id), eq(bookings.status, 'DRAFT'), isNotNull(bookings.clientReviewStatus)));
+    if ((result as { affectedRows: number }).affectedRows) await this.event(this.db, id, 'UPDATED', actor, "the client's check no longer applies - ask them again");
+  }
+
+  /**
+   * Puts a draft in front of the client: they see the times, the caregiver and
+   * the price in their account and accept, or say what to change. Nothing is
+   * booked by asking. Asking again (after a change) replaces the earlier answer.
+   */
+  async askClient(id: string, actor: AuthenticatedUser) {
+    const booking = await this.bookingOrThrow(id);
+    if (booking.status !== 'DRAFT') throw new BadRequestException('Only a draft booking can be sent to the client to check');
+    if (booking.clientReviewStatus === 'ASKED') throw new BadRequestException('The client has already been asked and has not answered yet');
+    if (!booking.rateType || !booking.rateAmount) throw new BadRequestException("Set the client's rate first - they are asked to agree to the price");
+    const [patient] = await this.db.select({ userId: patients.userId }).from(patients).where(eq(patients.id, booking.patientId)).limit(1);
+    if (!patient?.userId) throw new BadRequestException('This client has no account to answer in - check the booking with them by phone');
+    const [{ n }] = await this.db.select({ n: count() }).from(bookingShifts).where(and(eq(bookingShifts.bookingId, id), eq(bookingShifts.status, 'DRAFT')));
+    if (!n) throw new BadRequestException('Add at least one shift before asking the client');
+
+    const now = new Date();
+    await this.db
+      .update(bookings)
+      .set({ clientReviewStatus: 'ASKED', clientAskedAt: now, clientAskedByUserId: actor.userId, clientAnsweredAt: null, clientReviewNote: null, updatedAt: now })
+      .where(and(eq(bookings.id, id), eq(bookings.status, 'DRAFT')));
+    const channel = await this.notifier.askClientToCheck(id);
+    await this.event(this.db, id, 'NOTE', actor, `Asked the client to check the booking${channel === 'WHATSAPP' ? ' (WhatsApp)' : channel === 'EMAIL' ? ' (email)' : ' (in their account only - no message could be sent)'}`);
+    return this.findOne(id);
+  }
+
+  private clientPatientId(user: AuthenticatedUser): string {
+    if (user.role !== 'PATIENT_GUARDIAN' || !user.patientId) throw new ForbiddenException('You do not have permission to perform this action');
+    return user.patientId;
+  }
+
+  /** Drafts this client has been asked to check, newest first: those waiting for them, and their recent answers. */
+  async proposalsForClient(user: AuthenticatedUser, locale?: string): Promise<ClientBookingProposal[]> {
+    const patientId = this.clientPatientId(user);
+    const rows = await this.db
+      .select()
+      .from(bookings)
+      .where(and(eq(bookings.patientId, patientId), eq(bookings.status, 'DRAFT'), isNotNull(bookings.clientReviewStatus)))
+      .orderBy(desc(bookings.clientAskedAt))
+      .limit(20);
+    if (!rows.length) return [];
+    const [counts, profiles] = await Promise.all([
+      this.db
+        .select({ bookingId: bookingShifts.bookingId, n: count() })
+        .from(bookingShifts)
+        .where(and(inArray(bookingShifts.bookingId, rows.map((r) => r.id)), eq(bookingShifts.status, 'DRAFT')))
+        .groupBy(bookingShifts.bookingId),
+      this.publicSearch.profilesFor(rows.map((r) => r.caregiverId), locale),
+    ]);
+    return rows.map((r) => ({
+      id: r.id,
+      reference: r.reference,
+      status: r.clientReviewStatus!,
+      scheduleType: r.scheduleType,
+      daysOfWeek: r.daysOfWeek.split(',').map(Number) as IsoWeekday[],
+      shiftStartTime: r.shiftStartTime,
+      shiftEndTime: r.shiftEndTime,
+      startDate: r.startDate,
+      endDate: r.endDate,
+      shiftCount: counts.find((c) => c.bookingId === r.id)?.n ?? 0,
+      rateType: r.rateType,
+      rateAmount: r.rateAmount,
+      caregiver: profiles.get(r.caregiverId) ?? null,
+      askedAt: new Date(r.clientAskedAt!).toISOString(),
+      answeredAt: r.clientAnsweredAt ? new Date(r.clientAnsweredAt).toISOString() : null,
+      note: r.clientReviewNote,
+    }));
+  }
+
+  /**
+   * The client's answer. It only counts while the draft is still the one they
+   * were asked about: the update is conditional on ASKED, so a draft staff
+   * changed or withdrew a moment earlier cannot be accepted by a stale page.
+   */
+  async answerAsClient(user: AuthenticatedUser, id: string, answer: 'ACCEPTED' | 'CHANGES_REQUESTED', note?: string | null, locale?: string) {
+    const patientId = this.clientPatientId(user);
+    const text = note?.trim() || null;
+    if (answer === 'CHANGES_REQUESTED' && !text) throw new BadRequestException('Tell us what you would like changed');
+    const now = new Date();
+    const [result] = await this.db
+      .update(bookings)
+      .set({ clientReviewStatus: answer, clientAnsweredAt: now, clientReviewNote: answer === 'CHANGES_REQUESTED' ? text : null, updatedAt: now })
+      .where(and(eq(bookings.id, id), eq(bookings.patientId, patientId), eq(bookings.status, 'DRAFT'), eq(bookings.clientReviewStatus, 'ASKED')));
+    if (!(result as { affectedRows: number }).affectedRows) {
+      // Same answer whether it is someone else's booking or one no longer waiting: nothing to tell apart.
+      throw new ConflictException('This booking is no longer waiting for your answer');
+    }
+    await this.event(this.db, id, 'NOTE', null, answer === 'ACCEPTED' ? 'The client accepted the booking as drafted' : `The client asked for changes: ${text}`);
+    void this.notifier.clientAnswered(id, answer, text);
+    // The booking agent, when it is switched on, takes an accepted draft from here.
+    if (answer === 'ACCEPTED') await nudgeBookingConfirm(this.jobs, this.automation, id);
+    return this.proposalsForClient(user, locale);
   }
 
   /** Called off: every draft and every shift still to come is cancelled. */
@@ -1132,6 +1251,7 @@ export class BookingsService {
       ].filter(Boolean);
       await this.event(t, id, 'SHIFT_ADDED', actor, `${dto.start} - ${dto.end}${own.length ? ` (${own.join(', ')})` : ''}`);
     }, CHECKED);
+    if (booking.status === 'DRAFT') await this.voidClientCheck(id, actor);
     return this.findOne(id);
   }
 
@@ -1228,6 +1348,7 @@ export class BookingsService {
       ].filter(Boolean);
       if (changes.length) await this.event(t, id, 'SHIFT_CHANGED', actor, `${isoLocal(new Date(shift.startsAt)).slice(0, 10)}: ${changes.join('; ')}`);
     }, CHECKED);
+    if (booking.status === 'DRAFT') await this.voidClientCheck(id, actor);
     return this.findOne(id);
   }
 
@@ -1247,6 +1368,7 @@ export class BookingsService {
       await tx.delete(bookingShifts).where(eq(bookingShifts.id, shiftId));
       await this.event(tx as unknown as Tx, id, 'SHIFT_REMOVED', actor, isoLocal(new Date(shift.startsAt)));
     });
+    if (booking.status === 'DRAFT') await this.voidClientCheck(id, actor);
     return this.findOne(id);
   }
 

@@ -17,6 +17,7 @@ import {
   useCancelBooking,
   useCompleteBooking,
   useConfirmBooking,
+  useAskClient,
   useExtendBooking,
   useRemoveShift,
   useUpdateBooking,
@@ -162,9 +163,11 @@ export default function BookingPage() {
         />
       )}
 
-      {booking.status === 'DRAFT' && (
+      {/* Once the client has been asked to check it, "they can't see this yet" is no longer true: the strip below says where it stands. */}
+      {booking.status === 'DRAFT' && !booking.clientReviewStatus && (
         <p className="mb-4 rounded border border-accent/30 bg-accent-light px-3 py-2 text-sm text-accent">{t('bookings.detail.draftBanner')}</p>
       )}
+      {booking.status === 'DRAFT' && <ClientCheck booking={booking} />}
       {booking.status === 'CANCELLED' && booking.cancelReason && (
         <p className="mb-4 rounded bg-ink/5 px-3 py-2 text-sm text-ink/70">{t('bookings.detail.cancelledBecause', { reason: booking.cancelReason })}</p>
       )}
@@ -229,6 +232,42 @@ export default function BookingPage() {
   );
 }
 
+
+/**
+ * A draft can be put in front of the client before it is confirmed: they see
+ * the times, the caregiver and the price in their account and accept, or say
+ * what to change. Optional - staff can still confirm after a phone call.
+ */
+function ClientCheck({ booking }: { booking: BookingDetail }) {
+  const { t } = useTranslation();
+  const ask = useAskClient(booking.id);
+  const status = booking.clientReviewStatus;
+  const noRate = !booking.rateType || !booking.rateAmount;
+  const tone = status === 'ACCEPTED' ? 'border-brand/30 bg-brand-light' : status === 'CHANGES_REQUESTED' ? 'border-accent/40 bg-accent-light' : 'border-border bg-paper';
+  return (
+    <div className={`mb-4 flex flex-wrap items-center justify-between gap-3 rounded border px-3 py-2 ${tone}`}>
+      <div className="min-w-0 text-sm">
+        <p className="font-medium text-ink">{t(`bookings.clientCheck.${status ?? 'NONE'}`)}</p>
+        {status === 'CHANGES_REQUESTED' && booking.clientReviewNote && <p className="mt-0.5 whitespace-pre-wrap text-ink/80">&ldquo;{booking.clientReviewNote}&rdquo;</p>}
+        <p className="mt-0.5 text-xs text-ink/60">
+          {status === 'ASKED' && booking.clientAskedAt
+            ? t('bookings.clientCheck.askedAt', { when: new Date(booking.clientAskedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) })
+            : status && booking.clientAnsweredAt
+              ? t('bookings.clientCheck.answeredAt', { when: new Date(booking.clientAnsweredAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) })
+              : noRate
+                ? t('bookings.clientCheck.needsRate')
+                : t('bookings.clientCheck.hint')}
+        </p>
+        {ask.isError && <p className="mt-1 text-xs text-accent">{(ask.error as Error).message}</p>}
+      </div>
+      {status !== 'ASKED' && status !== 'ACCEPTED' && (
+        <Button variant="secondary" disabled={ask.isPending || noRate || booking.shifts.length === 0} onClick={() => ask.mutate(undefined)}>
+          {t(status === 'CHANGES_REQUESTED' ? 'bookings.clientCheck.askAgain' : 'bookings.clientCheck.ask')}
+        </Button>
+      )}
+    </div>
+  );
+}
 function BookingActions({
   booking,
   onEdit,

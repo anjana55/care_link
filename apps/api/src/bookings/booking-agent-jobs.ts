@@ -18,3 +18,15 @@ export async function nudgeBooking(jobs: JobsService, automation: AutomationServ
     /* the five-minute sweep will pick it up */
   }
 }
+
+/** "Look at this booking now" - queued when a client accepts the draft they were asked to check. */
+export const BOOKING_CONFIRM_JOB = 'booking-agent.booking';
+
+export async function nudgeBookingConfirm(jobs: JobsService, automation: AutomationService, bookingId: string): Promise<void> {
+  try {
+    if ((await automation.gate('booking.confirm')).mode === 'MANUAL') return;
+    await jobs.enqueue(BOOKING_CONFIRM_JOB, { bookingId }, { maxAttempts: 3 });
+  } catch {
+    /* the five-minute sweep will pick it up */
+  }
+}
