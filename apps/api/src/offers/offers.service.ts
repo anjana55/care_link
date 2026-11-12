@@ -22,6 +22,8 @@ import { JobsService } from '../jobs/jobs.service';
 import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
 import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
 import { normalizePhone } from '../common/utils/phone.util';
+import { nudgeMatching } from '../matching/matching-jobs';
+import { AutomationService } from '../automation/automation.service';
 import type { SendOfferDto } from './dto/offers.dto';
 
 const EXPIRE_JOB = 'offers.expire';
@@ -77,6 +79,7 @@ export class OffersService implements OnApplicationBootstrap {
     private readonly whatsappSettings: WhatsappSettingsService,
     private readonly whatsapp: WhatsappProviderService,
     private readonly config: ConfigService,
+    private readonly automation: AutomationService,
   ) {}
 
   onApplicationBootstrap() {
@@ -212,6 +215,7 @@ export class OffersService implements OnApplicationBootstrap {
     if (!(result as { affectedRows: number }).affectedRows) throw new BadRequestException('Only an offer that is still waiting can be withdrawn');
     await this.jobs.cancel(expiryKey(offerId));
     await this.tellNoLongerOpen([offerId]);
+    await nudgeMatching(this.jobs, this.automation, requestId);
     return this.forRequest(requestId);
   }
 
@@ -221,7 +225,13 @@ export class OffersService implements OnApplicationBootstrap {
       .update(requestOffers)
       .set({ status: 'EXPIRED' })
       .where(and(eq(requestOffers.id, offerId), eq(requestOffers.status, 'OFFERED'), lte(requestOffers.expiresAt, now)));
-    return (result as { affectedRows: number }).affectedRows > 0;
+    const expired = (result as { affectedRows: number }).affectedRows > 0;
+    if (expired) {
+      // The matching agent, if it is working on this request, offers the job to the next caregiver.
+      const [row] = await this.db.select({ requestId: requestOffers.requestId }).from(requestOffers).where(eq(requestOffers.id, offerId)).limit(1);
+      if (row) await nudgeMatching(this.jobs, this.automation, row.requestId);
+    }
+    return expired;
   }
 
   /**
@@ -331,6 +341,7 @@ export class OffersService implements OnApplicationBootstrap {
     const actor = { ...user };
     await this.requests.setCaregiver(offer.requestId, offer.caregiverId, actor);
     await this.requests.addNote(offer.requestId, 'The caregiver accepted the job offer', actor);
+    await nudgeMatching(this.jobs, this.automation, offer.requestId);
     if (!offer.sentByUserId) return;
     const [[sender], [request], [caregiver]] = await Promise.all([
       this.db.select({ email: users.email, isActive: users.isActive }).from(users).where(eq(users.id, offer.sentByUserId)).limit(1),
@@ -349,13 +360,14 @@ export class OffersService implements OnApplicationBootstrap {
   }
 
   async decline(user: AuthenticatedUser, offerId: string, reason: CareOfferDeclineReason | undefined, now = new Date()): Promise<CaregiverCareOffer[]> {
-    await this.ownOffer(user, offerId);
+    const offer = await this.ownOffer(user, offerId);
     const [result] = await this.db
       .update(requestOffers)
       .set({ status: 'DECLINED', declineReason: reason ?? null, respondedAt: now })
       .where(and(eq(requestOffers.id, offerId), eq(requestOffers.status, 'OFFERED'), gt(requestOffers.expiresAt, now)));
     if (!(result as { affectedRows: number }).affectedRows) throw new BadRequestException('This offer is no longer waiting for an answer');
     await this.jobs.cancel(expiryKey(offerId));
+    await nudgeMatching(this.jobs, this.automation, offer.requestId);
     return this.forCaregiver(user, now);
   }
 

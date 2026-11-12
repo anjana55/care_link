@@ -17,6 +17,7 @@ import { SEED_PASSWORD } from './seed-password';
 // The billing agent's cases run in this file's worker, one after the other: both
 // suites move the same dials, and separate files would run at the same time.
 import './billing-agent.cases';
+import './matching-agent.cases';
 
 /**
  * The automation rail over real HTTP and MySQL: everything starts Manual, the

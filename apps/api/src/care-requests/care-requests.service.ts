@@ -39,6 +39,9 @@ import { buildPatientIntake } from '../clients/patient-profile.util';
 import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
 import { GeoService, localName } from '../geo/geo.service';
 import { caregiverRefCondition } from '../caregivers/caregiver-ref.util';
+import { JobsService } from '../jobs/jobs.service';
+import { nudgeMatching } from '../matching/matching-jobs';
+import { AutomationService } from '../automation/automation.service';
 
 /** How many open requests one client may have at once - enough for a real search, too few to spam staff. */
 export const MAX_OPEN_REQUESTS_PER_CLIENT = 10;
@@ -74,6 +77,8 @@ export class CareRequestsService {
     private readonly notifier: CareRequestNotifier,
     private readonly whatsappSettings: WhatsappSettingsService,
     private readonly geo: GeoService,
+    private readonly jobs: JobsService,
+    private readonly automation: AutomationService,
   ) {}
 
   /**
@@ -184,6 +189,8 @@ export class CareRequestsService {
     }
 
     void this.notifier.requestCreated(id);
+    // "Find someone for me": the matching agent, when it is switched on, starts at once.
+    if (!caregiver) await nudgeMatching(this.jobs, this.automation, id);
     const [created] = await this.listForClient(user, undefined, [id]);
     return created;
   }
@@ -699,6 +706,7 @@ export class CareRequestsService {
     }
 
     void this.notifier.requestCreated(id);
+    if (!caregiverId) await nudgeMatching(this.jobs, this.automation, id);
     return this.findOne(id);
   }
 

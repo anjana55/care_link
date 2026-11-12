@@ -18,6 +18,8 @@ describe('Job queue (e2e)', () => {
   const ran: { type: string; payload: Record<string, unknown>; attempt: number }[] = [];
   let failTimes = 0;
   const T = `test-${Date.now()}`;
+  /** Runs this suite's jobs only: other suites, running at the same time, queue their own. */
+  const runDue = (now?: Date) => queue.runDue(now, [`${T}.ok`, `${T}.flaky`, `${T}.slow`]);
   const row = async (id: string) => (await db.select().from(jobs).where(eq(jobs.id, id)))[0];
 
   beforeAll(async () => {
@@ -52,14 +54,14 @@ describe('Job queue (e2e)', () => {
     const now = await queue.enqueue(`${T}.ok`, { invoiceId: 'a' });
     const later = await queue.enqueue(`${T}.ok`, { invoiceId: 'b' }, { runAt: new Date(Date.now() + 60_000) });
 
-    expect(await queue.runDue()).toBe(1);
-    expect(await queue.runDue()).toBe(0);
+    expect(await runDue()).toBe(1);
+    expect(await runDue()).toBe(0);
     expect(ran).toEqual([{ type: 'ok', payload: { invoiceId: 'a' }, attempt: 1 }]);
     expect(await row(now!)).toMatchObject({ status: 'DONE', attempts: 1, lockedBy: null });
     expect(await row(later!)).toMatchObject({ status: 'PENDING', attempts: 0 });
 
     // When its time comes, it runs.
-    expect(await queue.runDue(new Date(Date.now() + 61_000))).toBe(1);
+    expect(await runDue(new Date(Date.now() + 61_000))).toBe(1);
     expect((await row(later!)).status).toBe('DONE');
   });
 
@@ -71,26 +73,26 @@ describe('Job queue (e2e)', () => {
 
     expect(await queue.cancel(`${T}:offer-expiry:x`)).toBe(true);
     expect(await queue.cancel(`${T}:offer-expiry:x`)).toBe(false);
-    expect(await queue.runDue(new Date(Date.now() + 120_000))).toBe(0);
+    expect(await runDue(new Date(Date.now() + 120_000))).toBe(0);
   });
 
   it('retries a failing job with a growing wait, then gives up and can be retried by an admin', async () => {
     failTimes = 99;
     const id = (await queue.enqueue(`${T}.flaky`, { payoutId: 'p' }, { maxAttempts: 3 }))!;
 
-    expect(await queue.runDue()).toBe(1);
+    expect(await runDue()).toBe(1);
     let job = await row(id);
     expect(job).toMatchObject({ status: 'PENDING', attempts: 1, lastError: 'The payment gateway timed out' });
     // Not due again until the first wait (1 minute) has passed.
-    expect(await queue.runDue()).toBe(0);
+    expect(await runDue()).toBe(0);
     expect(job.runAt.getTime() - Date.now()).toBeGreaterThan(backoffMs(1) - 5_000);
 
-    expect(await queue.runDue(new Date(Date.now() + backoffMs(1) + 1_000))).toBe(1);
+    expect(await runDue(new Date(Date.now() + backoffMs(1) + 1_000))).toBe(1);
     job = await row(id);
     expect(job).toMatchObject({ status: 'PENDING', attempts: 2 });
     expect(job.runAt.getTime() - Date.now()).toBeGreaterThan(backoffMs(2) - 5_000);
 
-    expect(await queue.runDue(new Date(Date.now() + backoffMs(2) + 1_000))).toBe(1);
+    expect(await runDue(new Date(Date.now() + backoffMs(2) + 1_000))).toBe(1);
     expect(await row(id)).toMatchObject({ status: 'FAILED', attempts: 3 });
     expect(ran.map((r) => r.attempt)).toEqual([1, 2, 3]);
 
@@ -101,13 +103,13 @@ describe('Job queue (e2e)', () => {
     failTimes = 0;
     expect(await queue.retry(id)).toBe(true);
     expect(await queue.retry(id)).toBe(false);
-    expect(await queue.runDue()).toBe(1);
+    expect(await runDue()).toBe(1);
     expect(await row(id)).toMatchObject({ status: 'DONE', attempts: 1, lastError: null });
   });
 
   it('never runs a job twice when two workers poll at the same moment', async () => {
     for (let i = 0; i < 6; i++) await queue.enqueue(`${T}.slow`, { n: i });
-    const counts = await Promise.all([queue.runDue(), queue.runDue(), queue.runDue()]);
+    const counts = await Promise.all([runDue(), runDue(), runDue()]);
     expect(counts.reduce((a, b) => a + b, 0)).toBe(6);
     expect(ran.map((r) => r.payload.n).sort()).toEqual([0, 1, 2, 3, 4, 5]);
   });
@@ -118,9 +120,9 @@ describe('Job queue (e2e)', () => {
     await db.update(jobs).set({ status: 'RUNNING', attempts: 1, lockedBy: 'gone:1', lockedAt: new Date(Date.now() - STUCK_AFTER_MS - 60_000) }).where(eq(jobs.id, dead));
     await db.update(jobs).set({ status: 'RUNNING', attempts: 1, lockedBy: 'busy:2', lockedAt: new Date() }).where(eq(jobs.id, live));
 
-    expect(await queue.runDue()).toBe(0);
+    expect(await runDue()).toBe(0);
     expect(await queue.releaseStuck()).toBe(1);
-    expect(await queue.runDue()).toBe(1);
+    expect(await runDue()).toBe(1);
     expect(await row(dead)).toMatchObject({ status: 'DONE', attempts: 2 });
     expect(await row(live)).toMatchObject({ status: 'RUNNING', lockedBy: 'busy:2' });
   });
@@ -128,7 +130,7 @@ describe('Job queue (e2e)', () => {
   it('leaves a job type nobody handles in the queue', async () => {
     const [before] = [await queue.summary()];
     await db.insert(jobs).values({ id: '00000000-0000-4000-8000-00000000abcd', type: `${T}.unknown`, payload: {}, runAt: new Date(Date.now() - 5 * 60_000), createdAt: new Date() });
-    expect(await queue.runDue()).toBe(0);
+    expect(await runDue()).toBe(0);
     const after = await queue.summary();
     expect(after.pending).toBe(before.pending + 1);
     expect(after.oldestDueMinutes).toBeGreaterThanOrEqual(4);
