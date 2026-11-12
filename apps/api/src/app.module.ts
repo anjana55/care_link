@@ -49,6 +49,7 @@ import { AutomationModule } from './automation/automation.module';
 import { JobsModule } from './jobs/jobs.module';
 import { PricingModule } from './pricing/pricing.module';
 import { OffersModule } from './offers/offers.module';
+import { MatchingModule } from './matching/matching.module';
 import { InternationalModule } from './international/international.module';
 import { PushModule } from './push/push.module';
 import { MobileAppModule } from './mobile-app/mobile-app.module';
@@ -117,6 +118,7 @@ import { NotificationsCoreModule, NotificationsModule } from './notifications/no
     JobsModule,
     PricingModule,
     OffersModule,
+    MatchingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

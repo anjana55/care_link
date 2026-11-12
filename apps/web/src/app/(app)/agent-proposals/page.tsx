@@ -39,9 +39,13 @@ export default function AgentProposalsPage() {
         <ul className="space-y-3">
           {data.map((d) => {
             const path = d.caseType && d.caseId ? CASE_PATHS[d.caseType] : undefined;
-            const reference = [d.proposal?.bookingReference, d.proposal?.payoutReference].find((r): r is string => typeof r === 'string') ?? null;
+            const reference = [d.proposal?.bookingReference, d.proposal?.payoutReference, d.proposal?.requestReference].find((r): r is string => typeof r === 'string') ?? null;
             // A proposed pay statement does not exist yet: point at the caregiver it is for.
-            const caregiver = !path && typeof d.proposal?.caregiverId === 'string' ? { id: d.proposal.caregiverId, reference: String(d.proposal.caregiverRegistration ?? '') } : null;
+            // A proposed job offer names its caregiver too, next to the request.
+            const caregiver =
+              (!path || d.action === 'matching.send_offer') && typeof d.proposal?.caregiverId === 'string'
+                ? { id: d.proposal.caregiverId, reference: String(d.proposal.caregiverRegistration ?? '') }
+                : null;
             return (
               <li key={d.id}>
                 <Card>
@@ -52,13 +56,13 @@ export default function AgentProposalsPage() {
                     </div>
                     <p className="text-sm text-ink/70">{d.reason}</p>
                     {path && (
-                      <Link href={`${path}/${d.caseId}`} className="text-sm font-medium text-brand-dark hover:underline">
+                      <Link href={`${path}/${d.caseId}`} className="block text-sm font-medium text-brand-dark hover:underline">
                         {t(`automation.caseTypes.${d.caseType}`)}
                         {reference ? ` ${reference}` : ''} · {t('automation.proposals.open')}
                       </Link>
                     )}
                     {caregiver && (
-                      <Link href={`/caregivers/${caregiver.id}`} className="text-sm font-medium text-brand-dark hover:underline">
+                      <Link href={`/caregivers/${caregiver.id}`} className="block text-sm font-medium text-brand-dark hover:underline">
                         {t('automation.proposals.caregiver', { reference: caregiver.reference })} · {t('automation.proposals.open')}
                       </Link>
                     )}

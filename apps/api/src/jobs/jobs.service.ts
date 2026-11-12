@@ -118,14 +118,16 @@ export class JobsService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /**
    * Claims up to one batch of due jobs and runs them. Returns how many it
-   * ran. Public so tests (and a manual drain) can run the queue without the timer.
+   * ran. Public so tests (and a manual drain) can run the queue without the
+   * timer; `only` keeps a drain to the job types named.
    */
-  async runDue(now = new Date()): Promise<number> {
+  async runDue(now = new Date(), only?: string[]): Promise<number> {
+    const types = only ? only.filter((t) => this.handlers.has(t)) : [...this.handlers.keys()];
     const claimed = await this.db.transaction(async (tx) => {
       const due = await tx
         .select()
         .from(jobs)
-        .where(and(eq(jobs.status, 'PENDING'), lte(jobs.runAt, now), inArray(jobs.type, [...this.handlers.keys(), ''])))
+        .where(and(eq(jobs.status, 'PENDING'), lte(jobs.runAt, now), inArray(jobs.type, [...types, ''])))
         .orderBy(asc(jobs.runAt))
         .limit(BATCH)
         .for('update', { skipLocked: true });

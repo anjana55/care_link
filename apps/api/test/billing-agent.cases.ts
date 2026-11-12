@@ -437,8 +437,9 @@ describe('Billing agent (e2e)', () => {
     await mode('SHADOW');
     const ran = await api().post('/settings/automation/functions/BILLING/run').set(bearer(adminToken)).expect(200);
     expect(ran.body).toMatchObject({ function: 'BILLING', mode: 'SHADOW' });
-    await api().post('/settings/automation/functions/MATCHING/run').set(bearer(adminToken)).expect(400);
+    await api().post('/settings/automation/functions/BOOKING/run').set(bearer(adminToken)).expect(400);
     await api().post('/settings/automation/functions/BILLING/run').set(bearer(staffToken)).expect(403);
     void automation;
-  });
+    // "Run now" goes through every booking in the database, not just this suite's: allow for a full one.
+  }, 60_000);
 });
