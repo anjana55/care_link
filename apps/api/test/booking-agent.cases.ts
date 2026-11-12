@@ -152,6 +152,8 @@ describe('Booking agent (e2e)', () => {
       `Draft a booking with ${req.caregiver.reg}: Day shifts, Monday to Friday, 08:00-17:00, from ${inFiveDays} for 14 days (10 shifts), ${booking.rateAmount ? 'at the rates agreed in the offer' : "at the caregiver's agreed pay; the client's rate is still to be set"}`,
     );
     for (const secret of ['Nimal', 'Perera', 'Sunil', 'Booked Caregiver', 'surgery']) expect(JSON.stringify(decision)).not.toContain(secret);
+    // With only Booking switched on, the request page still shows an agent at work (and so offers Take over).
+    expect(await panel(req.id)).toMatchObject({ agentActive: true, mode: 'AUTO' });
     const note = (await panel(req.id)).handoverNote;
     expect(note.done).toBe(`Drafted booking ${booking.reference} with ${req.caregiver.reg}`);
     expect(note.waiting).toBe('Staff to check the times with the client and confirm the booking');
