@@ -23,6 +23,7 @@ import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
 import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
 import { normalizePhone } from '../common/utils/phone.util';
 import { nudgeMatching } from '../matching/matching-jobs';
+import { nudgeBooking } from '../bookings/booking-agent-jobs';
 import { AutomationService } from '../automation/automation.service';
 import type { SendOfferDto } from './dto/offers.dto';
 
@@ -342,6 +343,8 @@ export class OffersService implements OnApplicationBootstrap {
     await this.requests.setCaregiver(offer.requestId, offer.caregiverId, actor);
     await this.requests.addNote(offer.requestId, 'The caregiver accepted the job offer', actor);
     await nudgeMatching(this.jobs, this.automation, offer.requestId);
+    // The booking agent, when it is switched on, drafts the booking.
+    await nudgeBooking(this.jobs, this.automation, offer.requestId);
     if (!offer.sentByUserId) return;
     const [[sender], [request], [caregiver]] = await Promise.all([
       this.db.select({ email: users.email, isActive: users.isActive }).from(users).where(eq(users.id, offer.sentByUserId)).limit(1),

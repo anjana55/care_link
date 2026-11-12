@@ -29,7 +29,7 @@ export const ACTION_LIMITS: Partial<Record<string, { key: string; default: numbe
 };
 
 /** The agents that exist so far. The others have a dial, but nothing behind it yet. */
-export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING', 'MATCHING'];
+export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING', 'MATCHING', 'BOOKING'];
 
 /**
  * The dial, lowest to highest.
