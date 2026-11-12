@@ -15,6 +15,7 @@ import { useMyBookings } from '@/care/bookings-api';
 import { SignInPrompt } from '@/care/SignInPrompt';
 import { TodaysCare } from '@/care/TodaysCare';
 import { BookingIssues } from '@/care/BookingIssues';
+import { BookingProposals } from '@/care/BookingProposals';
 import { useMyIssues } from '@/care/billing-api';
 import { shortId } from '@/search/ResultCard';
 import { BookingReviews, PendingReviewsBanner } from '@/reviews/BookingReviews';
@@ -26,7 +27,7 @@ import { useMarkPathsRead } from '@/notifications/api';
  * time, and "Something's not right?" on each. Pull down to refresh.
  */
 export default function Bookings() {
-  useMarkPathsRead(['/care']);
+  useMarkPathsRead(['/care', '/bookings']);
   const { t } = useTranslation();
   const colors = useColors();
   const router = useRouter();
@@ -34,13 +35,14 @@ export default function Bookings() {
   const bookings = useMyBookings();
   const issues = useMyIssues();
   const queryClient = useQueryClient();
-  // Pulling down refreshes the bookings and the day's checklist together.
+  // Pulling down refreshes the bookings, the drafts to check and the day's checklist together.
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['client-care', client?.userId ?? 'none'] });
 
   const head = (
     <View style={styles.head}>
       {client ? (
         <>
+          <BookingProposals />
           <PendingReviewsBanner />
           <TodaysCare />
         </>

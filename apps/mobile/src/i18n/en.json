@@ -344,7 +344,35 @@
         "MONTHLY": "per month"
       }
     },
-    "signedOutHint": "Sign in to save caregivers, follow your requests, and see your bookings and invoices."
+    "signedOutHint": "Sign in to save caregivers, follow your requests, and see your bookings and invoices.",
+    "bookingCheck": {
+      "title": {
+        "ASKED": "Please check this booking",
+        "ACCEPTED": "You accepted this booking",
+        "CHANGES_REQUESTED": "You asked us to change this booking"
+      },
+      "intro": {
+        "ASKED": "We have prepared this for you. If it is right, accept it. If not, tell us what to change.",
+        "ACCEPTED": "Thank you. We are confirming it now and will let you know as soon as it is booked.",
+        "CHANGES_REQUESTED": "Thank you. Our team will change it and ask you to check it again."
+      },
+      "days": "Days",
+      "everyDay": "Every day",
+      "times": "Times (Sri Lanka time)",
+      "nextDay": "(ends the next day)",
+      "visits": "{n} visits",
+      "price": "Price",
+      "caregiverByTeam": "A caregiver chosen by our team.",
+      "accept": "Accept this booking",
+      "change": "Ask for a change",
+      "changeLabel": "What would you like changed?",
+      "changePlaceholder": "For example: could the carer come at 9 instead of 8?",
+      "send": "Send",
+      "back": "Back",
+      "youAsked": "You asked:",
+      "notBookedYet": "Nothing is booked until you accept and we confirm it.",
+      "failed": "That did not go through. Please try again."
+    }
   },
   "care": {
     "contactCta": "Contact this caregiver",

@@ -30,3 +30,8 @@ export function fmtDay(iso: string, locale: string): string {
     timeZone: 'UTC',
   });
 }
+
+/** An ISO weekday (1 = Monday) as its short name. */
+export function fmtWeekday(isoWeekday: number, locale: string): string {
+  return new Date(Date.UTC(2026, 9, 18 + isoWeekday)).toLocaleDateString(locale === 'en' ? 'en-GB' : locale, { weekday: 'short', timeZone: 'UTC' });
+}
