@@ -10,7 +10,7 @@ import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
 import { normalizePhone } from '../common/utils/phone.util';
 import { chooseClientChannel } from '../care-requests/care-request-notifier.service';
 import { CLIENT_CTA, CLIENT_FOOTER } from '../care-requests/notification-messages';
-import { bookingCaregiverNotice, bookingClientNotice } from './booking-messages';
+import { bookingCaregiverNotice, bookingClientCheckNotice, bookingClientNotice } from './booking-messages';
 import { fromBlocks, fromNotice } from '../push/push.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -48,6 +48,62 @@ export class BookingNotifier {
    */
   bookingChanged(id: string, from: string, caregiverIds: string[]) {
     return this.send(id, 'CHANGED', { date: from, caregiverIds });
+  }
+
+  /**
+   * Asks the client to check a draft: the bell and a push, plus WhatsApp or
+   * email by the same choice of channel as every other booking notice. Returns
+   * whether a message went out beyond the bell, so the caller can say so.
+   */
+  async askClientToCheck(id: string): Promise<'WHATSAPP' | 'EMAIL' | 'NONE'> {
+    try {
+      const [b] = await this.db
+        .select({ reference: bookings.reference, language: bookings.language, startDate: bookings.startDate, patientUserId: patients.userId, patientPhone: patients.phone, preferred: patients.preferredContactMethod })
+        .from(bookings)
+        .innerJoin(patients, eq(bookings.patientId, patients.id))
+        .where(eq(bookings.id, id))
+        .limit(1);
+      if (!b) return 'NONE';
+      const vars = { ref: b.reference, date: String(b.startDate).slice(0, 10) };
+      this.notices.notify([b.patientUserId], (lang) => fromNotice(bookingClientCheckNotice(lang, vars)), '/bookings', `booking check ${b.reference}`);
+      const [account] = b.patientUserId ? await this.db.select({ email: users.email, phone: users.phone }).from(users).where(eq(users.id, b.patientUserId)).limit(1) : [];
+      const wa = await this.whatsappSettings.getResolved();
+      const phone = account?.phone ?? normalizePhone(b.patientPhone, await this.whatsappSettings.getDefaultCountryCode());
+      const text = bookingClientCheckNotice(b.language, vars);
+      const channel = chooseClientChannel({ hasEmail: Boolean(account?.email), canWhatsapp: Boolean(phone) && this.whatsapp.canSendUpdates(wa), preferred: b.preferred });
+      if (channel === 'WHATSAPP') {
+        await this.whatsapp.sendUpdate(wa, phone!, b.language, `${text.heading}. ${text.body}`);
+        return 'WHATSAPP';
+      }
+      if (channel === 'EMAIL') {
+        await this.email.sendNotificationEmail(
+          account!.email!,
+          { subject: text.subject, blocks: [{ lang: b.language, heading: text.heading, paragraphs: [text.body] }], cta: { label: CLIENT_CTA[b.language], url: this.publicUrl('/account/bookings') }, footer: CLIENT_FOOTER[b.language] },
+          `booking check ${b.reference}`,
+        );
+        return 'EMAIL';
+      }
+      return 'NONE';
+    } catch (err) {
+      this.logger.error(`Booking check notice failed: ${(err as Error).message}`);
+      return 'NONE';
+    }
+  }
+
+  /** Tells the staff member who asked that the client has answered. Agents have no inbox; the case note covers them. */
+  async clientAnswered(id: string, answer: 'ACCEPTED' | 'CHANGES_REQUESTED', note: string | null) {
+    try {
+      const [b] = await this.db.select({ reference: bookings.reference, askedBy: bookings.clientAskedByUserId }).from(bookings).where(eq(bookings.id, id)).limit(1);
+      if (!b?.askedBy) return;
+      const [staff] = await this.db.select({ email: users.email, isActive: users.isActive }).from(users).where(eq(users.id, b.askedBy)).limit(1);
+      if (!staff?.email || !staff.isActive) return;
+      const heading = answer === 'ACCEPTED' ? `The client accepted booking ${b.reference}` : `The client asked for changes to booking ${b.reference}`;
+      const body = answer === 'ACCEPTED' ? 'It is ready to confirm.' : `They wrote: "${note ?? ''}". Change the draft and ask them again.`;
+      const base = (this.config.get<string>('CAREGIVER_WEB_URL') ?? 'http://localhost:3000/staff').replace(/\/+$/, '');
+      await this.email.sendNotificationEmail(staff.email, { subject: `{brand} - ${heading}`, blocks: [{ lang: 'en', heading, paragraphs: [body] }], cta: { label: 'Open the booking', url: `${base}/bookings/${id}` } }, `booking answered ${b.reference}`);
+    } catch (err) {
+      this.logger.error(`Booking answer notice failed: ${(err as Error).message}`);
+    }
   }
 
   private publicUrl(path: string) {

@@ -20,6 +20,10 @@ import { careRequestLanguageEnum } from './care-requests.schema';
 export const bookingStatusEnum = ['DRAFT', 'CONFIRMED', 'COMPLETED', 'CANCELLED'] as const;
 export type BookingStatus = (typeof bookingStatusEnum)[number];
 
+/** A draft put in front of the client: waiting for them, accepted as it is, or they want something changed. */
+export const clientReviewStatusEnum = ['ASKED', 'ACCEPTED', 'CHANGES_REQUESTED'] as const;
+export type ClientReviewStatus = (typeof clientReviewStatusEnum)[number];
+
 /** Day/night/live-in mirror the caregiver availability flags; CUSTOM is any other pattern. */
 export const scheduleTypeEnum = ['DAY', 'NIGHT', 'LIVE_IN', 'CUSTOM'] as const;
 export type ScheduleType = (typeof scheduleTypeEnum)[number];
@@ -81,6 +85,16 @@ export const bookings = mysqlTable(
     cancelledAt: datetime('cancelled_at'),
     cancelReason: varchar('cancel_reason', { length: 500 }),
     completedAt: datetime('completed_at'),
+    // --- the client's check of a draft, before it is confirmed ----------------
+    // Null: the client has not been asked. Any change to the draft's times,
+    // caregiver or client rate clears it - what they said no longer applies.
+    clientReviewStatus: mysqlEnum('client_review_status', clientReviewStatusEnum),
+    clientAskedAt: datetime('client_asked_at'),
+    clientAskedByUserId: varchar('client_asked_by_user_id', { length: 36 }),
+    clientAnsweredAt: datetime('client_answered_at'),
+    /** What the client wants changed, in their words. */
+    clientReviewNote: varchar('client_review_note', { length: 500 }),
+
     createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   },

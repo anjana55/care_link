@@ -212,6 +212,36 @@ export interface ClientBooking {
   reviews: ReviewableCaregiver[];
 }
 
+/** Where a draft stands with the client: waiting for them, accepted as it is, or they want something changed. */
+export type ClientReviewStatus = 'ASKED' | 'ACCEPTED' | 'CHANGES_REQUESTED';
+export const CLIENT_REVIEW_NOTE_MAX = 500;
+
+/**
+ * GET /me/booking-proposals (client): a booking the office has drafted and
+ * asked the client to check before it is confirmed. Nothing is reserved yet.
+ */
+export interface ClientBookingProposal {
+  id: string;
+  reference: string;
+  status: ClientReviewStatus;
+  scheduleType: ScheduleType;
+  daysOfWeek: IsoWeekday[];
+  /** Colombo time, HH:MM. An end at or before the start runs into the next day. */
+  shiftStartTime: string;
+  shiftEndTime: string;
+  startDate: string;
+  endDate: string;
+  shiftCount: number;
+  rateType: RateType | null;
+  rateAmount: string | null;
+  /** Null when the caregiver is not shown on the public site. */
+  caregiver: PublicCaregiverProfile | null;
+  askedAt: string;
+  answeredAt: string | null;
+  /** What the client asked to change. */
+  note: string | null;
+}
+
 /** GET /me/shifts (caregiver). */
 export interface CaregiverShift extends PortalShift {
   bookingReference: string;

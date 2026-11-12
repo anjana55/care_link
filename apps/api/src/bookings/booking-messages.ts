@@ -97,3 +97,27 @@ export function bookingCaregiverNotice(notice: Notice, vars: { ref: string; date
   }));
   return { subject: `{brand} - ${blocks[0].heading} (${vars.ref})`, blocks, whatsappText: blocks.map((b) => b.body).join(' / ') };
 }
+
+/** A draft the client is asked to check before it is confirmed. Nothing in it says what the care is for. */
+const CLIENT_CHECK = {
+  en: {
+    subject: 'Please check your booking {ref}',
+    heading: 'Please check your booking',
+    body: 'We have prepared booking {ref}, starting {date}. Please check the times and the price in your {brand} account and confirm, or tell us what to change. Nothing is booked until you confirm.',
+  },
+  si: {
+    subject: 'ඔබගේ වෙන්කිරීම {ref} පරීක්ෂා කරන්න',
+    heading: 'ඔබගේ වෙන්කිරීම පරීක්ෂා කරන්න',
+    body: 'අපි {date} දින ආරම්භ වන වෙන්කිරීම {ref} සූදානම් කර ඇත. ඔබගේ {brand} ගිණුමෙන් වේලාවන් සහ මිල පරීක්ෂා කර තහවුරු කරන්න, නැතහොත් වෙනස් කළ යුතු දේ අපට කියන්න. ඔබ තහවුරු කරන තුරු කිසිවක් වෙන් නොකෙරේ.',
+  },
+  ta: {
+    subject: 'உங்கள் முன்பதிவு {ref} ஐச் சரிபார்க்கவும்',
+    heading: 'உங்கள் முன்பதிவைச் சரிபார்க்கவும்',
+    body: '{date} அன்று தொடங்கும் முன்பதிவு {ref} ஐ நாங்கள் தயார் செய்துள்ளோம். உங்கள் {brand} கணக்கில் நேரங்களையும் விலையையும் சரிபார்த்து உறுதிப்படுத்தவும், அல்லது எதை மாற்ற வேண்டும் என்று எங்களிடம் கூறவும். நீங்கள் உறுதிப்படுத்தும் வரை எதுவும் பதிவு செய்யப்படாது.',
+  },
+} as const;
+
+export function bookingClientCheckNotice(lang: Lang, vars: { ref: string; date: string }) {
+  const t = CLIENT_CHECK[lang] ?? CLIENT_CHECK.en;
+  return { subject: fill(t.subject, vars), heading: fill(t.heading, vars), body: fill(t.body, vars) };
+}
