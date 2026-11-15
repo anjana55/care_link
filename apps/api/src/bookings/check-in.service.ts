@@ -26,7 +26,8 @@ import {
   type TodayVisits,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { bookingShifts, bookings, caregivers, checkInSettings, cities, districts, patients, shiftCheckins, users } from '../database/schema';
+import { bookingShifts, bookings, caregivers, checkInSettings, cities, districts, patients, requestOffers, shiftCheckins, users } from '../database/schema';
+import { closeCoverOffers } from '../cover/cover-jobs';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { deriveKey } from '../common/utils/secret-box.util';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -260,6 +261,14 @@ export class CheckInService {
       .limit(500);
     // With check-in off the page still lists the day; each visit simply has nothing recorded.
     const views = await this.forStaff(rows.map((r) => ({ id: r.shiftId, startsAt: r.startsAt, endsAt: r.endsAt })), now, { ...settings, enabled: true });
+    const waiting = rows.length
+      ? await this.db
+          .select({ shiftId: requestOffers.shiftId, n: sql<number>`COUNT(*)` })
+          .from(requestOffers)
+          .where(and(inArray(requestOffers.shiftId, rows.map((r) => r.shiftId)), eq(requestOffers.status, 'OFFERED'), gt(requestOffers.expiresAt, now)))
+          .groupBy(requestOffers.shiftId)
+      : [];
+    const coverWaiting = new Map(waiting.map((w) => [w.shiftId, Number(w.n)]));
     return {
       settings,
       date,
@@ -277,6 +286,7 @@ export class CheckInService {
           isCover: r.bookedCaregiverId !== r.caregiverId,
           minutesLate: r.status === 'SCHEDULED' && checkIn.state === 'LATE' ? minutesLate({ startsAt: r.startsAt }, now) : null,
           checkIn,
+          coverWaiting: coverWaiting.get(r.shiftId) ?? 0,
         };
       }),
     };
@@ -372,6 +382,8 @@ export class CheckInService {
       updatedAt: now,
     };
     await this.db.insert(shiftCheckins).values({ shiftId, bookingId: shift.bookingId, ...record }).onDuplicateKeyUpdate({ set: record });
+    // The caregiver came after all: anyone offered this shift as cover is told it is no longer open.
+    await closeCoverOffers(this.db, this.jobs, shiftId);
     this.tellClient(shift.patientUserId, now, shiftId);
   }
 
@@ -423,6 +435,7 @@ export class CheckInService {
     if (row?.checkedInAt) throw new BadRequestException('This visit already has a check-in');
     const record = { checkedInAt: at, inBy: 'STAFF' as const, inByUserId: actor.userId, inNote: input.note?.trim() || null, updatedAt: now };
     await this.db.insert(shiftCheckins).values({ shiftId, bookingId: shift.bookingId, ...record }).onDuplicateKeyUpdate({ set: record });
+    await closeCoverOffers(this.db, this.jobs, shiftId);
     return (await this.forStaff([shift], now)).get(shiftId)!;
   }
 

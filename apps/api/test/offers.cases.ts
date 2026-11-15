@@ -137,7 +137,8 @@ describe('Job offers (e2e)', () => {
     expect(raw).not.toMatch(/Perera|Fernando|surgery|clientRate|patientId|message|example\.com/);
     // The client's phone number, with or without its leading zero.
     expect(raw).not.toContain(req.phone.slice(1));
-    expect(Object.keys(seen).sort()).toEqual(['careType', 'city', 'createdAt', 'desiredStartDate', 'district', 'expiresAt', 'id', 'note', 'payRate', 'rateType', 'reference', 'respondedAt', 'status']);
+    expect(Object.keys(seen).sort()).toEqual(['careType', 'city', 'createdAt', 'desiredStartDate', 'district', 'expiresAt', 'id', 'kind', 'note', 'payRate', 'rateType', 'reference', 'respondedAt', 'shift', 'status']);
+    expect(seen).toMatchObject({ kind: 'JOB', shift: null });
     expect((await api().get('/me/care-offers/count').set(bearer(cg.token)).expect(200)).body).toEqual({ waiting: 1 });
 
     // It is theirs alone.

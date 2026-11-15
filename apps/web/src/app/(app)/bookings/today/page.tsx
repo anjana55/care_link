@@ -15,12 +15,13 @@ import { Input, Label } from '@/components/ui/input';
 import { PhoneLink } from '@/components/clients/contact-links';
 import { ShiftStatusBadge } from '@/components/bookings/booking-badges';
 import { VisitChip, VisitNotes } from '@/components/bookings/visit-chip';
+import { CoverPanel } from '@/components/bookings/cover-panel';
 
 /**
  * Today's visits: every shift on today's roster in time order, and whether
  * the caregiver has checked in. Late ones come first. Staff can record a
  * check-in or check-out for a caregiver who phoned instead - the manual way
- * always works.
+ * always works - and find cover for a visit whose caregiver cannot come.
  */
 export default function TodayVisitsPage() {
   const { t, locale } = useTranslation();
@@ -89,9 +90,12 @@ export default function TodayVisitsPage() {
 function VisitRow({ visit: v, date, on }: { visit: TodayVisit; date: string; on: boolean }) {
   const { t, locale } = useTranslation();
   const [recording, setRecording] = useState<'check-in' | 'check-out' | null>(null);
+  const [covering, setCovering] = useState(false);
   const live = v.shiftStatus === 'SCHEDULED' || v.shiftStatus === 'COMPLETED';
   const canIn = on && live && !v.checkIn.checkedInAt;
   const canOut = on && live && !!v.checkIn.checkedInAt && !v.checkIn.checkedOutAt;
+  // Cover is for a visit nobody has come to yet. It needs no check-in switch: a caregiver can phone in sick either way.
+  const canCover = v.shiftStatus === 'SCHEDULED' && !v.checkIn.checkedInAt && new Date(v.endsAt).getTime() > Date.now();
 
   return (
     <li className={`rounded-lg border bg-white p-3 ${v.minutesLate !== null ? 'border-danger/40' : 'border-border'}`} data-testid={`visit-${v.shiftId}`}>
@@ -112,6 +116,7 @@ function VisitRow({ visit: v, date, on }: { visit: TodayVisit; date: string; on:
             {v.caregiver.fullName}
           </Link>
           {v.isCover && <span className="ml-1 text-xs text-accent">({t('visits.cover')})</span>}
+          {v.coverWaiting > 0 && <p className="text-xs font-medium text-accent">{t('visits.coverPanel.waiting', { n: v.coverWaiting })}</p>}
           <p className="text-xs text-ink/50">{v.caregiver.registrationNumber}</p>
           {v.caregiver.phone && (
             <p className="text-xs">
@@ -129,13 +134,21 @@ function VisitRow({ visit: v, date, on }: { visit: TodayVisit; date: string; on:
             </p>
           )}
         </div>
-        {(canIn || canOut) && !recording && (
-          <Button variant="secondary" size="sm" onClick={() => setRecording(canIn ? 'check-in' : 'check-out')}>
-            {canIn ? t('visits.recordIn') : t('visits.recordOut')}
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {(canIn || canOut) && !recording && (
+            <Button variant="secondary" size="sm" onClick={() => (setCovering(false), setRecording(canIn ? 'check-in' : 'check-out'))}>
+              {canIn ? t('visits.recordIn') : t('visits.recordOut')}
+            </Button>
+          )}
+          {(canCover || v.coverWaiting > 0) && !covering && (
+            <Button variant="secondary" size="sm" onClick={() => (setRecording(null), setCovering(true))}>
+              {t('visits.coverPanel.find')}
+            </Button>
+          )}
+        </div>
       </div>
       {recording && <RecordForm shiftId={v.shiftId} what={recording} date={date} onDone={() => setRecording(null)} />}
+      {covering && <CoverPanel shiftId={v.shiftId} onClose={() => setCovering(false)} />}
     </li>
   );
 }

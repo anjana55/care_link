@@ -4186,6 +4186,29 @@
       "lateHint": "Between {min} and {max}. A visit with nobody checked in by then is listed for staff.",
       "saved": "Saved",
       "saveError": "The settings could not be saved."
+    },
+    "coverPanel": {
+      "find": "Find cover",
+      "waiting": "Cover offered · {n} waiting for an answer",
+      "title": "Cover for this visit",
+      "pay": "Pays LKR {amount} {unit}, the same as the shift.",
+      "payOpen": "The booking is paid by the month, so the pay for this one shift is to be agreed with the caregiver.",
+      "accepted": "{name} accepted and is now on the shift. The client and the caregiver who was replaced have been told.",
+      "asked": "Asked",
+      "suggested": "Who could cover",
+      "suggestedHint": "Free at this time and in the area, best placed first. Each gets {minutes} minutes to answer, and is shown the day, the time, the area and the pay - nothing about the client. The first to accept is put on the shift.",
+      "none": "Nobody else is free at this time in the area. Phone a caregiver, then change the shift's caregiver on the booking.",
+      "noneLeft": "Nobody else is free at this time in the area.",
+      "again": "Ask someone else",
+      "send": "Offer the shift ({n} selected)",
+      "close": "Close",
+      "error": "That could not be done. Please try again.",
+      "blocked": {
+        "NOT_SCHEDULED": "Only a scheduled shift can be offered as cover.",
+        "ENDED": "This visit is over.",
+        "CHECKED_IN": "The caregiver has checked in, so no cover is needed.",
+        "BILLED": "This shift is already on {doc}. Change its caregiver with Correct on the booking, so the document is adjusted with it."
+      }
     }
   }
 }

@@ -1,6 +1,6 @@
 import { mysqlTable, varchar, datetime, mysqlEnum, decimal, index, uniqueIndex } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
-import { CARE_OFFER_DECLINE_REASONS, CARE_OFFER_STATUSES } from '@care-platform/shared';
+import { CARE_OFFER_DECLINE_REASONS, CARE_OFFER_KINDS, CARE_OFFER_STATUSES } from '@care-platform/shared';
 import { rateTypeEnum } from './bookings.schema';
 
 /**
@@ -12,16 +12,24 @@ import { rateTypeEnum } from './bookings.schema';
  * agreed to cannot shift under them afterwards. Null rates mean "to be
  * agreed": the office prices the booking by hand.
  *
- * `open_key` is "request:caregiver" while the offer is waiting and NULL
- * otherwise, so the unique index allows one waiting offer per caregiver per
- * request and any number of finished ones (the same technique as
- * care_requests.open_pair_key).
+ * A COVER offer is the same thing for one shift whose caregiver cannot come:
+ * it has a shift instead of a request, the pay is the shift's own, and the
+ * first caregiver to accept is put on the shift.
+ *
+ * `open_key` is "request:caregiver" (or "shift:caregiver" for cover) while
+ * the offer is waiting and NULL otherwise, so the unique index allows one
+ * waiting offer per caregiver per job and any number of finished ones (the
+ * same technique as care_requests.open_pair_key).
  */
 export const requestOffers = mysqlTable(
   'request_offers',
   {
     id: varchar('id', { length: 36 }).primaryKey(),
-    requestId: varchar('request_id', { length: 36 }).notNull(),
+    kind: mysqlEnum('kind', CARE_OFFER_KINDS).notNull().default('JOB'),
+    /** The request a JOB offer is for. Null on a cover offer. */
+    requestId: varchar('request_id', { length: 36 }),
+    /** The shift a COVER offer is for. Null on a job offer. */
+    shiftId: varchar('shift_id', { length: 36 }),
     caregiverId: varchar('caregiver_id', { length: 36 }).notNull(),
     status: mysqlEnum('status', CARE_OFFER_STATUSES).notNull().default('OFFERED'),
     rateType: mysqlEnum('rate_type', rateTypeEnum),
@@ -35,10 +43,11 @@ export const requestOffers = mysqlTable(
     expiresAt: datetime('expires_at', { fsp: 3 }).notNull(),
     respondedAt: datetime('responded_at', { fsp: 3 }),
     createdAt: datetime('created_at', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
-    openKey: varchar('open_key', { length: 80 }).generatedAlwaysAs(sql`IF(status = 'OFFERED', CONCAT(request_id, ':', caregiver_id), NULL)`, { mode: 'stored' }),
+    openKey: varchar('open_key', { length: 80 }).generatedAlwaysAs(sql`IF(status = 'OFFERED', CONCAT(COALESCE(shift_id, request_id), ':', caregiver_id), NULL)`, { mode: 'stored' }),
   },
   (t) => ({
     requestIdx: index('request_offers_request_idx').on(t.requestId, t.createdAt),
+    shiftIdx: index('request_offers_shift_idx').on(t.shiftId, t.status),
     caregiverIdx: index('request_offers_caregiver_idx').on(t.caregiverId, t.status, t.expiresAt),
     openUnique: uniqueIndex('request_offers_open_unique').on(t.openKey),
   }),

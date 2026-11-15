@@ -1,14 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { CARE_OFFER_DECLINE_REASONS, type CareOfferDeclineReason, type CaregiverCareOffer } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { ApiError } from '@/lib/api/client';
-import { fmtDate, fmtDateTime } from '@/lib/colombo-time';
+import { fmtDate, fmtDateTime, fmtDay, fmtTime } from '@/lib/colombo-time';
 import { useAnswerCareOffer, useCareOffers } from '@/lib/hooks/use-caregiver-portal';
 import { useMarkPathsRead } from '@/lib/hooks/use-notifications';
 
 const money = (n: number) => n.toLocaleString('en-LK');
+const isCover = (o: CaregiverCareOffer) => o.kind === 'COVER';
 const STATUS_STYLES: Record<CaregiverCareOffer['status'], string> = {
   OFFERED: 'bg-accent-light text-accent',
   ACCEPTED: 'bg-brand-light text-brand-dark',
@@ -21,6 +23,10 @@ const STATUS_STYLES: Record<CaregiverCareOffer['status'], string> = {
  * The caregiver's job offers. Each waiting offer says what the job is (kind of
  * care, area, start, pay), until when they can answer, and has two large
  * buttons. Nothing here identifies the client: that comes with the booking.
+ *
+ * A cover offer - one shift another caregiver cannot make - sits in the same
+ * list, marked as cover, with the shift's day and time in place of a start
+ * date. Accepting it puts the shift in the caregiver's shifts at once.
  */
 export default function CareOffersPage() {
   useMarkPathsRead(['/care-offers']);
@@ -41,10 +47,17 @@ export default function CareOffersPage() {
         <dt className="text-xs text-ink/60">{t('portal.offers.where')}</dt>
         <dd className="font-medium text-ink">{[o.city?.[locale], o.district?.[locale]].filter(Boolean).join(', ') || '—'}</dd>
       </div>
-      <div>
-        <dt className="text-xs text-ink/60">{t('portal.offers.starts')}</dt>
-        <dd className="font-medium text-ink">{o.desiredStartDate ? fmtDate(o.desiredStartDate, locale) : t('portal.offers.startsOpen')}</dd>
-      </div>
+      {o.shift ? (
+        <div>
+          <dt className="text-xs text-ink/60">{t('portal.offers.cover.when')}</dt>
+          <dd className="font-medium text-ink">{t('portal.offers.cover.whenValue', { day: fmtDay(o.shift.startsAt, locale), from: fmtTime(o.shift.startsAt, locale), to: fmtTime(o.shift.endsAt, locale) })}</dd>
+        </div>
+      ) : (
+        <div>
+          <dt className="text-xs text-ink/60">{t('portal.offers.starts')}</dt>
+          <dd className="font-medium text-ink">{o.desiredStartDate ? fmtDate(o.desiredStartDate, locale) : t('portal.offers.startsOpen')}</dd>
+        </div>
+      )}
       <div>
         <dt className="text-xs text-ink/60">{t('portal.offers.rate')}</dt>
         <dd className="font-medium text-ink">
@@ -55,11 +68,14 @@ export default function CareOffersPage() {
   );
 
   const card = (o: CaregiverCareOffer) => (
-    <li key={o.id} className="rounded-lg border border-border bg-white p-5">
+    <li key={o.id} className="rounded-lg border border-border bg-white p-5" data-testid={`offer-${o.id}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="text-base font-semibold text-ink">{o.careType ? t(`careTypes.${o.careType}`) : t('portal.offers.title')}</h3>
-          <p className="text-xs text-ink/60">{t('portal.offers.reference', { reference: o.reference })}</p>
+          <h3 className="text-base font-semibold text-ink">{isCover(o) ? t('portal.offers.cover.title') : o.careType ? t(`careTypes.${o.careType}`) : t('portal.offers.title')}</h3>
+          <p className="text-xs text-ink/60">
+            {isCover(o) && o.careType && `${t(`careTypes.${o.careType}`)} · `}
+            {isCover(o) ? t('portal.offers.cover.reference', { reference: o.reference }) : t('portal.offers.reference', { reference: o.reference })}
+          </p>
         </div>
         <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[o.status]}`}>{t(`portal.offers.statuses.${o.status}`)}</span>
       </div>
@@ -70,11 +86,21 @@ export default function CareOffersPage() {
           {o.note}
         </p>
       )}
-      {o.status === 'ACCEPTED' && <p className="mt-3 text-sm text-brand-dark">{t('portal.offers.accepted')}</p>}
+      {o.status === 'ACCEPTED' &&
+        (isCover(o) ? (
+          <p className="mt-3 text-sm text-brand-dark">
+            {t('portal.offers.cover.accepted')}{' '}
+            <Link href="/caregiver/shifts" className="font-medium underline">
+              {t('portal.offers.cover.seeShifts')}
+            </Link>
+          </p>
+        ) : (
+          <p className="mt-3 text-sm text-brand-dark">{t('portal.offers.accepted')}</p>
+        ))}
       {o.status === 'OFFERED' && (
         <>
           <p className="mt-3 text-sm font-medium text-accent">{t('portal.offers.answerBy', { when: fmtDateTime(o.expiresAt, locale) })}</p>
-          <p className="text-xs text-ink/60">{t('portal.offers.privacy')}</p>
+          <p className="text-xs text-ink/60">{isCover(o) ? t('portal.offers.cover.privacy') : t('portal.offers.privacy')}</p>
           {error?.offerId === o.id && (
             <p role="alert" className="mt-2 text-sm text-danger">
               {error.text}
@@ -112,7 +138,7 @@ export default function CareOffersPage() {
                 onClick={() => (setError(null), answer.mutate({ offerId: o.id, accept: true }, { onError: fail(o.id) }))}
                 className="inline-flex h-12 items-center rounded bg-brand px-6 text-base font-medium text-white hover:bg-brand-dark disabled:opacity-50"
               >
-                {answer.isPending && answer.variables?.offerId === o.id && answer.variables.accept ? t('common.loading') : t('portal.offers.accept')}
+                {answer.isPending && answer.variables?.offerId === o.id && answer.variables.accept ? t('common.loading') : isCover(o) ? t('portal.offers.cover.accept') : t('portal.offers.accept')}
               </button>
               <button
                 type="button"
