@@ -29,7 +29,7 @@ export const ACTION_LIMITS: Partial<Record<string, { key: string; default: numbe
 };
 
 /** The agents that exist so far. The others have a dial, but nothing behind it yet. */
-export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING', 'MATCHING', 'BOOKING'];
+export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING', 'MATCHING', 'BOOKING', 'LIVE_CARE'];
 
 /**
  * The dial, lowest to highest.
@@ -98,6 +98,8 @@ export const AUTOMATION_ACTIONS = {
   // Live care
   'live_care.triage_issue': { function: 'LIVE_CARE', tier: 0, label: 'Sort an issue report by urgency' },
   'live_care.chase_late_caregiver': { function: 'LIVE_CARE', tier: 1, label: 'Chase a caregiver who has not checked in' },
+  'live_care.flag_visit': { function: 'LIVE_CARE', tier: 0, label: 'Tell staff about a visit that needs a person' },
+  'live_care.complete_shift': { function: 'LIVE_CARE', tier: 1, label: 'Mark a shift completed after check-out' },
   'live_care.nudge_care_plan': { function: 'LIVE_CARE', tier: 1, label: 'Remind the client to tick off care' },
   'live_care.replace_caregiver': { function: 'LIVE_CARE', tier: 2, label: 'Replace a caregiver on a shift' },
   'live_care.close_safety_report': { function: 'LIVE_CARE', tier: 3, label: 'Close a safety, abuse or medical report' },

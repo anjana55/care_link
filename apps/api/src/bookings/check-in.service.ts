@@ -30,6 +30,9 @@ import { bookingShifts, bookings, caregivers, checkInSettings, cities, districts
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { deriveKey } from '../common/utils/secret-box.util';
 import { NotificationsService } from '../notifications/notifications.service';
+import { JobsService } from '../jobs/jobs.service';
+import { AutomationService } from '../automation/automation.service';
+import { nudgeLiveCare } from './live-care-jobs';
 import type { UpdateCheckInSettingsDto } from './dto/check-in.dto';
 
 const SETTINGS_ID = 'default';
@@ -76,6 +79,8 @@ export class CheckInService {
     @Inject(DRIZZLE) private readonly db: Database,
     config: ConfigService,
     private readonly notices: NotificationsService,
+    private readonly jobs: JobsService,
+    private readonly automation: AutomationService,
   ) {
     this.key = deriveKey(config.get<string>('SETTINGS_ENCRYPTION_KEY') || config.get<string>('JWT_REFRESH_SECRET') || 'care-platform', 'arrival-code');
   }
@@ -382,6 +387,8 @@ export class CheckInService {
       .update(shiftCheckins)
       .set({ checkedOutAt: now, outBy: 'CAREGIVER', outByUserId: user.userId, outLatitude: here?.latitude ?? null, outLongitude: here?.longitude ?? null, outAccuracyM: here?.accuracyM ?? null, updatedAt: now })
       .where(eq(shiftCheckins.shiftId, shift.id));
+    // The live-care agent, when it is switched on, marks the shift done.
+    await nudgeLiveCare(this.jobs, this.automation, shiftId);
   }
 
   // --- staff record it on the caregiver's behalf -----------------------------------
@@ -431,6 +438,7 @@ export class CheckInService {
       .update(shiftCheckins)
       .set({ checkedOutAt: at, outBy: 'STAFF', outByUserId: actor.userId, outNote: input.note?.trim() || null, updatedAt: now })
       .where(eq(shiftCheckins.shiftId, shiftId));
+    await nudgeLiveCare(this.jobs, this.automation, shiftId);
     return (await this.forStaff([shift], now)).get(shiftId)!;
   }
 
