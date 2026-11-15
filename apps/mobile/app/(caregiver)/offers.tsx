@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { CARE_OFFER_DECLINE_REASONS, type CareOfferDeclineReason, type CaregiverCareOffer } from '@care-platform/shared';
 import { ApiError } from '@/api';
 import { useTranslation } from '@/i18n';
@@ -13,6 +14,7 @@ import { useAnswerCareOffer, useCareOffers } from '@/caregiver/api';
 import { useMarkPathsRead } from '@/notifications/api';
 
 const money = (n: number) => n.toLocaleString('en-LK');
+const isCover = (o: CaregiverCareOffer) => o.kind === 'COVER';
 const TONES = { OFFERED: 'accent', ACCEPTED: 'brand', DECLINED: 'muted', EXPIRED: 'muted', WITHDRAWN: 'muted' } as const;
 
 /**
@@ -20,11 +22,16 @@ const TONES = { OFFERED: 'accent', ACCEPTED: 'brand', DECLINED: 'muted', EXPIRED
  * waiting offer says what the job is - kind of care, area, start, pay - until
  * when they can answer, and has two large buttons. Nothing here identifies
  * the client: that comes with the booking.
+ *
+ * A cover offer - one shift another caregiver cannot make - sits in the same
+ * list, marked as cover, with the shift's day and time in place of a start
+ * date. Accepting it puts the shift in the caregiver's shifts at once.
  */
 export default function Offers() {
   useMarkPathsRead(['/care-offers']);
   const { t, locale } = useTranslation();
   const colors = useColors();
+  const router = useRouter();
   const offers = useCareOffers();
   const answer = useAnswerCareOffer();
   const [declining, setDeclining] = useState<string | null>(null);
@@ -46,15 +53,20 @@ export default function Offers() {
     <Card key={o.id} style={styles.card}>
       <View style={{ gap: 6 }}>
         <Text accessibilityRole="header" style={{ fontSize: 19, fontWeight: '700', color: colors.ink }}>
-          {o.careType ? t(`careTypes.${o.careType}`) : t('portal.offers.title')}
+          {isCover(o) ? t('portal.offers.cover.title') : o.careType ? t(`careTypes.${o.careType}`) : t('portal.offers.title')}
         </Text>
-        <Text style={{ fontSize: 13, color: colors.muted }}>{t('portal.offers.reference', { reference: o.reference })}</Text>
+        <Text style={{ fontSize: 13, color: colors.muted }}>
+          {isCover(o) && o.careType ? `${t(`careTypes.${o.careType}`)} · ` : ''}
+          {isCover(o) ? t('portal.offers.cover.reference', { reference: o.reference }) : t('portal.offers.reference', { reference: o.reference })}
+        </Text>
         <View style={{ flexDirection: 'row' }}>
           <Pill tone={TONES[o.status]} label={t(`portal.offers.statuses.${o.status}`)} />
         </View>
       </View>
       {fact(t('portal.offers.where'), [o.city?.[locale], o.district?.[locale]].filter(Boolean).join(', ') || '—')}
-      {fact(t('portal.offers.starts'), o.desiredStartDate ? formatDate(o.desiredStartDate, locale) : t('portal.offers.startsOpen'))}
+      {o.shift
+        ? fact(t('portal.offers.cover.when'), t('portal.offers.cover.whenValue', { day: fmtDay(o.shift.startsAt, locale), from: fmtTime(o.shift.startsAt), to: fmtTime(o.shift.endsAt) }))
+        : fact(t('portal.offers.starts'), o.desiredStartDate ? formatDate(o.desiredStartDate, locale) : t('portal.offers.startsOpen'))}
       {fact(
         t('portal.offers.rate'),
         o.payRate !== null && o.rateType ? t('portal.offers.rateValue', { amount: money(o.payRate), unit: t(`portal.offers.units.${o.rateType}`) }) : t('portal.offers.rateOpen'),
@@ -65,14 +77,15 @@ export default function Offers() {
           <Text style={{ fontSize: 16, lineHeight: 23, color: colors.ink }}>{o.note}</Text>
         </View>
       ) : null}
-      {o.status === 'ACCEPTED' ? <Text style={{ fontSize: 16, lineHeight: 23, color: colors.brand }}>{t('portal.offers.accepted')}</Text> : null}
+      {o.status === 'ACCEPTED' ? <Text style={{ fontSize: 16, lineHeight: 23, color: colors.brand }}>{isCover(o) ? t('portal.offers.cover.accepted') : t('portal.offers.accepted')}</Text> : null}
+      {o.status === 'ACCEPTED' && isCover(o) ? <Button variant="secondary" icon="calendar-outline" label={t('portal.offers.cover.seeShifts')} onPress={() => router.push('/(caregiver)/shifts')} /> : null}
       {o.status === 'OFFERED' ? (
         <>
           <View style={{ gap: 2 }}>
             <Text style={{ fontSize: 16, fontWeight: '700', color: colors.accent }}>
               {t('portal.offers.answerBy', { when: `${fmtDay(o.expiresAt, locale)}, ${fmtTime(o.expiresAt)}` })}
             </Text>
-            <Text style={{ fontSize: 14, lineHeight: 20, color: colors.muted }}>{t('portal.offers.privacy')}</Text>
+            <Text style={{ fontSize: 14, lineHeight: 20, color: colors.muted }}>{isCover(o) ? t('portal.offers.cover.privacy') : t('portal.offers.privacy')}</Text>
           </View>
           <FormError message={error?.offerId === o.id ? error.text : null} />
           {declining === o.id ? (
@@ -97,7 +110,7 @@ export default function Offers() {
             <View style={{ gap: 12 }}>
               <Button
                 icon="checkmark-circle-outline"
-                label={t('portal.offers.accept')}
+                label={isCover(o) ? t('portal.offers.cover.accept') : t('portal.offers.accept')}
                 busy={answer.isPending && answer.variables?.offerId === o.id}
                 disabled={answer.isPending}
                 onPress={() => (setError(null), answer.mutate({ offerId: o.id, accept: true }, { onError: fail(o.id) }))}

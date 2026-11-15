@@ -22,6 +22,7 @@ import './booking-agent.cases';
 // Check-in and the live-care agent share the check-in switch, so they run here too, one after the other.
 import './check-in.cases';
 import './live-care-agent.cases';
+import './cover.cases';
 
 /**
  * The automation rail over real HTTP and MySQL: everything starts Manual, the

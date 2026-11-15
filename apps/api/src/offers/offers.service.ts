@@ -6,13 +6,14 @@ import {
   MAX_OPEN_CARE_OFFERS,
   CARE_OFFER_MINUTES,
   effectiveCareOfferStatus,
+  type CareOfferKind,
   type CaregiverCareOffer,
   type LocalPlaceName,
   type CareOfferDeclineReason,
   type StaffCareOffer,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { OPEN_CARE_REQUEST_STATUSES, careRequests, caregivers, cities, districts, patients, requestOffers, users } from '../database/schema';
+import { OPEN_CARE_REQUEST_STATUSES, bookingShifts, bookings, careRequests, caregivers, cities, districts, patients, requestOffers, users } from '../database/schema';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { CareRequestsService } from '../care-requests/care-requests.service';
 import { PricingService } from '../pricing/pricing.service';
@@ -24,19 +25,29 @@ import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
 import { normalizePhone } from '../common/utils/phone.util';
 import { nudgeMatching } from '../matching/matching-jobs';
 import { nudgeBooking } from '../bookings/booking-agent-jobs';
+import { nudgeLiveCare } from '../bookings/live-care-jobs';
 import { AutomationService } from '../automation/automation.service';
 import type { SendOfferDto } from './dto/offers.dto';
 
 const EXPIRE_JOB = 'offers.expire';
-const expiryKey = (offerId: string) => `offer-expiry:${offerId}`;
+export const offerExpiryKey = (offerId: string) => `offer-expiry:${offerId}`;
+const expiryKey = offerExpiryKey;
 
-type OfferRow = typeof requestOffers.$inferSelect;
+export type OfferRow = typeof requestOffers.$inferSelect;
+/** What accepting a cover offer does: put the caregiver on the shift. Returns the ids of the offers it withdrew. */
+export type CoverAccept = (offer: OfferRow, user: AuthenticatedUser, now: Date) => Promise<void>;
 
 /** What the caregiver's phone and bell say, in their three languages. */
 const NEW_OFFER = {
   en: { title: 'A new job offer', body: 'Open {brand} to see the details and answer before it runs out.' },
   si: { title: 'නව රැකියා යෝජනාවක්', body: 'විස්තර බලා, කාලය ඉකුත් වීමට පෙර පිළිතුරු දීමට {brand} විවෘත කරන්න.' },
   ta: { title: 'புதிய வேலை வாய்ப்பு', body: 'விவரங்களைப் பார்த்து, நேரம் முடிவதற்குள் பதிலளிக்க {brand} ஐத் திறக்கவும்.' },
+} as const;
+/** The same for a shift that needs cover: it is short notice, so it says so. */
+const NEW_COVER = {
+  en: { title: 'A shift needs cover', body: 'Open {brand} to see when and where, and answer before it runs out.' },
+  si: { title: 'වාරයකට ආදේශකයෙකු අවශ්‍යයි', body: 'කවදාද, කොහේද යන්න බලා, කාලය ඉකුත් වීමට පෙර පිළිතුරු දීමට {brand} විවෘත කරන්න.' },
+  ta: { title: 'ஒரு பணிநேரத்திற்கு மாற்று ஆள் தேவை', body: 'எப்போது, எங்கே என்பதைப் பார்த்து, நேரம் முடிவதற்குள் பதிலளிக்க {brand} ஐத் திறக்கவும்.' },
 } as const;
 /** The line a WhatsApp message or email adds: until when, in Sri Lanka time. */
 const NEW_OFFER_UNTIL = {
@@ -83,13 +94,27 @@ export class OffersService implements OnApplicationBootstrap {
     private readonly automation: AutomationService,
   ) {}
 
+  private coverAccept: CoverAccept | null = null;
+
+  /** The cover service puts the caregiver on the shift; registered here so this service does not depend on bookings. */
+  registerCoverAccept(fn: CoverAccept) {
+    this.coverAccept = fn;
+  }
+
+  /** After a decline, a withdrawal or a deadline: whichever agent is working on the job looks at it again. */
+  private async nudge(offer: Pick<OfferRow, 'kind' | 'requestId' | 'shiftId'>) {
+    if (offer.kind === 'COVER') {
+      if (offer.shiftId) await nudgeLiveCare(this.jobs, this.automation, offer.shiftId);
+    } else if (offer.requestId) await nudgeMatching(this.jobs, this.automation, offer.requestId);
+  }
+
   onApplicationBootstrap() {
     this.jobs.register(EXPIRE_JOB, async (payload) => void (await this.expire(String(payload.offerId))));
   }
 
   // --- staff ---------------------------------------------------------------------
 
-  private async toStaff(rows: OfferRow[], now = new Date()): Promise<StaffCareOffer[]> {
+  async toStaff(rows: OfferRow[], now = new Date()): Promise<StaffCareOffer[]> {
     if (!rows.length) return [];
     const [people, senders] = await Promise.all([
       this.db.select({ id: caregivers.id, fullName: caregivers.fullName, registrationNumber: caregivers.registrationNumber }).from(caregivers).where(inArray(caregivers.id, [...new Set(rows.map((r) => r.caregiverId))])),
@@ -99,7 +124,9 @@ export class OffersService implements OnApplicationBootstrap {
     const who = new Map(senders.map((s) => [s.id, s.fullName]));
     return rows.map((r) => ({
       id: r.id,
+      kind: r.kind,
       requestId: r.requestId,
+      shiftId: r.shiftId,
       caregiver: cg.get(r.caregiverId) ?? { id: r.caregiverId, fullName: '-', registrationNumber: '-' },
       status: effectiveCareOfferStatus(r.status, r.expiresAt, now),
       rateType: r.rateType,
@@ -151,18 +178,45 @@ export class OffersService implements OnApplicationBootstrap {
         ? { rateType: dto.rateType!, payRate: dto.payRate, clientRate: null }
         : { rateType: null, payRate: null, clientRate: null };
 
-    const id = uuid();
     const expiresAt = new Date(now.getTime() + (dto.expiresInMinutes ?? CARE_OFFER_MINUTES.default) * 60_000);
     try {
-      await this.db.insert(requestOffers).values({ id, requestId, caregiverId: dto.caregiverId, ...rates, note: dto.note ?? null, sentByUserId: actor.userId, expiresAt, createdAt: now });
+      await this.issue({ kind: 'JOB', requestId, shiftId: null, caregiverId: dto.caregiverId, caregiverUserId: caregiver.userId, ...rates, note: dto.note ?? null, sentByUserId: actor.userId, expiresAt }, now);
     } catch (err) {
-      if (isDuplicate(err)) throw new ConflictException('This caregiver already has an offer waiting for this request');
+      if (isDuplicateOffer(err)) throw new ConflictException('This caregiver already has an offer waiting for this request');
       throw err;
     }
-    await this.jobs.enqueue(EXPIRE_JOB, { offerId: id }, { runAt: expiresAt, uniqueKey: expiryKey(id), maxAttempts: 3 });
-    this.notices.notify([caregiver.userId], (lang) => NEW_OFFER[lang], '/care-offers', `offer ${id}`);
-    await this.messageNewOffer(id, dto.caregiverId, expiresAt);
     return this.forRequest(requestId);
+  }
+
+  /**
+   * Writes one offer, starts its clock and tells the caregiver. Job offers and
+   * cover offers both go out through here. A second waiting offer for the same
+   * caregiver and job fails on the unique key (isDuplicateOffer).
+   */
+  async issue(
+    v: {
+      kind: CareOfferKind;
+      requestId: string | null;
+      shiftId: string | null;
+      caregiverId: string;
+      caregiverUserId: string | null;
+      rateType: OfferRow['rateType'];
+      payRate: number | null;
+      clientRate: number | null;
+      note: string | null;
+      sentByUserId: string;
+      expiresAt: Date;
+    },
+    now = new Date(),
+  ): Promise<string> {
+    const id = uuid();
+    const { caregiverUserId, ...row } = v;
+    await this.db.insert(requestOffers).values({ id, ...row, createdAt: now });
+    await this.jobs.enqueue(EXPIRE_JOB, { offerId: id }, { runAt: v.expiresAt, uniqueKey: expiryKey(id), maxAttempts: 3 });
+    const text = v.kind === 'COVER' ? NEW_COVER : NEW_OFFER;
+    this.notices.notify([caregiverUserId], (lang) => text[lang], '/care-offers', `offer ${id}`);
+    await this.messageNewOffer(id, v.caregiverId, v.expiresAt, text);
+    return id;
   }
 
   /**
@@ -173,7 +227,7 @@ export class OffersService implements OnApplicationBootstrap {
    * asked to be phoned gets no message (staff call them; the bell still shows it).
    * A message that fails never fails the offer.
    */
-  private async messageNewOffer(offerId: string, caregiverId: string, expiresAt: Date): Promise<void> {
+  private async messageNewOffer(offerId: string, caregiverId: string, expiresAt: Date, heading: typeof NEW_OFFER | typeof NEW_COVER = NEW_OFFER): Promise<void> {
     try {
       const [who] = await this.db
         .select({ accountPhone: users.phone, email: users.email, primaryPhone: caregivers.primaryPhone, preferred: caregivers.preferredContactMethod })
@@ -187,7 +241,7 @@ export class OffersService implements OnApplicationBootstrap {
       const wa = await this.whatsappSettings.getResolved();
       const phone = who.accountPhone ?? normalizePhone(who.primaryPhone, await this.whatsappSettings.getDefaultCountryCode());
       if (phone && this.whatsapp.canSendUpdates(wa)) {
-        const text = (['en', 'si', 'ta'] as const).map((l) => `${NEW_OFFER[l].title}. ${NEW_OFFER_UNTIL[l].replace('{until}', until)}`).join(' / ');
+        const text = (['en', 'si', 'ta'] as const).map((l) => `${heading[l].title}. ${NEW_OFFER_UNTIL[l].replace('{until}', until)}`).join(' / ');
         await this.whatsapp.sendUpdate(wa, phone, 'en', `{brand}: ${text} ${url}`);
         return;
       }
@@ -195,8 +249,8 @@ export class OffersService implements OnApplicationBootstrap {
         await this.email.sendNotificationEmail(
           who.email,
           {
-            subject: `{brand} - ${NEW_OFFER.en.title}`,
-            blocks: (['en', 'si', 'ta'] as const).map((l) => ({ lang: l, heading: NEW_OFFER[l].title, paragraphs: [NEW_OFFER_UNTIL[l].replace('{until}', until)] })),
+            subject: `{brand} - ${heading.en.title}`,
+            blocks: (['en', 'si', 'ta'] as const).map((l) => ({ lang: l, heading: heading[l].title, paragraphs: [NEW_OFFER_UNTIL[l].replace('{until}', until)] })),
             cta: { label: '{brand}', url },
           },
           `offer ${offerId}`,
@@ -228,9 +282,9 @@ export class OffersService implements OnApplicationBootstrap {
       .where(and(eq(requestOffers.id, offerId), eq(requestOffers.status, 'OFFERED'), lte(requestOffers.expiresAt, now)));
     const expired = (result as { affectedRows: number }).affectedRows > 0;
     if (expired) {
-      // The matching agent, if it is working on this request, offers the job to the next caregiver.
-      const [row] = await this.db.select({ requestId: requestOffers.requestId }).from(requestOffers).where(eq(requestOffers.id, offerId)).limit(1);
-      if (row) await nudgeMatching(this.jobs, this.automation, row.requestId);
+      // The agent working on this job, if one is, offers it to the next caregiver.
+      const [row] = await this.db.select({ kind: requestOffers.kind, requestId: requestOffers.requestId, shiftId: requestOffers.shiftId }).from(requestOffers).where(eq(requestOffers.id, offerId)).limit(1);
+      if (row) await this.nudge(row);
     }
     return expired;
   }
@@ -255,36 +309,64 @@ export class OffersService implements OnApplicationBootstrap {
   async forCaregiver(user: AuthenticatedUser, now = new Date()): Promise<CaregiverCareOffer[]> {
     const caregiverId = this.caregiverIdOf(user);
     const since = new Date(now.getTime() - 30 * 86_400_000);
-    const rows = await this.db
-      .select({
-        offer: requestOffers,
-        reference: careRequests.reference,
-        careType: careRequests.careType,
-        // The area the care is needed in: the request's own, or else where the client lives.
-        // District and city only - never the address.
-        districtId: sql<number | null>`COALESCE(${careRequests.districtId}, ${patients.districtId})`,
-        cityId: sql<number | null>`COALESCE(${careRequests.cityId}, ${patients.cityId})`,
-        desiredStartDate: careRequests.desiredStartDate,
-      })
-      .from(requestOffers)
-      .innerJoin(careRequests, eq(careRequests.id, requestOffers.requestId))
-      .leftJoin(patients, eq(patients.id, careRequests.patientId))
-      .where(and(eq(requestOffers.caregiverId, caregiverId), gt(requestOffers.createdAt, since)))
-      .orderBy(desc(requestOffers.createdAt))
-      .limit(100);
+    const mine = and(eq(requestOffers.caregiverId, caregiverId), gt(requestOffers.createdAt, since));
+    const [jobRows, coverRows] = await Promise.all([
+      this.db
+        .select({
+          offer: requestOffers,
+          reference: careRequests.reference,
+          careType: careRequests.careType,
+          // The area the care is needed in: the request's own, or else where the client lives.
+          // District and city only - never the address.
+          districtId: sql<number | null>`COALESCE(${careRequests.districtId}, ${patients.districtId})`,
+          cityId: sql<number | null>`COALESCE(${careRequests.cityId}, ${patients.cityId})`,
+          desiredStartDate: careRequests.desiredStartDate,
+        })
+        .from(requestOffers)
+        .innerJoin(careRequests, eq(careRequests.id, requestOffers.requestId))
+        .leftJoin(patients, eq(patients.id, careRequests.patientId))
+        .where(and(mine, eq(requestOffers.kind, 'JOB')))
+        .orderBy(desc(requestOffers.createdAt))
+        .limit(100),
+      // Cover: the shift's day and time, the booking's reference, and the same district and city. Nothing else about the client.
+      this.db
+        .select({
+          offer: requestOffers,
+          reference: bookings.reference,
+          careType: careRequests.careType,
+          districtId: sql<number | null>`COALESCE(${careRequests.districtId}, ${patients.districtId})`,
+          cityId: sql<number | null>`COALESCE(${careRequests.cityId}, ${patients.cityId})`,
+          startsAt: bookingShifts.startsAt,
+          endsAt: bookingShifts.endsAt,
+        })
+        .from(requestOffers)
+        .innerJoin(bookingShifts, eq(bookingShifts.id, requestOffers.shiftId))
+        .innerJoin(bookings, eq(bookings.id, bookingShifts.bookingId))
+        .leftJoin(careRequests, eq(careRequests.id, bookings.careRequestId))
+        .leftJoin(patients, eq(patients.id, bookings.patientId))
+        .where(and(mine, eq(requestOffers.kind, 'COVER')))
+        .orderBy(desc(requestOffers.createdAt))
+        .limit(100),
+    ]);
+    const rows = [
+      ...jobRows.map((r) => ({ ...r, shift: null as CaregiverCareOffer['shift'] })),
+      ...coverRows.map(({ startsAt, endsAt, ...r }) => ({ ...r, desiredStartDate: null, shift: { startsAt: new Date(startsAt).toISOString(), endsAt: new Date(endsAt).toISOString() } })),
+    ].sort((a, b) => b.offer.createdAt.getTime() - a.offer.createdAt.getTime());
     const districtIds = [...new Set(rows.map((r) => r.districtId).filter((v): v is number => v !== null))];
     const cityIds = [...new Set(rows.map((r) => r.cityId).filter((v): v is number => v !== null))];
     const districtRows = districtIds.length ? await this.db.select().from(districts).where(inArray(districts.id, districtIds)) : [];
     const cityRows = cityIds.length ? await this.db.select().from(cities).where(inArray(cities.id, cityIds)) : [];
     const name = (r?: { nameEn: string; nameSi: string; nameTa: string }): LocalPlaceName | null => (r ? { en: r.nameEn, si: r.nameSi, ta: r.nameTa } : null);
-    const offers = rows.map(({ offer, ...request }): CaregiverCareOffer => ({
+    const offers = rows.map(({ offer, ...job }): CaregiverCareOffer => ({
       id: offer.id,
-      reference: request.reference,
+      kind: offer.kind,
+      reference: job.reference,
       status: effectiveCareOfferStatus(offer.status, offer.expiresAt, now),
-      careType: request.careType,
-      district: name(districtRows.find((d) => d.id === request.districtId)),
-      city: name(cityRows.find((c) => c.id === request.cityId)),
-      desiredStartDate: request.desiredStartDate,
+      careType: job.careType,
+      district: name(districtRows.find((d) => d.id === job.districtId)),
+      city: name(cityRows.find((c) => c.id === job.cityId)),
+      desiredStartDate: job.desiredStartDate,
+      shift: job.shift,
       rateType: offer.rateType,
       payRate: offer.payRate,
       note: offer.note,
@@ -311,19 +393,25 @@ export class OffersService implements OnApplicationBootstrap {
    */
   async accept(user: AuthenticatedUser, offerId: string, now = new Date()): Promise<CaregiverCareOffer[]> {
     const offer = await this.ownOffer(user, offerId);
+    if (offer.kind === 'COVER') {
+      if (!this.coverAccept) throw new ConflictException('This job is no longer open');
+      await this.coverAccept(offer, user, now);
+      return this.forCaregiver(user, now);
+    }
+    const requestId = offer.requestId!;
     const withdrawn: string[] = [];
     await this.db.transaction(async (tx) => {
-      const [request] = await tx.select({ status: careRequests.status }).from(careRequests).where(eq(careRequests.id, offer.requestId)).for('update').limit(1);
+      const [request] = await tx.select({ status: careRequests.status }).from(careRequests).where(eq(careRequests.id, requestId)).for('update').limit(1);
       const [mine] = await tx.select().from(requestOffers).where(eq(requestOffers.id, offerId)).limit(1);
       if (mine.status === 'ACCEPTED') return; // pressed twice
-      const [taken] = await tx.select({ id: requestOffers.id }).from(requestOffers).where(and(eq(requestOffers.requestId, offer.requestId), eq(requestOffers.status, 'ACCEPTED'))).limit(1);
+      const [taken] = await tx.select({ id: requestOffers.id }).from(requestOffers).where(and(eq(requestOffers.requestId, requestId), eq(requestOffers.status, 'ACCEPTED'))).limit(1);
       if (taken || mine.status === 'WITHDRAWN') throw new ConflictException('This job is no longer open');
       if (mine.status === 'DECLINED') throw new BadRequestException('You have already declined this offer');
       if (mine.status === 'EXPIRED' || mine.expiresAt.getTime() <= now.getTime()) throw new BadRequestException('The time to answer this offer has passed');
       if (!request || !OPEN_CARE_REQUEST_STATUSES.includes(request.status)) throw new ConflictException('This job is no longer open');
 
       await tx.update(requestOffers).set({ status: 'ACCEPTED', respondedAt: now }).where(eq(requestOffers.id, offerId));
-      const others = await tx.select({ id: requestOffers.id }).from(requestOffers).where(and(eq(requestOffers.requestId, offer.requestId), eq(requestOffers.status, 'OFFERED'), ne(requestOffers.id, offerId)));
+      const others = await tx.select({ id: requestOffers.id }).from(requestOffers).where(and(eq(requestOffers.requestId, requestId), eq(requestOffers.status, 'OFFERED'), ne(requestOffers.id, offerId)));
       if (others.length) {
         await tx.update(requestOffers).set({ status: 'WITHDRAWN', respondedAt: now }).where(inArray(requestOffers.id, others.map((o) => o.id)));
         withdrawn.push(...others.map((o) => o.id));
@@ -340,15 +428,16 @@ export class OffersService implements OnApplicationBootstrap {
   /** The request gets its caregiver and a note, and the staff member who sent the offer is told. */
   private async afterAccepted(offer: OfferRow, user: AuthenticatedUser) {
     const actor = { ...user };
-    await this.requests.setCaregiver(offer.requestId, offer.caregiverId, actor);
-    await this.requests.addNote(offer.requestId, 'The caregiver accepted the job offer', actor);
-    await nudgeMatching(this.jobs, this.automation, offer.requestId);
+    const requestId = offer.requestId!;
+    await this.requests.setCaregiver(requestId, offer.caregiverId, actor);
+    await this.requests.addNote(requestId, 'The caregiver accepted the job offer', actor);
+    await nudgeMatching(this.jobs, this.automation, requestId);
     // The booking agent, when it is switched on, drafts the booking.
-    await nudgeBooking(this.jobs, this.automation, offer.requestId);
+    await nudgeBooking(this.jobs, this.automation, requestId);
     if (!offer.sentByUserId) return;
     const [[sender], [request], [caregiver]] = await Promise.all([
       this.db.select({ email: users.email, isActive: users.isActive }).from(users).where(eq(users.id, offer.sentByUserId)).limit(1),
-      this.db.select({ reference: careRequests.reference }).from(careRequests).where(eq(careRequests.id, offer.requestId)).limit(1),
+      this.db.select({ reference: careRequests.reference }).from(careRequests).where(eq(careRequests.id, requestId)).limit(1),
       this.db.select({ registrationNumber: caregivers.registrationNumber }).from(caregivers).where(eq(caregivers.id, offer.caregiverId)).limit(1),
     ]);
     if (!sender?.email || !sender.isActive) return;
@@ -370,11 +459,12 @@ export class OffersService implements OnApplicationBootstrap {
       .where(and(eq(requestOffers.id, offerId), eq(requestOffers.status, 'OFFERED'), gt(requestOffers.expiresAt, now)));
     if (!(result as { affectedRows: number }).affectedRows) throw new BadRequestException('This offer is no longer waiting for an answer');
     await this.jobs.cancel(expiryKey(offerId));
-    await nudgeMatching(this.jobs, this.automation, offer.requestId);
+    await this.nudge(offer);
     return this.forCaregiver(user, now);
   }
 
-  private async tellNoLongerOpen(offerIds: string[]) {
+  /** Tells the caregivers whose waiting offers were just closed that there is nothing to answer any more. */
+  async tellNoLongerOpen(offerIds: string[]) {
     if (!offerIds.length) return;
     const rows = await this.db
       .select({ userId: caregivers.userId })
@@ -395,7 +485,8 @@ export class OffersService implements OnApplicationBootstrap {
   }
 }
 
-function isDuplicate(err: unknown): boolean {
+/** The unique key refused a second waiting offer for the same caregiver and job. */
+export function isDuplicateOffer(err: unknown): boolean {
   const e = err as { code?: string; cause?: { code?: string } };
   return e?.code === 'ER_DUP_ENTRY' || e?.cause?.code === 'ER_DUP_ENTRY';
 }

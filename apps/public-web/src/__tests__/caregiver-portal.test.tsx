@@ -6,6 +6,7 @@ import DashboardPage from '@/app/caregiver/(portal)/dashboard/page';
 import ShiftsPage from '@/app/caregiver/(portal)/shifts/page';
 import DocumentsPage from '@/app/caregiver/(portal)/documents/page';
 import ProfilePage from '@/app/caregiver/(portal)/profile/page';
+import CareOffersPage from '@/app/caregiver/(portal)/care-offers/page';
 import { I18nProvider } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/common/language-switcher';
 import en from '@/lib/i18n/dictionaries/en.json';
@@ -414,6 +415,65 @@ describe('shifts', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
 
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Available from is not a valid date');
+  });
+});
+
+describe('job offers', () => {
+  const offer = (over: Record<string, unknown>) => ({
+    id: 'o1', kind: 'JOB', reference: 'CR-2026-0042', status: 'OFFERED', careType: 'ELDERLY_CARE', district: { en: 'Kandy', si: 'මහනුවර', ta: 'கண்டி' }, city: { en: 'Peradeniya', si: 'පේරාදෙණිය', ta: 'பேராதனை' },
+    desiredStartDate: '2099-02-01', shift: null, rateType: 'DAILY', payRate: 2800, note: null, expiresAt: '2099-01-01T03:00:00.000Z', respondedAt: null, createdAt: '2099-01-01T02:00:00.000Z',
+    ...over,
+  });
+  const cover = offer({ id: 'o2', kind: 'COVER', reference: 'BK-2026-0007', desiredStartDate: null, shift: { startsAt: '2099-01-01T02:30:00.000Z', endsAt: '2099-01-01T10:30:00.000Z' } });
+  /** The list as the API holds it; accepting an offer changes it, as the server would. */
+  const serveOffers = (list: Record<string, unknown>[]) => {
+    serve();
+    let current = list;
+    const base = get.getMockImplementation()!;
+    get.mockImplementation((path: string) => (path === '/me/care-offers' ? Promise.resolve(current) : base(path)));
+    post.mockImplementation((path: string) => {
+      const accepted = /^\/me\/care-offers\/(.+)\/accept$/.exec(path);
+      if (!accepted) return Promise.resolve({});
+      current = current.map((o) => (o.id === accepted[1] ? { ...o, status: 'ACCEPTED', respondedAt: '2099-01-01T02:40:00.000Z' } : o));
+      return Promise.resolve(current);
+    });
+  };
+
+  it('shows a cover offer as one shift, with its day and time, and nothing about the client', async () => {
+    serveOffers([offer({}), cover]);
+    renderPage(<CareOffersPage />);
+
+    const card = within(await screen.findByTestId('offer-o2'));
+    expect(card.getByRole('heading', { name: 'Cover for one shift' })).toBeInTheDocument();
+    expect(card.getByText(/Booking BK-2026-0007/)).toBeInTheDocument();
+    expect(card.getByText('When')).toBeInTheDocument();
+    expect(card.getByText(/1 Jan, 08:00–16:00/)).toBeInTheDocument();
+    expect(card.getByText('Peradeniya, Kandy')).toBeInTheDocument();
+    expect(card.getByText('LKR 2,800 per day')).toBeInTheDocument();
+    expect(card.getByText(/Another caregiver cannot make this shift/)).toBeInTheDocument();
+    expect(card.queryByText('Starts')).not.toBeInTheDocument();
+
+    // A job offer beside it reads as before.
+    const job = within(screen.getByTestId('offer-o1'));
+    expect(job.getByText('Starts')).toBeInTheDocument();
+    expect(job.getByRole('button', { name: 'Accept this job' })).toBeInTheDocument();
+
+    fireEvent.click(card.getByRole('button', { name: 'Take this shift' }));
+    // It moves to the earlier offers, with the way to the shift.
+    expect(await screen.findByText(/You took this shift/)).toBeInTheDocument();
+    expect(post).toHaveBeenCalledWith('/me/care-offers/o2/accept', {});
+    const taken = within(screen.getByTestId('offer-o2'));
+    expect(taken.getByRole('link', { name: 'Open my shifts' })).toHaveAttribute('href', '/caregiver/shifts');
+    expect(taken.queryByRole('button', { name: 'Take this shift' })).not.toBeInTheDocument();
+  });
+
+  it('says why a cover offer could not be accepted', async () => {
+    serveOffers([cover]);
+    renderPage(<CareOffersPage />);
+    const card = within(await screen.findByTestId('offer-o2'));
+    post.mockImplementation((path: string) => (path === '/me/care-offers/o2/accept' ? Promise.reject(new (jest.requireActual('@/lib/api/client').ApiError)(409, 'You have another shift at that time')) : Promise.resolve({})));
+    fireEvent.click(card.getByRole('button', { name: 'Take this shift' }));
+    expect(await card.findByRole('alert')).toHaveTextContent('You have another shift at that time');
   });
 });
 

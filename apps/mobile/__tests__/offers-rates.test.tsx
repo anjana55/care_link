@@ -18,12 +18,14 @@ const none = { 'POST /me/notifications/read': () => ({ status: 200, body: {} }) 
 
 const offer = (over: Partial<CaregiverCareOffer> = {}): CaregiverCareOffer => ({
   id: 'o0000000-0000-4000-8000-000000000001',
+  kind: 'JOB',
   reference: 'CR-64W76R',
   status: 'OFFERED',
   careType: 'HOME_SHIFT',
   district: { en: 'Colombo', si: 'කොළඹ', ta: 'கொழும்பு' },
   city: { en: 'Nugegoda', si: 'නුගේගොඩ', ta: 'நுகேகொடை' },
   desiredStartDate: '2026-11-16',
+  shift: null,
   rateType: 'DAILY',
   payRate: 3000,
   note: 'Day shifts, starting Monday',
@@ -93,6 +95,35 @@ describe('job offers in the app', () => {
     await waitFor(() => expect(calls.find((c) => c.route.endsWith('/decline'))).toBeTruthy());
     expect(calls.find((c) => c.route.endsWith('/decline'))!.body).toEqual({ reason: 'TOO_FAR' });
     expect(await screen.findByText('You declined')).toBeTruthy();
+  });
+
+  it('shows a cover offer as one shift with its day and time, and leads to the shift once taken', async () => {
+    await caregiver();
+    const cover = (over: Partial<CaregiverCareOffer> = {}) =>
+      offer({ kind: 'COVER', reference: 'BK-7HQ2', desiredStartDate: null, note: null, shift: { startsAt: '2026-11-16T03:00:00.000Z', endsAt: '2026-11-16T09:00:00.000Z' }, ...over });
+    let current = cover();
+    const calls = serveApi({
+      ...none,
+      'GET /me/care-offers': () => ({ status: 200, body: [current] }),
+      [`POST /me/care-offers/${offer().id}/accept`]: () => ({ status: 200, body: [(current = cover({ status: 'ACCEPTED', respondedAt: '2026-11-16T03:40:00.000Z' }))] }),
+    });
+    await show(<Offers />);
+
+    expect(await screen.findByText('Cover for one shift')).toBeTruthy();
+    expect(screen.getByText(/Booking BK-7HQ2/)).toBeTruthy();
+    // 03:00-09:00 UTC is 08:30-14:30 in Sri Lanka.
+    expect(screen.getByText(/16 Nov, 08:30–14:30/)).toBeTruthy();
+    expect(screen.getByText('Nugegoda, Colombo')).toBeTruthy();
+    expect(screen.getByText('LKR 3,000 per day')).toBeTruthy();
+    expect(screen.getByText(/Another caregiver cannot make this shift/)).toBeTruthy();
+    expect(screen.queryByText('Starts')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Accept this job' })).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Take this shift' }));
+    expect(await screen.findByText(/You took this shift\./)).toBeTruthy();
+    expect(calls.filter((c) => c.route.endsWith('/accept'))).toHaveLength(1);
+    await fireEvent.press(screen.getByRole('button', { name: 'Open my shifts' }));
+    expect(mockRouter.push).toHaveBeenCalledWith('/(caregiver)/shifts');
   });
 
   it('says so when someone else took the job first', async () => {

@@ -134,6 +134,8 @@ export interface TodayVisit {
   /** Minutes since the start, when nobody has checked in and it is late. */
   minutesLate: number | null;
   checkIn: StaffCheckIn;
+  /** Cover offers for this shift still waiting for an answer. */
+  coverWaiting: number;
 }
 
 export interface TodayVisits {

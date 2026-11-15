@@ -33,9 +33,7 @@ import { AutomationService, type ActionExecutor } from '../automation/automation
 import { AgentModelService } from '../automation/agent-model.service';
 import { AiUnavailableError } from '../ai/ai-provider.service';
 import { JobsService } from '../jobs/jobs.service';
-import { ReviewStore } from '../reviews/review-store.service';
-import { ReviewSettingsService } from '../reviews/review-settings.service';
-import { ratingSignal } from '../reviews/review-rules';
+import { CandidatePoolService } from './candidate-pool.service';
 import { OffersService } from '../offers/offers.service';
 import {
   MODEL_SHORTLIST,
@@ -143,8 +141,7 @@ export class MatchingAgentService implements OnApplicationBootstrap, OnModuleDes
     private readonly models: AgentModelService,
     private readonly jobs: JobsService,
     private readonly offers: OffersService,
-    private readonly reviewStore: ReviewStore,
-    private readonly reviewSettings: ReviewSettingsService,
+    private readonly pools: CandidatePoolService,
   ) {}
 
   onApplicationBootstrap() {
@@ -287,7 +284,7 @@ export class MatchingAgentService implements OnApplicationBootstrap, OnModuleDes
       urgency: request.urgency,
       desiredStartDate: request.desiredStartDate ?? (request.urgency === 'IMMEDIATELY' || request.urgency === 'WITHIN_WEEK' ? today : null),
     };
-    const pool = await this.candidates(request, match, exclude, now);
+    const pool = await this.pools.pool(match, { genderPreference: request.genderPreference, exclude }, now);
     if (!pool.length) {
       await this.automation.setHandoverNote(ref, {
         done: exclude.size ? `Offered the job to everyone who fits (${exclude.size}); nobody accepted` : 'Looked for caregivers who do this kind of care in the district and found none',
@@ -360,97 +357,6 @@ export class MatchingAgentService implements OnApplicationBootstrap, OnModuleDes
       });
     }
     return sent.length || proposed || logged ? 'decided' : 'nothing';
-  }
-
-  /** Everyone who passes the hard checks for this request, with what the rules need to know about them. */
-  private async candidates(request: RequestRow, match: MatchRequest, exclude: Set<string>, now: Date): Promise<MatchCandidate[]> {
-    const travelsToDistrict = exists(
-      this.db
-        .select({ one: sql`1` })
-        .from(preferredLocations)
-        .innerJoin(cities, eq(cities.id, preferredLocations.cityId))
-        .where(and(eq(preferredLocations.caregiverId, caregivers.id), eq(cities.districtId, match.districtId))),
-    );
-    const rows = await this.db
-      .select({
-        id: caregivers.id,
-        registrationNumber: caregivers.registrationNumber,
-        status: caregivers.status,
-        gender: caregivers.gender,
-        districtId: caregivers.districtId,
-        cityId: caregivers.cityId,
-        avail: availability,
-      })
-      .from(caregivers)
-      .leftJoin(availability, eq(availability.caregiverId, caregivers.id))
-      .where(
-        and(
-          isNull(caregivers.deletedAt),
-          isNotNull(caregivers.userId),
-          inArray(caregivers.status, [...PUBLIC_CAREGIVER_STATUSES]),
-          or(eq(caregivers.districtId, match.districtId), travelsToDistrict),
-          request.genderPreference === 'MALE' || request.genderPreference === 'FEMALE' ? eq(caregivers.gender, request.genderPreference) : undefined,
-        ),
-      )
-      .orderBy(caregivers.registrationNumber)
-      .limit(POOL_LIMIT * 2);
-    const column = CARE_TYPE_COLUMNS[match.careType as keyof typeof CARE_TYPE_COLUMNS];
-    // No availability record yet means nothing has been narrowed down: every kind of care is on (as on the rate card).
-    const fit = rows.filter((r) => !exclude.has(r.id) && (r.avail ? Boolean(r.avail[column]) : true)).slice(0, POOL_LIMIT);
-    if (!fit.length) return [];
-    const ids = fit.map((r) => r.id);
-
-    const startDay = match.desiredStartDate ?? colomboToday(now);
-    const [stats, settings, [pricing], rates, travels, running, history] = await Promise.all([
-      this.reviewStore.statsFor(ids),
-      this.reviewSettings.getResolved(),
-      this.db.select().from(careTypePricing).where(eq(careTypePricing.careType, match.careType as CareType)).limit(1),
-      this.db.select().from(caregiverRates).where(and(inArray(caregiverRates.caregiverId, ids), eq(caregiverRates.careType, match.careType as CareType))),
-      match.cityId
-        ? this.db.select({ caregiverId: preferredLocations.caregiverId }).from(preferredLocations).where(and(inArray(preferredLocations.caregiverId, ids), eq(preferredLocations.cityId, match.cityId)))
-        : Promise.resolve([] as { caregiverId: string }[]),
-      this.db
-        .select({ caregiverId: bookings.caregiverId, n: sql<number>`COUNT(*)` })
-        .from(bookings)
-        .where(and(inArray(bookings.caregiverId, ids), eq(bookings.status, 'CONFIRMED'), lte(bookings.startDate, addDays(startDay, 7)), gte(bookings.endDate, startDay)))
-        .groupBy(bookings.caregiverId),
-      this.db
-        .select({ caregiverId: requestOffers.caregiverId, status: requestOffers.status, n: sql<number>`COUNT(*)` })
-        .from(requestOffers)
-        .where(and(inArray(requestOffers.caregiverId, ids), gte(requestOffers.createdAt, new Date(now.getTime() - 30 * 86_400_000)), inArray(requestOffers.status, ['DECLINED', 'EXPIRED', 'ACCEPTED'])))
-        .groupBy(requestOffers.caregiverId, requestOffers.status),
-    ]);
-    const rateOf = new Map(rates.map((r) => [r.caregiverId, r.amount]));
-    const travelsTo = new Set(travels.map((t) => t.caregiverId));
-    const runningOf = new Map(running.map((r) => [r.caregiverId, Number(r.n)]));
-    const count = (id: string, statuses: string[]) => history.filter((h) => h.caregiverId === id && statuses.includes(h.status)).reduce((sum, h) => sum + Number(h.n), 0);
-
-    return fit.map((r) => {
-      const s = stats.get(r.id);
-      const signal = settings.enabled && s ? ratingSignal(s.ratingCount, s.ratingSum, settings.minRatingsToShow) : null;
-      const amount = rateOf.get(r.id);
-      const usable = pricing && amount !== undefined && rateProblem(amount, pricing) === null;
-      const availableFrom = dayOf(r.avail?.availableFrom ?? null);
-      return {
-        caregiverId: r.id,
-        registrationNumber: r.registrationNumber,
-        verified: VERIFIED.has(r.status),
-        sameCity: match.cityId !== null && r.cityId === match.cityId,
-        sameDistrict: r.districtId === match.districtId,
-        travelsToCity: travelsTo.has(r.id),
-        dayDuty: Boolean(r.avail?.dayDuty),
-        nightDuty: Boolean(r.avail?.nightDuty),
-        liveIn24h: Boolean(r.avail?.liveIn24h),
-        ratingSignal: signal,
-        ratingAverage: signal !== null && s ? s.ratingSum / s.ratingCount : null,
-        ratingCount: s?.ratingCount ?? 0,
-        ownRate: usable ? { amount: amount!, rateType: pricing.rateType } : null,
-        availableFrom,
-        runningBookings: runningOf.get(r.id) ?? 0,
-        recentUnanswered: count(r.id, ['DECLINED', 'EXPIRED']),
-        recentAccepted: count(r.id, ['ACCEPTED']),
-      } satisfies MatchCandidate;
-    });
   }
 
   /**

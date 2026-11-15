@@ -12,6 +12,14 @@ import type { PricingRateType } from './pricing';
  * address, phone number or health details - those come with the booking.
  */
 
+/**
+ * JOB: a care request, offered to caregivers who might take it on.
+ * COVER: one shift of a running booking whose caregiver cannot come, offered
+ * to caregivers who might step in for that shift only.
+ */
+export const CARE_OFFER_KINDS = ['JOB', 'COVER'] as const;
+export type CareOfferKind = (typeof CARE_OFFER_KINDS)[number];
+
 export const CARE_OFFER_STATUSES = ['OFFERED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'WITHDRAWN'] as const;
 export type CareOfferStatus = (typeof CARE_OFFER_STATUSES)[number];
 
@@ -34,13 +42,16 @@ export type LocalPlaceName = { en: string; si: string; ta: string };
 /** An offer as the caregiver sees it. */
 export interface CaregiverCareOffer {
   id: string;
-  /** The request's reference, to quote to the office. */
+  kind: CareOfferKind;
+  /** The request's reference (or, for cover, the booking's), to quote to the office. */
   reference: string;
   status: CareOfferStatus;
   careType: CareType | null;
   district: LocalPlaceName | null;
   city: LocalPlaceName | null;
   desiredStartDate: string | null;
+  /** Cover only: the shift to step in for (ISO instants). Null on a job offer. */
+  shift: { startsAt: string; endsAt: string } | null;
   /** What the caregiver would be paid, and per what. Null: to be agreed with the office. */
   rateType: PricingRateType | null;
   payRate: number | null;
@@ -54,7 +65,11 @@ export interface CaregiverCareOffer {
 /** An offer as staff see it on the request. */
 export interface StaffCareOffer {
   id: string;
-  requestId: string;
+  kind: CareOfferKind;
+  /** The request a job offer is for; null on a cover offer. */
+  requestId: string | null;
+  /** The shift a cover offer is for; null on a job offer. */
+  shiftId: string | null;
   caregiver: { id: string; fullName: string; registrationNumber: string };
   status: CareOfferStatus;
   rateType: PricingRateType | null;
