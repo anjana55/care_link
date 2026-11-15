@@ -17,6 +17,9 @@ import { SEED_PASSWORD } from './seed-password';
  * the client reads the caregiver a four-digit code at the door; the caregiver
  * never sees that code anywhere; five wrong tries lock it; staff can always
  * record the visit by hand; and none of it changes the shift.
+ *
+ * Imported by automation.e2e-spec.ts: the live-care agent's cases move the
+ * same check-in switch, and separate files would run at the same time.
  */
 
 const unlimitedThrottle = {
