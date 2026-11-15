@@ -8,6 +8,7 @@ import type {
   CaregiverPayout,
   CaregiverRateCard,
   CaregiverShift,
+  CheckInInput,
   CreateIssueReportBody,
   DocumentType,
   Experience,
@@ -82,6 +83,26 @@ export function useReportShiftIssue() {
     mutationFn: ({ shiftId, ...body }: CreateIssueReportBody & { shiftId: string }) =>
       api.post<MyIssueReport>(`/me/shifts/${encodeURIComponent(shiftId)}/issues`, body),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [...key(me?.userId), 'issues'] }),
+  });
+}
+
+/** Check in to one of the caregiver's own shifts with the client's arrival code. The phone's position goes along when it has one. */
+export function useShiftCheckIn() {
+  const queryClient = useQueryClient();
+  const me = useCaregiver();
+  return useMutation({
+    mutationFn: ({ shiftId, ...body }: CheckInInput & { shiftId: string }) => api.post<{ ok: true }>(`/me/shifts/${encodeURIComponent(shiftId)}/check-in`, body),
+    // Also after a refusal: a wrong code may have locked it, and the list should say so.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...key(me?.userId), 'shifts'] }),
+  });
+}
+
+export function useShiftCheckOut() {
+  const queryClient = useQueryClient();
+  const me = useCaregiver();
+  return useMutation({
+    mutationFn: ({ shiftId, ...body }: Omit<CheckInInput, 'code'> & { shiftId: string }) => api.post<{ ok: true }>(`/me/shifts/${encodeURIComponent(shiftId)}/check-out`, body),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [...key(me?.userId), 'shifts'] }),
   });
 }
 

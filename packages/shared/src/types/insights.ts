@@ -138,6 +138,8 @@ export interface BusinessInsights {
     newRequestsOver24h: number;
     unassignedOpenRequests: number;
     draftBookings: number;
+    /** Scheduled visits that started a while ago with nobody checked in. Zero while check-in is off. */
+    lateVisits: number;
     unconfirmedShiftsNext7d: number;
     missedShiftsLast7d: number;
     unbilledCompletedShifts: number;

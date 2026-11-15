@@ -6,6 +6,7 @@ import { useMyShiftIssues, useMyShifts, useReportShiftIssue } from '@/lib/hooks/
 import { ShiftList } from './shift-list';
 import { IssueReportList, ReportIssueForm } from './report-issue';
 import { ShiftCarePlan } from './shift-care-plan';
+import { CheckInAction, CheckInForm, CheckInStatus } from './shift-check-in';
 
 /**
  * The caregiver's confirmed work, read-only: staff arrange bookings and any
@@ -15,6 +16,9 @@ import { ShiftCarePlan } from './shift-care-plan';
  * Each shift that has started (or was cancelled) has "Something's not right?"
  * - times, whether it happened, or the pay - which goes to our team as a
  * report; their reports and our answers are listed underneath.
+ *
+ * With check-in switched on, a shift that is about to start has "Check in"
+ * (the client's four-digit code), then "Check out".
  *
  * A shift on a booking with a care plan has "Care plan" from a day before it
  * starts until its day ends: what to do, when, and anything the family marked.
@@ -26,6 +30,7 @@ export function BookedShifts() {
   const report = useReportShiftIssue();
   const [reporting, setReporting] = useState<string | null>(null);
   const [planFor, setPlanFor] = useState<string | null>(null);
+  const [checkingIn, setCheckingIn] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const now = Date.now();
 
@@ -47,10 +52,12 @@ export function BookedShifts() {
               <>
                 {s.bookingReference}
                 {s.area && ` · ${s.area}`}
+                <CheckInStatus shift={s} />
               </>
             )}
             action={(s) => (
               <>
+                {checkingIn !== s.id && <CheckInAction shift={s} onOpen={() => setCheckingIn(s.id)} />}
                 {s.hasCarePlan && (
                   <button
                     type="button"
@@ -76,8 +83,9 @@ export function BookedShifts() {
               </>
             )}
             below={(s) =>
-              planFor === s.id || reporting === s.id ? (
+              planFor === s.id || reporting === s.id || checkingIn === s.id ? (
                 <>
+                  {checkingIn === s.id && <CheckInForm shift={s} onDone={() => setCheckingIn(null)} />}
                   {planFor === s.id && <ShiftCarePlan shiftId={s.id} />}
                   {reporting === s.id && (
                     <ReportIssueForm

@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { I18nProvider } from '@/lib/i18n';
 import { CaregiverActions } from '@/components/care/caregiver-actions';
@@ -353,6 +353,30 @@ describe('client account', () => {
     expect(screen.getAllByText('(+1)')).toHaveLength(2);
     expect(screen.getByText(/another caregiver covering/)).toBeInTheDocument();
     expect(screen.getByText(/LKR 4,000.00 per day/)).toBeInTheDocument();
+  });
+
+  it('shows the arrival code for a visit about to start, and when the caregiver came and went', async () => {
+    auth = { user: CLIENT, loading: false };
+    pathname = '/account/bookings';
+    const soon = { id: 's-soon', startsAt: '2026-10-06T02:30:00.000Z', endsAt: '2026-10-06T11:30:00.000Z', status: 'SCHEDULED', isCover: false, visit: { arrivalCode: '0482', checkedInAt: null, checkedOutAt: null } };
+    const done = { id: 's-done', startsAt: '2026-10-05T02:30:00.000Z', endsAt: '2026-10-05T11:30:00.000Z', status: 'SCHEDULED', isCover: false, visit: { arrivalCode: null, checkedInAt: '2026-10-05T02:33:00.000Z', checkedOutAt: '2026-10-05T11:31:00.000Z' } };
+    const inside = { id: 's-in', startsAt: '2026-10-04T02:30:00.000Z', endsAt: '2026-10-04T11:30:00.000Z', status: 'SCHEDULED', isCover: false, visit: { arrivalCode: null, checkedInAt: '2026-10-04T02:29:00.000Z', checkedOutAt: null } };
+    const off = { id: 's-off', startsAt: '2026-10-07T02:30:00.000Z', endsAt: '2026-10-07T11:30:00.000Z', status: 'SCHEDULED', isCover: false, visit: null };
+    get.mockImplementation(async (path: string) =>
+      path === '/me/bookings'
+        ? [{ id: 'b1', reference: 'BK-7K2QM9', status: 'CONFIRMED', scheduleType: 'DAY', startDate: '2026-10-04', endDate: '2026-10-07', rateType: 'DAILY', rateAmount: '3500.00', caregiverPublicId: PUBLIC_ID, caregiver: profile, shifts: [inside, done, soon, off], reviews: [] }]
+        : [],
+    );
+    renderUi(<MyBookingsPage />);
+
+    const card = (await screen.findByRole('heading', { name: 'Arrival code' })).closest('section')!;
+    expect(within(card).getByText('0482')).toBeInTheDocument();
+    expect(within(card).getByText(/For the visit on .*6 Oct.*08:00–17:00/)).toBeInTheDocument();
+    expect(within(card).getByText(/Read this code to your caregiver when they arrive at your door/)).toBeInTheDocument();
+    // One code only: the others are not due or already used.
+    expect(screen.getAllByRole('heading', { name: 'Arrival code' })).toHaveLength(1);
+    expect(screen.getByText('Arrived 08:03 · left 17:01')).toBeInTheDocument();
+    expect(screen.getByText('Arrived 07:59')).toBeInTheDocument();
   });
 
   it('lets a client report a problem on one shift, and shows where earlier reports stand', async () => {

@@ -151,8 +151,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       // The brand's mark on a plain screen while the app starts (Settings > Branding, via brand:assets).
       ...(art.splashIcon ? [['expo-splash-screen', { image: art.splashIcon, imageWidth: 180, backgroundColor: art.splashBackground }] as [string, object]] : []),
       'expo-notifications',
-      // "Use my location" on Find: while the app is open only, never in the background.
-      ['expo-location', { locationWhenInUsePermission: `${brand.name} uses your location, only when you ask, to show caregivers near you.` }],
+      // "Use my location" on Find, and a caregiver's shift check-in: while the app is open only, never in the background.
+      ['expo-location', { locationWhenInUsePermission: `${brand.name} uses your location, only when you ask, to show caregivers near you or to record where you check in to a shift.` }],
       // Caregivers photograph their documents. Photos only - the microphone is never asked for.
       [
         'expo-image-picker',

@@ -30,6 +30,7 @@ import { Input, Label, Select, Textarea } from '@/components/ui/input';
 import { PhoneLink } from '@/components/clients/contact-links';
 import { CaregiverPicker } from '@/components/requests/caregiver-picker';
 import { BookingStatusBadge, ShiftStatusBadge } from '@/components/bookings/booking-badges';
+import { VisitChip } from '@/components/bookings/visit-chip';
 import { RelatedInvoices } from '@/components/billing/related-invoices';
 import { EditBookingPanel } from '@/components/bookings/edit-booking-panel';
 import { CorrectBookingPanel } from '@/components/bookings/correct-booking-panel';
@@ -611,6 +612,8 @@ function ShiftRow({ booking, shift }: { booking: BookingDetail; shift: BookingSh
               )}
               {shift.note && <span className="ml-2 text-xs text-ink/50">· {shift.note}</span>}
             </div>
+            {/* Check-in, once there is something to say: due, late, there, gone, or never recorded. */}
+            {shift.checkIn && shift.checkIn.state !== 'UPCOMING' && (shift.status === 'SCHEDULED' || shift.status === 'COMPLETED') && <VisitChip checkIn={shift.checkIn} />}
             <ShiftStatusBadge status={shift.status} label={t(`bookings.shiftStatus.${shift.status}`)} />
             {open && (
               <div className="flex items-center gap-1">

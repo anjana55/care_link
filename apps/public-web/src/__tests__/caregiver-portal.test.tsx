@@ -289,6 +289,72 @@ describe('shifts', () => {
     expect(await screen.findByText(/your report has reached our team/)).toBeInTheDocument();
   });
 
+  it('checks in with the code the client reads out, shows a wrong code\'s reason, then checks out', async () => {
+    serve();
+    const base = get.getMockImplementation()!;
+    const shift = (checkIn: object | null) => ({
+      id: 'sh9', startsAt: '2099-01-01T02:30:00.000Z', endsAt: '2099-01-01T10:30:00.000Z', status: 'SCHEDULED', isCover: false, bookingReference: 'BK-7K2QM9', scheduleType: 'DAY',
+      area: 'Dehiwala', hasCarePlan: false, checkIn,
+    });
+    const open = { state: 'DUE', opensAt: '2099-01-01T01:30:00.000Z', checkedInAt: null, checkedOutAt: null, codeLocked: false };
+    let current = shift(open);
+    get.mockImplementation((path: string) => {
+      if (path === '/me/shifts') return Promise.resolve([current]);
+      if (path === '/me/issues') return Promise.resolve([]);
+      return base(path);
+    });
+    renderPage(<ShiftsPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Check in' }));
+    const box = screen.getByLabelText('Arrival code');
+    // Only digits, four of them; nothing can be sent before that.
+    fireEvent.change(box, { target: { value: '4a8' } });
+    expect(box).toHaveValue('48');
+    const send = within(box.closest('form')!).getByRole('button', { name: 'Check in' });
+    expect(send).toBeDisabled();
+    fireEvent.change(box, { target: { value: '48219' } });
+    expect(box).toHaveValue('4821');
+
+    post.mockRejectedValueOnce(new Error('That code is not right - ask the client to read it to you again'));
+    fireEvent.click(send);
+    expect(await screen.findByRole('alert')).toHaveTextContent('That code is not right');
+    expect(post).toHaveBeenCalledWith('/me/shifts/sh9/check-in', { code: '4821' });
+
+    // The right one: the form goes and the shift says when they checked in.
+    fireEvent.change(box, { target: { value: '4822' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    post.mockResolvedValueOnce({ ok: true });
+    current = shift({ ...open, state: 'IN', checkedInAt: '2099-01-01T02:33:00.000Z' });
+    fireEvent.click(send);
+    expect(await screen.findByText(/Checked in 08:03/)).toBeInTheDocument();
+    expect(post).toHaveBeenLastCalledWith('/me/shifts/sh9/check-in', { code: '4822' });
+    expect(screen.queryByLabelText('Arrival code')).not.toBeInTheDocument();
+
+    post.mockResolvedValueOnce({ ok: true });
+    current = shift({ ...open, state: 'OUT', checkedInAt: '2099-01-01T02:33:00.000Z', checkedOutAt: '2099-01-01T10:31:00.000Z' });
+    fireEvent.click(screen.getByRole('button', { name: 'Check out' }));
+    expect(await screen.findByText(/In 08:03 · out 16:01/)).toBeInTheDocument();
+    expect(post).toHaveBeenLastCalledWith('/me/shifts/sh9/check-out', {});
+    expect(screen.queryByRole('button', { name: 'Check out' })).not.toBeInTheDocument();
+  });
+
+  it('offers no check-in when it is too early, locked, or switched off', async () => {
+    serve();
+    const base = get.getMockImplementation()!;
+    const shift = (id: string, checkIn: object | null) => ({
+      id, startsAt: '2099-01-01T02:30:00.000Z', endsAt: '2099-01-01T10:30:00.000Z', status: 'SCHEDULED', isCover: false, bookingReference: `BK-${id}`, scheduleType: 'DAY', area: null, hasCarePlan: false, checkIn,
+    });
+    const at = { opensAt: '2099-01-01T01:30:00.000Z', checkedInAt: null, checkedOutAt: null };
+    get.mockImplementation((path: string) => {
+      if (path === '/me/shifts') return Promise.resolve([shift('early', { ...at, state: 'UPCOMING', codeLocked: false }), shift('locked', { ...at, state: 'LATE', codeLocked: true }), shift('off', null)]);
+      if (path === '/me/issues') return Promise.resolve([]);
+      return base(path);
+    });
+    renderPage(<ShiftsPage />);
+    expect(await screen.findByText(/Too many wrong codes\. Ask the office to check you in\./)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Check in' })).not.toBeInTheDocument();
+  });
+
   it('shows what is saved', async () => {
     serve({
       availability: {
