@@ -10,6 +10,7 @@ import { ShiftRow } from '@/ui/ShiftRow';
 import { IssueForm, IssueReportList } from '@/care/IssueForm';
 import { useMyShiftIssues, useMyShifts, useReportShiftIssue } from '@/caregiver/api';
 import { ShiftCarePlan } from '@/caregiver/ShiftCarePlan';
+import { ShiftCheckIn } from '@/caregiver/ShiftCheckIn';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@/auth/AuthProvider';
 import { caregiverOnly } from '@/auth/sides';
@@ -55,6 +56,7 @@ export default function Shifts() {
             const canReport = new Date(s.startsAt).getTime() <= now || s.status === 'CANCELLED';
             return (
               <ShiftRow key={s.id} shift={s} coverLabel={t('portal.shifts.cover')} extra={[s.bookingReference, s.area].filter(Boolean).join(' · ')}>
+                <ShiftCheckIn shift={s} />
                 <View style={styles.actions}>
                   {s.hasCarePlan ? (
                     <Button

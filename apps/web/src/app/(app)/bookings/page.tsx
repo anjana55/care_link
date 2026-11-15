@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, ClipboardList, MessageSquareWarning, Search } from 'lucide-react';
+import { CalendarPlus, ClipboardList, MapPinCheck, MessageSquareWarning, Search } from 'lucide-react';
 import { useRecordTrail } from '@/lib/record-trail';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
@@ -52,6 +52,10 @@ export default function BookingsPage() {
         <h1 className="text-xl font-semibold text-ink">{t('bookings.title')}</h1>
         <div className="flex flex-wrap items-center gap-2">
           {/* The template library has no menu item of its own: it is opened from the bookings it is applied to. */}
+          <Link href="/bookings/today" className="inline-flex h-9 items-center gap-2 rounded border border-border bg-white px-4 text-sm font-medium text-ink hover:bg-paper">
+            <MapPinCheck size={16} aria-hidden />
+            {t('bookings.todayVisits')}
+          </Link>
           <Link href="/care-plans" className="inline-flex h-9 items-center gap-2 rounded border border-border bg-white px-4 text-sm font-medium text-ink hover:bg-paper">
             <ClipboardList size={16} aria-hidden />
             {t('carePlans.templates.title')}

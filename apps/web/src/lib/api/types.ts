@@ -1,4 +1,4 @@
-import type { CareType } from '@care-platform/shared';
+import type { CareType, StaffCheckIn } from '@care-platform/shared';
 import type {
   BillingAdjustmentView as SharedBillingAdjustmentView,
   BookingAmendmentView as SharedBookingAmendmentView,
@@ -692,6 +692,8 @@ export interface BookingShift {
   conflicts: { shiftId: string; withShiftId: string; withBookingId: string; withBookingReference: string; kind: 'BLOCKING' | 'DRAFT' }[];
   allowedStatuses: ShiftStatus[];
   updatedBy: StaffRef | null;
+  /** Where the visit's check-in stands; null when check-in is off or the shift is a draft or cancelled. */
+  checkIn: StaffCheckIn | null;
 }
 
 export interface BookingDetail {

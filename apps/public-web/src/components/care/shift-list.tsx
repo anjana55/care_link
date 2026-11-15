@@ -42,6 +42,8 @@ export function ShiftList<T extends PortalShift>({
         const past = new Date(s.endsAt).getTime() < now;
         const nextDay = toColombo(s.endsAt).date !== toColombo(s.startsAt).date;
         const underneath = below?.(s);
+        const detail = extra?.(s);
+        const hasDetail = Boolean(detail) || Boolean(s.isCover && coverLabel);
         return (
           <li key={s.id} className={cn('flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5', past && !underneath && 'opacity-60')}>
             <span className="w-32 text-sm font-medium text-ink">{fmtDay(s.startsAt, locale)}</span>
@@ -49,8 +51,9 @@ export function ShiftList<T extends PortalShift>({
               {fmtTime(s.startsAt, locale)}–{fmtTime(s.endsAt, locale)}
               {nextDay && <span className="text-ink/50"> (+1)</span>}
             </span>
-            <span className="min-w-0 flex-1 text-xs text-ink/50">
-              {extra?.(s)}
+            {/* On a phone the detail gets a line of its own instead of being squeezed beside the time. */}
+            <span className={cn('min-w-0 flex-1 text-xs text-ink/50', hasDetail && 'basis-full sm:basis-0')}>
+              {detail}
               {s.isCover && coverLabel && <span className="ml-1 text-amber-700">{coverLabel}</span>}
             </span>
             <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', TONE[s.status])}>{t(`bookings.shiftStatus.${s.status}`)}</span>

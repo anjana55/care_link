@@ -8,7 +8,7 @@ import { Button } from '@/ui/controls';
 import { Text } from '@/ui/Text';
 import { EmptyState } from '@/ui/visual';
 import { PageHeader } from '@/ui/PageHeader';
-import { formatDate } from '@/ui/dates';
+import { fmtTime, formatDate } from '@/ui/dates';
 import { ShiftRow } from '@/ui/ShiftRow';
 import { useClient } from '@/care/api';
 import { useMyBookings } from '@/care/bookings-api';
@@ -16,6 +16,7 @@ import { SignInPrompt } from '@/care/SignInPrompt';
 import { TodaysCare } from '@/care/TodaysCare';
 import { BookingIssues } from '@/care/BookingIssues';
 import { BookingProposals } from '@/care/BookingProposals';
+import { ArrivalCodes } from '@/care/ArrivalCodes';
 import { useMyIssues } from '@/care/billing-api';
 import { shortId } from '@/search/ResultCard';
 import { BookingReviews, PendingReviewsBanner } from '@/reviews/BookingReviews';
@@ -42,6 +43,7 @@ export default function Bookings() {
     <View style={styles.head}>
       {client ? (
         <>
+          <ArrivalCodes bookings={bookings.data ?? []} />
           <BookingProposals />
           <PendingReviewsBanner />
           <TodaysCare />
@@ -117,7 +119,20 @@ function BookingCard({ booking: b, reports }: { booking: ClientBooking; reports:
       {b.shifts.length === 0 ? (
         <Text style={{ color: colors.muted }}>{t('account.bookings.noShifts')}</Text>
       ) : (
-        b.shifts.map((s) => <ShiftRow key={s.id} shift={s} coverLabel={t('account.bookings.cover')} />)
+        b.shifts.map((s) => (
+          <ShiftRow
+            key={s.id}
+            shift={s}
+            coverLabel={t('account.bookings.cover')}
+            extra={
+              s.visit?.checkedInAt
+                ? s.visit.checkedOutAt
+                  ? t('checkIn.client.arrivedLeft', { in: fmtTime(s.visit.checkedInAt), out: fmtTime(s.visit.checkedOutAt) })
+                  : t('checkIn.client.arrived', { time: fmtTime(s.visit.checkedInAt) })
+                : undefined
+            }
+          />
+        ))
       )}
       <BookingReviews reviews={b.reviews ?? []} />
       <BookingIssues booking={b} reports={reports} />
