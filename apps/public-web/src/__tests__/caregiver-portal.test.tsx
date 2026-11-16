@@ -295,7 +295,7 @@ describe('shifts', () => {
     const base = get.getMockImplementation()!;
     const shift = (checkIn: object | null) => ({
       id: 'sh9', startsAt: '2099-01-01T02:30:00.000Z', endsAt: '2099-01-01T10:30:00.000Z', status: 'SCHEDULED', isCover: false, bookingReference: 'BK-7K2QM9', scheduleType: 'DAY',
-      area: 'Dehiwala', hasCarePlan: false, checkIn,
+      area: 'Dehiwala', hasCarePlan: false, paused: false, checkIn,
     });
     const open = { state: 'DUE', opensAt: '2099-01-01T01:30:00.000Z', checkedInAt: null, checkedOutAt: null, codeLocked: false };
     let current = shift(open);
@@ -343,7 +343,7 @@ describe('shifts', () => {
     serve();
     const base = get.getMockImplementation()!;
     const shift = (id: string, checkIn: object | null) => ({
-      id, startsAt: '2099-01-01T02:30:00.000Z', endsAt: '2099-01-01T10:30:00.000Z', status: 'SCHEDULED', isCover: false, bookingReference: `BK-${id}`, scheduleType: 'DAY', area: null, hasCarePlan: false, checkIn,
+      id, startsAt: '2099-01-01T02:30:00.000Z', endsAt: '2099-01-01T10:30:00.000Z', status: 'SCHEDULED', isCover: false, bookingReference: `BK-${id}`, scheduleType: 'DAY', area: null, hasCarePlan: false, paused: false, checkIn,
     });
     const at = { opensAt: '2099-01-01T01:30:00.000Z', checkedInAt: null, checkedOutAt: null };
     get.mockImplementation((path: string) => {
@@ -353,6 +353,23 @@ describe('shifts', () => {
     });
     renderPage(<ShiftsPage />);
     expect(await screen.findByText(/Too many wrong codes\. Ask the office to check you in\./)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Check in' })).not.toBeInTheDocument();
+  });
+
+  it('tells the caregiver not to go to a paused visit, and offers no check-in', async () => {
+    serve();
+    const base = get.getMockImplementation()!;
+    get.mockImplementation((path: string) => {
+      if (path === '/me/shifts')
+        return Promise.resolve([
+          { id: 'p1', startsAt: '2099-01-01T02:30:00.000Z', endsAt: '2099-01-01T10:30:00.000Z', status: 'SCHEDULED', isCover: false, bookingReference: 'BK-P1', scheduleType: 'DAY', area: null, hasCarePlan: false, paused: true,
+            checkIn: { opensAt: '2099-01-01T01:30:00.000Z', checkedInAt: null, checkedOutAt: null, state: 'DUE', codeLocked: false } },
+        ]);
+      if (path === '/me/issues') return Promise.resolve([]);
+      return base(path);
+    });
+    renderPage(<ShiftsPage />);
+    expect(await screen.findByText('Visits paused by the office - do not go')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Check in' })).not.toBeInTheDocument();
   });
 

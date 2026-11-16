@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { and, asc, eq, gt, inArray, isNotNull, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, ne, sql } from 'drizzle-orm';
 import {
   ARRIVAL_CODE_LENGTH,
   CHECK_IN_MAX_WRONG_CODES,
@@ -236,6 +236,7 @@ export class CheckInService {
         shiftId: bookingShifts.id,
         bookingId: bookings.id,
         reference: bookings.reference,
+        paused: bookings.paymentHoldInvoiceId,
         startsAt: bookingShifts.startsAt,
         endsAt: bookingShifts.endsAt,
         status: bookingShifts.status,
@@ -287,6 +288,7 @@ export class CheckInService {
           minutesLate: r.status === 'SCHEDULED' && checkIn.state === 'LATE' ? minutesLate({ startsAt: r.startsAt }, now) : null,
           checkIn,
           coverWaiting: coverWaiting.get(r.shiftId) ?? 0,
+          paused: Boolean(r.paused),
         };
       }),
     };
@@ -301,7 +303,7 @@ export class CheckInService {
       .from(bookingShifts)
       .innerJoin(bookings, eq(bookingShifts.bookingId, bookings.id))
       .leftJoin(shiftCheckins, eq(shiftCheckins.shiftId, bookingShifts.id))
-      .where(and(eq(bookingShifts.status, 'SCHEDULED'), eq(bookings.status, 'CONFIRMED'), lt(bookingShifts.startsAt, now), gt(bookingShifts.endsAt, now)))
+      .where(and(eq(bookingShifts.status, 'SCHEDULED'), eq(bookings.status, 'CONFIRMED'), isNull(bookings.paymentHoldInvoiceId), lt(bookingShifts.startsAt, now), gt(bookingShifts.endsAt, now)))
       .limit(1000);
     return rows.filter((r) => visitState(r, settings, now) === 'LATE').length;
   }
@@ -318,6 +320,7 @@ export class CheckInService {
         endsAt: bookingShifts.endsAt,
         status: bookingShifts.status,
         bookingStatus: bookings.status,
+        paused: bookings.paymentHoldInvoiceId,
         patientUserId: patients.userId,
       })
       .from(bookingShifts)
@@ -356,6 +359,7 @@ export class CheckInService {
     if (shift.status !== 'SCHEDULED') throw new BadRequestException('This shift is not open for check-in');
     const [row] = await this.db.select().from(shiftCheckins).where(eq(shiftCheckins.shiftId, shiftId)).limit(1);
     if (row?.checkedInAt) return; // a second tap, or a retry after a lost reply
+    if (shift.paused) throw new BadRequestException('Visits on this booking are paused - please call the office');
     const state = visitState({ startsAt: shift.startsAt, endsAt: shift.endsAt, checkedInAt: null, checkedOutAt: null }, settings, now);
     if (state === 'UPCOMING') throw new BadRequestException('It is too early to check in for this shift');
     if (!checkInOpen(state)) throw new BadRequestException('This shift has ended - ask the office to record your visit');

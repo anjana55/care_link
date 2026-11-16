@@ -19,6 +19,8 @@ import {
   type ClientBookingProposal,
   type IsoWeekday,
   type AdvancePayment,
+  type PayableInvoice,
+  type PaymentHold,
   type BillingTiming,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
@@ -168,6 +170,35 @@ export class BookingsService {
       .limit(1);
     if (!inv) return { required, state: 'NOT_BILLED', invoice: null };
     return { required, state: inv.status === 'PAID' ? 'PAID' : 'UNPAID', invoice: { ...inv, status: inv.status as 'DRAFT' | 'ISSUED' | 'PAID' } };
+  }
+
+  private payableHook: ((invoiceIds: string[]) => Promise<Map<string, PayableInvoice>>) | null = null;
+
+  /** Billing tells this service what a client can pay and how; registered at start-up so bookings does not depend on billing. */
+  registerPayable(fn: (invoiceIds: string[]) => Promise<Map<string, PayableInvoice>>) {
+    this.payableHook = fn;
+  }
+
+  private async payable(invoiceIds: string[]): Promise<Map<string, PayableInvoice>> {
+    if (!invoiceIds.length || !this.payableHook) return new Map();
+    return this.payableHook(invoiceIds);
+  }
+
+  /** Staff view of a paused booking: the invoice it waits for. Null when visits go ahead. */
+  private async paymentHold(booking: { paymentHoldInvoiceId: string | null; paymentHoldAt: Date | null }): Promise<PaymentHold | null> {
+    if (!booking.paymentHoldInvoiceId) return null;
+    const [inv] = await this.db
+      .select({ number: invoices.number, dueDate: invoices.dueDate, total: invoices.total, paid: invoices.amountPaid })
+      .from(invoices)
+      .where(eq(invoices.id, booking.paymentHoldInvoiceId))
+      .limit(1);
+    return {
+      invoiceId: booking.paymentHoldInvoiceId,
+      invoiceNumber: inv?.number ?? null,
+      since: (booking.paymentHoldAt ?? new Date()).toISOString(),
+      dueDate: inv?.dueDate ?? null,
+      balance: inv ? (Number(inv.total) - Number(inv.paid)).toFixed(2) : '0.00',
+    };
   }
 
   /** What a new booking starts with unless staff choose otherwise (Settings > Billing). */
@@ -372,6 +403,8 @@ export class BookingsService {
       ...booking,
       // Payment before confirmation: where a draft billed in advance stands.
       advancePayment: await this.advancePayment(booking),
+      // Visits paused for an unpaid month, on a confirmed booking billed in advance.
+      paymentHold: await this.paymentHold(booking),
       daysOfWeek: booking.daysOfWeek.split(',').map(Number),
       createdBy: booking.createdByUserId ? (names.get(booking.createdByUserId) ?? null) : null,
       confirmedBy: booking.confirmedByUserId ? (names.get(booking.confirmedByUserId) ?? null) : null,
@@ -988,6 +1021,8 @@ export class BookingsService {
       }
       await tx.update(bookingShifts).set({ status: 'SCHEDULED', updatedAt: now }).where(and(eq(bookingShifts.bookingId, id), eq(bookingShifts.status, 'DRAFT')));
       await this.event(t, id, 'CONFIRMED', actor, `${drafts.length} shifts scheduled${overridden ? `; confirmed without payment: ${opts.reason!.trim()}` : ''}`);
+      // Staff chose to go ahead without that invoice paid: its due date passing must not pause the visits they agreed to.
+      if (overridden && payment.invoice) await tx.update(bookings).set({ paymentHoldWaivedInvoiceId: payment.invoice.id }).where(eq(bookings.id, id));
 
       if (booking.careRequestId) {
         const [req] = await tx
@@ -1079,7 +1114,15 @@ export class BookingsService {
         .groupBy(bookingShifts.bookingId),
       this.publicSearch.profilesFor(rows.map((r) => r.caregiverId), locale),
     ]);
+    // Billed in advance and accepted: the first invoice, which the client pays to have the booking confirmed.
+    const firstIds = new Map<string, string>();
+    for (const r of rows.filter((x) => x.billingTiming === 'ADVANCE' && x.clientReviewStatus === 'ACCEPTED')) {
+      const { invoice } = await this.advancePayment(r);
+      if (invoice && invoice.status !== 'DRAFT') firstIds.set(r.id, invoice.id);
+    }
+    const payable = await this.payable([...firstIds.values()]);
     return rows.map((r) => ({
+      firstInvoice: firstIds.has(r.id) ? (payable.get(firstIds.get(r.id)!) ?? null) : null,
       id: r.id,
       reference: r.reference,
       status: r.clientReviewStatus!,
@@ -1461,6 +1504,7 @@ export class BookingsService {
         rateAmount: bookings.rateAmount,
         caregiverId: bookings.caregiverId,
         caregiverPublicId: caregivers.publicId,
+        holdInvoiceId: bookings.paymentHoldInvoiceId,
       })
       .from(bookings)
       .innerJoin(caregivers, eq(bookings.caregiverId, caregivers.id))
@@ -1484,7 +1528,9 @@ export class BookingsService {
     const profiles = await this.publicSearch.profilesFor([...rows.map((r) => r.caregiverId), ...reviewEntries.map((e) => e.caregiverId)], locale);
     // The day's arrival code and when the caregiver came and went (nothing when check-in is off).
     const visits = await this.checkIns.forClient(shifts);
+    const held = await this.payable(rows.map((r) => r.holdInvoiceId).filter((v): v is string => Boolean(v)));
     return rows.map((r) => ({
+      paymentHold: r.holdInvoiceId ? (held.get(r.holdInvoiceId) ?? null) : null,
       id: r.id,
       reference: r.reference,
       status: r.status,
@@ -1527,6 +1573,7 @@ export class BookingsService {
         bookedCaregiverId: bookings.caregiverId,
         reference: bookings.reference,
         scheduleType: bookings.scheduleType,
+        held: bookings.paymentHoldInvoiceId,
         city: cities.nameEn,
         district: districts.nameEn,
       })
@@ -1560,6 +1607,7 @@ export class BookingsService {
       area: [r.city, r.district].filter(Boolean).join(', ') || null,
       hasCarePlan: withPlan.has(r.id),
       checkIn: checkIns.get(r.id) ?? null,
+      paused: Boolean(r.held),
     }));
   }
 }

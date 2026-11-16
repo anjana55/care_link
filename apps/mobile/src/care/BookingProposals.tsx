@@ -9,6 +9,7 @@ import { Text } from '@/ui/Text';
 import { formatDate, fmtWeekday } from '@/ui/dates';
 import { shortId } from '@/search/ResultCard';
 import { useAnswerBookingProposal, useBookingProposals } from './bookings-api';
+import { PayNow } from './PayNow';
 
 /**
  * Bookings the office has prepared and asked the client to check, as on the
@@ -46,6 +47,7 @@ function Proposal({ proposal: p }: { proposal: ClientBookingProposal }) {
         {t(`account.bookingCheck.title.${p.status}`)}
       </Text>
       <Text style={{ color: colors.muted }}>{t(`account.bookingCheck.intro.${p.status === 'ACCEPTED' && p.billingTiming === 'ADVANCE' ? 'ACCEPTED_ADVANCE' : p.status}`)}</Text>
+      {p.firstInvoice ? <PayNow invoice={p.firstInvoice} why={t('payNow.whyFirst')} /> : null}
 
       {p.caregiver ? (
         <Button

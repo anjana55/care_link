@@ -25,6 +25,8 @@ export function ShiftCheckIn({ shift, locate = phonePosition }: { shift: Caregiv
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const c = shift.checkIn;
+  // Paused by the office: nobody should go, so there is nothing to check in to.
+  if (shift.paused && !c?.checkedInAt) return <Text style={{ fontSize: 14, fontWeight: '600', color: colors.danger }}>{t('portal.shifts.paused')}</Text>;
   if (!c || (shift.status !== 'SCHEDULED' && shift.status !== 'COMPLETED')) return null;
 
   if (c.checkedInAt && c.checkedOutAt) return <Text style={{ fontSize: 14, color: colors.brand }}>{t('checkIn.caregiver.out', { in: fmtTime(c.checkedInAt), out: fmtTime(c.checkedOutAt) })}</Text>;

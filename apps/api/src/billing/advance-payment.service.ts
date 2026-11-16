@@ -1,10 +1,13 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, asc, eq, inArray, like, ne } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull, isNull, like, lt, ne, or } from 'drizzle-orm';
 import { randomUUID as uuid } from 'crypto';
-import { UNPAID_ALERT_DAYS_BEFORE_START, addDays, advancePeriods, colomboToday } from '@care-platform/shared';
+import { UNPAID_ALERT_DAYS_BEFORE_START, addDays, advancePeriods, colomboToday, type PayableInvoice } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { bookingEvents, bookings, invoices, users } from '../database/schema';
+import { bookingEvents, bookingShifts, bookings, caregivers, invoices, patients, users } from '../database/schema';
+import { BookingsService } from '../bookings/bookings.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { BillingSettingsService } from './billing-settings.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AutomationService } from '../automation/automation.service';
 import { JobsService } from '../jobs/jobs.service';
@@ -15,6 +18,28 @@ import { InvoicesService } from './invoices.service';
 import { INVOICE_PAID_JOB, UNPAID_SWEEP_JOB } from './advance-payment-jobs';
 
 const HOUR_MS = 60 * 60 * 1000;
+/** What the client, and the caregivers on the booking, are told when visits pause and resume. Caregivers are not told why. */
+const PAUSED_CLIENT = {
+  en: { title: 'Your visits are paused', body: 'Invoice {number} is past its due date. Your visits resume as soon as it is paid - you can pay it now.' },
+  si: { title: 'ඔබගේ හමුවීම් තාවකාලිකව නවතා ඇත', body: '{number} ඉන්වොයිසිය ගෙවිය යුතු දිනය ඉක්මවා ඇත. එය ගෙවූ වහාම ඔබගේ හමුවීම් නැවත ආරම්භ වේ - ඔබට දැන් එය ගෙවිය හැක.' },
+  ta: { title: 'உங்கள் வருகைகள் இடைநிறுத்தப்பட்டுள்ளன', body: 'விலைப்பட்டியல் {number} செலுத்த வேண்டிய நாளைக் கடந்துவிட்டது. அது செலுத்தப்பட்டவுடன் உங்கள் வருகைகள் மீண்டும் தொடங்கும் - இப்போதே செலுத்தலாம்.' },
+} as const;
+const RESUMED_CLIENT = {
+  en: { title: 'Your visits go ahead again', body: 'Thank you. Your caregiver will come as booked.' },
+  si: { title: 'ඔබගේ හමුවීම් නැවත ආරම්භ වේ', body: 'ස්තූතියි. ඔබගේ සත්කාරකයා වෙන්කළ පරිදි පැමිණේ.' },
+  ta: { title: 'உங்கள் வருகைகள் மீண்டும் தொடர்கின்றன', body: 'நன்றி. உங்கள் பராமரிப்பாளர் முன்பதிவின்படி வருவார்.' },
+} as const;
+const PAUSED_CAREGIVER = {
+  en: { title: 'Visits paused', body: 'The office has paused the visits for booking {reference}. Do not go until you hear they are back on.' },
+  si: { title: 'හමුවීම් නවතා ඇත', body: '{reference} වෙන්කිරීමේ හමුවීම් කාර්යාලය විසින් තාවකාලිකව නවතා ඇත. ඒවා නැවත ආරම්භ වූ බව දැනුම් දෙන තෙක් නොයන්න.' },
+  ta: { title: 'வருகைகள் இடைநிறுத்தம்', body: 'முன்பதிவு {reference} க்கான வருகைகளை அலுவலகம் இடைநிறுத்தியுள்ளது. மீண்டும் தொடங்கியதாகத் தெரிவிக்கும் வரை செல்ல வேண்டாம்.' },
+} as const;
+const RESUMED_CAREGIVER = {
+  en: { title: 'Visits back on', body: 'The visits for booking {reference} go ahead again as booked.' },
+  si: { title: 'හමුවීම් නැවත ආරම්භ විය', body: '{reference} වෙන්කිරීමේ හමුවීම් වෙන්කළ පරිදි නැවත සිදු වේ.' },
+  ta: { title: 'வருகைகள் மீண்டும் தொடக்கம்', body: 'முன்பதிவு {reference} க்கான வருகைகள் முன்பதிவின்படி மீண்டும் நடைபெறும்.' },
+} as const;
+
 /** Written to the booking's history when staff are alerted, and looked for so they are alerted once. */
 const ALERTED = 'Staff alerted: the first invoice is not paid';
 
@@ -46,6 +71,9 @@ export class AdvancePaymentService implements OnApplicationBootstrap, OnModuleDe
     private readonly jobs: JobsService,
     private readonly email: EmailService,
     private readonly emailSettings: EmailSettingsService,
+    private readonly bookingsService: BookingsService,
+    private readonly notices: NotificationsService,
+    private readonly billingSettings: BillingSettingsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -53,7 +81,11 @@ export class AdvancePaymentService implements OnApplicationBootstrap, OnModuleDe
       const invoiceId = (payload as { invoiceId?: unknown }).invoiceId;
       if (typeof invoiceId === 'string') await this.onPaid(invoiceId);
     });
-    this.jobs.register(UNPAID_SWEEP_JOB, async () => void (await this.alertUnpaid()));
+    this.jobs.register(UNPAID_SWEEP_JOB, async () => {
+      await this.alertUnpaid();
+      await this.holdUnpaid();
+    });
+    this.bookingsService.registerPayable((ids) => this.payable(ids));
     if (this.config.get<string>('NODE_ENV') === 'test') return;
     const queue = () =>
       void this.jobs.enqueue(UNPAID_SWEEP_JOB, {}, { uniqueKey: `${UNPAID_SWEEP_JOB}:${Math.floor(Date.now() / HOUR_MS)}`, maxAttempts: 2 }).catch((e) => this.logger.warn(`Unpaid-booking check not queued: ${(e as Error).message}`));
@@ -82,8 +114,128 @@ export class AdvancePaymentService implements OnApplicationBootstrap, OnModuleDe
     return this.invoicesService.issue(draft.id, {}, who);
   }
 
-  /** An invoice was paid in full. If a draft booking was waiting for it: staff hear it can be confirmed, and the booking agent is asked to look. */
+  /** What the client owes on these invoices, and whether they can pay it online here. */
+  async payable(invoiceIds: string[]): Promise<Map<string, PayableInvoice>> {
+    if (!invoiceIds.length) return new Map();
+    const [rows, settings] = await Promise.all([
+      this.db
+        .select({ id: invoices.id, number: invoices.number, status: invoices.status, total: invoices.total, paid: invoices.amountPaid, dueDate: invoices.dueDate })
+        .from(invoices)
+        .where(inArray(invoices.id, invoiceIds)),
+      this.billingSettings.getResolved(),
+    ]);
+    return new Map(
+      rows.map((r) => {
+        const balanceCents = Math.round(Number(r.total) * 100) - Math.round(Number(r.paid) * 100);
+        return [
+          r.id,
+          { id: r.id, number: r.number, total: r.total, balance: (balanceCents / 100).toFixed(2), dueDate: r.dueDate, canPayOnline: r.status === 'ISSUED' && balanceCents > 0 && settings.payhereUsable },
+        ];
+      }),
+    );
+  }
+
+  /**
+   * Visits paused for payment. A confirmed booking billed in advance whose
+   * month's invoice is past its due date and unpaid has its visits paused:
+   * staff are emailed, the caregivers on its coming shifts are told not to
+   * go (without being told why), and the client is told what to pay. An
+   * invoice staff have waived (confirmed or resumed without payment) never
+   * pauses visits. Returns how many bookings were paused.
+   */
+  async holdUnpaid(now = new Date(), only?: string[]): Promise<number> {
+    const today = colomboToday(now);
+    const rows = await this.db
+      .select({ bookingId: bookings.id, reference: bookings.reference, patientUserId: patients.userId, waived: bookings.paymentHoldWaivedInvoiceId, invoiceId: invoices.id, number: invoices.number, dueDate: invoices.dueDate })
+      .from(bookings)
+      .innerJoin(patients, eq(patients.id, bookings.patientId))
+      .innerJoin(invoices, and(eq(invoices.bookingId, bookings.id), eq(invoices.status, 'ISSUED'), isNotNull(invoices.dueDate), lt(invoices.dueDate, today)))
+      .where(and(eq(bookings.status, 'CONFIRMED'), eq(bookings.billingTiming, 'ADVANCE'), isNull(bookings.paymentHoldInvoiceId), only ? inArray(bookings.id, only.length ? only : ['']) : undefined))
+      .orderBy(asc(invoices.dueDate))
+      .limit(500);
+    let held = 0;
+    const done = new Set<string>();
+    for (const r of rows) {
+      if (done.has(r.bookingId) || r.invoiceId === r.waived) continue;
+      done.add(r.bookingId);
+      const [set] = await this.db
+        .update(bookings)
+        .set({ paymentHoldInvoiceId: r.invoiceId, paymentHoldAt: now })
+        .where(and(eq(bookings.id, r.bookingId), isNull(bookings.paymentHoldInvoiceId)));
+      if (!(set as { affectedRows: number }).affectedRows) continue;
+      await this.db.insert(bookingEvents).values({ id: uuid(), bookingId: r.bookingId, type: 'NOTE', note: `Visits paused: invoice ${r.number} was due on ${r.dueDate} and is not paid`, actorUserId: null });
+      await this.automation.setHandoverNote(
+        { caseType: 'BOOKING', caseId: r.bookingId },
+        { done: `Visits paused: invoice ${r.number} was due on ${r.dueDate} and is not paid`, waiting: `The client to pay invoice ${r.number}`, next: 'Visits resume when it is paid, or when staff resume them' },
+      );
+      await this.tellCaregivers(r.bookingId, now, 'paused');
+      this.notices.notify([r.patientUserId], (lang) => ({ title: PAUSED_CLIENT[lang].title, body: PAUSED_CLIENT[lang].body.replace('{number}', r.number ?? '') }), `/invoices/${r.invoiceId}`, `visits paused ${r.bookingId}`);
+      await this.tellStaff(
+        `Visits paused: ${r.reference}`,
+        [
+          `Booking ${r.reference} is billed in advance and invoice ${r.number} was due on ${r.dueDate}. It is not paid, so its visits are paused.`,
+          'The caregivers on its coming shifts have been told not to go, and the client has been asked to pay. Visits resume when the invoice is paid, or when you resume them on the booking.',
+        ],
+        r.bookingId,
+        `visits paused ${r.invoiceId}`,
+      );
+      held++;
+    }
+    return held;
+  }
+
+  /** Staff resume a paused booking's visits without payment. The invoice is then never a reason to pause it again. */
+  async resume(bookingId: string, reason: string | undefined, actor: AuthenticatedUser) {
+    if (!reason?.trim() || reason.trim().length < 3) throw new BadRequestException('Say why visits resume without payment');
+    const [b] = await this.db.select().from(bookings).where(eq(bookings.id, bookingId)).limit(1);
+    if (!b) throw new NotFoundException('Booking not found');
+    if (!b.paymentHoldInvoiceId) throw new BadRequestException('Visits on this booking are not paused');
+    await this.release(b, `Visits resumed without payment: ${reason.trim()}`, actor.userId, true);
+    return this.bookingsService.findOne(bookingId);
+  }
+
+  /** Lifts a pause: the booking's visits go ahead again and everyone who was told is told. */
+  private async release(b: { id: string; reference: string; patientId: string; paymentHoldInvoiceId: string | null }, note: string, actorUserId: string | null, waive: boolean) {
+    const invoiceId = b.paymentHoldInvoiceId!;
+    const [cleared] = await this.db
+      .update(bookings)
+      .set({ paymentHoldInvoiceId: null, paymentHoldAt: null, ...(waive ? { paymentHoldWaivedInvoiceId: invoiceId } : {}) })
+      .where(and(eq(bookings.id, b.id), eq(bookings.paymentHoldInvoiceId, invoiceId)));
+    if (!(cleared as { affectedRows: number }).affectedRows) return false;
+    await this.db.insert(bookingEvents).values({ id: uuid(), bookingId: b.id, type: 'NOTE', note, actorUserId });
+    await this.automation.setHandoverNote({ caseType: 'BOOKING', caseId: b.id }, { done: note, waiting: 'Nothing', next: 'Visits go ahead as booked' });
+    const now = new Date();
+    await this.tellCaregivers(b.id, now, 'resumed');
+    const [p] = await this.db.select({ userId: patients.userId }).from(patients).where(eq(patients.id, b.patientId)).limit(1);
+    this.notices.notify([p?.userId ?? null], (lang) => RESUMED_CLIENT[lang], '/bookings', `visits resumed ${b.id}`);
+    return true;
+  }
+
+  /** Bell and push to every caregiver with a coming shift on the booking. Nothing about the client's money: "the office has paused them". */
+  private async tellCaregivers(bookingId: string, now: Date, what: 'paused' | 'resumed') {
+    const rows = await this.db
+      .selectDistinct({ userId: caregivers.userId })
+      .from(bookingShifts)
+      .innerJoin(caregivers, eq(caregivers.id, bookingShifts.caregiverId))
+      .where(and(eq(bookingShifts.bookingId, bookingId), eq(bookingShifts.status, 'SCHEDULED'), gt(bookingShifts.endsAt, now)));
+    const [b] = await this.db.select({ reference: bookings.reference }).from(bookings).where(eq(bookings.id, bookingId)).limit(1);
+    const text = what === 'paused' ? PAUSED_CAREGIVER : RESUMED_CAREGIVER;
+    this.notices.notify(rows.map((r) => r.userId), (lang) => ({ title: text[lang].title, body: text[lang].body.replace('{reference}', b?.reference ?? '') }), '/shifts', `visits ${what} ${bookingId}`);
+  }
+
+  /** An invoice was paid in full. A booking paused for it resumes; a draft waiting for it can be confirmed. */
   async onPaid(invoiceId: string): Promise<boolean> {
+    const [paused] = await this.db.select().from(bookings).where(eq(bookings.paymentHoldInvoiceId, invoiceId)).limit(1);
+    const [inv] = await this.db.select({ number: invoices.number, status: invoices.status }).from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+    if (paused && inv?.status === 'PAID' && (await this.release(paused, `Visits resumed: invoice ${inv.number} is paid`, null, false))) {
+      await this.tellStaff(`Paid, visits resumed: ${paused.reference}`, [`Invoice ${inv.number} for booking ${paused.reference} has been paid in full.`, 'Its visits were paused for this payment and now go ahead again. The caregivers and the client have been told.'], paused.id, `visits resumed ${invoiceId}`);
+      return true;
+    }
+    return this.onFirstPaid(invoiceId);
+  }
+
+  /** The first invoice of a draft billed in advance was paid: staff hear it can be confirmed, and the booking agent is asked to look. */
+  private async onFirstPaid(invoiceId: string): Promise<boolean> {
     const [row] = await this.db
       .select({ number: invoices.number, bookingId: bookings.id, reference: bookings.reference, status: bookings.status, timing: bookings.billingTiming })
       .from(invoices)

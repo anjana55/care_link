@@ -81,6 +81,12 @@ export const bookings = mysqlTable(
     // When the client is billed: AFTER the work, or in ADVANCE for the work booked.
     // A new booking takes billing_settings.default_billing_timing unless staff choose.
     billingTiming: mysqlEnum('billing_timing', BILLING_TIMINGS).notNull().default('AFTER'),
+    // Billed in advance and a month's invoice is past due unpaid: visits are paused until it is paid
+    // (or staff resume them). The invoice it waits for, and since when.
+    paymentHoldInvoiceId: varchar('payment_hold_invoice_id', { length: 36 }),
+    paymentHoldAt: datetime('payment_hold_at'),
+    // An invoice staff have chosen not to pause visits for (confirmed or resumed without payment).
+    paymentHoldWaivedInvoiceId: varchar('payment_hold_waived_invoice_id', { length: 36 }),
     notes: text('notes'),
 
     createdByUserId: varchar('created_by_user_id', { length: 36 }),
