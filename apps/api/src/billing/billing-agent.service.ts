@@ -1,13 +1,14 @@
 import { BadRequestException, Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, eq, gt, gte, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
-import { ACTION_LIMITS, addDays, colomboToday, colomboToUtc, toColombo, type AgentRunResult } from '@care-platform/shared';
+import { ACTION_LIMITS, addDays, advancePeriods, colomboToday, colomboToUtc, toColombo, type AgentRunResult } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { agentDecisions, bookingShifts, bookings, caregivers, invoiceLines, invoices, payoutLines, payoutStatements } from '../database/schema';
 import { AutomationService, type ActionExecutor } from '../automation/automation.service';
 import { JobsService } from '../jobs/jobs.service';
 import { InvoicesService, MAX_INVOICE_DAYS } from './invoices.service';
 import { PayoutsService } from './payouts.service';
+import { BILLING_BOOKING_JOB } from './billing-agent-jobs';
 
 const ACTION = 'billing.issue_invoice' as const;
 const DRAFT_PAYOUT = 'billing.draft_payout' as const;
@@ -27,6 +28,8 @@ const LOOKBACK_DAYS = 120;
 export interface InvoiceProposal extends Record<string, unknown> {
   bookingId: string;
   bookingReference: string;
+  /** SCHEDULED: billed in advance, for the work booked. Absent on older decisions, which were all for completed work. */
+  basis?: 'COMPLETED' | 'SCHEDULED';
   periodStart: string;
   periodEnd: string;
   lines: number;
@@ -82,11 +85,21 @@ export function monthStart(day: string, months = 0): string {
  * Invoicing: see below.
  */
 /**
- * Invoicing completed work.
+ * Invoicing.
  *
- * It follows the rule staff follow by hand. A finished booking is billed for
- * everything not yet billed; a booking still running is billed up to the end
- * of last month. What it does about it depends on the dial:
+ * After the work: it follows the rule staff follow by hand. A finished booking
+ * is billed for everything not yet billed; a booking still running is billed
+ * up to the end of last month.
+ *
+ * In advance: a confirmed booking set to be billed in advance is billed for
+ * the work booked - its first month as soon as it is confirmed, then each
+ * month a few days before it begins (advancePeriods). The invoice is the one
+ * staff make with "scheduled work, in advance": every shift of the period
+ * that is scheduled or done and not yet on an invoice. Anything such a
+ * booking still has unbilled once a month has ended (a shift added late) is
+ * picked up by the rule above, so nothing is missed and nothing billed twice.
+ *
+ * What it does about it depends on the dial:
  *  - Shadow: logs what it would have billed, then scores itself once staff
  *    have billed the same work.
  *  - Assist: proposes the invoice; a staff member approves and it is created
@@ -117,6 +130,10 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
     this.automation.registerExecutor(APPROVE_PAYOUT, this.approvePayout);
     this.automation.registerRunner('BILLING', () => this.sweep());
     this.jobs.register(SWEEP_JOB, async () => void (await this.sweep()));
+    this.jobs.register(BILLING_BOOKING_JOB, async (payload) => {
+      const bookingId = (payload as { bookingId?: unknown }).bookingId;
+      if (typeof bookingId === 'string') await this.sweep(new Date(), [bookingId]);
+    });
     if (this.config.get<string>('NODE_ENV') === 'test') return;
     // One sweep an hour across all API instances: the hour is the idempotency key.
     const schedule = () =>
@@ -158,6 +175,24 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
       .where(and(inArray(bookings.status, ['CONFIRMED', 'COMPLETED']), eq(bookingShifts.status, 'COMPLETED'), gte(bookingShifts.startsAt, since), only ? inArray(bookings.id, only) : undefined))
       .groupBy(bookings.id, bookings.reference, bookings.status, bookings.startDate);
 
+    // Bookings billed in advance: what is due now for the work booked.
+    const ahead = await this.db
+      .select({ id: bookings.id, reference: bookings.reference, startDate: bookings.startDate, endDate: bookings.endDate })
+      .from(bookings)
+      .where(and(eq(bookings.status, 'CONFIRMED'), eq(bookings.billingTiming, 'ADVANCE'), gte(bookings.endDate, monthStart(today)), only ? inArray(bookings.id, only) : undefined));
+    for (const b of ahead) {
+      for (const period of advancePeriods(b, today)) {
+        run.considered++;
+        try {
+          const outcome = await this.consider({ id: b.id, reference: b.reference }, period.periodStart, period.periodEnd, 'SCHEDULED');
+          if (outcome === 'decided') run.decided++;
+          if (outcome === 'staff') run.leftToStaff++;
+        } catch (err) {
+          this.logger.warn(`Billing agent: ${b.reference} (in advance) skipped - ${(err as Error).message}`);
+        }
+      }
+    }
+
     for (const b of rows) {
       const lastWorked = toColombo(new Date(b.lastShift)).date;
       // A finished booking is billed in full; one still running, up to the end of last month.
@@ -178,17 +213,18 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
     return run;
   }
 
-  private async consider(booking: { id: string; reference: string }, periodStart: string, periodEnd: string): Promise<'nothing' | 'decided' | 'staff'> {
+  private async consider(booking: { id: string; reference: string }, periodStart: string, periodEnd: string, basis: 'COMPLETED' | 'SCHEDULED' = 'COMPLETED'): Promise<'nothing' | 'decided' | 'staff'> {
     const ref = { caseType: 'BOOKING' as const, caseId: booking.id };
-    const preview = await this.invoicesService.previewBooking(booking.id, periodStart, periodEnd);
+    const advance = basis === 'SCHEDULED';
+    const preview = await this.invoicesService.previewBooking(booking.id, periodStart, periodEnd, basis);
     if (preview.lines === 0) return 'nothing';
 
     if (preview.unpriced > 0 || preview.subtotalCents <= 0) {
-      const why = preview.unpriced > 0 ? `${preview.unpriced} completed shift${preview.unpriced === 1 ? ' has' : 's have'} no client rate` : 'the amount comes to zero or less after corrections';
+      const why = preview.unpriced > 0 ? `${preview.unpriced} ${advance ? '' : 'completed '}shift${preview.unpriced === 1 ? ' has' : 's have'} no client rate` : 'the amount comes to zero or less after corrections';
       // Only say so on a case the agent is allowed to work on.
       if ((await this.automation.gate(ACTION, ref)).outcome === 'NONE') return 'nothing';
       await this.automation.setHandoverNote(ref, {
-        done: `Checked completed shifts ${periodStart} to ${periodEnd}`,
+        done: `Checked ${advance ? 'the shifts booked for' : 'completed shifts'} ${periodStart} to ${periodEnd}`,
         waiting: `Staff: ${why}`,
         next: 'Will bill this booking once that is fixed',
       });
@@ -198,6 +234,7 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
     const proposal: InvoiceProposal = {
       bookingId: booking.id,
       bookingReference: booking.reference,
+      basis,
       periodStart,
       periodEnd,
       lines: preview.lines,
@@ -207,16 +244,18 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
     const decision = await this.automation.decide({
       action: ACTION,
       case: ref,
-      reason: `${preview.lines} completed, unbilled line${preview.lines === 1 ? '' : 's'} for ${periodStart} to ${periodEnd}${preview.corrections ? ` plus ${preview.corrections} correction${preview.corrections === 1 ? '' : 's'}` : ''}: ${lkr(preview.subtotalCents)} before tax`,
+      reason:
+        `${preview.lines} ${advance ? 'booked' : 'completed'}, unbilled line${preview.lines === 1 ? '' : 's'} for ${periodStart} to ${periodEnd}${advance ? ', billed in advance' : ''}` +
+        `${preview.corrections ? ` plus ${preview.corrections} correction${preview.corrections === 1 ? '' : 's'}` : ''}: ${lkr(preview.subtotalCents)} before tax`,
       confidence: 1,
       proposal,
-      dedupeKey: `${booking.id}|${periodStart}|${periodEnd}|${preview.subtotalCents}`,
+      dedupeKey: `${booking.id}|${periodStart}|${periodEnd}|${preview.subtotalCents}${advance ? '|ADVANCE' : ''}`,
     });
     if (!decision.decisionId) return 'nothing';
 
     if (decision.outcome === 'PROPOSE') {
       await this.automation.setHandoverNote(ref, {
-        done: `Worked out an invoice for ${periodStart} to ${periodEnd}: ${lkr(preview.subtotalCents)} before tax`,
+        done: `Worked out ${advance ? 'an advance invoice' : 'an invoice'} for ${periodStart} to ${periodEnd}: ${lkr(preview.subtotalCents)} before tax`,
         waiting: 'Staff to approve or decline the proposal',
         next: 'Create and issue the invoice once approved',
       });
@@ -482,20 +521,21 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
   private readonly issueInvoice: ActionExecutor = async (decision, actor) => {
     const p = decision.proposal as InvoiceProposal | null;
     if (!p?.bookingId) throw new BadRequestException('This proposal has no booking to bill');
-    const fresh = await this.invoicesService.previewBooking(p.bookingId, p.periodStart, p.periodEnd);
+    const basis = p.basis ?? 'COMPLETED';
+    const fresh = await this.invoicesService.previewBooking(p.bookingId, p.periodStart, p.periodEnd, basis);
     if (fresh.lines === 0) throw new BadRequestException('This work has already been billed');
     if (fresh.unpriced > 0) throw new BadRequestException('A completed shift has no client rate. Set it, then bill the booking');
     if (fresh.subtotalCents !== p.subtotalCents) {
       throw new BadRequestException(`The amount has changed since this was proposed (${lkr(p.subtotalCents)} then, ${lkr(fresh.subtotalCents)} now). Bill the booking by hand, or wait for a new proposal`);
     }
     const who = { userId: actor.userId, email: actor.email, role: actor.role };
-    const draft = await this.invoicesService.create({ bookingId: p.bookingId, basis: 'COMPLETED', periodStart: p.periodStart, periodEnd: p.periodEnd }, who);
-    await this.invoicesService.addNote(draft.id, 'Prepared by the billing agent', who);
+    const draft = await this.invoicesService.create({ bookingId: p.bookingId, basis, periodStart: p.periodStart, periodEnd: p.periodEnd }, who);
+    await this.invoicesService.addNote(draft.id, basis === 'SCHEDULED' ? 'Prepared by the billing agent, in advance' : 'Prepared by the billing agent', who);
     const issued = await this.invoicesService.issue(draft.id, {}, who);
     await this.automation.setHandoverNote(
       { caseType: 'BOOKING', caseId: p.bookingId },
       {
-        done: `Invoice ${issued.number} issued for ${p.periodStart} to ${p.periodEnd}`,
+        done: `Invoice ${issued.number} issued${basis === 'SCHEDULED' ? ' in advance' : ''} for ${p.periodStart} to ${p.periodEnd}`,
         waiting: `Client to pay by ${issued.dueDate}`,
         next: 'Nothing more from the agent on this period',
       },
@@ -519,7 +559,7 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
     for (const d of open) {
       const p = d.proposal as InvoiceProposal | null;
       if (!p?.bookingId) continue;
-      const left = await this.invoicesService.previewBooking(p.bookingId, p.periodStart, p.periodEnd).catch(() => null);
+      const left = await this.invoicesService.previewBooking(p.bookingId, p.periodStart, p.periodEnd, p.basis ?? 'COMPLETED').catch(() => null);
       if (!left || left.lines > 0) continue; // staff have not finished billing it yet
 
       // A booking's own invoice is compared in full (staff may have added a charge or a discount);

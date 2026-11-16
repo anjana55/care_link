@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertTriangle, Banknote, ChevronLeft, ExternalLink, Lock, Pencil, Plus, Trash2, UserRoundCog, Wrench } from 'lucide-react';
-import { formatLkr, isoToColomboLocal, toColombo } from '@care-platform/shared';
+import { BILLING_TIMINGS, formatLkr, isoToColomboLocal, toColombo, type BillingTiming } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { RecordPager } from '@/components/ui/record-pager';
 import { useAuth } from '@/lib/api/auth-context';
@@ -379,6 +379,7 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
   const [rateAmount, setRateAmount] = useState(booking.rateAmount ?? '');
   const [payRateType, setPayRateType] = useState<RateType | ''>(booking.payRateType ?? '');
   const [payRateAmount, setPayRateAmount] = useState(booking.payRateAmount ?? '');
+  const [billingTiming, setBillingTiming] = useState<BillingTiming>(booking.billingTiming);
   const e = booking.estimate;
   const pay = booking.payEstimate;
   const margin = e.total && pay.total ? Number(e.total) - Number(pay.total) : null;
@@ -421,6 +422,20 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
             {payRateType === 'MONTHLY' && booking.payRateType !== 'MONTHLY' && payOwnBooked > 0 && (
               <p className="text-xs text-accent">{t('bookings.detail.monthlyPayClears', { count: payOwnBooked })}</p>
             )}
+            <label htmlFor="billingTimingEdit" className="block text-xs font-medium text-ink/60">
+              {t('bookings.billingTiming.label')}
+            </label>
+            <Select id="billingTimingEdit" value={billingTiming} aria-describedby="billingTimingEditHint" onChange={(ev) => setBillingTiming(ev.target.value as BillingTiming)}>
+              {BILLING_TIMINGS.map((b) => (
+                <option key={b} value={b}>
+                  {t(`bookings.billingTiming.${b}`)}
+                </option>
+              ))}
+            </Select>
+            <p id="billingTimingEditHint" className="text-xs text-ink/60">
+              {t(`bookings.billingTiming.hint.${billingTiming}`)}
+              {billingTiming !== booking.billingTiming && ` ${t('bookings.billingTiming.changeNote')}`}
+            </p>
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -432,6 +447,7 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
                       rateAmount: rateType ? rateAmount : null,
                       payRateType: payRateType || null,
                       payRateAmount: payRateType ? payRateAmount : null,
+                      ...(billingTiming !== booking.billingTiming ? { billingTiming } : {}),
                     },
                     { onSuccess: () => setEditing(false) },
                   )
@@ -454,6 +470,10 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
             <div className="flex justify-between gap-3">
               <dt className="text-ink/60">{t('bookings.detail.payRate')}</dt>
               <dd className="text-right text-ink">{rate(booking.payRateType, booking.payRateAmount, t('bookings.new.noPayRate'))}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-ink/60">{t('bookings.billingTiming.label')}</dt>
+              <dd className="text-right text-ink">{t(`bookings.billingTiming.${booking.billingTiming}`)}</dd>
             </div>
           </dl>
         )}

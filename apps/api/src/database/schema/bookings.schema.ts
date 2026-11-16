@@ -1,5 +1,6 @@
 import { mysqlTable, varchar, datetime, date, mysqlEnum, text, index, decimal, char } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
+import { BILLING_TIMINGS } from '@care-platform/shared';
 import { careRequestLanguageEnum } from './care-requests.schema';
 
 /**
@@ -77,6 +78,9 @@ export const bookings = mysqlTable(
 
     // The language the client's notices go out in (from the request, or chosen by staff).
     language: mysqlEnum('language', careRequestLanguageEnum).notNull().default('en'),
+    // When the client is billed: AFTER the work, or in ADVANCE for the work booked.
+    // A new booking takes billing_settings.default_billing_timing unless staff choose.
+    billingTiming: mysqlEnum('billing_timing', BILLING_TIMINGS).notNull().default('AFTER'),
     notes: text('notes'),
 
     createdByUserId: varchar('created_by_user_id', { length: 36 }),

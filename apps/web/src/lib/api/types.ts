@@ -1,4 +1,4 @@
-import type { CareType, StaffCheckIn } from '@care-platform/shared';
+import type { BillingTiming, CareType, StaffCheckIn } from '@care-platform/shared';
 import type {
   BillingAdjustmentView as SharedBillingAdjustmentView,
   BookingAmendmentView as SharedBookingAmendmentView,
@@ -712,6 +712,8 @@ export interface BookingDetail {
   payRateType: RateType | null;
   payRateAmount: string | null;
   language: 'en' | 'si' | 'ta';
+  /** When the client is billed: after the work, or in advance month by month. */
+  billingTiming: BillingTiming;
   notes: string | null;
   /** Where the draft stands with the client: null = not asked. Cleared when the draft's times, caregiver or client rate change. */
   clientReviewStatus: 'ASKED' | 'ACCEPTED' | 'CHANGES_REQUESTED' | null;
@@ -756,6 +758,7 @@ export interface UpdateBookingInput {
   payRateAmount?: string | null;
   notes?: string;
   language?: 'en' | 'si' | 'ta';
+  billingTiming?: BillingTiming;
   caregiverId?: string;
   pattern?: BookingPatternInput;
   /** Confirmed bookings: the first day a pattern or caregiver change applies to. */
@@ -795,6 +798,8 @@ export interface CreateBookingInput extends BookingPatternInput {
   payRateType?: RateType;
   payRateAmount?: string;
   language?: 'en' | 'si' | 'ta';
+  /** Left out: the default in Settings > Billing. */
+  billingTiming?: BillingTiming;
   notes?: string;
 }
 
@@ -1059,6 +1064,8 @@ export interface BillingSettings {
   invoicePrefix: string;
   nextInvoiceNumber: number;
   paymentTermsDays: number;
+  /** What a new booking starts with: billed after the work, or in advance. */
+  defaultBillingTiming: BillingTiming;
   invoiceFooter: string | null;
   payhereEnabled: boolean;
   payhereMode: 'SANDBOX' | 'LIVE';

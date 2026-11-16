@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { BILLING_TIMINGS, type BillingTiming } from '@care-platform/shared';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
@@ -116,6 +117,11 @@ export class CreateBookingDto extends BookingPatternDto {
   @IsIn(careRequestLanguageEnum, { message: 'Choose the language for updates' })
   language?: CareRequestLanguage;
 
+  @ApiPropertyOptional({ enum: BILLING_TIMINGS, description: 'When the client is billed. Defaults to the setting in Settings > Billing' })
+  @IsOptional()
+  @IsIn(BILLING_TIMINGS, { message: 'Choose when the client is billed' })
+  billingTiming?: BillingTiming;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Transform(trimToUndefined)
@@ -166,6 +172,11 @@ export class UpdateBookingDto {
   @IsOptional()
   @IsIn(careRequestLanguageEnum, { message: 'Choose the language for updates' })
   language?: CareRequestLanguage;
+
+  @ApiPropertyOptional({ enum: BILLING_TIMINGS, description: 'When the client is billed, from now on. What is already invoiced stays as it is' })
+  @IsOptional()
+  @IsIn(BILLING_TIMINGS, { message: 'Choose when the client is billed' })
+  billingTiming?: BillingTiming;
 
   @ApiPropertyOptional({ description: 'A new booked caregiver. On a confirmed booking, from effectiveFrom on.' })
   @IsOptional()

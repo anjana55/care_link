@@ -67,7 +67,8 @@ export function CoverPanel({ shiftId, onClose }: { shiftId: string; onClose: () 
       </div>
 
       {accepted && <p className="rounded bg-brand-light px-3 py-2 text-sm text-brand-dark">{t('visits.coverPanel.accepted', { name: accepted.caregiver.fullName })}</p>}
-      {data.blocked && !accepted && <p className="text-sm text-ink/70">{t(`visits.coverPanel.blocked.${data.blocked}`, { doc: data.blockedBy ?? '' })}</p>}
+      {data.blocked && !accepted && <p className="text-sm text-ink/70">{t(`visits.coverPanel.blocked.${data.blocked}`)}</p>}
+      {data.billedOn && !data.blocked && !accepted && <p className="text-xs text-ink/60">{t('visits.coverPanel.billed', { doc: data.billedOn })}</p>}
 
       {data.offers.length > 0 && (
         <div>

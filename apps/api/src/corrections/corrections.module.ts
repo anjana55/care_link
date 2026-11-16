@@ -16,5 +16,6 @@ import { WhatsappModule } from '../whatsapp/whatsapp.module';
   imports: [BookingsModule, BillingModule, EmailModule, WhatsappModule],
   controllers: [CorrectionsController, IssueReportsController, MyIssueReportsController],
   providers: [CorrectionsService, CorrectionsNotifier, IssueReportsService],
+  exports: [CorrectionsService],
 })
 export class CorrectionsModule {}

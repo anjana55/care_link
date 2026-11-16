@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, ValidateIf } from 'class-validator';
+import { BILLING_TIMINGS, type BillingTiming } from '@care-platform/shared';
 import { payhereModeEnum } from '../../database/schema';
 
 /**
@@ -58,6 +59,11 @@ export class UpdateBillingSettingsDto {
   @ApiPropertyOptional({ example: 7 })
   @IsOptional() @IsInt() @Min(0) @Max(120)
   paymentTermsDays?: number;
+
+  @ApiPropertyOptional({ enum: BILLING_TIMINGS, description: 'What a new booking starts with: billed after the work, or in advance' })
+  @IsOptional()
+  @IsIn(BILLING_TIMINGS, { message: 'Choose when clients are billed' })
+  defaultBillingTiming?: BillingTiming;
 
   @ApiPropertyOptional({ description: 'Printed at the foot of every invoice, e.g. bank details' })
   @IsOptional() @IsString() @MaxLength(2000)

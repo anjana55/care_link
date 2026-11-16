@@ -133,6 +133,7 @@ export class BillingSettingsService {
       invoicePrefix: dto.invoicePrefix ?? current.invoicePrefix,
       nextInvoiceNumber: dto.nextInvoiceNumber ?? current.nextInvoiceNumber,
       paymentTermsDays: dto.paymentTermsDays ?? current.paymentTermsDays,
+      defaultBillingTiming: dto.defaultBillingTiming ?? current.defaultBillingTiming,
       invoiceFooter: dto.invoiceFooter === undefined ? current.invoiceFooter : dto.invoiceFooter.trim() || null,
       payhereEnabled: dto.payhereEnabled ?? current.payhereEnabled,
       payhereMode: dto.payhereMode ?? current.payhereMode,

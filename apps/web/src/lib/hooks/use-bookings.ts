@@ -1,5 +1,6 @@
 'use client';
 
+import type { BillingTiming } from '@care-platform/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type {
@@ -48,6 +49,11 @@ export function useBookings(filters: BookingFilters, enabled = true) {
     queryFn: () => api.get<BookingListResponse>(bookingListPath(filters)),
     enabled,
   });
+}
+
+/** What a new booking starts with (Settings > Billing), so the form shows the real default instead of a guess. */
+export function useBookingDefaults() {
+  return useQuery({ queryKey: ['bookings', 'defaults'], queryFn: () => api.get<{ billingTiming: BillingTiming }>('/bookings/defaults'), staleTime: 5 * 60_000 });
 }
 
 export function useBookingSummary(enabled = true) {
