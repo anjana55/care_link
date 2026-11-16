@@ -141,7 +141,8 @@
       "accountDeletions": "Account deletion requests",
       "overseasWaiting": "Overseas enquiries and approvals waiting",
       "lateVisits": "Visits started with nobody checked in",
-      "awaitingPayment": "Bookings not confirmed: first invoice unpaid"
+      "awaitingPayment": "Bookings not confirmed: first invoice unpaid",
+      "pausedForPayment": "Bookings with visits paused: unpaid invoice"
     },
     "severity": {
       "act": "Act today",
@@ -1794,6 +1795,13 @@
       "reasonPlaceholder": "For example: the client will pay by bank transfer on Friday",
       "overrideConfirm": "Confirm without payment",
       "confirmHint": "Waiting for the first invoice to be paid"
+    },
+    "paused": {
+      "title": "Visits paused: invoice {number} is not paid",
+      "hint": "It was due on {due} ({balance} owed). Caregivers have been told not to go and the client has been asked to pay. Visits resume when it is paid.",
+      "resume": "Resume visits without payment",
+      "reasonLabel": "Why do visits resume without payment?",
+      "resumeConfirm": "Resume visits"
     }
   },
   "filters": {
@@ -4241,6 +4249,7 @@
         "CHECKED_IN": "The caregiver has checked in, so no cover is needed."
       },
       "billed": "This shift is already on {doc}. Cover still works: when someone accepts, the change of caregiver is recorded as a correction on the booking, and the client's bill does not change."
-    }
+    },
+    "paused": "Paused: unpaid invoice - nobody is sent"
   }
 }

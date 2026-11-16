@@ -92,10 +92,11 @@ function VisitRow({ visit: v, date, on }: { visit: TodayVisit; date: string; on:
   const [recording, setRecording] = useState<'check-in' | 'check-out' | null>(null);
   const [covering, setCovering] = useState(false);
   const live = v.shiftStatus === 'SCHEDULED' || v.shiftStatus === 'COMPLETED';
-  const canIn = on && live && !v.checkIn.checkedInAt;
+  const canIn = on && live && !v.checkIn.checkedInAt && !v.paused;
   const canOut = on && live && !!v.checkIn.checkedInAt && !v.checkIn.checkedOutAt;
   // Cover is for a visit nobody has come to yet. It needs no check-in switch: a caregiver can phone in sick either way.
-  const canCover = v.shiftStatus === 'SCHEDULED' && !v.checkIn.checkedInAt && new Date(v.endsAt).getTime() > Date.now();
+  // A paused visit is not meant to happen: no cover is looked for.
+  const canCover = !v.paused && v.shiftStatus === 'SCHEDULED' && !v.checkIn.checkedInAt && new Date(v.endsAt).getTime() > Date.now();
 
   return (
     <li className={`rounded-lg border bg-white p-3 ${v.minutesLate !== null ? 'border-danger/40' : 'border-border'}`} data-testid={`visit-${v.shiftId}`}>
@@ -116,6 +117,7 @@ function VisitRow({ visit: v, date, on }: { visit: TodayVisit; date: string; on:
             {v.caregiver.fullName}
           </Link>
           {v.isCover && <span className="ml-1 text-xs text-accent">({t('visits.cover')})</span>}
+          {v.paused && <p className="text-xs font-medium text-danger">{t('visits.paused')}</p>}
           {v.coverWaiting > 0 && <p className="text-xs font-medium text-accent">{t('visits.coverPanel.waiting', { n: v.coverWaiting })}</p>}
           <p className="text-xs text-ink/50">{v.caregiver.registrationNumber}</p>
           {v.caregiver.phone && (

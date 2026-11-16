@@ -136,6 +136,8 @@ export interface TodayVisit {
   checkIn: StaffCheckIn;
   /** Cover offers for this shift still waiting for an answer. */
   coverWaiting: number;
+  /** Visits on this booking are paused until the client pays: nobody should go. */
+  paused: boolean;
 }
 
 export interface TodayVisits {

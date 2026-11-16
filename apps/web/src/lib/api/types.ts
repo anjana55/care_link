@@ -1,4 +1,4 @@
-import type { AdvancePayment, BillingTiming, CareType, StaffCheckIn } from '@care-platform/shared';
+import type { AdvancePayment, BillingTiming, CareType, PaymentHold, StaffCheckIn } from '@care-platform/shared';
 import type {
   BillingAdjustmentView as SharedBillingAdjustmentView,
   BookingAmendmentView as SharedBookingAmendmentView,
@@ -716,6 +716,8 @@ export interface BookingDetail {
   billingTiming: BillingTiming;
   /** Payment before confirmation: where a draft billed in advance stands. */
   advancePayment: AdvancePayment;
+  /** Visits paused for an unpaid month (confirmed, billed in advance); null when visits go ahead. */
+  paymentHold: PaymentHold | null;
   notes: string | null;
   /** Where the draft stands with the client: null = not asked. Cleared when the draft's times, caregiver or client rate change. */
   clientReviewStatus: 'ASKED' | 'ACCEPTED' | 'CHANGES_REQUESTED' | null;

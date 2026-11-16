@@ -182,6 +182,8 @@ export class LiveCareAgentService implements OnApplicationBootstrap, OnModuleDes
       .where(
         and(
           eq(bookings.status, 'CONFIRMED'),
+          // Visits paused for payment: nobody is meant to come, so there is nothing to chase.
+          isNull(bookings.paymentHoldInvoiceId),
           eq(bookingShifts.status, 'SCHEDULED'),
           only ? inArray(bookingShifts.id, only) : and(lt(bookingShifts.startsAt, now), gt(bookingShifts.endsAt, new Date(now.getTime() - LIVE_WINDOW_HOURS * 3_600_000))),
         ),

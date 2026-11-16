@@ -1,4 +1,4 @@
-import type { BillingTiming } from './billing-timing';
+import type { BillingTiming, PayableInvoice } from './billing-timing';
 import type { ReviewableCaregiver } from './reviews';
 import type { PublicCaregiverProfile } from './public-search';
 import type { CaregiverCheckIn, ClientVisit } from './check-in';
@@ -217,6 +217,8 @@ export interface ClientBooking {
   shifts: ClientShift[];
   /** Each caregiver who has worked a shift on it - booked or cover - and the client's review of them. */
   reviews: ReviewableCaregiver[];
+  /** Visits paused until this invoice is paid; null when visits go ahead. */
+  paymentHold: PayableInvoice | null;
 }
 
 /** Where a draft stands with the client: waiting for them, accepted as it is, or they want something changed. */
@@ -243,6 +245,8 @@ export interface ClientBookingProposal {
   rateAmount: string | null;
   /** When they will be invoiced: after the care, or in advance month by month. Part of what they accept. */
   billingTiming: BillingTiming;
+  /** Billed in advance, once accepted: the first invoice, which confirms the booking when it is paid. Null otherwise. */
+  firstInvoice: PayableInvoice | null;
   /** Null when the caregiver is not shown on the public site. */
   caregiver: PublicCaregiverProfile | null;
   askedAt: string;
@@ -261,4 +265,6 @@ export interface CaregiverShift extends PortalShift {
   hasCarePlan: boolean;
   /** Where check-in stands for this shift; null when check-in is switched off. */
   checkIn: CaregiverCheckIn | null;
+  /** Visits on this booking are paused until the client pays: do not go. */
+  paused: boolean;
 }

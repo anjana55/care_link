@@ -133,6 +133,18 @@ describe('paying an invoice with PayHere', () => {
     expect(screen.getByText(en.invoices.doc.paidInFull)).toBeTruthy();
   });
 
+  it('opened from "Pay now", starts PayHere straight away, once', async () => {
+    await client();
+    const calls = serveApi({
+      [`GET /me/invoices/${INV}`]: () => ({ status: 200, body: invoice() }),
+      [`POST /me/invoices/${INV}/payhere`]: () => ({ status: 200, body: CHECKOUT }),
+    });
+    mockRouter.params = { id: INV, pay: '1' };
+    await show(<InvoiceScreen />);
+    expect(await screen.findByTestId('payhere')).toBeTruthy();
+    expect(calls.filter((c) => c.route === `POST /me/invoices/${INV}/payhere`)).toHaveLength(1);
+  });
+
   it('says nothing was charged when the payment is cancelled', async () => {
     await client();
     serveApi({

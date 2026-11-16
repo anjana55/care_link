@@ -52,12 +52,12 @@ export function BookedShifts() {
               <>
                 {s.bookingReference}
                 {s.area && ` · ${s.area}`}
-                <CheckInStatus shift={s} />
+                {s.paused ? <span className="block font-medium text-danger">{t('portal.shifts.paused')}</span> : <CheckInStatus shift={s} />}
               </>
             )}
             action={(s) => (
               <>
-                {checkingIn !== s.id && <CheckInAction shift={s} onOpen={() => setCheckingIn(s.id)} />}
+                {checkingIn !== s.id && !s.paused && <CheckInAction shift={s} onOpen={() => setCheckingIn(s.id)} />}
                 {s.hasCarePlan && (
                   <button
                     type="button"

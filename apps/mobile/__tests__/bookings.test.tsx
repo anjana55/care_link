@@ -110,7 +110,7 @@ describe('bookings', () => {
     await client();
     const proposal = (over: Partial<ClientBookingProposal> = {}): ClientBookingProposal => ({
       id: 'p-1', reference: 'BK-CHECK', status: 'ASKED', scheduleType: 'DAY', daysOfWeek: [1, 2, 3, 4, 5], shiftStartTime: '08:00', shiftEndTime: '17:00',
-      startDate: '2026-11-16', endDate: '2026-11-29', shiftCount: 10, rateType: 'DAILY', rateAmount: '3450.00', billingTiming: 'ADVANCE', caregiver: null,
+      startDate: '2026-11-16', endDate: '2026-11-29', shiftCount: 10, rateType: 'DAILY', rateAmount: '3450.00', billingTiming: 'ADVANCE', firstInvoice: null, caregiver: null,
       askedAt: '2026-11-12T10:00:00.000Z', answeredAt: null, note: null, ...over,
     });
     let list = [proposal()];
@@ -147,11 +147,33 @@ describe('bookings', () => {
     expect(screen.queryByRole('button', { name: en.account.bookingCheck.accept })).toBeNull();
   });
 
+  it('offers "Pay now" for the first invoice of a booking billed in advance', async () => {
+    await client();
+    const invoice = { id: 'inv-1', number: 'INV-000415', total: '35000.00', balance: '35000.00', dueDate: '2026-11-23', canPayOnline: true };
+    serveApi({
+      'GET /me/bookings': () => ({ status: 200, body: [] }),
+      'GET /me/booking-proposals': () => ({
+        status: 200,
+        body: [{
+          id: 'p-9', reference: 'BK-PAY', status: 'ACCEPTED', scheduleType: 'DAY', daysOfWeek: [1, 2, 3, 4, 5], shiftStartTime: '08:00', shiftEndTime: '17:00',
+          startDate: '2026-12-10', endDate: '2027-01-20', shiftCount: 30, rateType: 'DAILY', rateAmount: '3500.00', billingTiming: 'ADVANCE', firstInvoice: invoice, caregiver: null,
+          askedAt: '2026-11-12T10:00:00.000Z', answeredAt: '2026-11-12T11:00:00.000Z', note: null,
+        }],
+      }),
+      'GET /me/care': () => ({ status: 200, body: day({ hasCarePlans: false }) }),
+    });
+    await show();
+    expect(await screen.findByText(en.account.bookingCheck.intro.ACCEPTED_ADVANCE)).toBeTruthy();
+    expect(screen.getByText(en.payNow.amount.replace('{amount}', 'LKR 35,000.00').replace('{number}', 'INV-000415'))).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: en.payNow.button }));
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: '/invoices/[id]', params: { id: 'inv-1', pay: '1' } });
+  });
+
   it('records the client accepting a draft, and shows an overnight plan the right way', async () => {
     await client();
     let list: ClientBookingProposal[] = [{
       id: 'p-2', reference: 'BK-NIGHT', status: 'ASKED', scheduleType: 'NIGHT', daysOfWeek: [1, 2, 3, 4, 5, 6, 7], shiftStartTime: '20:00', shiftEndTime: '08:00',
-      startDate: '2026-11-13', endDate: '2026-11-26', shiftCount: 14, rateType: null, rateAmount: null, billingTiming: 'AFTER', caregiver: null,
+      startDate: '2026-11-13', endDate: '2026-11-26', shiftCount: 14, rateType: null, rateAmount: null, billingTiming: 'AFTER', firstInvoice: null, caregiver: null,
       askedAt: '2026-11-12T10:00:00.000Z', answeredAt: null, note: null,
     }];
     const calls = serveApi({

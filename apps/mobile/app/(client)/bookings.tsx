@@ -10,6 +10,7 @@ import { EmptyState } from '@/ui/visual';
 import { PageHeader } from '@/ui/PageHeader';
 import { fmtTime, formatDate } from '@/ui/dates';
 import { ShiftRow } from '@/ui/ShiftRow';
+import { PayNow } from '@/care/PayNow';
 import { useClient } from '@/care/api';
 import { useMyBookings } from '@/care/bookings-api';
 import { SignInPrompt } from '@/care/SignInPrompt';
@@ -115,6 +116,12 @@ function BookingCard({ booking: b, reports }: { booking: ClientBooking; reports:
         />
       ) : null}
 
+      {b.paymentHold ? (
+        <View style={{ marginTop: 8 }}>
+          <Text style={{ fontSize: 15, fontWeight: '600', color: colors.danger }}>{t('payNow.pausedTitle')}</Text>
+          <PayNow invoice={b.paymentHold} why={t('payNow.whyPaused')} />
+        </View>
+      ) : null}
       <Text style={[styles.label, { color: colors.muted, marginTop: 8 }]}>{t('account.bookings.shifts')}</Text>
       {b.shifts.length === 0 ? (
         <Text style={{ color: colors.muted }}>{t('account.bookings.noShifts')}</Text>
