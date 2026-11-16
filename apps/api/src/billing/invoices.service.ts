@@ -31,6 +31,8 @@ import {
   type InvoiceEventType,
 } from '../database/schema';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { JobsService } from '../jobs/jobs.service';
+import { invoicePaid } from './advance-payment-jobs';
 import { BankAccountsService } from './bank-accounts.service';
 import { BillingSettingsService } from './billing-settings.service';
 import { BillingNotifier } from './billing-notifier.service';
@@ -79,6 +81,7 @@ export class InvoicesService {
     private readonly settings: BillingSettingsService,
     private readonly notifier: BillingNotifier,
     private readonly bankAccounts: BankAccountsService,
+    private readonly jobs: JobsService,
   ) {}
 
   // --- reading ---------------------------------------------------------------
@@ -327,9 +330,11 @@ export class InvoicesService {
    * billing agent to decide, and again just before it acts.
    */
   async previewBooking(bookingId: string, from: string, to: string, basis: 'COMPLETED' | 'SCHEDULED' = 'COMPLETED') {
-    const [b] = await this.db.select({ patientId: bookings.patientId, language: bookings.language }).from(bookings).where(eq(bookings.id, bookingId)).limit(1);
+    const [b] = await this.db.select({ patientId: bookings.patientId, language: bookings.language, status: bookings.status }).from(bookings).where(eq(bookings.id, bookingId)).limit(1);
     if (!b) throw new NotFoundException('Booking not found');
-    const built = await this.linesFromShifts(this.db, { bookingIds: [bookingId], from, to, statuses: BASIS_STATUSES[basis], language: b.language, startAt: 0 });
+    // A draft billed in advance has only draft shifts yet: they are what its first invoice is for.
+    const statuses = b.status === 'DRAFT' && basis === 'SCHEDULED' ? [...BASIS_STATUSES[basis], 'DRAFT' as const] : BASIS_STATUSES[basis];
+    const built = await this.linesFromShifts(this.db, { bookingIds: [bookingId], from, to, statuses, language: b.language, startAt: 0 });
     const carried = await openAdjustmentLines(this.db, { side: 'CLIENT', partyId: b.patientId, bookingIds: [bookingId], language: b.language, startAt: built.lines.length, baseCents: linesCents(built.lines) });
     return { lines: built.lines.length, corrections: carried.length, unpriced: built.unpriced, subtotalCents: linesCents([...built.lines, ...carried]) };
   }
@@ -361,10 +366,13 @@ export class InvoicesService {
     let patientId = dto.patientId;
     let bookingIds: string[] = [];
     let language = dto.language;
+    let draftBooking = false;
     if (dto.bookingId) {
       const [b] = await this.db.select().from(bookings).where(eq(bookings.id, dto.bookingId)).limit(1);
       if (!b) throw new NotFoundException('Booking not found');
-      if (b.status === 'DRAFT') throw new BadRequestException('Confirm the booking before billing it');
+      // A draft is billed only for payment before confirmation: a booking billed in advance, for the work booked.
+      if (b.status === 'DRAFT' && !(b.billingTiming === 'ADVANCE' && dto.basis === 'SCHEDULED')) throw new BadRequestException('Confirm the booking before billing it');
+      draftBooking = b.status === 'DRAFT';
       patientId = b.patientId;
       bookingIds = [b.id];
       language = language ?? b.language;
@@ -402,7 +410,7 @@ export class InvoicesService {
       const built =
         dto.basis === 'MANUAL'
           ? { lines: [] as StoredLine[], skipped: 0, unpriced: 0 }
-          : await this.linesFromShifts(t, { bookingIds, from: dto.periodStart!, to: dto.periodEnd!, statuses: BASIS_STATUSES[dto.basis], language: lang, startAt: 0 });
+          : await this.linesFromShifts(t, { bookingIds, from: dto.periodStart!, to: dto.periodEnd!, statuses: draftBooking ? [...BASIS_STATUSES[dto.basis], 'DRAFT'] : BASIS_STATUSES[dto.basis], language: lang, startAt: 0 });
       // Corrections waiting for this client (this booking's, on a booking invoice).
       const carried = await openAdjustmentLines(t, { side: 'CLIENT', partyId: patientId!, bookingIds: dto.bookingId ? [dto.bookingId] : null, language: lang, startAt: built.lines.length, baseCents: linesCents(built.lines) });
       generated = { added: built.lines.length, skipped: built.skipped, unpriced: built.unpriced };
@@ -759,6 +767,7 @@ export class InvoicesService {
       if (change.before !== change.after) await this.event(t, id, change.after === 'PAID' ? 'PAID' : 'REOPENED', actor);
     });
     if (change.after === 'PAID' && change.before !== 'PAID' && dto.notify !== false) void this.notifier.invoicePaid(id);
+    if (change.after === 'PAID' && change.before !== 'PAID') await invoicePaid(this.jobs, id);
     return this.findOne(id);
   }
 
@@ -812,6 +821,7 @@ export class InvoicesService {
     await this.event(tx, invoiceId, toCents(p.amount) < 0 ? 'REFUND' : 'PAYMENT', null, paymentNote(p.amount, 'PayHere', p.reference));
     if (change.before !== change.after) await this.event(tx, invoiceId, change.after === 'PAID' ? 'PAID' : 'REOPENED', null);
     void inv;
+    if (change.after === 'PAID' && change.before !== 'PAID') await invoicePaid(this.jobs, invoiceId);
     return { applied: true, settled: change.after === 'PAID' && change.before !== 'PAID' };
   }
 

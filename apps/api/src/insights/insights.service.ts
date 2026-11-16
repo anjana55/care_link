@@ -496,11 +496,18 @@ export class InsightsService {
 
     // Visits that started a while ago with nobody checked in (zero while check-in is off).
     const lateVisits = await this.checkIns.lateCount(now).catch(() => 0);
+    // Drafts billed in advance, invoiced and not paid: nothing is booked for these clients yet.
+    const [unpaidDrafts] = await this.db
+      .select({ n: sql<number>`COUNT(DISTINCT ${bookings.id})` })
+      .from(bookings)
+      .innerJoin(invoices, and(eq(invoices.bookingId, bookings.id), eq(invoices.status, 'ISSUED')))
+      .where(and(eq(bookings.status, 'DRAFT'), eq(bookings.billingTiming, 'ADVANCE')));
     return {
       newRequestsOver24h: num(staleNew?.n),
       unassignedOpenRequests: num(unassigned?.n),
       draftBookings: num(draftBookings?.n),
       lateVisits,
+      awaitingPayment: num(unpaidDrafts?.n),
       unconfirmedShiftsNext7d: num(unconfirmed?.n),
       missedShiftsLast7d: num(missedShifts?.n),
       unbilledCompletedShifts: num(unbilledRows?.[0]?.n),

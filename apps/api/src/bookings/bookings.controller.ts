@@ -6,7 +6,7 @@ import { CurrentUser, type AuthenticatedUser } from '../common/decorators/curren
 import type { RequestWithLanguage } from '../common/i18n/language.middleware';
 import { AddCareRequestNoteDto } from '../care-requests/dto/update-care-request-status.dto';
 import { BookingsService } from './bookings.service';
-import { AddShiftDto, BookingQueryDto, CancelBookingDto, CreateBookingDto, ExtendBookingDto, RequestBookingChangesDto, UpdateBookingDto, UpdateShiftDto } from './dto/booking.dto';
+import { ConfirmBookingDto, AddShiftDto, BookingQueryDto, CancelBookingDto, CreateBookingDto, ExtendBookingDto, RequestBookingChangesDto, UpdateBookingDto, UpdateShiftDto } from './dto/booking.dto';
 
 /** Staff booking management. ADMIN and STAFF, like Requests and Clients. */
 @ApiTags('bookings')
@@ -53,8 +53,8 @@ export class BookingsController {
   @Post(':id/confirm')
   @HttpCode(200)
   @Audit({ action: 'CONFIRM_BOOKING', entityType: 'Booking' })
-  confirm(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.bookings.confirm(id, user);
+  confirm(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ConfirmBookingDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.bookings.confirm(id, user, dto);
   }
 
   /** Puts a draft in front of the client to accept or ask for changes. Nothing is booked by asking. */

@@ -297,6 +297,7 @@ function DashboardBody({ data }: { data: BusinessInsights }) {
     { key: 'overdue', count: a.overdueInvoices, label: t('dashboard.attention.overdueInvoices'), detail: formatLkr(a.overdueAmount), href: '/invoices?tab=overdue', severity: 'act', Icon: ReceiptText },
     { key: 'stale', count: a.newRequestsOver24h, label: t('dashboard.attention.newRequestsOver24h'), href: '/requests?tab=open', severity: 'act', Icon: Inbox },
     { key: 'careNotDone', count: a.careCriticalNotDone, label: t('dashboard.attention.careCriticalNotDone'), href: '/bookings?tab=care', severity: 'act', Icon: ClipboardX },
+    { key: 'awaitingPayment', count: a.awaitingPayment, label: t('dashboard.attention.awaitingPayment'), href: '/bookings?status=DRAFT', severity: 'act', Icon: ReceiptText },
     { key: 'lateVisits', count: a.lateVisits, label: t('dashboard.attention.lateVisits'), href: '/bookings/today', severity: 'act', Icon: MapPinOff },
     { key: 'missed', count: a.missedShiftsLast7d, label: t('dashboard.attention.missedShifts'), href: '/bookings', severity: 'act', Icon: UserX },
     { key: 'unbilled', count: a.unbilledCompletedShifts, label: t('dashboard.attention.unbilledShifts'), href: '/invoices/new', severity: 'act', Icon: FileWarning },

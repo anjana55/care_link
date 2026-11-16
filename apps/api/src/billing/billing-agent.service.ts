@@ -176,12 +176,22 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
       .groupBy(bookings.id, bookings.reference, bookings.status, bookings.startDate);
 
     // Bookings billed in advance: what is due now for the work booked.
+    // Also a draft the client has accepted: its first invoice is what it waits for before it can be confirmed.
     const ahead = await this.db
-      .select({ id: bookings.id, reference: bookings.reference, startDate: bookings.startDate, endDate: bookings.endDate })
+      .select({ id: bookings.id, reference: bookings.reference, status: bookings.status, startDate: bookings.startDate, endDate: bookings.endDate })
       .from(bookings)
-      .where(and(eq(bookings.status, 'CONFIRMED'), eq(bookings.billingTiming, 'ADVANCE'), gte(bookings.endDate, monthStart(today)), only ? inArray(bookings.id, only) : undefined));
+      .where(
+        and(
+          or(eq(bookings.status, 'CONFIRMED'), and(eq(bookings.status, 'DRAFT'), eq(bookings.clientReviewStatus, 'ACCEPTED'))),
+          eq(bookings.billingTiming, 'ADVANCE'),
+          gte(bookings.endDate, monthStart(today)),
+          only ? inArray(bookings.id, only) : undefined,
+        ),
+      );
     for (const b of ahead) {
-      for (const period of advancePeriods(b, today)) {
+      // A draft is billed for its first period only, and only once: later months wait until it is confirmed.
+      const periods = b.status === 'DRAFT' ? ((await this.invoicesFor(b.id)) ? [] : advancePeriods(b, today).slice(0, 1)) : advancePeriods(b, today);
+      for (const period of periods) {
         run.considered++;
         try {
           const outcome = await this.consider({ id: b.id, reference: b.reference }, period.periodStart, period.periodEnd, 'SCHEDULED');
@@ -211,6 +221,12 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
       }
     }
     return run;
+  }
+
+  /** Whether this booking already has an invoice that has not been voided. */
+  private async invoicesFor(bookingId: string): Promise<boolean> {
+    const [row] = await this.db.select({ id: invoices.id }).from(invoices).where(and(eq(invoices.bookingId, bookingId), ne(invoices.status, 'VOID'))).limit(1);
+    return Boolean(row);
   }
 
   private async consider(booking: { id: string; reference: string }, periodStart: string, periodEnd: string, basis: 'COMPLETED' | 'SCHEDULED' = 'COMPLETED'): Promise<'nothing' | 'decided' | 'staff'> {

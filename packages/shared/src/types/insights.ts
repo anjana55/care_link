@@ -140,6 +140,8 @@ export interface BusinessInsights {
     draftBookings: number;
     /** Scheduled visits that started a while ago with nobody checked in. Zero while check-in is off. */
     lateVisits: number;
+    /** Drafts billed in advance whose first invoice has been sent and is not paid: not confirmed yet. */
+    awaitingPayment: number;
     unconfirmedShiftsNext7d: number;
     missedShiftsLast7d: number;
     unbilledCompletedShifts: number;
