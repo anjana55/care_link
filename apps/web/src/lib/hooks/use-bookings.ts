@@ -53,7 +53,7 @@ export function useBookings(filters: BookingFilters, enabled = true) {
 
 /** What a new booking starts with (Settings > Billing), so the form shows the real default instead of a guess. */
 export function useBookingDefaults() {
-  return useQuery({ queryKey: ['bookings', 'defaults'], queryFn: () => api.get<{ billingTiming: BillingTiming }>('/bookings/defaults'), staleTime: 5 * 60_000 });
+  return useQuery({ queryKey: ['bookings', 'defaults'], queryFn: () => api.get<{ billingTiming: BillingTiming; advanceLeadDays: number }>('/bookings/defaults'), staleTime: 5 * 60_000 });
 }
 
 export function useBookingSummary(enabled = true) {

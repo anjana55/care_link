@@ -70,6 +70,8 @@ export const billingSettings = mysqlTable('billing_settings', {
   paymentTermsDays: int('payment_terms_days').notNull().default(7),
   // What a new booking starts with: billed AFTER the work, or in ADVANCE. Staff can change it on any booking.
   defaultBillingTiming: mysqlEnum('default_billing_timing', BILLING_TIMINGS).notNull().default('AFTER'),
+  // Billed in advance: how many days before a month begins its invoice goes out.
+  advanceLeadDays: int('advance_lead_days').notNull().default(5),
   // Printed at the foot of every invoice: bank details, thank-you line.
   invoiceFooter: text('invoice_footer'),
 

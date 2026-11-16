@@ -8,6 +8,7 @@ import { AutomationService, type ActionExecutor } from '../automation/automation
 import { JobsService } from '../jobs/jobs.service';
 import { InvoicesService, MAX_INVOICE_DAYS } from './invoices.service';
 import { PayoutsService } from './payouts.service';
+import { BillingSettingsService } from './billing-settings.service';
 import { BILLING_BOOKING_JOB } from './billing-agent-jobs';
 
 const ACTION = 'billing.issue_invoice' as const;
@@ -122,6 +123,7 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
     private readonly jobs: JobsService,
     private readonly invoicesService: InvoicesService,
     private readonly payouts: PayoutsService,
+    private readonly billingSettings: BillingSettingsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -190,9 +192,11 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
           only ? inArray(bookings.id, only) : undefined,
         ),
       );
+    // How many days ahead a month is billed: Settings > Billing.
+    const leadDays = ahead.length ? (await this.billingSettings.getResolved()).advanceLeadDays : 0;
     for (const b of ahead) {
       // A draft is billed for its first period only, and only once: later months wait until it is confirmed.
-      const periods = b.status === 'DRAFT' ? ((await this.invoicesFor(b.id)) ? [] : advancePeriods(b, today).slice(0, 1)) : advancePeriods(b, today);
+      const periods = b.status === 'DRAFT' ? ((await this.invoicesFor(b.id)) ? [] : advancePeriods(b, today, leadDays).slice(0, 1)) : advancePeriods(b, today, leadDays);
       for (const period of periods) {
         run.considered++;
         try {

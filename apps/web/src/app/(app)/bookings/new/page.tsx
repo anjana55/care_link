@@ -304,7 +304,7 @@ function NewBookingPage() {
                 ))}
               </Select>
               <p id="billingTimingHint" className="mt-1 text-xs text-ink/60">
-                {t(`bookings.billingTiming.hint.${billingTiming}`)}
+                {t(`bookings.billingTiming.hint.${billingTiming}`, { days: defaults?.advanceLeadDays ?? 5 })}
               </p>
             </div>
             <div>

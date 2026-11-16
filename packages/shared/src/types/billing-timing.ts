@@ -13,8 +13,10 @@ import { addDays } from './bookings';
 export const BILLING_TIMINGS = ['AFTER', 'ADVANCE'] as const;
 export type BillingTiming = (typeof BILLING_TIMINGS)[number];
 
-/** How many days before a month begins its advance invoice goes out. */
+/** How many days before a month begins its advance invoice goes out: the default for Settings > Billing. */
 export const ADVANCE_INVOICE_LEAD_DAYS = 5;
+/** The range staff can set it to. At most 28, so it never reaches back past the start of the month before. */
+export const ADVANCE_INVOICE_LEAD_LIMITS = { min: 1, max: 28 } as const;
 
 export interface BillingPeriod {
   periodStart: string;

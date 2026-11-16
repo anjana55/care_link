@@ -1774,7 +1774,7 @@
       "ADVANCE": "In advance, month by month",
       "hint": {
         "AFTER": "Invoiced for the work done: month by month once each month has ended, and in full when the booking finishes.",
-        "ADVANCE": "Invoiced for the work booked: the first month when the booking is confirmed, then each month 5 days before it begins. A shift that does not happen is credited with a correction."
+        "ADVANCE": "Invoiced for the work booked: the first month when the booking is confirmed, then each month {days} days before it begins. A shift that does not happen is credited with a correction."
       },
       "changeNote": "Applies from now on; what is already invoiced stays as it is."
     },
@@ -2245,7 +2245,9 @@
       "deleteMessage": "{name} will be removed. If payments have been recorded against it, turn it off instead."
     },
     "defaultTiming": "New bookings are billed",
-    "defaultTimingHint": "This is only the starting choice: staff can change it on any booking, and the billing agent follows the booking."
+    "defaultTimingHint": "This is only the starting choice: staff can change it on any booking, and the billing agent follows the booking.",
+    "leadDays": "Advance invoices go out (days before the month)",
+    "leadDaysHint": "Each month's invoice goes out {days} days before the month begins. With payment terms of {terms} days it falls due {terms} days after that; visits pause if it is still unpaid then."
   },
   "adsAdmin": {
     "title": "Google AdSense",

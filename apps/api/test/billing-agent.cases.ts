@@ -392,6 +392,29 @@ describe('Billing agent (e2e)', () => {
       expect(await decisionsFor(booking.id)).toHaveLength(2);
     });
 
+    it('bills each month as many days ahead as Settings > Billing says', async () => {
+      await mode('AUTO');
+      const settings = (body: object) => api().patch('/settings/billing').set(bearer(adminToken)).send(body);
+      expect((await api().get('/settings/billing').set(bearer(adminToken)).expect(200)).body.advanceLeadDays).toBe(5);
+      for (const bad of [0, 29, 2.5]) await settings({ advanceLeadDays: bad }).expect(400);
+      try {
+        expect((await settings({ advanceLeadDays: 12 }).expect(200)).body.advanceLeadDays).toBe(12);
+        expect((await api().get('/bookings/defaults').set(bearer(staffToken)).expect(200)).body).toMatchObject({ advanceLeadDays: 12 });
+        const made = await aheadBooking();
+        await agent.sweep(at(addDays(first, -3)), [made.booking.id]);
+        expect(await invoicesFor(made.booking.id)).toHaveLength(1);
+        // Thirteen days before the next month: not yet. Twelve: billed.
+        await agent.sweep(at(addDays(nextFirst, -13)), [made.booking.id]);
+        expect(await invoicesFor(made.booking.id)).toHaveLength(1);
+        await agent.sweep(at(addDays(nextFirst, -12)), [made.booking.id]);
+        const both = await invoicesFor(made.booking.id);
+        expect(both).toHaveLength(2);
+        expect(both.some((i) => i.periodStart === nextFirst)).toBe(true);
+      } finally {
+        await settings({ advanceLeadDays: 5 }).expect(200);
+      }
+    });
+
     it('leaves a booking billed after the work alone until the work is done', async () => {
       await mode('AUTO');
       const made = await aheadBooking({});

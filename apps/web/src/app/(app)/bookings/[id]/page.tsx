@@ -18,6 +18,7 @@ import {
   useCompleteBooking,
   useConfirmBooking,
   useSendAdvanceInvoice,
+  useBookingDefaults,
   useResumeVisits,
   useAskClient,
   useExtendBooking,
@@ -495,6 +496,8 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
   const [payRateType, setPayRateType] = useState<RateType | ''>(booking.payRateType ?? '');
   const [payRateAmount, setPayRateAmount] = useState(booking.payRateAmount ?? '');
   const [billingTiming, setBillingTiming] = useState<BillingTiming>(booking.billingTiming);
+  // For the hint: how many days before each month its advance invoice goes out (Settings > Billing).
+  const { data: defaults } = useBookingDefaults();
   const e = booking.estimate;
   const pay = booking.payEstimate;
   const margin = e.total && pay.total ? Number(e.total) - Number(pay.total) : null;
@@ -548,7 +551,7 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
               ))}
             </Select>
             <p id="billingTimingEditHint" className="text-xs text-ink/60">
-              {t(`bookings.billingTiming.hint.${billingTiming}`)}
+              {t(`bookings.billingTiming.hint.${billingTiming}`, { days: defaults?.advanceLeadDays ?? 5 })}
               {billingTiming !== booking.billingTiming && ` ${t('bookings.billingTiming.changeNote')}`}
             </p>
             <div className="flex gap-2">

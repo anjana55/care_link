@@ -1070,6 +1070,8 @@ export interface BillingSettings {
   paymentTermsDays: number;
   /** What a new booking starts with: billed after the work, or in advance. */
   defaultBillingTiming: BillingTiming;
+  /** Billed in advance: days before a month begins that its invoice goes out. */
+  advanceLeadDays: number;
   invoiceFooter: string | null;
   payhereEnabled: boolean;
   payhereMode: 'SANDBOX' | 'LIVE';
