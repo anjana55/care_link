@@ -1,4 +1,7 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { JobsService } from '../jobs/jobs.service';
+import { AutomationService } from '../automation/automation.service';
+import { nudgeOnboarding } from '../onboarding/onboarding-jobs';
+import { Inject, Injectable, Optional, NotFoundException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import { randomUUID as uuid } from 'crypto';
 import { DRIZZLE, type Database } from '../database/database.module';
@@ -7,7 +10,11 @@ import { CreateReferenceDto } from './dto/create-reference.dto';
 
 @Injectable()
 export class ReferencesService {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    @Optional() private readonly jobs?: JobsService,
+    @Optional() private readonly automation?: AutomationService,
+  ) {}
 
   findAllForCaregiver(caregiverId: string) {
     return this.db.select().from(references).where(eq(references.caregiverId, caregiverId));
@@ -24,6 +31,7 @@ export class ReferencesService {
       email: dto.email ?? null,
       notes: dto.notes ?? null,
     });
+    await nudgeOnboarding(this.jobs, this.automation, caregiverId);
     return this.findOne(caregiverId, id);
   }
 

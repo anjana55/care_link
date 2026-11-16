@@ -1,0 +1,586 @@
+import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { createHash, randomBytes } from 'crypto';
+import {
+  ONBOARDING_DOCUMENT_DAYS,
+  ONBOARDING_STATUSES,
+  REFERENCE_ANSWER_DAYS,
+  REFERENCE_LINK_DAYS,
+  colomboToday,
+  onboardingFile,
+  referenceState,
+  type AgentRunResult,
+  type CoreDocumentLabel,
+  type OnboardingFacts,
+  type OnboardingFileResult,
+  type OnboardingFileView,
+  type ReferenceAnswer,
+  type ReferenceAnswerInput,
+  type ReferenceCheck,
+} from '@care-platform/shared';
+import { DRIZZLE, type Database } from '../database/database.module';
+import { agentDecisions, caregiverDocuments, caregivers, onboardingFiles, references, users } from '../database/schema';
+import { AutomationService, type ActionExecutor } from '../automation/automation.service';
+import { JobsService } from '../jobs/jobs.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
+import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
+import { EmailService } from '../email/email.service';
+import { EmailSettingsService } from '../email/email-settings.service';
+import { normalizePhone } from '../common/utils/phone.util';
+import { ONBOARDING_CAREGIVER_JOB, ONBOARDING_SWEEP_JOB } from './onboarding-jobs';
+
+const RECOMMEND = 'onboarding.recommend_verification' as const;
+const REQUEST_DOCUMENT = 'onboarding.request_document' as const;
+const FOLLOW_UP = 'onboarding.follow_up_reference' as const;
+const SWEEP_MS = 30 * 60 * 1000;
+const DAY = 86_400_000;
+type Lang = 'en' | 'si' | 'ta';
+const LANGS: Lang[] = ['en', 'si', 'ta'];
+
+const DOC_WORDS: Record<Lang, Record<CoreDocumentLabel, string>> = {
+  en: { identity: 'your NIC or passport', police: 'a police clearance certificate', gn: 'a Grama Niladhari certificate' },
+  si: { identity: 'ඔබේ ජාතික හැඳුනුම්පත හෝ ගමන් බලපත්‍රය', police: 'පොලිස් නිෂ්කාශන සහතිකය', gn: 'ග්‍රාම නිලධාරී සහතිකය' },
+  ta: { identity: 'உங்கள் தேசிய அடையாள அட்டை அல்லது கடவுச்சீட்டு', police: 'காவல்துறை அனுமதிச் சான்றிதழ்', gn: 'கிராம நிலதாரி சான்றிதழ்' },
+};
+const DOC_STAFF: Record<CoreDocumentLabel, string> = { identity: 'identity document', police: 'police clearance', gn: 'Grama Niladhari certificate' };
+const listDocs = (d: CoreDocumentLabel[]) => d.map((x) => DOC_STAFF[x]).join(', ');
+
+/** The caregiver's message: which documents, nothing else. */
+const DOC_TEXT: Record<Lang, { title: string; body: string }> = {
+  en: { title: 'Documents needed for your registration', body: 'To finish checking your registration we need: {what}. Please upload them under Documents.' },
+  si: { title: 'ඔබගේ ලියාපදිංචියට ලේඛන අවශ්‍යයි', body: 'ඔබගේ ලියාපදිංචිය පරීක්ෂා කිරීම අවසන් කිරීමට අපට අවශ්‍යයි: {what}. කරුණාකර ඒවා ලේඛන යටතේ උඩුගත කරන්න.' },
+  ta: { title: 'உங்கள் பதிவுக்கு ஆவணங்கள் தேவை', body: 'உங்கள் பதிவைச் சரிபார்த்து முடிக்க எங்களுக்குத் தேவை: {what}. அவற்றை ஆவணங்கள் பகுதியில் பதிவேற்றவும்.' },
+};
+
+/** The referee's message: who gave their name, and the link. Nothing else about the caregiver. */
+const REFEREE_TEXT: Record<Lang, string> = {
+  en: '{caregiver} gave your name as a reference ({relationship}) when applying to work as a caregiver with us. Could you answer three short questions? {url}',
+  si: '{caregiver} අප සමඟ සත්කාරකයෙකු ලෙස සේවය කිරීමට අයදුම් කිරීමේදී ඔබේ නම යොමුකරුවෙකු ලෙස ({relationship}) ලබා දී ඇත. කෙටි ප්‍රශ්න තුනකට පිළිතුරු දිය හැකිද? {url}',
+  ta: '{caregiver} எங்களுடன் பராமரிப்பாளராகப் பணியாற்ற விண்ணப்பிக்கும்போது உங்கள் பெயரைப் பரிந்துரையாளராக ({relationship}) கொடுத்துள்ளார். மூன்று சிறிய கேள்விகளுக்குப் பதிலளிக்க முடியுமா? {url}',
+};
+
+export interface RecommendProposal extends Record<string, unknown> {
+  caregiverId: string;
+  registrationNumber: string;
+  file: OnboardingFileResult;
+}
+export interface DocumentProposal extends Record<string, unknown> {
+  caregiverId: string;
+  registrationNumber: string;
+  documents: CoreDocumentLabel[];
+}
+export interface ReferenceProposal extends Record<string, unknown> {
+  caregiverId: string;
+  registrationNumber: string;
+  referenceId: string;
+}
+
+type Cg = {
+  id: string;
+  userId: string | null;
+  registrationNumber: string;
+  fullName: string;
+  status: string;
+  phone: string | null;
+  preferred: string | null;
+  profile: OnboardingFacts['profile'];
+};
+type Ref = typeof references.$inferSelect;
+
+const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
+const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name;
+
+/**
+ * The onboarding agent: keeps each applicant caregiver's verification file
+ * up to date, asks the caregiver for core documents that are missing, expired
+ * or rejected, and asks their referees to confirm them through a one-time
+ * link. Exact rules (onboardingFile); no AI here.
+ *
+ * - Assembling the file is tier 0 (Assist and Auto). Staff are emailed once
+ *   each time it turns "ready".
+ * - Asking the caregiver and messaging a referee are tier 1: done in Auto,
+ *   proposed in Assist, only logged in Shadow.
+ * - It never marks anyone verified or rejected (tier 3), and never changes a
+ *   document's or a reference's verification.
+ * - Unanswered for 5 days (documents) or 7 (a referee): staff are told, once.
+ */
+@Injectable()
+export class OnboardingAgentService implements OnApplicationBootstrap, OnModuleDestroy {
+  private readonly logger = new Logger(OnboardingAgentService.name);
+  private timer?: NodeJS.Timeout;
+
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly config: ConfigService,
+    private readonly automation: AutomationService,
+    private readonly jobs: JobsService,
+    private readonly notices: NotificationsService,
+    private readonly whatsappSettings: WhatsappSettingsService,
+    private readonly whatsapp: WhatsappProviderService,
+    private readonly email: EmailService,
+    private readonly emailSettings: EmailSettingsService,
+  ) {}
+
+  onApplicationBootstrap() {
+    this.automation.registerExecutor(RECOMMEND, this.recommend);
+    this.automation.registerExecutor(REQUEST_DOCUMENT, this.requestDocuments);
+    this.automation.registerExecutor(FOLLOW_UP, this.followUp);
+    this.automation.registerRunner('ONBOARDING', () => this.sweep());
+    this.jobs.register(ONBOARDING_SWEEP_JOB, async () => void (await this.sweep()));
+    this.jobs.register(ONBOARDING_CAREGIVER_JOB, async (payload) => {
+      const id = (payload as { caregiverId?: unknown }).caregiverId;
+      if (typeof id === 'string') await this.sweep(new Date(), [id]);
+    });
+    if (this.config.get<string>('NODE_ENV') === 'test') return;
+    const queue = () =>
+      void this.jobs
+        .enqueue(ONBOARDING_SWEEP_JOB, {}, { uniqueKey: `${ONBOARDING_SWEEP_JOB}:${Math.floor(Date.now() / SWEEP_MS)}`, maxAttempts: 2 })
+        .catch((e) => this.logger.warn(`Onboarding sweep not queued: ${(e as Error).message}`));
+    this.timer = setInterval(queue, SWEEP_MS);
+    this.timer.unref?.();
+  }
+
+  onModuleDestroy() {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  private async load(ids: string[] | undefined): Promise<{ cg: Cg; facts: OnboardingFacts; refs: Ref[] }[]> {
+    const rows = await this.db
+      .select({
+        id: caregivers.id,
+        userId: caregivers.userId,
+        registrationNumber: caregivers.registrationNumber,
+        fullName: caregivers.fullName,
+        status: caregivers.status,
+        phone: caregivers.primaryPhone,
+        preferred: caregivers.preferredContactMethod,
+        dateOfBirth: caregivers.dateOfBirth,
+        permanentAddress: caregivers.permanentAddress,
+        nic: caregivers.nic,
+        passportNumber: caregivers.passportNumber,
+        districtId: caregivers.districtId,
+        emergencyContactName: caregivers.emergencyContactName,
+        emergencyContactNumber: caregivers.emergencyContactNumber,
+      })
+      .from(caregivers)
+      .where(and(isNull(caregivers.deletedAt), ids ? inArray(caregivers.id, ids) : inArray(caregivers.status, [...ONBOARDING_STATUSES])))
+      .orderBy(caregivers.createdAt)
+      .limit(300);
+    if (!rows.length) return [];
+    const cgIds = rows.map((r) => r.id);
+    const docs = await this.db
+      .select({ caregiverId: caregiverDocuments.caregiverId, type: caregiverDocuments.documentType, status: caregiverDocuments.verificationStatus, expiresOn: caregiverDocuments.expiresOn })
+      .from(caregiverDocuments)
+      .where(inArray(caregiverDocuments.caregiverId, cgIds));
+    const refs = await this.db.select().from(references).where(inArray(references.caregiverId, cgIds)).orderBy(references.createdAt);
+    const today = colomboToday();
+    return rows.map((r) => {
+      const mine = refs.filter((x) => x.caregiverId === r.id);
+      const dob = r.dateOfBirth as unknown;
+      return {
+        cg: {
+          id: r.id,
+          userId: r.userId,
+          registrationNumber: r.registrationNumber,
+          fullName: r.fullName,
+          status: r.status,
+          phone: r.phone,
+          preferred: r.preferred,
+          profile: {
+            dateOfBirth: dob ? String(dob) : null,
+            permanentAddress: r.permanentAddress,
+            nic: r.nic,
+            passportNumber: r.passportNumber,
+            districtId: r.districtId,
+            emergencyContactName: r.emergencyContactName,
+            emergencyContactNumber: r.emergencyContactNumber,
+          },
+        },
+        facts: {
+          today,
+          documents: docs.filter((d) => d.caregiverId === r.id).map((d) => ({ type: d.type, status: d.status, expiresOn: d.expiresOn })),
+          profile: {
+            dateOfBirth: dob ? String(dob) : null,
+            permanentAddress: r.permanentAddress,
+            nic: r.nic,
+            passportNumber: r.passportNumber,
+            districtId: r.districtId,
+            emergencyContactName: r.emergencyContactName,
+            emergencyContactNumber: r.emergencyContactNumber,
+          },
+          references: mine.map((x) => ({ status: x.verificationStatus, answer: (x.confirmAnswer as ReferenceAnswer | null) ?? null, sentAt: x.confirmSentAt?.toISOString() ?? null })),
+        },
+        refs: mine,
+      };
+    });
+  }
+
+  /** One pass over applicant caregivers - or just the caregivers in `only`. */
+  async sweep(now = new Date(), only?: string[]): Promise<AgentRunResult> {
+    const gate = await this.automation.gate(RECOMMEND);
+    const run: AgentRunResult = { function: 'ONBOARDING', mode: gate.mode, considered: 0, decided: 0, scored: 0, leftToStaff: 0 };
+    if (gate.mode === 'MANUAL') return run;
+    run.scored = await this.scoreShadows(only);
+    if (only && !only.length) return run;
+    for (const item of await this.load(only)) {
+      if (!(ONBOARDING_STATUSES as readonly string[]).includes(item.cg.status)) continue;
+      try {
+        const r = await this.consider(item, now);
+        if (r.considered) run.considered++;
+        run.decided += r.decided;
+        run.leftToStaff += r.staff;
+      } catch (err) {
+        this.logger.warn(`Onboarding agent: ${item.cg.registrationNumber} skipped - ${(err as Error).message}`);
+      }
+    }
+    return run;
+  }
+
+  private async consider({ cg, facts, refs }: { cg: Cg; facts: OnboardingFacts; refs: Ref[] }, now: Date) {
+    const ref = { caseType: 'CAREGIVER' as const, caseId: cg.id };
+    const out = { considered: false, decided: 0, staff: 0 };
+    if ((await this.automation.gate(RECOMMEND, ref)).outcome === 'NONE') return out;
+    out.considered = true;
+    const file = onboardingFile(facts);
+    const [saved] = await this.db.select().from(onboardingFiles).where(eq(onboardingFiles.caregiverId, cg.id)).limit(1);
+
+    // 1. The file: re-assembled whenever what it says changes.
+    const summary = file.checks.map((c) => `${c.key}:${c.state}${c.gaps ? `(${c.gaps.join('+')})` : ''}${c.key === 'REFERENCES' ? `(${c.confirmed}/${c.wanted})` : ''}`).join(',');
+    const changed = !saved || saved.recommendation !== file.recommendation || JSON.stringify(saved.checks) !== JSON.stringify(file.checks);
+    if (changed) {
+      const decision = await this.automation.decide({
+        action: RECOMMEND,
+        case: ref,
+        reason: this.recommendReason(file),
+        proposal: { caregiverId: cg.id, registrationNumber: cg.registrationNumber, file } satisfies RecommendProposal,
+        dedupeKey: `${cg.id}|${file.recommendation}|${summary}`,
+      });
+      if (decision.decisionId) {
+        out.decided++;
+        if (decision.outcome === 'EXECUTE') await this.runOrLog(decision.decisionId, cg);
+      }
+    }
+
+    // 2. Documents to ask the caregiver for - once per set; staff after five days.
+    if (file.missingDocuments.length && cg.userId) {
+      const asked = (saved?.documentsRequested?.split(',') ?? []) as CoreDocumentLabel[];
+      const stillMissing = asked.filter((d) => file.missingDocuments.includes(d));
+      const fresh = file.missingDocuments.filter((d) => !asked.includes(d));
+      if (fresh.length) {
+        const decision = await this.automation.decide({
+          action: REQUEST_DOCUMENT,
+          case: ref,
+          reason: `Ask ${cg.registrationNumber} for ${listDocs(file.missingDocuments)}: the verification needs ${file.missingDocuments.length === 1 ? 'it' : 'them'}`,
+          proposal: { caregiverId: cg.id, registrationNumber: cg.registrationNumber, documents: file.missingDocuments } satisfies DocumentProposal,
+          dedupeKey: `${cg.id}|docs|${file.missingDocuments.join(',')}`,
+        });
+        if (decision.decisionId) {
+          out.decided++;
+          if (decision.outcome === 'EXECUTE') await this.runOrLog(decision.decisionId, cg);
+        }
+      } else if (stillMissing.length && saved?.documentsRequestedAt && !saved.documentsEscalatedAt && now.getTime() - saved.documentsRequestedAt.getTime() >= ONBOARDING_DOCUMENT_DAYS * DAY) {
+        await this.db.update(onboardingFiles).set({ documentsEscalatedAt: now }).where(eq(onboardingFiles.caregiverId, cg.id));
+        await this.automation.setHandoverNote(ref, {
+          done: `Asked ${cg.registrationNumber} for ${listDocs(asked)} ${ONBOARDING_DOCUMENT_DAYS} days ago`,
+          waiting: `Staff: still not uploaded - ${listDocs(stillMissing)}; phone the caregiver`,
+          next: 'Update the verification file when they upload',
+        });
+        await this.tellStaff(`Documents not received: ${cg.registrationNumber}`, [
+          `${cg.registrationNumber} was asked ${ONBOARDING_DOCUMENT_DAYS} days ago for ${listDocs(asked)} and has not uploaded ${listDocs(stillMissing)}.`,
+          'Phone the caregiver. The onboarding agent will not ask again.',
+        ], cg.id, `onboarding docs ${cg.id}`);
+        out.staff++;
+      }
+    }
+
+    // 3. Referees: each asked once; staff after seven days without an answer (one note naming them all).
+    const silent: string[] = [];
+    for (const r of refs) {
+      const state = referenceState({ status: r.verificationStatus, answer: (r.confirmAnswer as ReferenceAnswer | null) ?? null, sentAt: r.confirmSentAt?.toISOString() ?? null });
+      if (state === 'NOT_ASKED' && r.verificationStatus === 'PENDING') {
+        const decision = await this.automation.decide({
+          action: FOLLOW_UP,
+          case: ref,
+          reason: `Ask ${firstName(r.name)} (${r.relationship}) to confirm ${cg.registrationNumber}'s reference`,
+          proposal: { caregiverId: cg.id, registrationNumber: cg.registrationNumber, referenceId: r.id } satisfies ReferenceProposal,
+          dedupeKey: `ref|${r.id}`,
+        });
+        if (decision.decisionId) {
+          out.decided++;
+          if (decision.outcome === 'EXECUTE') await this.runOrLog(decision.decisionId, cg);
+        }
+      } else if (state === 'WAITING' && r.confirmSentAt && !r.confirmEscalatedAt && now.getTime() - r.confirmSentAt.getTime() >= REFERENCE_ANSWER_DAYS * DAY) {
+        await this.db.update(references).set({ confirmEscalatedAt: now }).where(eq(references.id, r.id));
+        silent.push(firstName(r.name));
+        out.staff++;
+      }
+    }
+    if (silent.length) {
+      const who = silent.join(' and ');
+      await this.automation.setHandoverNote(ref, {
+        done: `Asked ${who} to confirm the reference ${REFERENCE_ANSWER_DAYS} days ago`,
+        waiting: `Staff: no answer from ${who} - phone ${silent.length === 1 ? 'them' : 'each of them'}`,
+        next: 'Add their answer to the verification file if they reply',
+      });
+    }
+    return out;
+  }
+
+  private async runOrLog(decisionId: string, cg: Cg) {
+    const result = await this.automation.execute(decisionId);
+    if (!result.ok) this.logger.warn(`Onboarding agent: ${cg.registrationNumber} - ${result.error}`);
+  }
+
+  private recommendReason(f: OnboardingFileResult): string {
+    if (f.recommendation === 'READY') return 'Everything is in: ready for staff to check and decide';
+    const open = f.checks.filter((c) => c.state !== 'OK' && c.state !== 'TO_CHECK').map((c) => `${c.key.toLowerCase()} ${c.state.toLowerCase().replace('_', ' ')}`);
+    return f.recommendation === 'CONCERNS' ? `Read before deciding: ${open.join(', ')}` : `Not ready: ${open.join(', ')}`;
+  }
+
+  /** Writes the file; when it has just turned ready, tells staff once. */
+  private readonly recommend: ActionExecutor = async (decision) => {
+    const p = decision.proposal as RecommendProposal | null;
+    if (!p?.caregiverId || !p.file) throw new BadRequestException('This proposal has no caregiver');
+    const now = new Date();
+    const [saved] = await this.db.select().from(onboardingFiles).where(eq(onboardingFiles.caregiverId, p.caregiverId)).limit(1);
+    const turnedReady = p.file.recommendation === 'READY' && saved?.recommendation !== 'READY';
+    const values = { recommendation: p.file.recommendation, checks: p.file.checks, assembledAt: now, ...(turnedReady ? { readyNotifiedAt: now } : {}) };
+    if (saved) await this.db.update(onboardingFiles).set(values).where(eq(onboardingFiles.caregiverId, p.caregiverId));
+    else await this.db.insert(onboardingFiles).values({ caregiverId: p.caregiverId, ...values });
+    const ref = { caseType: 'CAREGIVER' as const, caseId: p.caregiverId };
+    await this.automation.setHandoverNote(ref, {
+      done: `Verification file: ${p.file.recommendation === 'READY' ? 'ready' : p.file.recommendation === 'CONCERNS' ? 'concerns to read' : 'not ready yet'}`,
+      waiting: p.file.recommendation === 'READY' ? 'Staff to check the documents and decide' : decision.reason,
+      next: 'Staff decide on verification; the agent never does',
+    });
+    let staffEmailed = 0;
+    if (turnedReady) {
+      staffEmailed = await this.tellStaff(`Ready to verify: ${p.registrationNumber}`, [
+        `${p.registrationNumber}'s documents, profile and references are in.`,
+        'Open the caregiver, check the documents and decide. The onboarding agent does not verify anyone.',
+      ], p.caregiverId, `onboarding ready ${p.caregiverId}`);
+    }
+    return { recommendation: p.file.recommendation, staffEmailed };
+  };
+
+  /** Asks the caregiver for the documents by bell, push and WhatsApp (unless they asked to be phoned). */
+  private readonly requestDocuments: ActionExecutor = async (decision) => {
+    const p = decision.proposal as DocumentProposal | null;
+    if (!p?.caregiverId || !p.documents?.length) throw new BadRequestException('This proposal has no documents');
+    const [cg] = await this.db
+      .select({ userId: caregivers.userId, status: caregivers.status, phone: caregivers.primaryPhone, preferred: caregivers.preferredContactMethod, accountPhone: users.phone })
+      .from(caregivers)
+      .leftJoin(users, eq(users.id, caregivers.userId))
+      .where(eq(caregivers.id, p.caregiverId))
+      .limit(1);
+    if (!cg?.userId || !(ONBOARDING_STATUSES as readonly string[]).includes(cg.status)) throw new BadRequestException('This caregiver is no longer being onboarded');
+    const now = new Date();
+    const [saved] = await this.db.select({ id: onboardingFiles.caregiverId }).from(onboardingFiles).where(eq(onboardingFiles.caregiverId, p.caregiverId)).limit(1);
+    const set = { documentsRequested: p.documents.join(','), documentsRequestedAt: now, documentsEscalatedAt: null };
+    if (saved) await this.db.update(onboardingFiles).set(set).where(eq(onboardingFiles.caregiverId, p.caregiverId));
+    else await this.db.insert(onboardingFiles).values({ caregiverId: p.caregiverId, recommendation: 'NOT_READY', checks: [], assembledAt: now, ...set });
+
+    const words = (lang: Lang) => ({ title: DOC_TEXT[lang].title, body: DOC_TEXT[lang].body.replace('{what}', p.documents.map((d) => DOC_WORDS[lang][d]).join(', ')) });
+    this.notices.notify([cg.userId], words, '/documents', `onboarding docs ${p.caregiverId}`);
+    const told = ['bell'];
+    try {
+      const wa = await this.whatsappSettings.getResolved();
+      const phone = cg.accountPhone ?? normalizePhone(cg.phone, await this.whatsappSettings.getDefaultCountryCode());
+      if (phone && cg.preferred !== 'PHONE_CALL' && this.whatsapp.canSendUpdates(wa)) {
+        await this.whatsapp.sendUpdate(wa, phone, 'en', `{brand}: ${LANGS.map((l) => `${words(l).title}. ${words(l).body}`).join(' / ')}`);
+        told.push('whatsapp');
+      }
+    } catch (err) {
+      this.logger.warn(`Onboarding agent: WhatsApp to ${p.registrationNumber} failed - ${(err as Error).message}`);
+    }
+    await this.automation.setHandoverNote(
+      { caseType: 'CAREGIVER', caseId: p.caregiverId },
+      { done: `Asked ${p.registrationNumber} for ${listDocs(p.documents)} (${told.join(' and ')})`, waiting: `The caregiver to upload (up to ${ONBOARDING_DOCUMENT_DAYS} days)`, next: 'Update the verification file; staff if nothing comes' },
+    );
+    return { told };
+  };
+
+  /** Sends the referee a one-time link to three questions: WhatsApp when it can, else email. */
+  private readonly followUp: ActionExecutor = async (decision) => {
+    const p = decision.proposal as ReferenceProposal | null;
+    if (!p?.referenceId) throw new BadRequestException('This proposal has no reference');
+    const [r] = await this.db
+      .select({ ref: references, caregiverName: caregivers.fullName, status: caregivers.status })
+      .from(references)
+      .innerJoin(caregivers, eq(caregivers.id, references.caregiverId))
+      .where(eq(references.id, p.referenceId))
+      .limit(1);
+    if (!r) throw new BadRequestException('This reference has been removed');
+    if (r.ref.confirmSentAt) throw new BadRequestException('This referee has already been asked');
+    if (!(ONBOARDING_STATUSES as readonly string[]).includes(r.status)) throw new BadRequestException('This caregiver is no longer being onboarded');
+
+    const token = randomBytes(32).toString('base64url');
+    const url = `${(this.config.get<string>('PUBLIC_WEB_URL') ?? 'http://localhost:3002').replace(/\/+$/, '')}/reference?token=${token}`;
+    const text = (l: Lang) => REFEREE_TEXT[l].replace('{caregiver}', r.caregiverName).replace('{relationship}', r.ref.relationship).replace('{url}', url);
+    let channel: 'WHATSAPP' | 'EMAIL' | null = null;
+    try {
+      const wa = await this.whatsappSettings.getResolved();
+      const phone = normalizePhone(r.ref.phone, await this.whatsappSettings.getDefaultCountryCode());
+      if (phone && this.whatsapp.canSendUpdates(wa)) {
+        await this.whatsapp.sendUpdate(wa, phone, 'en', `{brand}: ${LANGS.map(text).join(' / ')}`);
+        channel = 'WHATSAPP';
+      }
+    } catch (err) {
+      this.logger.warn(`Onboarding agent: WhatsApp to a referee of ${p.registrationNumber} failed - ${(err as Error).message}`);
+    }
+    if (!channel && r.ref.email) {
+      await this.email.sendNotificationEmail(
+        r.ref.email,
+        {
+          subject: 'A reference you gave',
+          blocks: LANGS.map((l) => ({ lang: l, heading: l === 'en' ? 'A reference you gave' : l === 'si' ? 'ඔබ ලබා දුන් යොමුවක්' : 'நீங்கள் வழங்கிய பரிந்துரை', paragraphs: [text(l).replace(` ${url}`, '')] })),
+          cta: { label: 'Answer three questions', url },
+        },
+        `reference ${p.referenceId}`,
+      );
+      channel = 'EMAIL';
+    }
+    if (!channel) throw new BadRequestException('This referee has no email and WhatsApp messages are not set up - phone them');
+    await this.db
+      .update(references)
+      .set({ confirmTokenHash: hashToken(token), confirmSentAt: new Date(), confirmChannel: channel, confirmEscalatedAt: null, verificationStatus: 'IN_PROGRESS' })
+      .where(eq(references.id, p.referenceId));
+    await this.automation.setHandoverNote(
+      { caseType: 'CAREGIVER', caseId: p.caregiverId },
+      { done: `Asked ${firstName(r.ref.name)} to confirm the reference (${channel.toLowerCase()})`, waiting: `The referee to answer (up to ${REFERENCE_ANSWER_DAYS} days)`, next: 'Put the answer in the verification file; staff if there is none' },
+    );
+    return { channel };
+  };
+
+  private async staffRecipients(): Promise<string[]> {
+    const settings = await this.emailSettings.getResolved();
+    if (settings.requestAlertsTo) return settings.requestAlertsTo.split(',').map((a) => a.trim()).filter(Boolean);
+    const rows = await this.db.select({ email: users.email }).from(users).where(and(inArray(users.role, ['ADMIN', 'STAFF']), eq(users.isActive, true)));
+    return rows.map((r) => r.email!).filter(Boolean);
+  }
+
+  private async tellStaff(subject: string, paragraphs: string[], caregiverId: string, label: string): Promise<number> {
+    const to = await this.staffRecipients();
+    if (!to.length) return 0;
+    try {
+      await this.email.sendNotificationEmail(
+        to,
+        { subject, blocks: [{ lang: 'en', heading: subject, paragraphs: [...paragraphs, 'Sent by the onboarding agent. Take over the caregiver to stop it acting.'] }], cta: { label: 'Open the caregiver', url: `${(this.config.get<string>('CAREGIVER_WEB_URL') ?? 'http://localhost:3000/staff').replace(/\/+$/, '')}/caregivers/${caregiverId}` } },
+        label,
+      );
+      return to.length;
+    } catch (err) {
+      this.logger.warn(`Onboarding agent: staff email failed - ${(err as Error).message}`);
+      return 0;
+    }
+  }
+
+  // ---- The referee's page ----
+
+  private async byToken(token: string) {
+    if (!token || token.length < 20 || token.length > 100) throw new NotFoundException('This link is not valid or has expired');
+    const [r] = await this.db
+      .select({ ref: references, caregiverName: caregivers.fullName })
+      .from(references)
+      .innerJoin(caregivers, eq(caregivers.id, references.caregiverId))
+      .where(eq(references.confirmTokenHash, hashToken(token)))
+      .limit(1);
+    if (!r || !r.ref.confirmSentAt || Date.now() - r.ref.confirmSentAt.getTime() > REFERENCE_LINK_DAYS * DAY) throw new NotFoundException('This link is not valid or has expired');
+    return r;
+  }
+
+  async checkReference(token: string): Promise<ReferenceCheck> {
+    const r = await this.byToken(token);
+    return { caregiverName: r.caregiverName, relationship: r.ref.relationship, refereeName: firstName(r.ref.name), answered: Boolean(r.ref.confirmAnsweredAt) };
+  }
+
+  async answerReference(token: string, input: ReferenceAnswerInput): Promise<{ ok: true }> {
+    const r = await this.byToken(token);
+    if (r.ref.confirmAnsweredAt) throw new ConflictException('Thank you - this has already been answered');
+    if (input.knowsThem && (!input.years || !input.wouldTrust)) throw new BadRequestException('Answer each question');
+    const now = new Date();
+    const answer: ReferenceAnswer = {
+      knowsThem: input.knowsThem,
+      ...(input.knowsThem ? { years: input.years, wouldTrust: input.wouldTrust } : {}),
+      ...(input.comment?.trim() ? { comment: input.comment.trim() } : {}),
+      answeredAt: now.toISOString(),
+    };
+    // Only the answer is recorded; the reference's verification stays with staff.
+    await this.db.update(references).set({ confirmAnswer: answer, confirmAnsweredAt: now }).where(and(eq(references.id, r.ref.id), isNull(references.confirmAnsweredAt)));
+    await this.automation
+      .setHandoverNote({ caseType: 'CAREGIVER', caseId: r.ref.caregiverId }, { done: `${firstName(r.ref.name)} answered the reference questions`, waiting: 'Staff to read the answer in the verification file', next: 'Update the verification file' })
+      .catch(() => undefined);
+    if ((await this.automation.gate(RECOMMEND)).mode !== 'MANUAL') await this.jobs.enqueue(ONBOARDING_CAREGIVER_JOB, { caregiverId: r.ref.caregiverId }, { maxAttempts: 3 }).catch(() => undefined);
+    return { ok: true };
+  }
+
+  // ---- Staff ----
+
+  /** The verification file for the staff caregiver page; null before the agent has looked. */
+  async fileFor(caregiverId: string): Promise<OnboardingFileView | null> {
+    const [saved] = await this.db.select().from(onboardingFiles).where(eq(onboardingFiles.caregiverId, caregiverId)).limit(1);
+    if (!saved || !saved.checks.length) return null;
+    const refs = await this.db.select().from(references).where(eq(references.caregiverId, caregiverId)).orderBy(references.createdAt);
+    return {
+      recommendation: saved.recommendation,
+      checks: saved.checks,
+      assembledAt: saved.assembledAt.toISOString(),
+      documentsRequested: saved.documentsRequested && saved.documentsRequestedAt ? { documents: saved.documentsRequested.split(',') as CoreDocumentLabel[], at: saved.documentsRequestedAt.toISOString() } : null,
+      references: refs.map((r) => ({
+        id: r.id,
+        name: r.name,
+        relationship: r.relationship,
+        sentAt: r.confirmSentAt?.toISOString() ?? null,
+        channel: r.confirmChannel,
+        answer: (r.confirmAnswer as ReferenceAnswer | null) ?? null,
+      })),
+    };
+  }
+
+  /**
+   * Shadow decisions are scored once staff have acted:
+   * - the file: staff verified a caregiver it called ready, or rejected one it did not = agreed;
+   * - asking for documents: they were uploaded later = agreed; the caregiver was decided without them = differed;
+   * - a referee: staff settled that reference = agreed; the caregiver was decided with it untouched = differed.
+   */
+  async scoreShadows(only?: string[]): Promise<number> {
+    const open = await this.db
+      .select()
+      .from(agentDecisions)
+      .where(and(inArray(agentDecisions.action, [RECOMMEND, REQUEST_DOCUMENT, FOLLOW_UP]), eq(agentDecisions.outcome, 'SHADOW'), isNull(agentDecisions.staffVerdict), eq(agentDecisions.caseType, 'CAREGIVER')))
+      .limit(500);
+    const mine = open.filter((d) => !only?.length || only.includes(d.caseId!));
+    if (!mine.length) return 0;
+    const loaded = await this.load([...new Set(mine.map((d) => d.caseId!))]);
+    const agent = (await this.automation.agentActor('ONBOARDING')).userId;
+    let scored = 0;
+    for (const d of mine) {
+      const item = loaded.find((x) => x.cg.id === d.caseId);
+      if (!item) continue;
+      const decided = !(ONBOARDING_STATUSES as readonly string[]).includes(item.cg.status);
+      const verified = ['VERIFIED', 'ACTIVE'].includes(item.cg.status);
+      let verdict: 'AGREED' | 'DIFFERED' | null = null;
+      if (d.action === RECOMMEND) {
+        if (!decided) continue;
+        const said = (d.proposal as RecommendProposal | null)?.file?.recommendation;
+        verdict = (said === 'READY') === verified ? 'AGREED' : 'DIFFERED';
+      } else if (d.action === REQUEST_DOCUMENT) {
+        const wanted = ((d.proposal as DocumentProposal | null)?.documents ?? []) as CoreDocumentLabel[];
+        const left = onboardingFile(item.facts).missingDocuments.filter((x) => wanted.includes(x));
+        if (!left.length) verdict = 'AGREED';
+        else if (decided) verdict = 'DIFFERED';
+      } else {
+        const r = item.refs.find((x) => x.id === (d.proposal as ReferenceProposal | null)?.referenceId);
+        if (!r) verdict = 'DIFFERED';
+        else if (r.verificationStatus === 'VERIFIED' || r.verificationStatus === 'REJECTED') verdict = 'AGREED';
+        else if (decided) verdict = 'DIFFERED';
+      }
+      if (!verdict) continue;
+      await this.automation.review(d.id, verdict, verdict === 'AGREED' ? 'Scored automatically: staff did the same' : 'Scored automatically: staff went another way', agent);
+      scored++;
+    }
+    return scored;
+  }
+}

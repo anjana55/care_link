@@ -24,6 +24,7 @@ import './check-in.cases';
 import './live-care-agent.cases';
 import './cover.cases';
 import './intake-agent.cases';
+import './onboarding-agent.cases';
 
 /**
  * The automation rail over real HTTP and MySQL: everything starts Manual, the

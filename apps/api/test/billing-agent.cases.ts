@@ -861,11 +861,11 @@ describe('Billing agent (e2e)', () => {
     });
   });
 
-  it('"Run now" runs the billing agent, and says so for agents not built yet', async () => {
+  it('"Run now" runs the billing agent, and every agent is built now', async () => {
     await mode('SHADOW');
     const ran = await api().post('/settings/automation/functions/BILLING/run').set(bearer(adminToken)).expect(200);
     expect(ran.body).toMatchObject({ function: 'BILLING', mode: 'SHADOW' });
-    await api().post('/settings/automation/functions/ONBOARDING/run').set(bearer(adminToken)).expect(400);
+    expect((await api().post('/settings/automation/functions/ONBOARDING/run').set(bearer(adminToken)).expect(200)).body).toMatchObject({ function: 'ONBOARDING' });
     await api().post('/settings/automation/functions/BILLING/run').set(bearer(staffToken)).expect(403);
     void automation;
     // "Run now" goes through every booking in the database, not just this suite's: allow for a full one.

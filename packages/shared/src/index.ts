@@ -41,6 +41,7 @@ export * from './types/care-offers';
 export * from './types/check-in';
 export * from './types/cover';
 export * from './types/intake';
+export * from './types/onboarding';
 export * from './types/insights';
 export * from './types/international';
 export * from './types/international-phase4';

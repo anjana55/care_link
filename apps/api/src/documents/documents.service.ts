@@ -1,3 +1,6 @@
+import { JobsService } from '../jobs/jobs.service';
+import { AutomationService } from '../automation/automation.service';
+import { nudgeOnboarding } from '../onboarding/onboarding-jobs';
 import {
   BadRequestException,
   ForbiddenException,
@@ -69,6 +72,8 @@ export class DocumentsService {
     private readonly config: ConfigService,
     private readonly auditService: AuditService,
     @Optional() private readonly notices?: NotificationsService,
+    @Optional() private readonly jobs?: JobsService,
+    @Optional() private readonly automation?: AutomationService,
   ) {
     this.maxFileSizeBytes = Number(this.config.get('STORAGE_MAX_FILE_SIZE_BYTES') ?? 10 * 1024 * 1024);
   }
@@ -126,6 +131,7 @@ export class DocumentsService {
       uploadedByUserId,
       expiresOn,
     });
+    await nudgeOnboarding(this.jobs, this.automation, caregiverId);
 
     return this.findOne(caregiverId, documentId);
   }

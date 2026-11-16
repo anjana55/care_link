@@ -1515,5 +1515,34 @@
     "whyFirst": "Your booking is confirmed as soon as this is paid.",
     "whyPaused": "Your visits resume as soon as this is paid.",
     "pausedTitle": "Visits paused: an invoice is past its due date"
+  },
+  "reference": {
+    "title": "Hello {name}",
+    "intro": "{caregiver} has applied to work as a caregiver with us and gave your name as a reference. Three short questions - it takes a minute.",
+    "knows": "Do you know {caregiver}, as their {relationship}?",
+    "yesNo": {
+      "YES": "Yes",
+      "NO": "No"
+    },
+    "years": "How long have you known them?",
+    "yearsOptions": {
+      "UNDER_1": "Less than a year",
+      "ONE_TO_THREE": "1 to 3 years",
+      "OVER_3": "More than 3 years"
+    },
+    "trust": "Would you trust them to care for someone in your family?",
+    "trustOptions": {
+      "YES": "Yes",
+      "UNSURE": "Not sure",
+      "NO": "No"
+    },
+    "comment": "Anything you would like to add (optional)",
+    "send": "Send my answers",
+    "privacy": "Your answers go only to our office, to help check this application.",
+    "error": "Your answers could not be sent. Please try again.",
+    "invalidTitle": "This link does not work",
+    "invalidBody": "It may have expired. If you were expecting it, please contact our office.",
+    "doneTitle": "Thank you",
+    "doneBody": "Your answers have been sent to our office."
   }
 }

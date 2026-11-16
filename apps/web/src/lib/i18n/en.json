@@ -492,6 +492,64 @@
       "copy": "Copy caregiver ID",
       "viewPublic": "View public profile",
       "notListed": "Not visible to customers"
+    },
+    "verificationFile": {
+      "title": "Verification file",
+      "recommendation": {
+        "READY": "Ready for your check: everything is in",
+        "NOT_READY": "Not ready yet: something is missing or awaited",
+        "CONCERNS": "Read before deciding: a referee or a document raised a concern"
+      },
+      "staffDecide": "Assembled by the onboarding agent {when}. You decide on verification.",
+      "checks": {
+        "IDENTITY": "Identity document",
+        "POLICE": "Police clearance",
+        "GN": "Grama Niladhari certificate",
+        "PROFILE": "Profile",
+        "REFERENCES": "References"
+      },
+      "states": {
+        "OK": "Confirmed",
+        "TO_CHECK": "In, to check",
+        "MISSING": "Missing",
+        "EXPIRED": "Expired",
+        "REJECTED": "Rejected",
+        "WAITING": "Waiting",
+        "CONCERN": "Concern"
+      },
+      "gaps": {
+        "DATE_OF_BIRTH": "date of birth",
+        "ADDRESS": "address",
+        "ID_NUMBER": "NIC or passport number",
+        "AREA": "district",
+        "EMERGENCY_CONTACT": "emergency contact"
+      },
+      "documents": {
+        "identity": "identity document",
+        "police": "police clearance",
+        "gn": "Grama Niladhari certificate"
+      },
+      "documentsAsked": "The caregiver was asked for {what} on {when}.",
+      "referees": "What referees said",
+      "answer": "Knows them: yes · {years} · would trust them: {trust}",
+      "doesNotKnow": "Says they do not know this person.",
+      "years": {
+        "UNDER_1": "less than a year",
+        "ONE_TO_THREE": "1 to 3 years",
+        "OVER_3": "more than 3 years"
+      },
+      "trust": {
+        "YES": "yes",
+        "UNSURE": "not sure",
+        "NO": "no"
+      },
+      "waiting": "Asked by {channel} on {when}; no answer yet.",
+      "notAsked": "Not asked yet.",
+      "channel": {
+        "EMAIL": "email",
+        "WHATSAPP": "WhatsApp"
+      },
+      "profileComplete": "Complete"
     }
   },
   "clients": {
