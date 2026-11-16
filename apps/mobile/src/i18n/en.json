@@ -354,7 +354,8 @@
       "intro": {
         "ASKED": "We have prepared this for you. If it is right, accept it. If not, tell us what to change.",
         "ACCEPTED": "Thank you. We are confirming it now and will let you know as soon as it is booked.",
-        "CHANGES_REQUESTED": "Thank you. Our team will change it and ask you to check it again."
+        "CHANGES_REQUESTED": "Thank you. Our team will change it and ask you to check it again.",
+        "ACCEPTED_ADVANCE": "Thank you. We are sending you an invoice for the first month. Your booking is confirmed as soon as it is paid."
       },
       "days": "Days",
       "everyDay": "Every day",

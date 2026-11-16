@@ -1,3 +1,5 @@
+import { AdvancePaymentService } from './advance-payment.service';
+import { AdvancePaymentController } from './advance-payment.controller';
 import { Module } from '@nestjs/common';
 import { EmailModule } from '../email/email.module';
 import { WhatsappModule } from '../whatsapp/whatsapp.module';
@@ -13,10 +15,10 @@ import { BankAccountsController, BillingAdjustmentsController, BillingSettingsCo
 
 @Module({
   imports: [EmailModule, WhatsappModule],
-  controllers: [BillingSettingsController, BankAccountsController, InvoicesController, PayoutsController, BillingAdjustmentsController, MyBillingController, PayhereNotifyController],
-  providers: [BillingSettingsService, BillingNotifier, InvoicesService, PayoutsService, PayhereService, AdjustmentsService, BankAccountsService, BillingAgentService],
+  controllers: [BillingSettingsController, BankAccountsController, InvoicesController, PayoutsController, BillingAdjustmentsController, MyBillingController, PayhereNotifyController, AdvancePaymentController],
+  providers: [BillingSettingsService, BillingNotifier, InvoicesService, PayoutsService, PayhereService, AdjustmentsService, BankAccountsService, BillingAgentService, AdvancePaymentService],
   // Booking corrections adjust invoices and pay statements through these;
   // placement fee invoices (international) take the business details and PayHere merchant from the settings.
-  exports: [InvoicesService, PayoutsService, AdjustmentsService, BillingSettingsService, BillingAgentService],
+  exports: [InvoicesService, PayoutsService, AdjustmentsService, BillingSettingsService, BillingAgentService, AdvancePaymentService],
 })
 export class BillingModule {}

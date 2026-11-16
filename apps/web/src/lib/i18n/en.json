@@ -140,7 +140,8 @@
       "reviewsPending": "Written reviews to approve",
       "accountDeletions": "Account deletion requests",
       "overseasWaiting": "Overseas enquiries and approvals waiting",
-      "lateVisits": "Visits started with nobody checked in"
+      "lateVisits": "Visits started with nobody checked in",
+      "awaitingPayment": "Bookings not confirmed: first invoice unpaid"
     },
     "severity": {
       "act": "Act today",
@@ -1756,6 +1757,7 @@
       "NONE": "The client has not been asked to check this draft",
       "ASKED": "Waiting for the client to check this draft",
       "ACCEPTED": "The client accepted this draft - it is ready to confirm",
+      "ACCEPTED_UNPAID": "The client accepted this draft - it is confirmed once the first invoice is paid",
       "CHANGES_REQUESTED": "The client asked for changes",
       "ask": "Ask the client to check",
       "askAgain": "Ask the client again",
@@ -1774,6 +1776,24 @@
         "ADVANCE": "Invoiced for the work booked: the first month when the booking is confirmed, then each month 5 days before it begins. A shift that does not happen is credited with a correction."
       },
       "changeNote": "Applies from now on; what is already invoiced stays as it is."
+    },
+    "payFirst": {
+      "NOT_BILLED": "Billed in advance: the first invoice has not been sent",
+      "UNPAID": "Waiting for payment of invoice {number}",
+      "PAID": "Invoice {number} is paid: this booking can be confirmed",
+      "hint": {
+        "NOT_BILLED": "This booking is confirmed once its first invoice is paid. Send the invoice when the client has agreed to the booking.",
+        "UNPAID": "Nothing is booked until it is paid. The client has the invoice and the way to pay.",
+        "PAID": "It was waiting for this payment. Confirm it to book the shifts."
+      },
+      "due": "Due {date}.",
+      "openInvoice": "Open the invoice",
+      "send": "Send the first invoice",
+      "override": "Confirm without payment",
+      "reasonLabel": "Why is it confirmed without payment?",
+      "reasonPlaceholder": "For example: the client will pay by bank transfer on Friday",
+      "overrideConfirm": "Confirm without payment",
+      "confirmHint": "Waiting for the first invoice to be paid"
     }
   },
   "filters": {

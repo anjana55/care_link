@@ -17,6 +17,7 @@ import {
   useCancelBooking,
   useCompleteBooking,
   useConfirmBooking,
+  useSendAdvanceInvoice,
   useAskClient,
   useExtendBooking,
   useRemoveShift,
@@ -169,6 +170,7 @@ export default function BookingPage() {
         <p className="mb-4 rounded border border-accent/30 bg-accent-light px-3 py-2 text-sm text-accent">{t('bookings.detail.draftBanner')}</p>
       )}
       {booking.status === 'DRAFT' && <ClientCheck booking={booking} />}
+      {booking.advancePayment.required && <PaymentHold booking={booking} />}
       {booking.status === 'CANCELLED' && booking.cancelReason && (
         <p className="mb-4 rounded bg-ink/5 px-3 py-2 text-sm text-ink/70">{t('bookings.detail.cancelledBecause', { reason: booking.cancelReason })}</p>
       )}
@@ -235,6 +237,68 @@ export default function BookingPage() {
 
 
 /**
+ * Payment before confirmation, for a draft billed in advance: where the first
+ * invoice stands, the button that sends it, and the staff override - confirm
+ * without payment, with the reason kept in the booking's history.
+ */
+function PaymentHold({ booking }: { booking: BookingDetail }) {
+  const { t } = useTranslation();
+  const send = useSendAdvanceInvoice(booking.id);
+  const confirm = useConfirmBooking(booking.id);
+  const [overriding, setOverriding] = useState(false);
+  const [reason, setReason] = useState('');
+  const { state, invoice } = booking.advancePayment;
+  const paid = state === 'PAID';
+  const blocked = booking.blockingConflicts > 0 || booking.shifts.length === 0;
+  const error = [send, confirm].find((m) => m.isError)?.error;
+  return (
+    <div className={`mb-4 rounded border px-3 py-2 ${paid ? 'border-brand/30 bg-brand-light' : 'border-accent/40 bg-accent-light'}`} data-testid="payment-hold">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 text-sm">
+          <p className="font-medium text-ink">{t(`bookings.payFirst.${state}`, { number: invoice?.number ?? '' })}</p>
+          <p className="mt-0.5 text-xs text-ink/60">
+            {t(`bookings.payFirst.hint.${state}`)}
+            {state === 'UNPAID' && invoice?.dueDate && ` ${t('bookings.payFirst.due', { date: invoice.dueDate })}`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {invoice && (
+            <Link href={`/invoices/${invoice.id}`} className="self-center text-sm text-brand-dark hover:underline">
+              {t('bookings.payFirst.openInvoice')}
+            </Link>
+          )}
+          {state === 'NOT_BILLED' && (
+            <Button size="sm" disabled={send.isPending || blocked} onClick={() => send.mutate(undefined)}>
+              {t('bookings.payFirst.send')}
+            </Button>
+          )}
+          {!paid && !overriding && (
+            <Button size="sm" variant="secondary" disabled={blocked} onClick={() => setOverriding(true)}>
+              {t('bookings.payFirst.override')}
+            </Button>
+          )}
+        </div>
+      </div>
+      {!paid && overriding && (
+        <div className="mt-2 border-t border-accent/30 pt-2">
+          <Label htmlFor="overrideReason">{t('bookings.payFirst.reasonLabel')}</Label>
+          <Input id="overrideReason" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('bookings.payFirst.reasonPlaceholder')} />
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" disabled={confirm.isPending || reason.trim().length < 3} onClick={() => confirm.mutate({ withoutPayment: true, reason: reason.trim() })}>
+              {t('bookings.payFirst.overrideConfirm')}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setOverriding(false)}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </div>
+      )}
+      {error && <p className="mt-1 text-xs text-danger">{(error as Error).message}</p>}
+    </div>
+  );
+}
+
+/**
  * A draft can be put in front of the client before it is confirmed: they see
  * the times, the caregiver and the price in their account and accept, or say
  * what to change. Optional - staff can still confirm after a phone call.
@@ -248,7 +312,7 @@ function ClientCheck({ booking }: { booking: BookingDetail }) {
   return (
     <div className={`mb-4 flex flex-wrap items-center justify-between gap-3 rounded border px-3 py-2 ${tone}`}>
       <div className="min-w-0 text-sm">
-        <p className="font-medium text-ink">{t(`bookings.clientCheck.${status ?? 'NONE'}`)}</p>
+        <p className="font-medium text-ink">{t(`bookings.clientCheck.${status === 'ACCEPTED' && booking.advancePayment.required && booking.advancePayment.state !== 'PAID' ? 'ACCEPTED_UNPAID' : (status ?? 'NONE')}`)}</p>
         {status === 'CHANGES_REQUESTED' && booking.clientReviewNote && <p className="mt-0.5 whitespace-pre-wrap text-ink/80">&ldquo;{booking.clientReviewNote}&rdquo;</p>}
         <p className="mt-0.5 text-xs text-ink/60">
           {status === 'ASKED' && booking.clientAskedAt
@@ -294,6 +358,8 @@ function BookingActions({
   const [reason, setReason] = useState('');
   const [newEnd, setNewEnd] = useState('');
   const err = [confirm, complete, cancel, extend].find((m) => m.isError)?.error;
+  // Billed in advance: confirmed once the first invoice is paid. The override is on the payment strip, with a reason.
+  const awaitingPayment = booking.advancePayment.required && booking.advancePayment.state !== 'PAID';
 
   const correctButton = (
     <Button variant="secondary" aria-expanded={correcting} onClick={() => onCorrect()} title={t('bookings.correct.buttonHint')}>
@@ -314,9 +380,9 @@ function BookingActions({
         {booking.status === 'CONFIRMED' && correctButton}
         {booking.status === 'DRAFT' && (
           <Button
-            disabled={confirm.isPending || booking.blockingConflicts > 0 || booking.shifts.length === 0}
+            disabled={confirm.isPending || booking.blockingConflicts > 0 || booking.shifts.length === 0 || awaitingPayment}
             onClick={() => confirm.mutate(undefined)}
-            title={booking.blockingConflicts > 0 ? t('bookings.detail.resolveFirst') : undefined}
+            title={booking.blockingConflicts > 0 ? t('bookings.detail.resolveFirst') : awaitingPayment ? t('bookings.payFirst.confirmHint') : undefined}
           >
             {t('bookings.detail.confirm')}
           </Button>

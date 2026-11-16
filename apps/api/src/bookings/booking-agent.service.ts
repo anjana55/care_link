@@ -347,6 +347,16 @@ export class BookingAgentService implements OnApplicationBootstrap, OnModuleDest
           out.leftToStaff++;
           continue;
         }
+        // Billed in advance: nothing is confirmed until the first invoice is paid. Staff can still confirm without.
+        const payment = await this.bookingsService.advancePayment(b);
+        if (payment.required && payment.state !== 'PAID') {
+          await this.automation.setHandoverNote(ref, {
+            done: 'The client accepted the booking as drafted; it is billed in advance',
+            waiting: payment.invoice?.number ? `The client to pay invoice ${payment.invoice.number}` : 'The first invoice to be sent, then paid',
+            next: 'Confirm the booking once the invoice is paid',
+          });
+          continue;
+        }
         const acceptedAt = new Date(b.clientAnsweredAt!).toISOString();
         const proposal: ConfirmBookingProposal = { bookingId: b.id, bookingReference: b.reference, acceptedAt };
         const decision = await this.automation.decide({

@@ -215,11 +215,11 @@ describe('Invoicing and payouts (e2e)', () => {
     expect(JSON.stringify(mine.body)).not.toMatch(/shiftId|caregiverId|internal/);
 
     // Payments: part, the rest, then a refund reopens it. No paying more than is owed.
-    const pay = (body: Record<string, unknown>) => api().post(`/invoices/${draft.body.id}/payments`).set(bearer(staffToken)).send({ method: 'BANK_TRANSFER', paidOn: colomboToday(), notify: false, ...body });
+    const pay = (body: Record<string, unknown>) => api().post(`/invoices/${draft.body.id}/payments`).set(bearer(staffToken)).send({ paymentType: 'CASH', paidOn: colomboToday(), notify: false, ...body });
     await pay({ amount: '99999.00' }).expect(400);
     expect((await pay({ amount: '5000.00', reference: 'Slip 4471' }).expect(201)).body).toMatchObject({ status: 'ISSUED', amountPaid: '5000.00', balance: '6546.48' });
     await api().post(`/invoices/${draft.body.id}/void`).set(bearer(staffToken)).send({ reason: 'Wrong client' }).expect(400);
-    const paid = await pay({ amount: '6546.48', method: 'CASH' }).expect(201);
+    const paid = await pay({ amount: '6546.48', paymentType: 'CASH' }).expect(201);
     expect(paid.body).toMatchObject({ status: 'PAID', balance: '0.00' });
     expect(paid.body.paidAt).toBeTruthy();
     const refunded = await pay({ kind: 'REFUND', amount: '546.48' }).expect(201);
@@ -353,7 +353,7 @@ describe('Invoicing and payouts (e2e)', () => {
     await api().post(`/payouts/${own.body.id}/pay`).set(bearer(staffToken)).send({ paidOn: colomboToday(), method: 'BANK_TRANSFER' }).expect(400);
     await api().post(`/payouts/${own.body.id}/approve`).set(bearer(staffToken)).expect(200);
     await api().put(`/payouts/${own.body.id}/lines`).set(bearer(staffToken)).send({ lines }).expect(400);
-    const paid = await api().post(`/payouts/${own.body.id}/pay`).set(bearer(staffToken)).send({ paidOn: colomboToday(), method: 'BANK_TRANSFER', reference: 'TRF-88', notify: false }).expect(200);
+    const paid = await api().post(`/payouts/${own.body.id}/pay`).set(bearer(staffToken)).send({ paidOn: colomboToday(), paymentType: 'CASH', reference: 'TRF-88', notify: false }).expect(200);
     expect(paid.body).toMatchObject({ status: 'PAID', paymentReference: 'TRF-88' });
     await api().post(`/payouts/${own.body.id}/void`).set(bearer(staffToken)).send({ reason: 'x' }).expect(400);
 

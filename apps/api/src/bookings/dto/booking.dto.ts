@@ -36,6 +36,21 @@ import {
   type ShiftStatus,
 } from '../../database/schema';
 
+/** POST /bookings/:id/confirm. Empty for an ordinary confirmation. */
+export class ConfirmBookingDto {
+  @ApiPropertyOptional({ description: 'Confirm a booking billed in advance although its first invoice is not paid' })
+  @IsOptional()
+  @IsBoolean()
+  withoutPayment?: boolean;
+
+  @ApiPropertyOptional({ description: 'Why - kept in the booking history. Needed with withoutPayment' })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() || undefined : value))
+  @IsString()
+  @MaxLength(300)
+  reason?: string;
+}
+
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** A datetime-local value, read as Colombo time. */
