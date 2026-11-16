@@ -48,6 +48,7 @@ const EXEMPT_FILES: Record<string, string> = {
   'billing/billing-agent.service.ts': 'reasons from the billing agent, shown to staff on approval (staff UI); no client or caregiver endpoint reaches it',
   'bookings/live-care-agent.service.ts': 'reasons from the live-care agent, shown to staff on approval (staff UI); no client or caregiver endpoint reaches it',
   'bookings/booking-agent.service.ts': 'reasons from the booking agent, shown to staff on approval (staff UI); no client or caregiver endpoint reaches it',
+  'intake/intake-agent.service.ts': 'reasons and executor errors shown to staff on the Agent proposals page (staff UI); no client endpoint reaches it',
   'cover/cover-agent.service.ts': 'reasons from the cover part of the live-care agent, shown to staff on approval (staff UI); no client or caregiver endpoint reaches it',
   'matching/matching-agent.service.ts': 'reasons from the matching agent, shown to staff on approval (staff UI); no client or caregiver endpoint reaches it',
 };

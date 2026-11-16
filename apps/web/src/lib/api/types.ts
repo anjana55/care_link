@@ -1,4 +1,4 @@
-import type { AdvancePayment, BillingTiming, CareType, PaymentHold, StaffCheckIn } from '@care-platform/shared';
+import type { AdvancePayment, BillingTiming, CareType, PaymentHold, RequestIntake, RequestSchedule, StaffCheckIn } from '@care-platform/shared';
 import type {
   BillingAdjustmentView as SharedBillingAdjustmentView,
   BookingAmendmentView as SharedBookingAmendmentView,
@@ -538,6 +538,10 @@ export interface CareRequestDetail {
   requestDistrict: string | null;
   requestCity: string | null;
   desiredStartDate: string | null;
+  /** The time of day this request asks for; null = what the client said at sign-up. */
+  schedule: RequestSchedule | null;
+  /** What the request still lacks, and what the client was asked (intake agent). */
+  intake: RequestIntake;
   client: {
     id: string;
     fullName: string;

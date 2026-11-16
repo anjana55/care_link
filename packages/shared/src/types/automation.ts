@@ -29,7 +29,7 @@ export const ACTION_LIMITS: Partial<Record<string, { key: string; default: numbe
 };
 
 /** The agents that exist so far. The others have a dial, but nothing behind it yet. */
-export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING', 'MATCHING', 'BOOKING', 'LIVE_CARE'];
+export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING', 'MATCHING', 'BOOKING', 'LIVE_CARE', 'INTAKE'];
 
 /**
  * The dial, lowest to highest.
@@ -71,6 +71,7 @@ export const AUTOMATION_ACTIONS = {
   'intake.draft_request': { function: 'INTAKE', tier: 0, label: 'Draft a care request from what the client said' },
   'intake.answer_question': { function: 'INTAKE', tier: 0, label: 'Answer a common question' },
   'intake.create_request': { function: 'INTAKE', tier: 1, label: 'Create the care request' },
+  'intake.ask_client': { function: 'INTAKE', tier: 1, label: 'Ask the client for what a request is missing' },
 
   // Matching and dispatch
   'matching.rank_caregivers': { function: 'MATCHING', tier: 0, label: 'Rank matching caregivers, with reasons' },

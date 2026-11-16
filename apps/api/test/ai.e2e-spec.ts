@@ -145,7 +145,7 @@ describe('AI features (e2e)', () => {
     staffToken = (await login('staff@care-platform.local')).body.accessToken;
     adminToken = (await login('admin@care-platform.local')).body.accessToken;
     const tree = (await api().get('/public/meta/locations/tree?locale=en').expect(200)).body as { districts: { id: number }[] }[];
-    districtId = tree.flatMap((p) => p.districts).at(-1)!.id;
+    districtId = tree.flatMap((p) => p.districts).at(-5)!.id; // Its own district: the matching agent cases use the last two.
     cityId = (await api().get(`/public/meta/locations/cities?districtId=${districtId}&locale=en`).expect(200)).body[0].id;
     const allSkills = await db.select().from(skills).orderBy(skills.name);
     skillId = allSkills[0].id;

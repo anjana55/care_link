@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, eq, gte, inArray, isNull, ne, or } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { colomboToday, type AgentRunResult } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { OPEN_CARE_REQUEST_STATUSES, agentDecisions, bookings, careRequests, caregivers, patients, requestOffers } from '../database/schema';
@@ -140,7 +140,8 @@ export class BookingAgentService implements OnApplicationBootstrap, OnModuleDest
         offerId: requestOffers.id,
         caregiverId: requestOffers.caregiverId,
         registration: caregivers.registrationNumber,
-        schedule: patients.careSchedule,
+        // The request's own time of day (intake asks for it), else what the client said at sign-up.
+        schedule: sql<(typeof patients.careSchedule)['_']['data'] | null>`COALESCE(${careRequests.schedule}, ${patients.careSchedule})`,
         urgency: patients.careStart,
         desiredStartDate: careRequests.desiredStartDate,
         rateType: requestOffers.rateType,

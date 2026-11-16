@@ -18,6 +18,7 @@ const get = jest.fn();
 const post = jest.fn();
 const put = jest.fn();
 const del = jest.fn();
+const patch = jest.fn();
 const replace = jest.fn();
 let pathname = '/caregivers/11111111-1111-4111-8111-111111111111';
 let searchParams = new URLSearchParams();
@@ -49,7 +50,7 @@ jest.mock('@/lib/api/client', () => ({
     get: (...a: unknown[]) => get(...a),
     post: (...a: unknown[]) => post(...a),
     put: (...a: unknown[]) => put(...a),
-    patch: jest.fn(),
+    patch: (...a: unknown[]) => patch(...a),
     delete: (...a: unknown[]) => del(...a),
   },
 }));
@@ -247,6 +248,26 @@ describe('client account', () => {
       </AccountLayout>,
     );
     expect(replace).toHaveBeenCalledWith('/caregiver/dashboard');
+  });
+
+  it('asks for the missing details on a request, only those, and sends them', async () => {
+    auth = { user: CLIENT, loading: false };
+    pathname = '/account/requests';
+    get.mockResolvedValue([
+      { id: 'r9', reference: 'CR-GAP234', status: 'NEW', createdAt: '2026-11-14T10:00:00Z', updatedAt: '2026-11-14T10:00:00Z', closedAt: null, caregiverPublicId: null, caregiver: null, careType: 'HOME_SHIFT', district: 'Colombo', city: null, desiredStartDate: null, schedule: null, detailsNeeded: ['SCHEDULE', 'START_DATE'] },
+    ]);
+    patch.mockResolvedValue({});
+    renderUi(<MyRequestsPage />);
+
+    expect(await screen.findByText('A few details, please')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Kind of care/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Send details' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Please fill in each detail.');
+    expect(patch).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText(/When in the day/), { target: { value: 'LIVE_IN_24H' } });
+    fireEvent.change(screen.getByLabelText(/start date/), { target: { value: '2026-12-01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send details' }));
+    await waitFor(() => expect(patch).toHaveBeenCalledWith('/me/care-requests/r9/details', { schedule: 'LIVE_IN_24H', desiredStartDate: '2026-12-01' }));
   });
 
   it('lists requests with their status and lets the client cancel an open one', async () => {

@@ -1420,7 +1420,24 @@
       "needFields": "{count} required details still missing.",
       "careTypeNotSaid": "Not said yet"
     },
-    "notNotified": "Not notified"
+    "notNotified": "Not notified",
+    "intake": {
+      "schedule": "Time of day",
+      "schedules": {
+        "DAY": "Day",
+        "NIGHT": "Night",
+        "LIVE_IN_24H": "24-hour live-in",
+        "NOT_SURE": "Not sure yet"
+      },
+      "missing": "Still needed before matching and booking: {what}.",
+      "asked": "The client was asked for {what} on {when} and has not answered yet.",
+      "gaps": {
+        "CARE_TYPE": "the kind of care",
+        "AREA": "the area",
+        "SCHEDULE": "the time of day",
+        "START_DATE": "the start date"
+      }
+    }
   },
   "bookings": {
     "title": "Bookings",

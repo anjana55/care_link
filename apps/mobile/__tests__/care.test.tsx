@@ -55,6 +55,8 @@ const request = (over: Partial<ClientCareRequest>): ClientCareRequest =>
     district: 'Colombo',
     city: null,
     desiredStartDate: '2026-11-03',
+    schedule: null,
+    detailsNeeded: [],
     ...over,
   }) as ClientCareRequest;
 
@@ -214,6 +216,24 @@ describe('my requests', () => {
       districtId: 5,
       desiredStartDate: '2026-11-05',
     });
+  });
+
+  it('fills in what we asked for, and only that', async () => {
+    await client();
+    let asked: ClientCareRequest['detailsNeeded'] = ['SCHEDULE'];
+    const calls = serveApi({
+      'GET /me/care-requests': () => ({ status: 200, body: [request({ caregiverPublicId: null, caregiver: null, detailsNeeded: asked })] }),
+      'PATCH /me/care-requests/r-1/details': () => ((asked = []), { status: 200, body: request({ schedule: 'NIGHT' }) }),
+    });
+    await show(<Requests />);
+    expect(await screen.findByText(en.account.requests.details.title)).toBeTruthy();
+    expect(screen.queryByText(en.normalSearch.district)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: en.account.requests.details.send }));
+    expect(screen.getByText(en.account.requests.details.fillAll)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('radio', { name: en.account.requests.details.schedules.NIGHT }));
+    await fireEvent.press(screen.getByRole('button', { name: en.account.requests.details.send }));
+    await waitFor(() => expect(screen.queryByText(en.account.requests.details.title)).toBeNull());
+    expect(calls.find((c) => c.route === 'PATCH /me/care-requests/r-1/details')!.body).toEqual({ schedule: 'NIGHT' });
   });
 
   it('asks someone without an account to sign in', async () => {

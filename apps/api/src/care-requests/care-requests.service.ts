@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { randomInt, randomUUID as uuid } from 'crypto';
 import { and, asc, count, desc, eq, inArray, isNull, like, or, sql, type SQL } from 'drizzle-orm';
-import { PUBLIC_CAREGIVER_STATUSES, isValidDate, resolveLocale, type ClientCareRequest, type CaregiverRelation } from '@care-platform/shared';
+import { INTAKE_MAX_START_DAYS, PUBLIC_CAREGIVER_STATUSES, addDays, colomboToday, isValidDate, requestGaps, resolveLocale, type CaregiverRelation, type ClientCareRequest, type IntakeGap, type RequestIntake } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
   careRequests,
@@ -41,6 +41,8 @@ import { GeoService, localName } from '../geo/geo.service';
 import { caregiverRefCondition } from '../caregivers/caregiver-ref.util';
 import { JobsService } from '../jobs/jobs.service';
 import { nudgeMatching } from '../matching/matching-jobs';
+import { nudgeIntake } from '../intake/intake-jobs';
+import type { RequestDetailsDto } from './dto/request-details.dto';
 import { AutomationService } from '../automation/automation.service';
 
 /** How many open requests one client may have at once - enough for a real search, too few to spam staff. */
@@ -191,6 +193,8 @@ export class CareRequestsService {
     void this.notifier.requestCreated(id);
     // "Find someone for me": the matching agent, when it is switched on, starts at once.
     if (!caregiver) await nudgeMatching(this.jobs, this.automation, id);
+    // The intake agent, when it is on, checks the request has what a booking needs.
+    await nudgeIntake(this.jobs, this.automation, id);
     const [created] = await this.listForClient(user, undefined, [id]);
     return created;
   }
@@ -215,6 +219,9 @@ export class CareRequestsService {
         districtId: careRequests.districtId,
         cityId: careRequests.cityId,
         desiredStartDate: careRequests.desiredStartDate,
+        schedule: careRequests.schedule,
+        detailsAsked: careRequests.detailsAsked,
+        detailsAnsweredAt: careRequests.detailsAnsweredAt,
       })
       .from(careRequests)
       // Left join: a request staff took over the phone may have no caregiver yet.
@@ -242,7 +249,54 @@ export class CareRequestsService {
       district: r.districtId && places.districts.get(r.districtId) ? localName(places.districts.get(r.districtId)!, lang) : null,
       city: r.cityId && places.cities.get(r.cityId) ? localName(places.cities.get(r.cityId)!, lang) : null,
       desiredStartDate: r.desiredStartDate ?? null,
+      schedule: r.schedule ?? null,
+      // Asked and not answered, and the request still open: the client has something to fill in.
+      detailsNeeded: r.detailsAsked && !r.detailsAnsweredAt && OPEN_CARE_REQUEST_STATUSES.includes(r.status) ? (r.detailsAsked.split(',') as IntakeGap[]) : [],
     }));
+  }
+
+  /**
+   * The client adds what intake asked for. Every field that was asked for is
+   * required; anything else they send is taken too. Then the intake and
+   * matching agents look at the request again.
+   */
+  async addDetailsByClient(user: AuthenticatedUser, id: string, dto: RequestDetailsDto, now = new Date()): Promise<ClientCareRequest> {
+    const patient = await this.requireClient(user);
+    const [row] = await this.db.select().from(careRequests).where(and(eq(careRequests.id, id), eq(careRequests.patientId, patient.id))).limit(1);
+    if (!row) throw new NotFoundException('Request not found');
+    if (!OPEN_CARE_REQUEST_STATUSES.includes(row.status)) throw new BadRequestException('This request is no longer open');
+    const asked = (row.detailsAsked?.split(',') ?? []) as IntakeGap[];
+    const missing = (gap: IntakeGap, given: unknown) => asked.includes(gap) && (given === undefined || given === null);
+    if (missing('CARE_TYPE', dto.careType)) throw new BadRequestException('Choose the kind of care');
+    if (missing('AREA', dto.districtId)) throw new BadRequestException('Choose the district where care is needed');
+    if (missing('SCHEDULE', dto.schedule)) throw new BadRequestException('Choose when in the day care is needed');
+    if (missing('START_DATE', dto.desiredStartDate)) throw new BadRequestException('Enter a valid start date');
+    if (dto.desiredStartDate) {
+      const today = colomboToday(now);
+      if (!isValidDate(dto.desiredStartDate) || dto.desiredStartDate < today || dto.desiredStartDate > addDays(today, INTAKE_MAX_START_DAYS)) {
+        throw new BadRequestException('Enter a start date from today, within a year');
+      }
+    }
+    const place = dto.districtId !== undefined ? await this.requestPlace(dto.districtId, dto.cityId ?? undefined) : null;
+    const set: Partial<typeof careRequests.$inferInsert> = { detailsAnsweredAt: now, updatedAt: now };
+    if (dto.careType) set.careType = dto.careType;
+    if (place) Object.assign(set, place);
+    if (dto.schedule) set.schedule = dto.schedule;
+    if (dto.desiredStartDate) set.desiredStartDate = dto.desiredStartDate;
+    const said = [
+      dto.careType && `care type ${dto.careType}`,
+      place && 'the area',
+      dto.schedule && `time of day ${dto.schedule}`,
+      dto.desiredStartDate && `start ${dto.desiredStartDate}`,
+    ].filter(Boolean);
+    if (!said.length) throw new BadRequestException('Fill in at least one detail');
+    await this.db.transaction(async (tx) => {
+      await tx.update(careRequests).set(set).where(eq(careRequests.id, id));
+      await tx.insert(careRequestEvents).values({ id: uuid(), requestId: id, type: 'NOTE', note: `The client added: ${said.join(', ')}`, actorUserId: user.userId });
+    });
+    await nudgeIntake(this.jobs, this.automation, id);
+    await nudgeMatching(this.jobs, this.automation, id);
+    return (await this.listForClient(user, undefined, [id]))[0];
   }
 
   async cancelByClient(user: AuthenticatedUser, id: string): Promise<ClientCareRequest> {
@@ -489,6 +543,18 @@ export class CareRequestsService {
       // their "find someone for me" form) - may differ from their profile.
       requestDistrict: request.districtId ? (places.districts.get(request.districtId) ?? null) : null,
       requestCity: request.cityId ? (places.cities.get(request.cityId) ?? null) : null,
+      // Intake: what the request still lacks for matching and a booking, and what the client was asked.
+      intake: {
+        gaps: requestGaps({
+          careType: request.careType,
+          districtId: request.districtId ?? patient.districtId,
+          schedule: request.schedule ?? patient.careSchedule,
+          desiredStartDate: request.desiredStartDate,
+          urgency: patient.careStart,
+        }),
+        asked: request.detailsAsked && request.detailsAskedAt ? { gaps: request.detailsAsked.split(',') as IntakeGap[], at: request.detailsAskedAt.toISOString() } : null,
+        answeredAt: request.detailsAnsweredAt?.toISOString() ?? null,
+      } satisfies RequestIntake,
       client: {
         id: patient.id,
         fullName: patient.fullName,
@@ -707,6 +773,8 @@ export class CareRequestsService {
 
     void this.notifier.requestCreated(id);
     if (!caregiverId) await nudgeMatching(this.jobs, this.automation, id);
+    // The intake agent, when it is on, checks the request has what a booking needs.
+    await nudgeIntake(this.jobs, this.automation, id);
     return this.findOne(id);
   }
 

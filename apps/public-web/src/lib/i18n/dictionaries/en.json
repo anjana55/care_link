@@ -1346,7 +1346,20 @@
       "noCaregiverLabel": "Caregiver",
       "matching": "Our team is finding a caregiver for you",
       "newRequest": "Find a caregiver for me",
-      "startsOn": "Starting {date}"
+      "startsOn": "Starting {date}",
+      "details": {
+        "title": "A few details, please",
+        "why": "We need these to find your caregiver and set up the booking.",
+        "careType": "Kind of care",
+        "schedule": "When in the day",
+        "send": "Send details",
+        "fillAll": "Please fill in each detail.",
+        "schedules": {
+          "DAY": "Day",
+          "NIGHT": "Night",
+          "LIVE_IN_24H": "24-hour live-in"
+        }
+      }
     },
     "saved": {
       "title": "Saved caregivers",
