@@ -775,9 +775,10 @@ export class BookingsService {
     if (timingChanged) changes.push(dto.billingTiming === 'ADVANCE' ? 'billed in advance from now on' : 'billed after the work from now on');
     if (dto.notes !== undefined && (dto.notes.trim() || null) !== booking.notes) changes.push('notes');
 
-    // The client answered about the draft as it was. New times, another caregiver or another price: ask again.
+    // The client answered about the draft as it was. New times, another caregiver, another price,
+    // or being billed at a different time: ask again.
     const clientRateChanged = rate(rateType, rateType ? rateAmount : null) !== rate(booking.rateType, booking.rateAmount);
-    const voidsClientCheck = draft && booking.clientReviewStatus !== null && (reshaping || clientRateChanged);
+    const voidsClientCheck = draft && booking.clientReviewStatus !== null && (reshaping || clientRateChanged || timingChanged);
     if (voidsClientCheck) changes.push("the client's check no longer applies - ask them again");
 
     // Filled inside the transaction; sent only once it has committed.
@@ -1059,6 +1060,7 @@ export class BookingsService {
       shiftCount: counts.find((c) => c.bookingId === r.id)?.n ?? 0,
       rateType: r.rateType,
       rateAmount: r.rateAmount,
+      billingTiming: r.billingTiming,
       caregiver: profiles.get(r.caregiverId) ?? null,
       askedAt: new Date(r.clientAskedAt!).toISOString(),
       answeredAt: r.clientAnsweredAt ? new Date(r.clientAnsweredAt).toISOString() : null,

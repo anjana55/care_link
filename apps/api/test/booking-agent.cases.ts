@@ -300,10 +300,10 @@ describe('Booking agent (e2e)', () => {
       const [mine] = await proposalsOf(req.clientToken);
       expect(mine).toMatchObject({
         id: draft.id, reference: draft.reference, status: 'ASKED', scheduleType: 'DAY', daysOfWeek: [1, 2, 3, 4, 5], shiftStartTime: '08:00', shiftEndTime: '17:00',
-        startDate: inFiveDays, endDate: addDays(inFiveDays, 13), shiftCount: 10, rateType: 'DAILY', rateAmount: '3450.00', answeredAt: null, note: null,
+        startDate: inFiveDays, endDate: addDays(inFiveDays, 13), shiftCount: 10, rateType: 'DAILY', rateAmount: '3450.00', billingTiming: 'AFTER', answeredAt: null, note: null,
       });
       // What the caregiver is paid and the office's notes are not the client's to see.
-      expect(Object.keys(mine).sort()).toEqual(['answeredAt', 'askedAt', 'caregiver', 'daysOfWeek', 'endDate', 'id', 'note', 'rateAmount', 'rateType', 'reference', 'scheduleType', 'shiftCount', 'shiftEndTime', 'shiftStartTime', 'startDate', 'status']);
+      expect(Object.keys(mine).sort()).toEqual(['answeredAt', 'askedAt', 'billingTiming', 'caregiver', 'daysOfWeek', 'endDate', 'id', 'note', 'rateAmount', 'rateType', 'reference', 'scheduleType', 'shiftCount', 'shiftEndTime', 'shiftStartTime', 'startDate', 'status']);
       expect(JSON.stringify(mine)).not.toMatch(/3000|Sinhala/);
       // Someone else's draft: not listed, and answering it is refused the same way as one that is not waiting.
       expect(await proposalsOf(other.clientToken)).toEqual([]);
@@ -344,6 +344,7 @@ describe('Booking agent (e2e)', () => {
       expect((await bookingRow(draft.id)).clientReviewStatus).toBe('CHANGES_REQUESTED');
       const reshaped = (await api().patch(`/bookings/${draft.id}`).set(bearer(staffToken)).send({ pattern: pattern({ shiftStartTime: '09:00', shiftEndTime: '18:00' }) }).expect(200)).body;
       expect(reshaped).toMatchObject({ clientReviewStatus: null, clientReviewNote: null, clientAnsweredAt: null });
+
       expect(await proposalsOf(req.clientToken)).toEqual([]);
 
       await api().post(`/bookings/${draft.id}/ask-client`).set(bearer(staffToken)).expect(200);
@@ -352,6 +353,13 @@ describe('Booking agent (e2e)', () => {
       // An accepted draft whose price then changes is no longer accepted.
       await api().patch(`/bookings/${draft.id}`).set(bearer(staffToken)).send({ rateType: 'DAILY', rateAmount: '3600.00' }).expect(200);
       expect((await bookingRow(draft.id)).clientReviewStatus).toBeNull();
+      // Being billed in advance instead of after is part of what the client agrees to: they see it, and a change asks them again.
+      await api().post(`/bookings/${draft.id}/ask-client`).set(bearer(staffToken)).expect(200);
+      await api().post(`/me/booking-proposals/${draft.id}/accept`).set(bearer(req.clientToken)).expect(200);
+      const ahead = (await api().patch(`/bookings/${draft.id}`).set(bearer(staffToken)).send({ billingTiming: 'ADVANCE' }).expect(200)).body;
+      expect(ahead).toMatchObject({ billingTiming: 'ADVANCE', clientReviewStatus: null });
+      await api().post(`/bookings/${draft.id}/ask-client`).set(bearer(staffToken)).expect(200);
+      expect((await proposalsOf(req.clientToken))[0]).toMatchObject({ status: 'ASKED', billingTiming: 'ADVANCE' });
     });
 
     it('will not ask without a price, or once it is no longer a draft', async () => {
