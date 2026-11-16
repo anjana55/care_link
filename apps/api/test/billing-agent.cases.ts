@@ -5,12 +5,14 @@ import { JwtService } from '@nestjs/jwt';
 import { ThrottlerStorage } from '@nestjs/throttler';
 import { and, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
-import { addDays, colomboToday, isoWeekday } from '@care-platform/shared';
+import { addDays, colomboToday, isoWeekday, toColombo } from '@care-platform/shared';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
 import { agentDecisions, caregivers, invoices, patients, payoutStatements, users } from '../src/database/schema';
 import { AutomationService } from '../src/automation/automation.service';
-import { BillingAgentService, endOfPreviousMonth } from '../src/billing/billing-agent.service';
+import { BillingAgentService, endOfPreviousMonth, monthStart } from '../src/billing/billing-agent.service';
+import { BILLING_BOOKING_JOB } from '../src/billing/billing-agent-jobs';
+import { JobsService } from '../src/jobs/jobs.service';
 import { SEED_PASSWORD } from './seed-password';
 
 /**
@@ -307,6 +309,154 @@ describe('Billing agent (e2e)', () => {
       expect((await sweep(recent)).decided).toBe(0);
       expect(await decisionsFor(recent.booking.id)).toHaveLength(0);
     }
+  });
+
+  describe('billing in advance', () => {
+    // A month well ahead, so "today" can be placed anywhere around it without touching anything real.
+    const first = monthStart(addDays(colomboToday(), 430));
+    const nextFirst = monthStart(addDays(first, 35));
+    const at = (day: string) => new Date(`${day}T06:00:00Z`);
+
+    /** A confirmed Mon-Fri booking from the 10th of that month to the 20th of the next, at LKR 3,500 a day. */
+    async function aheadBooking(extra: Record<string, unknown> = { billingTiming: 'ADVANCE' }) {
+      const cg = await newCaregiver();
+      const client = await newClient();
+      const created = await api()
+        .post('/bookings')
+        .set(bearer(staffToken))
+        .send({
+          patientId: client.patientId, caregiverId: cg.id, scheduleType: 'DAY', daysOfWeek: [1, 2, 3, 4, 5], shiftStartTime: '08:00', shiftEndTime: '17:00',
+          startDate: addDays(first, 9), endDate: addDays(nextFirst, 19), rateType: 'DAILY', rateAmount: '3500.00', payRateType: 'DAILY', payRateAmount: '2500.00', ...extra,
+        })
+        .expect(201);
+      const booking = (await api().post(`/bookings/${created.body.id}/confirm`).set(bearer(staffToken)).expect(200)).body as { id: string; reference: string; billingTiming: string; shifts: { id: string; startsAt: string }[] };
+      const inMonth = (from: string) => booking.shifts.filter((s) => toColombo(s.startsAt).date.slice(0, 7) === from.slice(0, 7)).length;
+      return { cg, client, booking, firstMonth: inMonth(first), secondMonth: inMonth(nextFirst) };
+    }
+    const money = (shifts: number) => (shifts * 3500).toFixed(2);
+
+    it('Auto: bills the first month at once, each later month a few days before it begins, and nothing twice', async () => {
+      await mode('AUTO');
+      const made = await aheadBooking();
+      const { booking } = made;
+      expect(booking.billingTiming).toBe('ADVANCE');
+      expect(made.firstMonth).toBeGreaterThan(10);
+      expect(made.secondMonth).toBeGreaterThan(10);
+
+      // Well before it starts: the booking's first month is billed, for the work booked.
+      const early = at(addDays(first, -40));
+      expect(await agent.sweep(early, [booking.id])).toMatchObject({ mode: 'AUTO', considered: 1, decided: 1 });
+      let made1 = await invoicesFor(booking.id);
+      expect(made1).toHaveLength(1);
+      expect(made1[0]).toMatchObject({ status: 'ISSUED', basis: 'SCHEDULED', subtotal: money(made.firstMonth), periodStart: addDays(first, 9), periodEnd: addDays(nextFirst, -1) });
+      const [decision] = await decisionsFor(booking.id);
+      expect(decision).toMatchObject({ action: 'billing.issue_invoice', outcome: 'EXECUTED', executionError: null });
+      expect(decision.reason).toBe(`${made.firstMonth} booked, unbilled lines for ${addDays(first, 9)} to ${addDays(nextFirst, -1)}, billed in advance: LKR ${(made.firstMonth * 3500).toLocaleString('en-LK', { minimumFractionDigits: 2 })} before tax`);
+      expect((await panel(booking.id)).handoverNote.done).toBe(`Invoice ${made1[0].number} issued in advance for ${addDays(first, 9)} to ${addDays(nextFirst, -1)}`);
+      // The client sees it like any other invoice.
+      const mine = (await api().get('/me/invoices').set(bearer(made.client.token)).expect(200)).body as { number: string }[];
+      expect(mine.some((i) => i.number === made1[0].number)).toBe(true);
+
+      // Looking again, and up to six days before the next month: nothing more.
+      await agent.sweep(early, [booking.id]);
+      await agent.sweep(at(addDays(nextFirst, -6)), [booking.id]);
+      expect(await invoicesFor(booking.id)).toHaveLength(1);
+
+      // Five days before: the next month, up to the booking's last day.
+      expect(await agent.sweep(at(addDays(nextFirst, -5)), [booking.id])).toMatchObject({ decided: 1 });
+      made1 = (await invoicesFor(booking.id)).sort((a, b) => a.periodStart!.localeCompare(b.periodStart!));
+      expect(made1).toHaveLength(2);
+      expect(made1[1]).toMatchObject({ status: 'ISSUED', basis: 'SCHEDULED', subtotal: money(made.secondMonth), periodStart: nextFirst, periodEnd: addDays(nextFirst, 19) });
+
+      // Every shift is on exactly one invoice, and later passes find nothing left.
+      const lines = (await api().get(`/invoices/${made1[0].id}`).set(bearer(staffToken)).expect(200)).body.lines.length + (await api().get(`/invoices/${made1[1].id}`).set(bearer(staffToken)).expect(200)).body.lines.length;
+      expect(lines).toBe(booking.shifts.length);
+      await agent.sweep(at(addDays(nextFirst, 3)), [booking.id]);
+      await agent.sweep(at(addDays(nextFirst, 40)), [booking.id]);
+      expect(await invoicesFor(booking.id)).toHaveLength(2);
+      expect(await decisionsFor(booking.id)).toHaveLength(2);
+    });
+
+    it('leaves a booking billed after the work alone until the work is done', async () => {
+      await mode('AUTO');
+      const made = await aheadBooking({});
+      expect(made.booking.billingTiming).toBe('AFTER');
+      expect(await agent.sweep(at(addDays(first, 12)), [made.booking.id])).toMatchObject({ considered: 0, decided: 0 });
+      expect(await decisionsFor(made.booking.id)).toHaveLength(0);
+      expect(await invoicesFor(made.booking.id)).toHaveLength(0);
+    });
+
+    it('Assist proposes the advance invoice for a staff member to approve; Shadow logs it and scores itself', async () => {
+      await mode('ASSIST');
+      const made = await aheadBooking();
+      const today = at(addDays(first, -3));
+      await agent.sweep(today, [made.booking.id]);
+      const [proposal] = await decisionsFor(made.booking.id);
+      expect(proposal).toMatchObject({ outcome: 'PROPOSED' });
+      expect(proposal.proposal).toMatchObject({ basis: 'SCHEDULED', lines: made.firstMonth, subtotalCents: made.firstMonth * 350000 });
+      expect(await invoicesFor(made.booking.id)).toHaveLength(0);
+      expect((await panel(made.booking.id)).handoverNote.done).toContain('Worked out an advance invoice');
+      await agent.sweep(today, [made.booking.id]);
+      expect(await decisionsFor(made.booking.id)).toHaveLength(1);
+      const approved = (await api().post(`/automation/decisions/${proposal.id}/approve`).set(bearer(staffToken)).expect(200)).body;
+      expect(approved).toMatchObject({ staffVerdict: 'AGREED', executionError: null });
+      const [inv] = await invoicesFor(made.booking.id);
+      expect(inv).toMatchObject({ status: 'ISSUED', basis: 'SCHEDULED', subtotal: money(made.firstMonth) });
+      const [staff] = await db.select().from(users).where(eq(users.email, 'staff@care-platform.local'));
+      expect(inv.issuedByUserId).toBe(staff.id);
+
+      await mode('SHADOW');
+      const other = await aheadBooking();
+      await agent.sweep(today, [other.booking.id]);
+      const [logged] = await decisionsFor(other.booking.id);
+      expect(logged).toMatchObject({ outcome: 'SHADOW', staffVerdict: null });
+      expect(await invoicesFor(other.booking.id)).toHaveLength(0);
+      // Staff bill the same month in advance by hand: the agent agrees with them.
+      const draft = await api().post('/invoices').set(bearer(staffToken)).send({ bookingId: other.booking.id, basis: 'SCHEDULED', periodStart: addDays(first, 9), periodEnd: addDays(nextFirst, -1) }).expect(201);
+      await api().post(`/invoices/${draft.body.id}/issue`).set(bearer(staffToken)).send({ notify: false }).expect(200);
+      expect((await agent.sweep(today, [other.booking.id])).scored).toBe(1);
+      expect((await decisionsFor(other.booking.id))[0]).toMatchObject({ staffVerdict: 'AGREED' });
+    });
+
+    it('a shift with no price goes to staff, with the reason', async () => {
+      await mode('AUTO');
+      const made = await aheadBooking({ billingTiming: 'ADVANCE', rateType: undefined, rateAmount: undefined });
+      expect(await agent.sweep(at(addDays(first, -3)), [made.booking.id])).toMatchObject({ decided: 0, leftToStaff: 1 });
+      expect(await invoicesFor(made.booking.id)).toHaveLength(0);
+      expect((await panel(made.booking.id)).handoverNote.waiting).toBe(`Staff: ${made.firstMonth} shifts have no client rate`);
+    });
+
+    it('new bookings take the default from Settings; confirming one billed in advance bills it straight away', async () => {
+      await mode('AUTO');
+      const settings = (body: object) => api().patch('/settings/billing').set(bearer(adminToken)).send(body);
+      expect((await api().get('/settings/billing').set(bearer(adminToken)).expect(200)).body.defaultBillingTiming).toBe('AFTER');
+      await settings({ defaultBillingTiming: 'SOMETIMES' }).expect(400);
+      let made: Awaited<ReturnType<typeof aheadBooking>>;
+      try {
+        expect((await settings({ defaultBillingTiming: 'ADVANCE' }).expect(200)).body.defaultBillingTiming).toBe('ADVANCE');
+        // Nothing chosen on the booking: it takes the default. Confirming it queues the billing agent.
+        made = await aheadBooking({});
+      } finally {
+        await settings({ defaultBillingTiming: 'AFTER' }).expect(200);
+      }
+      expect(made.booking.billingTiming).toBe('ADVANCE');
+      expect(await invoicesFor(made.booking.id)).toHaveLength(0);
+      await app.get(JobsService).runDue(new Date(), [BILLING_BOOKING_JOB]);
+      const [inv] = await invoicesFor(made.booking.id);
+      expect(inv).toMatchObject({ status: 'ISSUED', basis: 'SCHEDULED', subtotal: money(made.firstMonth) });
+
+      // Staff can change it on the booking; what is already invoiced stays, and nothing more goes out in advance.
+      const changed = (await api().patch(`/bookings/${made.booking.id}`).set(bearer(staffToken)).send({ billingTiming: 'AFTER' }).expect(200)).body;
+      expect(changed.billingTiming).toBe('AFTER');
+      expect(changed.events.some((e: { note: string | null }) => e.note === 'billed after the work from now on')).toBe(true);
+      await agent.sweep(at(addDays(nextFirst, -2)), [made.booking.id]);
+      expect(await invoicesFor(made.booking.id)).toHaveLength(1);
+      // And back: the next month is then due.
+      await api().patch(`/bookings/${made.booking.id}`).set(bearer(staffToken)).send({ billingTiming: 'ADVANCE' }).expect(200);
+      await api().patch(`/bookings/${made.booking.id}`).set(bearer(staffToken)).send({ billingTiming: 'WHENEVER' }).expect(400);
+      await agent.sweep(at(addDays(nextFirst, -2)), [made.booking.id]);
+      expect(await invoicesFor(made.booking.id)).toHaveLength(2);
+    });
   });
 
   describe('caregiver pay statements', () => {

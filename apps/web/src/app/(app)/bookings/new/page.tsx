@@ -4,11 +4,11 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
-import { addDays, colomboToday, generateShifts, isoToColomboLocal, MAX_GENERATED_SHIFTS, SCHEDULE_PRESETS, shiftHours, type IsoWeekday } from '@care-platform/shared';
+import { addDays, BILLING_TIMINGS, colomboToday, generateShifts, isoToColomboLocal, MAX_GENERATED_SHIFTS, SCHEDULE_PRESETS, shiftHours, type BillingTiming, type IsoWeekday } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
-import { useCreateBooking } from '@/lib/hooks/use-bookings';
+import { useBookingDefaults, useCreateBooking } from '@/lib/hooks/use-bookings';
 import { useCareRequest } from '@/lib/hooks/use-care-requests';
 import { fmtDay, fmtTime, fmtWeekday } from '@/lib/colombo-time';
 import { Button } from '@/components/ui/button';
@@ -61,6 +61,10 @@ function NewBookingPage() {
   const [payRateType, setPayRateType] = useState<RateType | ''>('');
   const [payRateAmount, setPayRateAmount] = useState('');
   const [language, setLanguage] = useState<'en' | 'si' | 'ta'>('en');
+  // Billed after the work or in advance: the default from Settings > Billing until staff choose.
+  const { data: defaults } = useBookingDefaults();
+  const [timingChoice, setTimingChoice] = useState<BillingTiming | null>(null);
+  const billingTiming = timingChoice ?? defaults?.billingTiming ?? 'AFTER';
   const [notes, setNotes] = useState('');
   const [ratesFromOffer, setRatesFromOffer] = useState(false);
 
@@ -127,6 +131,8 @@ function NewBookingPage() {
         ...(rateType ? { rateType, rateAmount } : {}),
         ...(payRateType ? { payRateType, payRateAmount } : {}),
         language,
+        // Sent only when staff chose: otherwise the API applies the default, even if it changed while the form was open.
+        ...(timingChoice ? { billingTiming: timingChoice } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       },
       { onSuccess: (b) => router.push(`/bookings/${b.id}`) },
@@ -287,6 +293,19 @@ function NewBookingPage() {
             <div>
               <Label htmlFor="rateAmount" required={Boolean(rateType)}>{t('bookings.new.rateAmount')}</Label>
               <Input id="rateAmount" inputMode="decimal" placeholder="3500.00" disabled={!rateType} value={rateAmount} onChange={(e) => setRateAmount(e.target.value)} />
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="billingTiming">{t('bookings.billingTiming.label')}</Label>
+              <Select id="billingTiming" value={billingTiming} aria-describedby="billingTimingHint" onChange={(e) => setTimingChoice(e.target.value as BillingTiming)}>
+                {BILLING_TIMINGS.map((b) => (
+                  <option key={b} value={b}>
+                    {t(`bookings.billingTiming.${b}`)}
+                  </option>
+                ))}
+              </Select>
+              <p id="billingTimingHint" className="mt-1 text-xs text-ink/60">
+                {t(`bookings.billingTiming.hint.${billingTiming}`)}
+              </p>
             </div>
             <div>
               <Label htmlFor="language" required>{t('requests.new.language')}</Label>

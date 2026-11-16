@@ -1764,7 +1764,17 @@
       "askedAt": "Asked {when}. Changing the times, the caregiver or the client's rate withdraws the question.",
       "answeredAt": "Answered {when}. Changing the times, the caregiver or the client's rate clears their answer."
     },
-    "todayVisits": "Today's visits"
+    "todayVisits": "Today's visits",
+    "billingTiming": {
+      "label": "Bill the client",
+      "AFTER": "After the work",
+      "ADVANCE": "In advance, month by month",
+      "hint": {
+        "AFTER": "Invoiced for the work done: month by month once each month has ended, and in full when the booking finishes.",
+        "ADVANCE": "Invoiced for the work booked: the first month when the booking is confirmed, then each month 5 days before it begins. A shift that does not happen is credited with a correction."
+      },
+      "changeNote": "Applies from now on; what is already invoiced stays as it is."
+    }
   },
   "filters": {
     "button": "Filters",
@@ -2205,7 +2215,9 @@
       "activeLabel": "Can be picked for new payments",
       "deleteTitle": "Delete this bank account?",
       "deleteMessage": "{name} will be removed. If payments have been recorded against it, turn it off instead."
-    }
+    },
+    "defaultTiming": "New bookings are billed",
+    "defaultTimingHint": "This is only the starting choice: staff can change it on any booking, and the billing agent follows the booking."
   },
   "adsAdmin": {
     "title": "Google AdSense",
@@ -4206,9 +4218,9 @@
       "blocked": {
         "NOT_SCHEDULED": "Only a scheduled shift can be offered as cover.",
         "ENDED": "This visit is over.",
-        "CHECKED_IN": "The caregiver has checked in, so no cover is needed.",
-        "BILLED": "This shift is already on {doc}. Change its caregiver with Correct on the booking, so the document is adjusted with it."
-      }
+        "CHECKED_IN": "The caregiver has checked in, so no cover is needed."
+      },
+      "billed": "This shift is already on {doc}. Cover still works: when someone accepts, the change of caregiver is recorded as a correction on the booking, and the client's bill does not change."
     }
   }
 }

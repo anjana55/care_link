@@ -1,0 +1,2 @@
+ALTER TABLE `bookings` ADD `billing_timing` enum('AFTER','ADVANCE') DEFAULT 'AFTER' NOT NULL;--> statement-breakpoint
+ALTER TABLE `billing_settings` ADD `default_billing_timing` enum('AFTER','ADVANCE') DEFAULT 'AFTER' NOT NULL;

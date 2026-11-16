@@ -8,7 +8,7 @@ import request from 'supertest';
 import { addDays, colomboToday, isoWeekday, toColombo, type CaregiverCareOffer, type CaregiverShift, type ShiftCover, type StaffCheckIn } from '@care-platform/shared';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
-import { agentDecisions, bookingShifts, bookings, caregivers, cities, patients, preferredLocations, requestOffers } from '../src/database/schema';
+import { agentDecisions, bookingShifts, bookings, caregivers, cities, invoices, patients, preferredLocations, requestOffers } from '../src/database/schema';
 import { AutomationService } from '../src/automation/automation.service';
 import { LiveCareAgentService } from '../src/bookings/live-care-agent.service';
 import { JobsService } from '../src/jobs/jobs.service';
@@ -300,14 +300,35 @@ describe('Cover for a no-show (e2e)', () => {
       expect(await says(offer(past, [a]), 400)).toBe('This shift is already over');
     });
 
-    it('does not offer a shift that is already on an invoice - that change is a correction', async () => {
+    it('covers a shift the client was billed for in advance: the caregiver changes as a correction and the invoice stays as it was', async () => {
       const v = await visit(40);
       const a = await standIn();
       const day = toColombo(v.startsAt).date;
-      await api().post('/invoices').set(bearer(staffToken)).send({ bookingId: v.bookingId, basis: 'SCHEDULED', periodStart: addDays(day, -1), periodEnd: addDays(day, 1) }).expect(201);
-      expect(await cover(v)).toMatchObject({ blocked: 'BILLED', blockedBy: 'a draft invoice', suggestions: [] });
-      const res = await offer(v, [a]).expect(409);
-      expect(res.body.message).toBe('This shift is already on a draft invoice - use Correct on the booking, so the document is adjusted with it');
+      const draft = (await api().post('/invoices').set(bearer(staffToken)).send({ bookingId: v.bookingId, basis: 'SCHEDULED', periodStart: addDays(day, -1), periodEnd: addDays(day, 1) }).expect(201)).body;
+      const issued = (await api().post(`/invoices/${draft.id}/issue`).set(bearer(staffToken)).send({ notify: false }).expect(200)).body as { id: string; number: string; total: string };
+      // Staff changing the caregiver on the roster is still refused for a billed shift...
+      await api().patch(`/bookings/${v.bookingId}/shifts/${v.id}`).set(bearer(staffToken)).send({ caregiverId: a.id }).expect(409);
+
+      // ...but cover works: staff are told where the shift is billed, and can offer it.
+      expect(await cover(v)).toMatchObject({ blocked: null, billedOn: `invoice ${issued.number}` });
+      await offer(v, [a]).expect(201);
+      const mine = await myOffer(a, v);
+      await accept(a, mine.id).expect(200);
+      expect((await shiftRow(v)).caregiverId).toBe(a.id);
+      expect((await offerRows(v))[0]).toMatchObject({ status: 'ACCEPTED' });
+
+      // The booking's history holds the correction and its reason; the invoice is untouched and nothing new is owed.
+      const booking = (await api().get(`/bookings/${v.bookingId}`).set(bearer(staffToken)).expect(200)).body as { events: { type: string; note: string | null }[] };
+      const amended = booking.events.find((e) => e.type === 'AMENDED');
+      expect(amended?.note).toContain(`Cover for a caregiver who could not come: ${a.reg} in place of ${v.booked.reg}`);
+      const after = (await api().get(`/invoices/${issued.id}`).set(bearer(staffToken)).expect(200)).body as { status: string; total: string; number: string; lines: { shiftId: string | null }[] };
+      expect(after).toMatchObject({ status: 'ISSUED', total: issued.total, number: issued.number });
+      expect(after.lines.some((l) => l.shiftId === v.id)).toBe(true);
+      expect((await db.select().from(invoices).where(eq(invoices.bookingId, v.bookingId))).length).toBe(1);
+      // The same people are told as for any cover, and the client hears nothing about money.
+      expect(told(`shift covered ${v.id}`)).toHaveLength(1);
+      expect(told(`cover coming ${v.id}`)).toHaveLength(1);
+      expect(told(`correction ${v.reference}`)).toHaveLength(0);
     });
 
     it('gives the shift to exactly one of two caregivers who accept at the same moment', async () => {

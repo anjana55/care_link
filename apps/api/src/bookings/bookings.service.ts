@@ -18,6 +18,7 @@ import {
   type ClientBooking,
   type ClientBookingProposal,
   type IsoWeekday,
+  type BillingTiming,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { ReviewStore, reviewableView } from '../reviews/review-store.service';
@@ -44,6 +45,7 @@ import {
   type BookingStatus,
   type ShiftRateType,
   type ShiftStatus,
+  billingSettings,
 } from '../database/schema';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { PublicSearchService } from '../public-search/public-search.service';
@@ -52,6 +54,7 @@ import { JobsService } from '../jobs/jobs.service';
 import { CheckInService } from './check-in.service';
 import { AutomationService } from '../automation/automation.service';
 import { nudgeBookingConfirm } from './booking-agent-jobs';
+import { nudgeBilling } from '../billing/billing-agent-jobs';
 import { CarePlansService } from '../care-plans/care-plans.service';
 import { buildLines } from '../billing/line-builder';
 import { planRoster } from './roster-plan';
@@ -148,6 +151,12 @@ export class BookingsService {
     private readonly automation: AutomationService,
     private readonly checkIns: CheckInService,
   ) {}
+
+  /** What a new booking starts with unless staff choose otherwise (Settings > Billing). */
+  async defaults(): Promise<{ billingTiming: BillingTiming }> {
+    const [row] = await this.db.select({ timing: billingSettings.defaultBillingTiming }).from(billingSettings).limit(1);
+    return { billingTiming: row?.timing ?? 'AFTER' };
+  }
 
   // --- pattern ---------------------------------------------------------------
 
@@ -634,6 +643,8 @@ export class BookingsService {
     if (!patient) throw new NotFoundException('Client not found');
     await this.liveCaregiver(caregiverId);
     const generated = this.validatePattern(dto);
+    // Billed after the work or in advance: what staff chose, or else the default in Settings > Billing.
+    const billingTiming = dto.billingTiming ?? (await this.defaults()).billingTiming;
 
     const id = uuid();
     for (let attempt = 0; ; attempt++) {
@@ -657,6 +668,7 @@ export class BookingsService {
             payRateType: dto.payRateType ?? null,
             payRateAmount: dto.payRateType ? (dto.payRateAmount ?? null) : null,
             language: language ?? 'en',
+            billingTiming,
             notes: dto.notes ?? null,
             createdByUserId: actor.userId,
           });
@@ -759,6 +771,8 @@ export class BookingsService {
     if (rate(rateType, rateType ? rateAmount : null) !== rate(booking.rateType, booking.rateAmount)) changes.push(`client rate: ${rate(rateType, rateAmount)}`);
     if (rate(payRateType, payRateType ? payRateAmount : null) !== rate(booking.payRateType, booking.payRateAmount)) changes.push(`pay rate: ${rate(payRateType, payRateAmount)}`);
     if (dto.language && dto.language !== booking.language) changes.push(`updates in ${dto.language}`);
+    const timingChanged = Boolean(dto.billingTiming) && dto.billingTiming !== booking.billingTiming;
+    if (timingChanged) changes.push(dto.billingTiming === 'ADVANCE' ? 'billed in advance from now on' : 'billed after the work from now on');
     if (dto.notes !== undefined && (dto.notes.trim() || null) !== booking.notes) changes.push('notes');
 
     // The client answered about the draft as it was. New times, another caregiver or another price: ask again.
@@ -847,6 +861,7 @@ export class BookingsService {
           payRateAmount: payRateType ? payRateAmount : null,
           ...(dto.notes !== undefined ? { notes: dto.notes.trim() || null } : {}),
           ...(dto.language ? { language: dto.language } : {}),
+          ...(dto.billingTiming ? { billingTiming: dto.billingTiming } : {}),
           ...(newCaregiverId ? { caregiverId: newCaregiverId } : {}),
           ...(voidsClientCheck ? CLIENT_CHECK_CLEARED : {}),
           ...(dto.pattern
@@ -870,6 +885,8 @@ export class BookingsService {
     }, CHECKED);
 
     if (after.notify) void this.notifier.bookingChanged(id, after.notify.from, after.notify.caregiverIds);
+    // Switched to billing in advance while it runs: the billing agent, when it is on, bills what is now due.
+    if (timingChanged && dto.billingTiming === 'ADVANCE' && !draft) await nudgeBilling(this.jobs, this.automation, id);
     return this.findOne(id);
   }
 
@@ -965,6 +982,8 @@ export class BookingsService {
     }, CHECKED);
 
     void this.notifier.bookingConfirmed(id);
+    // Billed in advance: the first invoice is due now, not at the billing agent's next hourly pass.
+    if (booking.billingTiming === 'ADVANCE') await nudgeBilling(this.jobs, this.automation, id);
     return this.findOne(id);
   }
 

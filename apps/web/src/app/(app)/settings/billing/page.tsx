@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Copy } from 'lucide-react';
+import { BILLING_TIMINGS, type BillingTiming } from '@care-platform/shared';
 import { useAuth } from '@/lib/api/auth-context';
 import { useTranslation } from '@/lib/i18n/provider';
 import { ApiError } from '@/lib/api/client';
@@ -26,6 +27,7 @@ type Draft = {
   invoicePrefix: string;
   nextInvoiceNumber: number;
   paymentTermsDays: number;
+  defaultBillingTiming: BillingTiming;
   invoiceFooter: string;
   payhereEnabled: boolean;
   payhereMode: 'SANDBOX' | 'LIVE';
@@ -49,6 +51,7 @@ function toDraft(s: BillingSettings): Draft {
     invoicePrefix: s.invoicePrefix,
     nextInvoiceNumber: s.nextInvoiceNumber,
     paymentTermsDays: s.paymentTermsDays,
+    defaultBillingTiming: s.defaultBillingTiming,
     invoiceFooter: s.invoiceFooter ?? '',
     payhereEnabled: s.payhereEnabled,
     payhereMode: s.payhereMode,
@@ -160,6 +163,19 @@ export default function BillingSettingsPage() {
             <Input id="terms" type="number" min={0} max={120} value={draft.paymentTermsDays} onChange={(e) => set('paymentTermsDays', Number(e.target.value))} />
           </div>
           <p className="text-xs text-ink/50 sm:col-span-3">{t('billingAdmin.numberingHint', { example: exampleNumber })}</p>
+          <div className="sm:col-span-3">
+            <Label htmlFor="defaultTiming">{t('billingAdmin.defaultTiming')}</Label>
+            <Select id="defaultTiming" className="sm:max-w-sm" value={draft.defaultBillingTiming} aria-describedby="defaultTimingHint" onChange={(e) => set('defaultBillingTiming', e.target.value as BillingTiming)}>
+              {BILLING_TIMINGS.map((b) => (
+                <option key={b} value={b}>
+                  {t(`bookings.billingTiming.${b}`)}
+                </option>
+              ))}
+            </Select>
+            <p id="defaultTimingHint" className="mt-1 text-xs text-ink/50">
+              {t(`bookings.billingTiming.hint.${draft.defaultBillingTiming}`)} {t('billingAdmin.defaultTimingHint')}
+            </p>
+          </div>
           <div className="sm:col-span-3">
             <Label htmlFor="footer">{t('billingAdmin.footer')}</Label>
             <Textarea id="footer" rows={3} maxLength={2000} value={draft.invoiceFooter} onChange={(e) => set('invoiceFooter', e.target.value)} placeholder={t('billingAdmin.footerPlaceholder')} />
