@@ -515,7 +515,8 @@
         "EXPIRED": "Expired",
         "REJECTED": "Rejected",
         "WAITING": "Waiting",
-        "CONCERN": "Concern"
+        "CONCERN": "Concern",
+        "UNCLEAR": "Unclear - asked again"
       },
       "gaps": {
         "DATE_OF_BIRTH": "date of birth",
@@ -549,7 +550,38 @@
         "EMAIL": "email",
         "WHATSAPP": "WhatsApp"
       },
-      "profileComplete": "Complete"
+      "profileComplete": "Complete",
+      "readings": "What the AI read on the documents",
+      "documentTypes": {
+        "NIC": "NIC",
+        "PASSPORT": "Passport",
+        "POLICE_CLEARANCE": "Police clearance",
+        "GRAMA_NILADHARI_CERTIFICATE": "Grama Niladhari certificate"
+      },
+      "readingOutcome": {
+        "OK": "Matches the profile",
+        "CHECK": "Partly shown - check it",
+        "MISMATCH": "Does not match the profile",
+        "EXPIRED": "Expired",
+        "UNREADABLE": "Could not be read"
+      },
+      "readingCheck": {
+        "TYPE": "Kind",
+        "NAME": "Name",
+        "ID_NUMBER": "Number",
+        "DATE_OF_BIRTH": "Date of birth",
+        "EXPIRY": "Expiry"
+      },
+      "readingResult": {
+        "MATCH": "matches",
+        "PARTIAL": "partly matches",
+        "MISMATCH": "does not match",
+        "NOT_SHOWN": "not shown",
+        "VALID": "valid",
+        "EXPIRED": "expired"
+      },
+      "readExpiry": "expires {date}",
+      "readBy": "Read by {model} {when}. A check to help you, not a verification."
     }
   },
   "clients": {

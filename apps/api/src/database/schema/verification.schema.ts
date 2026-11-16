@@ -1,5 +1,5 @@
 import { mysqlTable, varchar, text, datetime, mysqlEnum, index, json, uniqueIndex } from 'drizzle-orm/mysql-core';
-import { ONBOARDING_RECOMMENDATIONS, type OnboardingCheck, type ReferenceAnswer } from '@care-platform/shared';
+import { DOCUMENT_READING_OUTCOMES, ONBOARDING_RECOMMENDATIONS, type OnboardingCheck, type ReadingCheck, type ReferenceAnswer } from '@care-platform/shared';
 import { sql } from 'drizzle-orm';
 import { verificationStatusEnum } from './qualifications.schema';
 
@@ -76,3 +76,26 @@ export const onboardingFiles = mysqlTable('onboarding_files', {
   documentsEscalatedAt: datetime('documents_escalated_at'),
   updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+/**
+ * The onboarding agent's reading of one uploaded document: how what the
+ * model saw compares with the caregiver's profile. Only the comparison is
+ * kept - never the name, number or dates the model read off the document.
+ */
+export const documentReadings = mysqlTable(
+  'document_readings',
+  {
+    documentId: varchar('document_id', { length: 36 }).primaryKey(),
+    caregiverId: varchar('caregiver_id', { length: 36 }).notNull(),
+    outcome: mysqlEnum('outcome', DOCUMENT_READING_OUTCOMES).notNull(),
+    checks: json('checks').$type<ReadingCheck[]>().notNull(),
+    // The expiry shown on the document, so staff can fill it in; not personal.
+    expiresOn: varchar('expires_on', { length: 10 }),
+    endpointName: varchar('endpoint_name', { length: 100 }).notNull(),
+    model: varchar('model', { length: 150 }).notNull(),
+    readAt: datetime('read_at').notNull(),
+  },
+  (table) => ({
+    caregiverIdx: index('document_readings_caregiver_idx').on(table.caregiverId),
+  }),
+);

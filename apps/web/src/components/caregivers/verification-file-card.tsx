@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import type { OnboardingCheckState, OnboardingFileView, OnboardingRecommendation } from '@care-platform/shared';
+import type { DocumentReadingOutcome, OnboardingCheckState, OnboardingFileView, OnboardingRecommendation } from '@care-platform/shared';
 import { api } from '@/lib/api/client';
 import { useTranslation } from '@/lib/i18n/provider';
 import { fmtDateTime } from '@/lib/colombo-time';
@@ -12,12 +12,20 @@ const TONE: Record<OnboardingRecommendation, string> = {
   NOT_READY: 'border-border bg-paper text-ink',
   CONCERNS: 'border-danger/40 bg-red-50 text-danger',
 };
+const READING_TONE: Record<DocumentReadingOutcome, string> = {
+  OK: 'text-brand-dark',
+  CHECK: 'text-ink',
+  MISMATCH: 'text-danger',
+  EXPIRED: 'text-danger',
+  UNREADABLE: 'text-amber-700',
+};
 const STATE_TONE: Record<OnboardingCheckState, string> = {
   OK: 'text-brand-dark',
   TO_CHECK: 'text-ink',
   MISSING: 'text-amber-700',
   EXPIRED: 'text-amber-700',
   REJECTED: 'text-danger',
+  UNCLEAR: 'text-amber-700',
   WAITING: 'text-ink/60',
   CONCERN: 'text-danger',
 };
@@ -65,6 +73,28 @@ export function VerificationFileCard({ caregiverId }: { caregiverId: string }) {
                 when: fmtDateTime(file.documentsRequested.at, locale),
               })}
             </p>
+          )}
+          {file.readings.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink/50">{t('caregivers.verificationFile.readings')}</p>
+              <ul className="space-y-2 text-sm">
+                {file.readings.map((r) => (
+                  <li key={r.documentId} className="rounded border border-border px-3 py-2" data-testid="document-reading">
+                    <p className="flex justify-between gap-3">
+                      <span className="font-medium text-ink">{t(`caregivers.verificationFile.documentTypes.${r.documentType}`)}</span>
+                      <span className={`font-medium ${READING_TONE[r.outcome]}`}>{t(`caregivers.verificationFile.readingOutcome.${r.outcome}`)}</span>
+                    </p>
+                    {r.checks.length > 0 && (
+                      <p className="text-xs text-ink/70">
+                        {r.checks.map((c) => `${t(`caregivers.verificationFile.readingCheck.${c.check}`)}: ${t(`caregivers.verificationFile.readingResult.${c.result}`)}`).join(' · ')}
+                        {r.expiresOn && ` · ${t('caregivers.verificationFile.readExpiry', { date: r.expiresOn })}`}
+                      </p>
+                    )}
+                    <p className="text-xs text-ink/50">{t('caregivers.verificationFile.readBy', { model: r.model, when: fmtDateTime(r.readAt, locale) })}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           {file.references.length > 0 && (
             <div>

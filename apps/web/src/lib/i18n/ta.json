@@ -515,7 +515,8 @@
         "EXPIRED": "காலாவதி",
         "REJECTED": "நிராகரிக்கப்பட்டது",
         "WAITING": "காத்திருக்கிறது",
-        "CONCERN": "கவலை"
+        "CONCERN": "கவலை",
+        "UNCLEAR": "தெளிவில்லை - மீண்டும் கேட்கப்பட்டது"
       },
       "gaps": {
         "DATE_OF_BIRTH": "பிறந்த தேதி",
@@ -549,7 +550,38 @@
         "EMAIL": "மின்னஞ்சல்",
         "WHATSAPP": "WhatsApp"
       },
-      "profileComplete": "முழுமையானது"
+      "profileComplete": "முழுமையானது",
+      "readings": "ஆவணங்களில் AI படித்தது",
+      "documentTypes": {
+        "NIC": "தேசிய அடையாள அட்டை",
+        "PASSPORT": "கடவுச்சீட்டு",
+        "POLICE_CLEARANCE": "காவல்துறை அனுமதி",
+        "GRAMA_NILADHARI_CERTIFICATE": "கிராம நிலதாரி சான்றிதழ்"
+      },
+      "readingOutcome": {
+        "OK": "சுயவிவரத்துடன் பொருந்துகிறது",
+        "CHECK": "பகுதியாகக் காட்டப்பட்டுள்ளது - சரிபார்க்கவும்",
+        "MISMATCH": "சுயவிவரத்துடன் பொருந்தவில்லை",
+        "EXPIRED": "காலாவதி",
+        "UNREADABLE": "படிக்க முடியவில்லை"
+      },
+      "readingCheck": {
+        "TYPE": "வகை",
+        "NAME": "பெயர்",
+        "ID_NUMBER": "எண்",
+        "DATE_OF_BIRTH": "பிறந்த தேதி",
+        "EXPIRY": "காலாவதி"
+      },
+      "readingResult": {
+        "MATCH": "பொருந்துகிறது",
+        "PARTIAL": "பகுதியாகப் பொருந்துகிறது",
+        "MISMATCH": "பொருந்தவில்லை",
+        "NOT_SHOWN": "காட்டப்படவில்லை",
+        "VALID": "செல்லுபடியானது",
+        "EXPIRED": "காலாவதி"
+      },
+      "readExpiry": "{date} அன்று காலாவதியாகும்",
+      "readBy": "{when} அன்று {model} படித்தது. உங்களுக்கு உதவும் சரிபார்ப்பு, உறுதிப்படுத்தல் அல்ல."
     }
   },
   "clients": {

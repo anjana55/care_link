@@ -48,9 +48,10 @@ export type OnboardingCheckKey = 'IDENTITY' | 'POLICE' | 'GN' | 'PROFILE' | 'REF
 /**
  * OK: in and confirmed. TO_CHECK: in, for staff to look at. MISSING / EXPIRED /
  * REJECTED: the caregiver has to give it (again). WAITING: asked, no answer yet.
+ * UNCLEAR: in, but the AI could not read it - ask for a clearer copy.
  * CONCERN: something staff should read before deciding.
  */
-export type OnboardingCheckState = 'OK' | 'TO_CHECK' | 'MISSING' | 'EXPIRED' | 'REJECTED' | 'WAITING' | 'CONCERN';
+export type OnboardingCheckState = 'OK' | 'TO_CHECK' | 'MISSING' | 'EXPIRED' | 'REJECTED' | 'UNCLEAR' | 'WAITING' | 'CONCERN';
 export interface OnboardingCheck {
   key: OnboardingCheckKey;
   state: OnboardingCheckState;
@@ -66,7 +67,8 @@ export type OnboardingRecommendation = (typeof ONBOARDING_RECOMMENDATIONS)[numbe
 export interface OnboardingFacts {
   /** Colombo date, yyyy-mm-dd. */
   today: string;
-  documents: { type: string; status: string; expiresOn: string | null }[];
+  /** `reading`: the AI's comparison of the document with the profile, when one was made. */
+  documents: { type: string; status: string; expiresOn: string | null; reading?: DocumentReadingOutcome | null }[];
   profile: {
     dateOfBirth: string | null;
     permanentAddress: string | null;
@@ -116,12 +118,17 @@ export function onboardingFile(f: OnboardingFacts): OnboardingFileResult {
   for (const core of CORE_DOCUMENTS) {
     const mine = f.documents.filter((d) => (core.anyOf as readonly string[]).includes(d.type));
     const usable = mine.filter((d) => d.status !== 'REJECTED');
-    const live = usable.filter((d) => !d.expiresOn || d.expiresOn >= f.today);
+    // A document the AI read as expired counts as expired, whatever date was typed in.
+    const live = usable.filter((d) => (!d.expiresOn || d.expiresOn >= f.today) && d.reading !== 'EXPIRED');
+    const readings = live.map((d) => d.reading ?? null);
     let state: OnboardingCheckState;
-    if (live.length) state = live.some((d) => d.status === 'VERIFIED') ? 'OK' : 'TO_CHECK';
+    if (live.some((d) => d.status === 'VERIFIED')) state = 'OK';
+    else if (live.length && readings.every((r) => r === 'UNREADABLE')) state = 'UNCLEAR';
+    else if (live.length && readings.includes('MISMATCH') && !readings.includes('OK')) state = 'CONCERN';
+    else if (live.length) state = 'TO_CHECK';
     else if (usable.length) state = 'EXPIRED';
     else state = mine.length ? 'REJECTED' : 'MISSING';
-    if (state === 'MISSING' || state === 'EXPIRED' || state === 'REJECTED') missingDocuments.push(core.label);
+    if (state === 'MISSING' || state === 'EXPIRED' || state === 'REJECTED' || state === 'UNCLEAR') missingDocuments.push(core.label);
     checks.push({ key: keyOf[core.label], state });
   }
   const gaps = profileGaps(f.profile);
@@ -147,6 +154,94 @@ export function onboardingFile(f: OnboardingFacts): OnboardingFileResult {
   return { checks, recommendation, missingDocuments };
 }
 
+// ---- AI reading of a document ----
+
+/** Documents the agent reads: the core ones. */
+export const READABLE_DOCUMENT_TYPES = ['NIC', 'PASSPORT', 'POLICE_CLEARANCE', 'GRAMA_NILADHARI_CERTIFICATE'] as const;
+export const DOCUMENT_READING_OUTCOMES = ['OK', 'CHECK', 'MISMATCH', 'EXPIRED', 'UNREADABLE'] as const;
+/** OK: everything shown matches. CHECK: something not shown or only partly matching. MISMATCH / EXPIRED: read before deciding. UNREADABLE: ask for a clearer copy. */
+export type DocumentReadingOutcome = (typeof DOCUMENT_READING_OUTCOMES)[number];
+export type ReadingCheckKey = 'TYPE' | 'NAME' | 'ID_NUMBER' | 'DATE_OF_BIRTH' | 'EXPIRY';
+export type ReadingCheckResult = 'MATCH' | 'PARTIAL' | 'MISMATCH' | 'NOT_SHOWN' | 'VALID' | 'EXPIRED';
+export interface ReadingCheck {
+  check: ReadingCheckKey;
+  result: ReadingCheckResult;
+}
+/** What the model said the document shows. Compared in code; only the comparison is kept. */
+export interface DocumentRead {
+  legible: boolean;
+  documentType: string | null;
+  fullName: string | null;
+  idNumber: string | null;
+  dateOfBirth: string | null;
+  expiresOn: string | null;
+}
+export interface DocumentReadingResult {
+  outcome: DocumentReadingOutcome;
+  checks: ReadingCheck[];
+  /** The expiry date shown on the document, so staff can fill it in. */
+  expiresOn: string | null;
+}
+
+const nameTokens = (s: string) =>
+  s
+    .toUpperCase()
+    .replace(/[^A-Z\s]/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length > 1);
+
+/** Sri Lankan names often appear with initials or in another order: count whole words in common. */
+export function nameMatch(read: string, profile: string): 'MATCH' | 'PARTIAL' | 'MISMATCH' {
+  const a = nameTokens(read);
+  const b = nameTokens(profile);
+  const common = a.filter((t) => b.includes(t)).length;
+  if (common > 0 && common >= Math.min(2, a.length, b.length)) return 'MATCH';
+  return common ? 'PARTIAL' : 'MISMATCH';
+}
+
+/** The 12-digit form of an NIC number; an old 9-digit + V/X number is converted (19YY DDD 0 NNNN). */
+export function nicDigits(nic: string): string {
+  const s = nic.toUpperCase().replace(/[^0-9VX]/g, '');
+  const old = s.match(/^(\d{2})(\d{3})(\d{4})[VX]$/);
+  return old ? `19${old[1]}${old[2]}0${old[3]}` : s;
+}
+
+const sameNumber = (type: string, read: string, profile: string) =>
+  type === 'NIC' ? nicDigits(read) === nicDigits(profile) : read.toUpperCase().replace(/[^0-9A-Z]/g, '') === profile.toUpperCase().replace(/[^0-9A-Z]/g, '');
+
+export function compareReading(
+  read: DocumentRead | null,
+  doc: { type: string },
+  profile: { fullName: string; nic: string | null; passportNumber: string | null; dateOfBirth: string | null },
+  today: string,
+): DocumentReadingResult {
+  if (!read || !read.legible) return { outcome: 'UNREADABLE', checks: [], expiresOn: null };
+  const checks: ReadingCheck[] = [];
+  checks.push({ check: 'TYPE', result: !read.documentType ? 'NOT_SHOWN' : read.documentType === doc.type ? 'MATCH' : 'MISMATCH' });
+  checks.push({ check: 'NAME', result: read.fullName ? nameMatch(read.fullName, profile.fullName) : 'NOT_SHOWN' });
+  const own = doc.type === 'NIC' ? profile.nic : doc.type === 'PASSPORT' ? profile.passportNumber : null;
+  if (own) checks.push({ check: 'ID_NUMBER', result: read.idNumber ? (sameNumber(doc.type, read.idNumber, own) ? 'MATCH' : 'MISMATCH') : 'NOT_SHOWN' });
+  if (read.dateOfBirth && profile.dateOfBirth) checks.push({ check: 'DATE_OF_BIRTH', result: read.dateOfBirth === profile.dateOfBirth ? 'MATCH' : 'MISMATCH' });
+  if (read.expiresOn) checks.push({ check: 'EXPIRY', result: read.expiresOn < today ? 'EXPIRED' : 'VALID' });
+  const results = checks.map((c) => c.result);
+  const outcome: DocumentReadingOutcome = results.includes('EXPIRED')
+    ? 'EXPIRED'
+    : results.includes('MISMATCH')
+      ? 'MISMATCH'
+      : results.includes('NOT_SHOWN') || results.includes('PARTIAL')
+        ? 'CHECK'
+        : 'OK';
+  return { outcome, checks, expiresOn: read.expiresOn };
+}
+
+/** A reading as the staff file shows it: the comparison only, never the values read. */
+export interface DocumentReadingView extends DocumentReadingResult {
+  documentId: string;
+  documentType: string;
+  model: string;
+  readAt: string;
+}
+
 /** The verification file as the staff caregiver page shows it. */
 export interface OnboardingFileView {
   recommendation: OnboardingRecommendation;
@@ -154,4 +249,5 @@ export interface OnboardingFileView {
   assembledAt: string;
   documentsRequested: { documents: CoreDocumentLabel[]; at: string } | null;
   references: { id: string; name: string; relationship: string; sentAt: string | null; channel: string | null; answer: ReferenceAnswer | null }[];
+  readings: DocumentReadingView[];
 }

@@ -344,6 +344,13 @@
       "when": 1794842320022,
       "tag": "0048_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "5",
+      "when": 1794845687109,
+      "tag": "0049_document_readings",
+      "breakpoints": true
     }
   ]
 }

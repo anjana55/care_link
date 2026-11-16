@@ -6,11 +6,14 @@ import { randomUUID as uuid } from 'crypto';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
-import { agentDecisions, caregiverDocuments, caregivers, jobs, references } from '../src/database/schema';
+import { agentDecisions, caregiverDocuments, caregivers, documentReadings, jobs, references } from '../src/database/schema';
 import { OnboardingAgentService } from '../src/onboarding/onboarding-agent.service';
 import { ONBOARDING_CAREGIVER_JOB } from '../src/onboarding/onboarding-jobs';
 import { NotificationsService } from '../src/notifications/notifications.service';
 import { EmailService } from '../src/email/email.service';
+import { AiProviderService } from '../src/ai/ai-provider.service';
+import { STORAGE_SERVICE, type StorageService } from '../src/storage/storage.interface';
+import type { AutomationOverview, OnboardingFileView } from '@care-platform/shared';
 import { SEED_PASSWORD } from './seed-password';
 
 /**
@@ -55,8 +58,9 @@ describe('Onboarding agent (e2e)', () => {
       })
       .expect(201);
     const [row] = await db.select().from(caregivers).where(eq(caregivers.registrationNumber, reg.body.registrationNumber));
+    const nic = `88${String(run * 1000 + n).padStart(7, '0')}V`;
     const tree = (await api().get('/public/meta/locations/tree?locale=en').expect(200)).body as { districts: { id: number }[] }[];
-    await db.update(caregivers).set({ status: 'REGISTERED', nic: `88${String(run * 1000 + n).padStart(7, '0')}V`, districtId: tree[0].districts[0].id }).where(eq(caregivers.id, row.id));
+    await db.update(caregivers).set({ status: 'REGISTERED', nic, districtId: tree[0].districts[0].id }).where(eq(caregivers.id, row.id));
     for (let i = 0; i < (over.referees ?? 2); i++) {
       await api()
         .post(`/caregivers/${row.id}/references`)
@@ -64,7 +68,7 @@ describe('Onboarding agent (e2e)', () => {
         .send({ name: `Referee${i} Silva`, relationship: 'Former employer', phone: newPhone(), ...(over.refereeEmail === false ? {} : { email: `referee-${run}-${n}-${i}@example.com` }) })
         .expect(201);
     }
-    return { id: row.id, userId: row.userId!, reg: row.registrationNumber, name: row.fullName };
+    return { id: row.id, userId: row.userId!, reg: row.registrationNumber, name: row.fullName, nic };
   }
   type Cg = Awaited<ReturnType<typeof newApplicant>>;
 
@@ -249,5 +253,115 @@ describe('Onboarding agent (e2e)', () => {
     expect((await decisions(c, 'onboarding.request_document'))[0]).toMatchObject({ staffVerdict: 'AGREED' });
     expect((await decisions(c, 'onboarding.follow_up_reference')).map((d) => d.staffVerdict)).toEqual(['AGREED', 'DIFFERED']);
     expect((await decisions(c, 'onboarding.recommend_verification'))[0]).toMatchObject({ staffVerdict: 'AGREED' });
+  });
+
+  describe('reading documents with an AI model', () => {
+    let chat: jest.SpyInstance;
+    const READ = 'onboarding.read_document';
+    async function useModel(clearedFor: string, provider = 'OPENAI_COMPATIBLE') {
+      const body = { name: `Onboarding model ${run}-${++n}`, provider, baseUrl: provider === 'OLLAMA' ? 'http://10.0.0.5:11434' : 'http://10.0.0.6/v1', model: 'vision-1', clearedFor, ...(provider === 'OLLAMA' ? {} : { apiKey: 'sk-test-not-real' }) };
+      const res = await api().post('/settings/automation/endpoints').set(bearer(adminToken)).send(body);
+      if (res.status !== 201) throw new Error(JSON.stringify(res.body));
+      const o = res.body as AutomationOverview;
+      const id = o.endpoints.find((e) => e.name === body.name)!.id;
+      await api().patch('/settings/automation/functions/ONBOARDING/endpoints').set(bearer(adminToken)).send({ endpointId: id, fallbackEndpointId: null }).expect(200);
+    }
+    /** A real file in storage, as an upload would leave it. */
+    async function upload(c: Cg, type: string, mimeType = 'image/png') {
+      const id = uuid();
+      const key = `${c.id}/${id}/original-file.${mimeType === 'application/pdf' ? 'pdf' : 'png'}`;
+      await app.get<StorageService>(STORAGE_SERVICE).upload({ key, buffer: Buffer.from(`${type} scan`), mimeType });
+      await db.insert(caregiverDocuments).values({ id, caregiverId: c.id, documentType: type as 'NIC', storageKey: key, originalFilename: 'scan', mimeType, sizeBytes: 9, checksum: 'x'.repeat(64) });
+      return id;
+    }
+    const reads = (c: Cg) => db.select().from(documentReadings).where(eq(documentReadings.caregiverId, c.id));
+    const answer = (o: object) => ({ content: JSON.stringify({ legible: true, documentType: null, fullName: null, idNumber: null, dateOfBirth: null, expiresOn: null, ...o }), toolCalls: [] });
+
+    beforeEach(() => {
+      chat = jest.spyOn(app.get(AiProviderService), 'chat');
+    });
+    afterEach(async () => {
+      chat.mockRestore();
+      await api().patch('/settings/automation/functions/ONBOARDING/endpoints').set(bearer(adminToken)).send({ endpointId: null, fallbackEndpointId: null }).expect(200);
+    });
+
+    it('never sends a document to a model not cleared for sensitive data', async () => {
+      await mode('AUTO');
+      await useModel('PERSONAL');
+      const c = await newApplicant();
+      await upload(c, 'NIC');
+      await sweep(c);
+      expect(chat).not.toHaveBeenCalled();
+      expect(await decisions(c, READ)).toHaveLength(0);
+    });
+
+    it('reads each document, compares it with the profile in code, and keeps only the comparison', async () => {
+      await mode('AUTO');
+      await useModel('SENSITIVE');
+      const c = await newApplicant();
+      const nic = await upload(c, 'NIC');
+      const police = await upload(c, 'POLICE_CLEARANCE', 'application/pdf');
+      await upload(c, 'GRAMA_NILADHARI_CERTIFICATE');
+      chat.mockImplementation(async (_target, req: { messages: { attachments?: { mediaType: string; base64: string }[] }[] }) => {
+        const file = Buffer.from(req.messages[1].attachments![0].base64, 'base64').toString();
+        if (file.startsWith('NIC')) return answer({ documentType: 'NIC', fullName: c.name.toUpperCase(), idNumber: c.nic, dateOfBirth: '1988-01-20' });
+        if (file.startsWith('POLICE')) return answer({ documentType: 'POLICE_CLEARANCE', expiresOn: '2027-06-30' });
+        return answer({ documentType: 'GRAMA_NILADHARI_CERTIFICATE', fullName: 'Someone Else' });
+      });
+      await sweep(c);
+      expect(chat).toHaveBeenCalledTimes(3);
+      // The model sees the file and the question - nothing from the profile.
+      for (const call of chat.mock.calls) {
+        const sent = JSON.stringify(call[1]);
+        for (const secret of [c.name, 'Kamala', c.nic, '1988-01-20', 'Lake Road', c.reg, c.id]) expect(sent).not.toContain(secret);
+      }
+      expect(chat.mock.calls.map((x) => x[1].messages[1].attachments[0].mediaType).sort()).toEqual(['application/pdf', 'image/png', 'image/png']);
+      expect((await decisions(c, READ)).map((d) => d.outcome)).toEqual(['EXECUTED', 'EXECUTED', 'EXECUTED']);
+
+      const f = (await file(c)) as OnboardingFileView;
+      const byId = Object.fromEntries(f.readings.map((r) => [r.documentId, r]));
+      expect(byId[nic]).toMatchObject({ outcome: 'OK', documentType: 'NIC', model: expect.stringMatching(/^Onboarding model/) });
+      expect(byId[police]).toMatchObject({ outcome: 'CHECK', expiresOn: '2027-06-30' });
+      // The name on the GN certificate is not the applicant's: read before deciding.
+      expect(f.checks.find((x) => x.key === 'GN')!.state).toBe('CONCERN');
+      expect(f.recommendation).toBe('CONCERNS');
+      // What the model read is not stored, only the comparison.
+      const stored = JSON.stringify(await reads(c));
+      expect(stored).not.toContain('Someone Else');
+      expect(stored).not.toContain(c.nic);
+      // Each document is read once.
+      await sweep(c);
+      expect(chat).toHaveBeenCalledTimes(3);
+    });
+
+    it('asks the caregiver for a clearer copy of one it could not read', async () => {
+      await mode('AUTO');
+      await useModel('SENSITIVE');
+      const c = await newApplicant();
+      await upload(c, 'NIC');
+      chat.mockResolvedValue(answer({ legible: false }));
+      await sweep(c);
+      expect((await file(c)).checks[0].state).toBe('UNCLEAR');
+      const bodies = asked(c).map((m) => (m[1] as (l: 'en') => { body: string })('en').body);
+      expect(bodies.at(-1)).toBe('To finish checking your registration we need: a clearer copy of your NIC or passport, a police clearance certificate, a Grama Niladhari certificate. Please upload them under Documents.');
+    });
+
+    it('leaves a PDF to staff when the model reads images only, and does nothing in Shadow', async () => {
+      await mode('AUTO');
+      await useModel('SENSITIVE', 'OLLAMA');
+      const c = await newApplicant();
+      await upload(c, 'POLICE_CLEARANCE', 'application/pdf');
+      await sweep(c);
+      expect(chat).not.toHaveBeenCalled();
+      expect((await decisions(c, READ))[0]).toMatchObject({ outcome: 'EXECUTED', executionError: 'The model set up reads images only, not PDF files - staff to check this one' });
+
+      await mode('SHADOW');
+      const s2 = await newApplicant();
+      await upload(s2, 'NIC');
+      await sweep(s2);
+      expect(chat).not.toHaveBeenCalled();
+      expect((await decisions(s2, READ))[0]).toMatchObject({ outcome: 'SHADOW' });
+      expect(await reads(s2)).toHaveLength(0);
+    });
   });
 });

@@ -515,7 +515,8 @@
         "EXPIRED": "කල් ඉකුත්",
         "REJECTED": "ප්‍රතික්ෂේපිතයි",
         "WAITING": "බලාපොරොත්තුවෙන්",
-        "CONCERN": "ගැටලුවක්"
+        "CONCERN": "ගැටලුවක්",
+        "UNCLEAR": "අපැහැදිලියි - නැවත ඉල්ලා ඇත"
       },
       "gaps": {
         "DATE_OF_BIRTH": "උපන් දිනය",
@@ -549,7 +550,38 @@
         "EMAIL": "ඊමේල්",
         "WHATSAPP": "WhatsApp"
       },
-      "profileComplete": "සම්පූර්ණයි"
+      "profileComplete": "සම්පූර්ණයි",
+      "readings": "ලේඛනවල AI කියවූ දේ",
+      "documentTypes": {
+        "NIC": "ජාතික හැඳුනුම්පත",
+        "PASSPORT": "ගමන් බලපත්‍රය",
+        "POLICE_CLEARANCE": "පොලිස් නිෂ්කාශනය",
+        "GRAMA_NILADHARI_CERTIFICATE": "ග්‍රාම නිලධාරී සහතිකය"
+      },
+      "readingOutcome": {
+        "OK": "පැතිකඩට ගැළපේ",
+        "CHECK": "අර්ධ වශයෙන් පෙන්වයි - පරීක්ෂා කරන්න",
+        "MISMATCH": "පැතිකඩට නොගැළපේ",
+        "EXPIRED": "කල් ඉකුත්",
+        "UNREADABLE": "කියවිය නොහැකි විය"
+      },
+      "readingCheck": {
+        "TYPE": "වර්ගය",
+        "NAME": "නම",
+        "ID_NUMBER": "අංකය",
+        "DATE_OF_BIRTH": "උපන් දිනය",
+        "EXPIRY": "කල් ඉකුත් වීම"
+      },
+      "readingResult": {
+        "MATCH": "ගැළපේ",
+        "PARTIAL": "අර්ධ වශයෙන් ගැළපේ",
+        "MISMATCH": "නොගැළපේ",
+        "NOT_SHOWN": "පෙන්වා නැත",
+        "VALID": "වලංගුයි",
+        "EXPIRED": "කල් ඉකුත්"
+      },
+      "readExpiry": "{date} කල් ඉකුත් වේ",
+      "readBy": "{when} දින {model} විසින් කියවන ලදී. ඔබට උදව් කිරීමට පරීක්ෂාවක් මිස සත්‍යාපනයක් නොවේ."
     }
   },
   "clients": {
