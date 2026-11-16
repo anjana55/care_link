@@ -65,6 +65,7 @@ function Proposal({ proposal: p }: { proposal: ClientBookingProposal }) {
           value={`LKR ${Number(p.rateAmount).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${t(`account.bookings.rateUnit.${p.rateType}`)}`}
         />
       ) : null}
+      <Row label={t('account.bookingCheck.billing')} value={t(`account.bookingCheck.billingTiming.${p.billingTiming}`)} />
       <Row label={t('account.bookings.reference')} value={p.reference} />
       {p.status === 'CHANGES_REQUESTED' && p.note ? <Row label={t('account.bookingCheck.youAsked')} value={p.note} /> : null}
 

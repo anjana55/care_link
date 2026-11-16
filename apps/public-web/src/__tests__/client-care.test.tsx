@@ -419,7 +419,7 @@ describe('client account', () => {
     pathname = '/account/bookings';
     const proposal = {
       id: 'd1', reference: 'BK-DRAFT1', status: 'ASKED', scheduleType: 'NIGHT', daysOfWeek: [1, 2, 3, 4, 5, 6, 7], shiftStartTime: '20:00', shiftEndTime: '08:00',
-      startDate: '2026-11-16', endDate: '2026-11-29', shiftCount: 14, rateType: 'DAILY', rateAmount: '3450.00', caregiver: profile,
+      startDate: '2026-11-16', endDate: '2026-11-29', shiftCount: 14, rateType: 'DAILY', rateAmount: '3450.00', billingTiming: 'ADVANCE', caregiver: profile,
       askedAt: '2026-11-12T08:00:00.000Z', answeredAt: null, note: null,
     };
     let current: Record<string, unknown> = proposal;
@@ -436,6 +436,8 @@ describe('client account', () => {
     expect(screen.getByText('(ends the next day)')).toBeInTheDocument();
     expect(screen.getByText('(14 visits)')).toBeInTheDocument();
     expect(screen.getByText(/LKR 3,450.00 per day/)).toBeInTheDocument();
+    expect(screen.getByText('How you are billed')).toBeInTheDocument();
+    expect(screen.getByText(/^In advance\. You get an invoice for the first month as soon as the booking is confirmed/)).toBeInTheDocument();
     expect(screen.getByText('Nothing is booked until you accept and we confirm it.')).toBeInTheDocument();
     expect(screen.queryByText(/No bookings yet/)).not.toBeInTheDocument();
 

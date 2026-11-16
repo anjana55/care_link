@@ -76,6 +76,10 @@ function Proposal({ proposal: p }: { proposal: ClientBookingProposal }) {
             </dd>
           </div>
         )}
+        <div className="sm:col-span-2">
+          <dt className="text-xs text-ink/50">{t('account.bookingCheck.billing')}</dt>
+          <dd className="text-ink">{t(`account.bookingCheck.billingTiming.${p.billingTiming}`)}</dd>
+        </div>
         <div>
           <dt className="text-xs text-ink/50">{t('account.bookings.reference')}</dt>
           <dd className="tabular-nums text-ink">{p.reference}</dd>

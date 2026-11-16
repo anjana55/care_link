@@ -110,7 +110,7 @@ describe('bookings', () => {
     await client();
     const proposal = (over: Partial<ClientBookingProposal> = {}): ClientBookingProposal => ({
       id: 'p-1', reference: 'BK-CHECK', status: 'ASKED', scheduleType: 'DAY', daysOfWeek: [1, 2, 3, 4, 5], shiftStartTime: '08:00', shiftEndTime: '17:00',
-      startDate: '2026-11-16', endDate: '2026-11-29', shiftCount: 10, rateType: 'DAILY', rateAmount: '3450.00', caregiver: null,
+      startDate: '2026-11-16', endDate: '2026-11-29', shiftCount: 10, rateType: 'DAILY', rateAmount: '3450.00', billingTiming: 'ADVANCE', caregiver: null,
       askedAt: '2026-11-12T10:00:00.000Z', answeredAt: null, note: null, ...over,
     });
     let list = [proposal()];
@@ -130,6 +130,8 @@ describe('bookings', () => {
     expect(screen.getByText('08:00 – 17:00')).toBeTruthy();
     expect(screen.getByText(`16 Nov 2026 – 29 Nov 2026 (${en.account.bookingCheck.visits.replace('{n}', '10')})`)).toBeTruthy();
     expect(screen.getByText(`LKR 3,450.00 ${en.account.bookings.rateUnit.DAILY}`)).toBeTruthy();
+    expect(screen.getByText(en.account.bookingCheck.billing)).toBeTruthy();
+    expect(screen.getByText(en.account.bookingCheck.billingTiming.ADVANCE)).toBeTruthy();
     expect(screen.getByText(en.account.bookingCheck.notBookedYet)).toBeTruthy();
 
     // Too short a note cannot be sent; a real one goes to the office and the card says so.
@@ -149,7 +151,7 @@ describe('bookings', () => {
     await client();
     let list: ClientBookingProposal[] = [{
       id: 'p-2', reference: 'BK-NIGHT', status: 'ASKED', scheduleType: 'NIGHT', daysOfWeek: [1, 2, 3, 4, 5, 6, 7], shiftStartTime: '20:00', shiftEndTime: '08:00',
-      startDate: '2026-11-13', endDate: '2026-11-26', shiftCount: 14, rateType: null, rateAmount: null, caregiver: null,
+      startDate: '2026-11-13', endDate: '2026-11-26', shiftCount: 14, rateType: null, rateAmount: null, billingTiming: 'AFTER', caregiver: null,
       askedAt: '2026-11-12T10:00:00.000Z', answeredAt: null, note: null,
     }];
     const calls = serveApi({
