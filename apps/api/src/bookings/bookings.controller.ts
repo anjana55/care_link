@@ -26,6 +26,12 @@ export class BookingsController {
     return this.bookings.summary();
   }
 
+  /** What a new booking starts with, for the form: today only when the client is billed. */
+  @Get('defaults')
+  defaults() {
+    return this.bookings.defaults();
+  }
+
   @Post()
   @Audit({ action: 'CREATE_BOOKING', entityType: 'Booking' })
   create(@Body() dto: CreateBookingDto, @CurrentUser() user: AuthenticatedUser) {

@@ -36,9 +36,10 @@ type Part = Pick<AgentRunResult, 'considered' | 'decided' | 'scored' | 'leftToSt
  * logs who it would have asked, and is scored against who staff put on the
  * shift.
  *
- * It does not look for cover when less than an hour of the visit is left, or
- * for a shift already on an invoice or a pay statement (that is a correction,
- * for staff). Who is asked comes from the matching rules; no model is involved.
+ * It does not look for cover when less than an hour of the visit is left.
+ * A shift billed in advance is covered like any other (the change is then
+ * recorded as a correction). Who is asked comes from the matching rules; no
+ * model is involved.
  */
 @Injectable()
 export class CoverAgentService implements OnApplicationBootstrap {
@@ -138,11 +139,7 @@ export class CoverAgentService implements OnApplicationBootstrap {
         const key = `${row.shiftId}|${asked}`;
         if (await this.seen(REPLACE, key)) continue;
         const shift = await this.cover.shift(row.shiftId);
-        const blocked = await this.cover.blocked(shift, now);
-        if (blocked) {
-          if (blocked.block === 'BILLED') await giveUp(`Cover for the ${time} visit cannot be offered: the shift is already on ${blocked.by}, so replacing ${row.registration} is a correction`, 0);
-          continue;
-        }
+        if (this.cover.blocked(shift, now)) continue;
         const ranked = (await this.cover.rank(shift, now)).slice(0, COVER_WAVE);
         if (!ranked.length) {
           await giveUp(flagReason('NO_COVER', { minutes: asked }, row.registration, time), asked);
@@ -191,8 +188,8 @@ export class CoverAgentService implements OnApplicationBootstrap {
     if (!p?.shiftId || !p.candidates?.length) throw new BadRequestException('This proposal has no visit');
     const shift = await this.cover.shift(p.shiftId);
     if (shift.caregiverId !== p.caregiverId) throw new BadRequestException('This shift has a different caregiver now');
-    const blocked = await this.cover.blocked(shift);
-    if (blocked) throw new BadRequestException(blocked.block === 'CHECKED_IN' ? 'The caregiver has checked in since' : 'This shift can no longer be offered as cover');
+    const blocked = this.cover.blocked(shift);
+    if (blocked) throw new BadRequestException(blocked === 'CHECKED_IN' ? 'The caregiver has checked in since' : 'This shift can no longer be offered as cover');
     const result = await this.cover.offerTo(shift, p.candidates.map((c) => c.caregiverId), { note: null, sentByUserId: actor.userId, strict: false });
     if (!result.sent.length) throw new BadRequestException('None of these caregivers can be offered the shift any more');
     const time = toColombo(p.startsAt).time;

@@ -1,5 +1,6 @@
 import { mysqlTable, varchar, datetime, date, mysqlEnum, text, index, decimal, boolean, int, uniqueIndex } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
+import { BILLING_TIMINGS } from '@care-platform/shared';
 import { careRequestLanguageEnum } from './care-requests.schema';
 
 /**
@@ -67,6 +68,8 @@ export const billingSettings = mysqlTable('billing_settings', {
   // without gaps, in issue order; a draft has no number.
   nextInvoiceNumber: int('next_invoice_number').notNull().default(1),
   paymentTermsDays: int('payment_terms_days').notNull().default(7),
+  // What a new booking starts with: billed AFTER the work, or in ADVANCE. Staff can change it on any booking.
+  defaultBillingTiming: mysqlEnum('default_billing_timing', BILLING_TIMINGS).notNull().default('AFTER'),
   // Printed at the foot of every invoice: bank details, thank-you line.
   invoiceFooter: text('invoice_footer'),
 

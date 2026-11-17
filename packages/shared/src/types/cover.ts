@@ -44,9 +44,12 @@ export function coverOfferMinutes(shift: { startsAt: Date | string; endsAt: Date
  * - NOT_SCHEDULED  it is a draft, done, missed or cancelled
  * - ENDED          its time is over
  * - CHECKED_IN     the caregiver is there
- * - BILLED         it is already on an invoice or a pay statement, so the caregiver is changed with a correction
+ *
+ * A shift already on an invoice (billed in advance) or a pay statement can be
+ * covered like any other: the change of caregiver is then recorded as a
+ * correction on the booking, so the documents stay in step.
  */
-export type CoverBlock = 'NOT_SCHEDULED' | 'ENDED' | 'CHECKED_IN' | 'BILLED';
+export type CoverBlock = 'NOT_SCHEDULED' | 'ENDED' | 'CHECKED_IN';
 
 /** A caregiver who could cover, as staff see them. */
 export interface CoverSuggestion {
@@ -72,8 +75,8 @@ export interface ShiftCover {
   isCover: boolean;
   /** Null when cover offers can be sent. */
   blocked: CoverBlock | null;
-  /** The invoice or pay statement that blocks it, in words. */
-  blockedBy: string | null;
+  /** The invoice or pay statement the shift is already on, in words; null when it is on neither. Cover is still possible. */
+  billedOn: string | null;
   /** What the shift pays, shown to the caregivers it is offered to. Null: to be agreed with the office. */
   pay: { rateType: PricingRateType; amount: number } | null;
   /** Minutes a caregiver would get to answer an offer sent now. */

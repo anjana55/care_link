@@ -17,6 +17,8 @@ import type { AuthenticatedUser } from '../common/decorators/current-user.decora
 import { OffersService, isDuplicateOffer, offerExpiryKey, type CoverAccept } from '../offers/offers.service';
 import { BookingsService } from '../bookings/bookings.service';
 import type { UpdateShiftDto } from '../bookings/dto/booking.dto';
+import { CorrectionsService } from '../corrections/corrections.service';
+import type { AmendBookingDto } from '../corrections/dto/amend-booking.dto';
 import { CandidatePoolService } from '../matching/candidate-pool.service';
 import { rankMatches, type RankedMatch } from '../matching/matching-rules';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -83,8 +85,10 @@ type ShiftRow = {
  *   same service the staff page uses. The client's price and the shift's
  *   pay do not change. The client and the caregiver who was replaced are told.
  *
- * A shift already on an invoice or a pay statement is not offered: changing
- * its caregiver is a correction, which adjusts the document with it.
+ * A shift already on an invoice (a client billed in advance) or a pay
+ * statement is covered the same way; the change of caregiver is then made as
+ * a correction on the booking, which keeps the documents in step. The
+ * client's invoice does not change: the price is the shift's, whoever comes.
  */
 @Injectable()
 export class CoverService implements OnApplicationBootstrap {
@@ -95,6 +99,7 @@ export class CoverService implements OnApplicationBootstrap {
     private readonly config: ConfigService,
     private readonly offers: OffersService,
     private readonly bookingsService: BookingsService,
+    private readonly corrections: CorrectionsService,
     private readonly pools: CandidatePoolService,
     private readonly notices: NotificationsService,
     private readonly email: EmailService,
@@ -161,24 +166,26 @@ export class CoverService implements OnApplicationBootstrap {
   }
 
   /** Why this shift cannot be offered as cover right now; null when it can. */
-  async blocked(row: ShiftRow, now = new Date()): Promise<{ block: CoverBlock; by: string | null } | null> {
-    if (row.status !== 'SCHEDULED' || row.bookingStatus !== 'CONFIRMED') return { block: 'NOT_SCHEDULED', by: null };
-    if (new Date(row.endsAt).getTime() <= now.getTime()) return { block: 'ENDED', by: null };
-    if (row.checkedInAt) return { block: 'CHECKED_IN', by: null };
-    const refs = await this.bookingsService.billingRefs([row.shiftId]);
-    const inv = refs.invoices.get(row.shiftId);
-    const pay = refs.payouts.get(row.shiftId);
-    if (inv || pay) {
-      return { block: 'BILLED', by: [inv ? (inv.number ? `invoice ${inv.number}` : 'a draft invoice') : null, pay ? `pay statement ${pay.reference}` : null].filter(Boolean).join(' and ') };
-    }
+  blocked(row: ShiftRow, now = new Date()): CoverBlock | null {
+    if (row.status !== 'SCHEDULED' || row.bookingStatus !== 'CONFIRMED') return 'NOT_SCHEDULED';
+    if (new Date(row.endsAt).getTime() <= now.getTime()) return 'ENDED';
+    if (row.checkedInAt) return 'CHECKED_IN';
     return null;
   }
 
-  private refuse(blocked: { block: CoverBlock; by: string | null }): never {
-    if (blocked.block === 'NOT_SCHEDULED') throw new BadRequestException('Only a scheduled shift can be offered as cover');
-    if (blocked.block === 'ENDED') throw new BadRequestException('This shift is already over');
-    if (blocked.block === 'CHECKED_IN') throw new BadRequestException('The caregiver has checked in for this shift');
-    throw new ConflictException(`This shift is already on ${blocked.by} - use Correct on the booking, so the document is adjusted with it`);
+  /** The invoice or pay statement this shift is already on, in words; null when it is on neither. */
+  async billedOn(shiftId: string): Promise<string | null> {
+    const refs = await this.bookingsService.billingRefs([shiftId]);
+    const inv = refs.invoices.get(shiftId);
+    const pay = refs.payouts.get(shiftId);
+    if (!inv && !pay) return null;
+    return [inv ? (inv.number ? `invoice ${inv.number}` : 'a draft invoice') : null, pay ? `pay statement ${pay.reference}` : null].filter(Boolean).join(' and ');
+  }
+
+  private refuse(block: CoverBlock): never {
+    if (block === 'NOT_SCHEDULED') throw new BadRequestException('Only a scheduled shift can be offered as cover');
+    if (block === 'ENDED') throw new BadRequestException('This shift is already over');
+    throw new BadRequestException('The caregiver has checked in for this shift');
   }
 
   private offersFor(shiftId: string) {
@@ -220,7 +227,8 @@ export class CoverService implements OnApplicationBootstrap {
 
   async forShift(shiftId: string, now = new Date()): Promise<ShiftCover> {
     const row = await this.shift(shiftId);
-    const [blocked, offerRows] = await Promise.all([this.blocked(row, now), this.offersFor(shiftId)]);
+    const blocked = this.blocked(row, now);
+    const [billedOn, offerRows] = await Promise.all([this.billedOn(shiftId), this.offersFor(shiftId)]);
     const ranked = blocked ? [] : (await this.rank(row, now)).slice(0, SUGGESTIONS);
     const people = ranked.length
       ? await this.db.select({ id: caregivers.id, fullName: caregivers.fullName, phone: caregivers.primaryPhone }).from(caregivers).where(inArray(caregivers.id, ranked.map((r) => r.caregiverId)))
@@ -237,8 +245,8 @@ export class CoverService implements OnApplicationBootstrap {
       endsAt: new Date(row.endsAt).toISOString(),
       caregiver: { id: row.caregiverId, fullName: row.caregiverName, registrationNumber: row.registration },
       isCover: row.caregiverId !== row.bookedCaregiverId,
-      blocked: blocked?.block ?? null,
-      blockedBy: blocked?.by ?? null,
+      blocked,
+      billedOn,
       pay: this.pay(row),
       offerMinutes: coverOfferMinutes(row, now),
       offers: await this.offers.toStaff(offerRows, now),
@@ -255,7 +263,7 @@ export class CoverService implements OnApplicationBootstrap {
    */
   async send(shiftId: string, dto: SendCoverOffersDto, actor: Pick<AuthenticatedUser, 'userId'>, now = new Date()): Promise<ShiftCover> {
     const row = await this.shift(shiftId);
-    const blocked = await this.blocked(row, now);
+    const blocked = this.blocked(row, now);
     if (blocked) this.refuse(blocked);
     const ids = [...new Set(dto.caregiverIds)];
     const result = await this.offerTo(row, ids, { minutes: dto.expiresInMinutes, note: dto.note ?? null, sentByUserId: actor.userId, strict: true }, now);
@@ -397,9 +405,17 @@ export class CoverService implements OnApplicationBootstrap {
 
     const row = before;
     try {
-      await this.bookingsService.updateShift(row.bookingId, shiftId, { caregiverId: offer.caregiverId } as UpdateShiftDto, { ...user });
+      if (await this.billedOn(shiftId)) {
+        // Already on an invoice or a pay statement: the change is a correction, so the documents are kept in step
+        // and the booking's history says why. No price changes, so nothing new is owed and nobody is billed again.
+        const [cover] = await this.db.select({ reg: caregivers.registrationNumber }).from(caregivers).where(eq(caregivers.id, offer.caregiverId)).limit(1);
+        const reason = `Cover for a caregiver who could not come: ${cover?.reg ?? 'another caregiver'} in place of ${row.registration}`;
+        await this.corrections.apply(row.bookingId, { reason, shifts: [{ shiftId, caregiverId: offer.caregiverId }] } as AmendBookingDto, { ...user });
+      } else {
+        await this.bookingsService.updateShift(row.bookingId, shiftId, { caregiverId: offer.caregiverId } as UpdateShiftDto, { ...user });
+      }
     } catch (err) {
-      // The roster refused (the shift was billed, or changed, in the meantime). The offer is closed rather than
+      // The roster refused (the shift changed in the meantime). The offer is closed rather than
       // left accepted with nobody on the shift; the caregiver is told it has gone, and staff see the reason here.
       this.logger.warn(`Cover offer ${offer.id} was accepted but the shift could not be moved: ${(err as Error).message}`);
       await this.db.update(requestOffers).set({ status: 'WITHDRAWN', respondedAt: now }).where(and(eq(requestOffers.id, offer.id), eq(requestOffers.status, 'ACCEPTED')));

@@ -326,10 +326,10 @@ export class InvoicesService {
    * (unbilled shifts plus corrections waiting for the client). Used by the
    * billing agent to decide, and again just before it acts.
    */
-  async previewBooking(bookingId: string, from: string, to: string) {
+  async previewBooking(bookingId: string, from: string, to: string, basis: 'COMPLETED' | 'SCHEDULED' = 'COMPLETED') {
     const [b] = await this.db.select({ patientId: bookings.patientId, language: bookings.language }).from(bookings).where(eq(bookings.id, bookingId)).limit(1);
     if (!b) throw new NotFoundException('Booking not found');
-    const built = await this.linesFromShifts(this.db, { bookingIds: [bookingId], from, to, statuses: BASIS_STATUSES.COMPLETED, language: b.language, startAt: 0 });
+    const built = await this.linesFromShifts(this.db, { bookingIds: [bookingId], from, to, statuses: BASIS_STATUSES[basis], language: b.language, startAt: 0 });
     const carried = await openAdjustmentLines(this.db, { side: 'CLIENT', partyId: b.patientId, bookingIds: [bookingId], language: b.language, startAt: built.lines.length, baseCents: linesCents(built.lines) });
     return { lines: built.lines.length, corrections: carried.length, unpriced: built.unpriced, subtotalCents: linesCents([...built.lines, ...carried]) };
   }
