@@ -46,6 +46,9 @@ const CHASE_TEXT = {
   ta: { title: 'உங்கள் பணிநேரத்திற்கு வருகையைப் பதிவுசெய்யுங்கள்', body: 'உங்கள் பணிநேரம் {time} மணிக்குத் தொடங்கியது, ஆனால் நீங்கள் வருகையைப் பதிவுசெய்யவில்லை. நீங்கள் வாடிக்கையாளருடன் இருந்தால், அவர்களின் குறியீட்டைக் கொண்டு இப்போதே பதிவுசெய்யுங்கள். வர முடியாவிட்டால், அலுவலகத்தை அழைக்கவும்.' },
 } as const;
 
+/** Another part of the same agent (cover), run in the same pass and counted in the same result. */
+export type LiveCarePart = (now: Date, only?: string[]) => Promise<Pick<AgentRunResult, 'considered' | 'decided' | 'scored' | 'leftToStaff'>>;
+
 type Row = {
   shiftId: string;
   bookingId: string;
@@ -73,8 +76,10 @@ type Row = {
  *    it marks the shift done, which is what lets it be billed and paid.
  *
  * It needs shift check-in to be switched on; without it there is nothing to
- * watch and it does nothing. It never marks a shift missed, never replaces a
- * caregiver and never changes a shift's times - those stay with staff.
+ * watch and it does nothing. It never marks a shift missed and never changes
+ * a shift's times - those stay with staff. Finding someone to step in for a
+ * caregiver who has not come is the cover part (CoverAgentService), which
+ * runs in the same pass under the same switch.
  *
  * Shadow logs each step silently, and scores "mark done" against what staff
  * did with the shift. Assist proposes the chase and "mark done" (telling
@@ -84,6 +89,7 @@ type Row = {
 export class LiveCareAgentService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(LiveCareAgentService.name);
   private timer?: NodeJS.Timeout;
+  private readonly parts: LiveCarePart[] = [];
 
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
@@ -122,8 +128,31 @@ export class LiveCareAgentService implements OnApplicationBootstrap, OnModuleDes
     if (this.timer) clearInterval(this.timer);
   }
 
-  /** One pass over the scheduled visits that have started and not long ended - all, or just the shifts in `only`. */
+  /** Cover registers itself here, so this module does not depend on offers or matching. */
+  registerPart(part: LiveCarePart) {
+    this.parts.push(part);
+  }
+
+  /** One pass: the visits themselves, then every other part of the agent (cover). */
   async sweep(now = new Date(), only?: string[]): Promise<AgentRunResult> {
+    const run = await this.watch(now, only);
+    if (run.mode === 'MANUAL') return run;
+    for (const part of this.parts) {
+      try {
+        const more = await part(now, only);
+        run.considered += more.considered;
+        run.decided += more.decided;
+        run.scored += more.scored;
+        run.leftToStaff += more.leftToStaff;
+      } catch (err) {
+        this.logger.warn(`Live-care agent: a part of the pass failed - ${(err as Error).message}`);
+      }
+    }
+    return run;
+  }
+
+  /** The scheduled visits that have started and not long ended - all, or just the shifts in `only`. */
+  private async watch(now: Date, only?: string[]): Promise<AgentRunResult> {
     const gate = await this.automation.gate(CHASE);
     const run: AgentRunResult = { function: 'LIVE_CARE', mode: gate.mode, considered: 0, decided: 0, scored: 0, leftToStaff: 0 };
     if (gate.mode === 'MANUAL') return run;
@@ -330,12 +359,14 @@ export class LiveCareAgentService implements OnApplicationBootstrap, OnModuleDes
       { caseType: 'BOOKING', caseId: p.bookingId },
       { done: decision.reason, waiting: FLAG_NEXT[p.kind], next: 'Nothing more from the live-care agent on this visit' },
     );
+    // Nobody could even be asked to cover: staff have just been told about the visit itself, so the note is enough.
+    if (p.kind === 'NO_COVER' && !p.minutes) return { staffEmailed: 0 };
     const to = await this.staffRecipients();
     if (!to.length) {
       this.logger.warn(`Live-care agent: ${p.bookingReference} needs a person and there is no staff email address to alert - it is on Today's visits.`);
       return { staffEmailed: 0 };
     }
-    const subject = p.kind === 'LEFT_EARLY' ? `Visit cut short: ${p.bookingReference}` : `Visit not checked in: ${p.bookingReference}`;
+    const subject = p.kind === 'LEFT_EARLY' ? `Visit cut short: ${p.bookingReference}` : p.kind === 'NO_COVER' ? `No cover found: ${p.bookingReference}` : `Visit not checked in: ${p.bookingReference}`;
     try {
       await this.email.sendNotificationEmail(
         to,

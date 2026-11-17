@@ -24,7 +24,8 @@ export interface LiveVisit {
   chasedAt: Date | string | null;
 }
 
-export type FlagKind = 'STILL_LATE' | 'NO_CHECK_IN' | 'LEFT_EARLY';
+/** NO_COVER comes from the cover side of the agent: it looked for someone to step in and found nobody. */
+export type FlagKind = 'STILL_LATE' | 'NO_CHECK_IN' | 'LEFT_EARLY' | 'NO_COVER';
 
 export type LiveStep =
   | { step: 'none' }
@@ -67,6 +68,11 @@ const span = (m: number) => (m >= 120 ? `${Math.floor(m / 60)} h ${m % 60 ? `${m
 export function flagReason(kind: FlagKind, step: { minutes: number; ofMinutes?: number }, who: string, startTime: string): string {
   if (kind === 'STILL_LATE') return `${who} was due at ${startTime}, was asked to check in, and still has not (${span(step.minutes)} late)`;
   if (kind === 'NO_CHECK_IN') return `The ${startTime} visit ended with no check-in from ${who}`;
+  if (kind === 'NO_COVER') {
+    return step.minutes > 0
+      ? `Nobody took the ${startTime} visit as cover for ${who}: ${step.minutes} caregiver${step.minutes === 1 ? ' was' : 's were'} asked`
+      : `There is nobody to offer the ${startTime} visit to as cover for ${who}`;
+  }
   return `${who} checked out after ${span(step.minutes)} of a ${span(step.ofMinutes ?? 0)} visit`;
 }
 
@@ -74,4 +80,5 @@ export const FLAG_NEXT: Record<FlagKind, string> = {
   STILL_LATE: 'Staff to phone the caregiver, then the client',
   NO_CHECK_IN: 'Staff to find out whether the visit happened, and mark the shift done or missed',
   LEFT_EARLY: 'Staff to check with the client, then mark the shift done or change its times',
+  NO_COVER: 'Staff to find cover by phone, or tell the client the visit will not happen',
 };

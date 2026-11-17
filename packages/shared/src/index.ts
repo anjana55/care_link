@@ -38,6 +38,7 @@ export * from './types/automation';
 export * from './types/pricing';
 export * from './types/care-offers';
 export * from './types/check-in';
+export * from './types/cover';
 export * from './types/insights';
 export * from './types/international';
 export * from './types/international-phase4';

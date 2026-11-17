@@ -272,7 +272,11 @@ export function useAnswerCareOffer() {
         : api.post<CaregiverCareOffer[]>(`/me/care-offers/${encodeURIComponent(v.offerId)}/decline`, { reason: v.reason }),
     onSuccess: (data) => queryClient.setQueryData([...key(me?.userId), 'care-offers'], data),
     // Whatever happened, the list and the number may have changed (someone else may have taken the job).
-    onSettled: () => queryClient.invalidateQueries({ queryKey: [...key(me?.userId), 'care-offers'] }),
+    // Accepting cover also puts a shift on the caregiver's roster.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: [...key(me?.userId), 'care-offers'] });
+      void queryClient.invalidateQueries({ queryKey: [...key(me?.userId), 'shifts'] });
+    },
   });
 }
 

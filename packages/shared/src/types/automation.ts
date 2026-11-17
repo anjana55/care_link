@@ -101,7 +101,7 @@ export const AUTOMATION_ACTIONS = {
   'live_care.flag_visit': { function: 'LIVE_CARE', tier: 0, label: 'Tell staff about a visit that needs a person' },
   'live_care.complete_shift': { function: 'LIVE_CARE', tier: 1, label: 'Mark a shift completed after check-out' },
   'live_care.nudge_care_plan': { function: 'LIVE_CARE', tier: 1, label: 'Remind the client to tick off care' },
-  'live_care.replace_caregiver': { function: 'LIVE_CARE', tier: 2, label: 'Replace a caregiver on a shift' },
+  'live_care.replace_caregiver': { function: 'LIVE_CARE', tier: 2, label: 'Offer a no-show shift to cover caregivers' },
   'live_care.close_safety_report': { function: 'LIVE_CARE', tier: 3, label: 'Close a safety, abuse or medical report' },
 
   // Onboarding

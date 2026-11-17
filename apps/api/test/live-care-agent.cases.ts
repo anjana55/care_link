@@ -11,6 +11,7 @@ import { DRIZZLE, type Database } from '../src/database/database.module';
 import { agentDecisions, bookingShifts, caregivers, jobs, patients } from '../src/database/schema';
 import { LiveCareAgentService, type VisitProposal } from '../src/bookings/live-care-agent.service';
 import { LIVE_CARE_SHIFT_JOB } from '../src/bookings/live-care-jobs';
+import { CoverAgentService } from '../src/cover/cover-agent.service';
 import { NotificationsService } from '../src/notifications/notifications.service';
 import { EmailService } from '../src/email/email.service';
 import { WhatsappProviderService } from '../src/whatsapp/whatsapp-provider.service';
@@ -44,6 +45,7 @@ describe('Live-care agent (e2e)', () => {
   let sendUpdate: jest.SpyInstance;
   let canSend: jest.SpyInstance;
   let sendEmail: jest.SpyInstance;
+  let coverPart: jest.SpyInstance;
 
   const api = () => request(app.getHttpServer());
   const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
@@ -142,8 +144,11 @@ describe('Live-care agent (e2e)', () => {
     canSend = jest.spyOn(app.get(WhatsappProviderService), 'canSendUpdates').mockReturnValue(true);
     sendUpdate = jest.spyOn(app.get(WhatsappProviderService), 'sendUpdate').mockResolvedValue({ provider: 'CONSOLE' });
     sendEmail = jest.spyOn(app.get(EmailService), 'sendNotificationEmail').mockResolvedValue();
+    // Looking for cover is the other part of this agent, with cases of its own (cover.cases.ts); here it sits out, so these counts are the visits' alone.
+    coverPart = jest.spyOn(app.get(CoverAgentService), 'sweep').mockResolvedValue({ considered: 0, decided: 0, scored: 0, leftToStaff: 0 });
   });
   afterEach(() => {
+    coverPart.mockRestore();
     notify.mockRestore();
     canSend.mockRestore();
     sendUpdate.mockRestore();
