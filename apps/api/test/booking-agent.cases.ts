@@ -303,7 +303,7 @@ describe('Booking agent (e2e)', () => {
         startDate: inFiveDays, endDate: addDays(inFiveDays, 13), shiftCount: 10, rateType: 'DAILY', rateAmount: '3450.00', billingTiming: 'AFTER', answeredAt: null, note: null,
       });
       // What the caregiver is paid and the office's notes are not the client's to see.
-      expect(Object.keys(mine).sort()).toEqual(['answeredAt', 'askedAt', 'billingTiming', 'caregiver', 'daysOfWeek', 'endDate', 'id', 'note', 'rateAmount', 'rateType', 'reference', 'scheduleType', 'shiftCount', 'shiftEndTime', 'shiftStartTime', 'startDate', 'status']);
+      expect(Object.keys(mine).sort()).toEqual(['answeredAt', 'askedAt', 'billingTiming', 'caregiver', 'daysOfWeek', 'endDate', 'firstInvoice', 'id', 'note', 'rateAmount', 'rateType', 'reference', 'scheduleType', 'shiftCount', 'shiftEndTime', 'shiftStartTime', 'startDate', 'status']);
       expect(JSON.stringify(mine)).not.toMatch(/3000|Sinhala/);
       // Someone else's draft: not listed, and answering it is refused the same way as one that is not waiting.
       expect(await proposalsOf(other.clientToken)).toEqual([]);

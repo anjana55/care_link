@@ -1,5 +1,6 @@
 'use client';
 
+import { PayNow } from '@/components/care/pay-now';
 import { useState } from 'react';
 import Link from 'next/link';
 import type { BookingStatus, ClientBooking, MyIssueReport } from '@care-platform/shared';
@@ -88,6 +89,12 @@ export default function MyBookingsPage() {
                     </div>
                   )}
                 </dl>
+                {b.paymentHold && (
+                  <div className="mt-3 rounded border border-danger/30 bg-danger-light px-3 py-2">
+                    <p className="text-sm font-medium text-danger">{t('payNow.pausedTitle')}</p>
+                    <PayNow invoice={b.paymentHold} why={t('payNow.whyPaused')} />
+                  </div>
+                )}
                 <div className="mt-3 border-t border-border pt-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">{t('account.bookings.shifts')}</p>
                   {b.shifts.length === 0 ? (

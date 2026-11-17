@@ -1,5 +1,6 @@
 'use client';
 
+import { PayNow } from './pay-now';
 import { useState } from 'react';
 import { CLIENT_REVIEW_NOTE_MAX, type ClientBookingProposal } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
@@ -42,6 +43,7 @@ function Proposal({ proposal: p }: { proposal: ClientBookingProposal }) {
         {t(`account.bookingCheck.title.${p.status}`)}
       </h2>
       <p className="mt-1 text-sm text-ink/70">{t(`account.bookingCheck.intro.${p.status === 'ACCEPTED' && p.billingTiming === 'ADVANCE' ? 'ACCEPTED_ADVANCE' : p.status}`)}</p>
+      {p.firstInvoice && <PayNow invoice={p.firstInvoice} why={t('payNow.whyFirst')} />}
 
       <div className="mt-4">
         {p.caregiver ? (

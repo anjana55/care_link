@@ -73,3 +73,30 @@ export interface AdvancePayment {
 
 /** How close to its first day an unpaid booking is brought to staff, whatever the invoice's due date. */
 export const UNPAID_ALERT_DAYS_BEFORE_START = 2;
+
+/**
+ * Visits paused for payment: a confirmed booking billed in advance whose
+ * month's invoice is past its due date and unpaid. Its shifts stay on the
+ * roster but nobody is sent: the caregiver is told not to go, check-in is
+ * refused and the live-care agent leaves them alone. Paying the invoice
+ * resumes the visits; staff can resume them without payment, with a reason.
+ */
+export interface PaymentHold {
+  invoiceId: string;
+  invoiceNumber: string | null;
+  /** When the visits were paused (ISO). */
+  since: string;
+  dueDate: string | null;
+  /** What is still owed on that invoice. */
+  balance: string;
+}
+
+/** What the client can pay now: the invoice a booking waits for, and whether it can be paid online here. */
+export interface PayableInvoice {
+  id: string;
+  number: string | null;
+  total: string;
+  balance: string;
+  dueDate: string | null;
+  canPayOnline: boolean;
+}

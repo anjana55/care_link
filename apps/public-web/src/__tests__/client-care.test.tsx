@@ -364,7 +364,7 @@ describe('client account', () => {
     const off = { id: 's-off', startsAt: '2026-10-07T02:30:00.000Z', endsAt: '2026-10-07T11:30:00.000Z', status: 'SCHEDULED', isCover: false, visit: null };
     get.mockImplementation(async (path: string) =>
       path === '/me/bookings'
-        ? [{ id: 'b1', reference: 'BK-7K2QM9', status: 'CONFIRMED', scheduleType: 'DAY', startDate: '2026-10-04', endDate: '2026-10-07', rateType: 'DAILY', rateAmount: '3500.00', caregiverPublicId: PUBLIC_ID, caregiver: profile, shifts: [inside, done, soon, off], reviews: [] }]
+        ? [{ id: 'b1', reference: 'BK-7K2QM9', status: 'CONFIRMED', scheduleType: 'DAY', startDate: '2026-10-04', endDate: '2026-10-07', rateType: 'DAILY', rateAmount: '3500.00', caregiverPublicId: PUBLIC_ID, caregiver: profile, shifts: [inside, done, soon, off], reviews: [], paymentHold: null }]
         : [],
     );
     renderUi(<MyBookingsPage />);
@@ -414,12 +414,40 @@ describe('client account', () => {
     expect(await screen.findByText(/your report has reached our team/)).toBeInTheDocument();
   });
 
+  it('lets the client pay the first invoice from the card, and a paused booking from its row', async () => {
+    auth = { user: CLIENT, loading: false };
+    pathname = '/account/bookings';
+    const invoice = { id: 'inv-1', number: 'INV-000415', total: '35000.00', balance: '35000.00', dueDate: '2026-11-23', canPayOnline: true };
+    const proposal = {
+      id: 'd2', reference: 'BK-PAY1', status: 'ACCEPTED', scheduleType: 'DAY', daysOfWeek: [1, 2, 3, 4, 5], shiftStartTime: '08:00', shiftEndTime: '17:00',
+      startDate: '2026-12-10', endDate: '2027-01-20', shiftCount: 30, rateType: 'DAILY', rateAmount: '3500.00', billingTiming: 'ADVANCE', firstInvoice: invoice, caregiver: profile,
+      askedAt: '2026-11-12T08:00:00.000Z', answeredAt: '2026-11-12T09:00:00.000Z', note: null,
+    };
+    const paused = { id: 'b9', reference: 'BK-PAUSED', status: 'CONFIRMED', scheduleType: 'DAY', startDate: '2026-10-04', endDate: '2027-01-07', rateType: 'DAILY', rateAmount: '3500.00', caregiverPublicId: PUBLIC_ID, caregiver: profile, shifts: [], reviews: [],
+      paymentHold: { ...invoice, id: 'inv-2', number: 'INV-000420', balance: '12000.00', canPayOnline: false } };
+    get.mockImplementation((path: string) => Promise.resolve(path === '/me/booking-proposals' ? [proposal] : path === '/me/bookings' ? [paused] : []));
+    renderUi(<MyBookingsPage />);
+
+    expect(await screen.findByText('Thank you. We are sending you an invoice for the first month. Your booking is confirmed as soon as it is paid.')).toBeInTheDocument();
+    const card = within(await screen.findByTestId('pay-inv-1'));
+    expect(card.getByText('LKR 35,000.00 to pay · invoice INV-000415')).toBeInTheDocument();
+    expect(card.getByText(/Your booking is confirmed as soon as this is paid\. Due/)).toBeInTheDocument();
+    expect(card.getByRole('link', { name: 'Pay now' })).toHaveAttribute('href', '/account/invoices/inv-1?pay=1');
+
+    // Paused: says so, and offers the invoice (here without online payment, so it opens the invoice).
+    expect(await screen.findByText('Visits paused: an invoice is past its due date')).toBeInTheDocument();
+    const row = within(screen.getByTestId('pay-inv-2'));
+    expect(row.getByText(/Your visits resume as soon as this is paid/)).toBeInTheDocument();
+    expect(row.getByRole('link', { name: 'View the invoice' })).toHaveAttribute('href', '/account/invoices/inv-2');
+    expect(row.queryByRole('link', { name: 'Pay now' })).not.toBeInTheDocument();
+  });
+
   it('asks the client to check a drafted booking, and sends their answer', async () => {
     auth = { user: CLIENT, loading: false };
     pathname = '/account/bookings';
     const proposal = {
       id: 'd1', reference: 'BK-DRAFT1', status: 'ASKED', scheduleType: 'NIGHT', daysOfWeek: [1, 2, 3, 4, 5, 6, 7], shiftStartTime: '20:00', shiftEndTime: '08:00',
-      startDate: '2026-11-16', endDate: '2026-11-29', shiftCount: 14, rateType: 'DAILY', rateAmount: '3450.00', billingTiming: 'ADVANCE', caregiver: profile,
+      startDate: '2026-11-16', endDate: '2026-11-29', shiftCount: 14, rateType: 'DAILY', rateAmount: '3450.00', billingTiming: 'ADVANCE', firstInvoice: null, caregiver: profile,
       askedAt: '2026-11-12T08:00:00.000Z', answeredAt: null, note: null,
     };
     let current: Record<string, unknown> = proposal;

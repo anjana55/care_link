@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { ChevronLeft, CreditCard, Loader2, Printer } from 'lucide-react';
@@ -46,6 +46,19 @@ function InvoicePage() {
   const start = useStartOnlinePayment(id);
   const [email, setEmail] = useState('');
   const [redirecting, setRedirecting] = useState(false);
+  const autoStarted = useRef(false);
+  // Opened from "Pay now": go straight to PayHere, once, when nothing more is needed (no email to ask for).
+  useEffect(() => {
+    if (params.get('pay') !== '1' || !invoice?.canPayOnline || autoStarted.current) return;
+    if (!user?.email && !invoice.billTo.email) return;
+    autoStarted.current = true;
+    start.mutate(undefined, {
+      onSuccess: (checkout) => {
+        setRedirecting(true);
+        postToPayhere(checkout);
+      },
+    });
+  }, [invoice, params, user, start]);
 
   if (isLoading) return <LoadingState label={t('common.loading')} />;
   if (isError || !invoice) {

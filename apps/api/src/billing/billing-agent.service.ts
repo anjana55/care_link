@@ -184,6 +184,8 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
         and(
           or(eq(bookings.status, 'CONFIRMED'), and(eq(bookings.status, 'DRAFT'), eq(bookings.clientReviewStatus, 'ACCEPTED'))),
           eq(bookings.billingTiming, 'ADVANCE'),
+          // Paused for an unpaid month: no further months are billed until that one is settled.
+          isNull(bookings.paymentHoldInvoiceId),
           gte(bookings.endDate, monthStart(today)),
           only ? inArray(bookings.id, only) : undefined,
         ),

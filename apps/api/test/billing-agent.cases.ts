@@ -16,6 +16,7 @@ import { INVOICE_PAID_JOB } from '../src/billing/advance-payment-jobs';
 import { AdvancePaymentService } from '../src/billing/advance-payment.service';
 import { BookingAgentService } from '../src/bookings/booking-agent.service';
 import { EmailService } from '../src/email/email.service';
+import { NotificationsService } from '../src/notifications/notifications.service';
 import { JobsService } from '../src/jobs/jobs.service';
 import { SEED_PASSWORD } from './seed-password';
 
@@ -525,6 +526,10 @@ describe('Billing agent (e2e)', () => {
       const mine = (await api().get('/me/invoices').set(bearer(b.client.token)).expect(200)).body as { number: string }[];
       expect(mine.some((i) => i.number === sent.number)).toBe(true);
 
+      // The client's card carries it, with what to pay, so they can pay it from there.
+      const [card] = (await api().get('/me/booking-proposals').set(bearer(b.client.token)).expect(200)).body as { firstInvoice: Record<string, unknown> | null }[];
+      expect(card.firstInvoice).toMatchObject({ id: sent.id, number: sent.number, balance: sent.subtotal, canPayOnline: expect.any(Boolean) });
+
       // Sent and not paid: still refused. The shifts are still drafts, so no caregiver is booked.
       expect((await detail(b.id)).advancePayment).toMatchObject({ state: 'UNPAID', invoice: { id: sent.id, number: sent.number, status: 'ISSUED' } });
       expect((await confirm(b.id).expect(409)).body.message).toBe('This booking is billed in advance and its first invoice has not been paid. Confirm without payment only if you have agreed that with the client');
@@ -607,6 +612,103 @@ describe('Billing agent (e2e)', () => {
       } finally {
         await api().patch('/settings/automation/functions/BOOKING').set(bearer(adminToken)).send({ mode: 'MANUAL' }).expect(200);
       }
+    });
+  });
+
+  describe('visits paused for an unpaid month (billed in advance)', () => {
+    const first = monthStart(addDays(colomboToday(), 610));
+    const nextFirst = monthStart(addDays(first, 35));
+    let notify: jest.SpyInstance;
+    let sendEmail: jest.SpyInstance;
+    beforeEach(() => {
+      notify = jest.spyOn(app.get(NotificationsService), 'notify');
+      sendEmail = jest.spyOn(app.get(EmailService), 'sendNotificationEmail').mockResolvedValue();
+    });
+    afterEach(() => {
+      notify.mockRestore();
+      sendEmail.mockRestore();
+    });
+
+    /** A confirmed booking billed in advance, its first month invoiced by staff, and that invoice past its due date. */
+    async function overdueBooking() {
+      const cg = await newCaregiver();
+      const client = await newClient();
+      const created = (
+        await api()
+          .post('/bookings')
+          .set(bearer(staffToken))
+          .send({
+            patientId: client.patientId, caregiverId: cg.id, scheduleType: 'DAY', daysOfWeek: [1, 2, 3, 4, 5], shiftStartTime: '08:00', shiftEndTime: '17:00',
+            startDate: addDays(first, 9), endDate: addDays(nextFirst, 19), rateType: 'DAILY', rateAmount: '3500.00', payRateType: 'DAILY', payRateAmount: '2500.00', billingTiming: 'ADVANCE',
+          })
+          .expect(201)
+      ).body as { id: string; reference: string };
+      await api().post(`/bookings/${created.id}/confirm`).set(bearer(staffToken)).send({ withoutPayment: true, reason: 'Paying on the first visit' }).expect(200);
+      // A later month's invoice, issued and now past due (moved back in the database instead of waiting for it).
+      const draft = await api().post('/invoices').set(bearer(staffToken)).send({ bookingId: created.id, basis: 'SCHEDULED', periodStart: nextFirst, periodEnd: addDays(nextFirst, 19) }).expect(201);
+      const inv = (await api().post(`/invoices/${draft.body.id}/issue`).set(bearer(staffToken)).send({ notify: false }).expect(200)).body as { id: string; number: string; total: string };
+      const due = addDays(colomboToday(), -1);
+      await db.update(invoices).set({ dueDate: due }).where(eq(invoices.id, inv.id));
+      const cgUser = (await db.select({ userId: caregivers.userId }).from(caregivers).where(eq(caregivers.id, cg.id)))[0].userId;
+      return { id: created.id, reference: created.reference, cg, cgUser, client, inv, due };
+    }
+    const booking = async (id: string) => (await api().get(`/bookings/${id}`).set(bearer(staffToken)).expect(200)).body;
+    const told = (label: string) => notify.mock.calls.filter((c) => c[3] === label);
+    const hold = () => app.get(AdvancePaymentService);
+
+    it('pauses visits when a later month is past due unpaid, tells everyone, and resumes them when it is paid', async () => {
+      const b = await overdueBooking();
+      // Not before the due date has passed.
+      expect(await hold().holdUnpaid(new Date(`${addDays(b.due, -2)}T06:00:00Z`), [b.id])).toBe(0);
+      expect(await hold().holdUnpaid(new Date(), [b.id])).toBe(1);
+      expect(await hold().holdUnpaid(new Date(), [b.id])).toBe(0);
+
+      const paused = await booking(b.id);
+      expect(paused.paymentHold).toMatchObject({ invoiceId: b.inv.id, invoiceNumber: b.inv.number, dueDate: b.due, balance: b.inv.total });
+      expect(paused.events.some((e: { note: string | null }) => e.note === `Visits paused: invoice ${b.inv.number} was due on ${b.due} and is not paid`)).toBe(true);
+      // Staff are emailed; the caregiver is told not to go, without the reason; the client is told what to pay, and can pay it.
+      expect(sendEmail.mock.calls.filter((c) => c[2] === `visits paused ${b.inv.id}`)).toHaveLength(1);
+      const toCaregiver = told(`visits paused ${b.id}`).find((c) => (c[0] as (string | null)[]).includes(b.cgUser))!;
+      const words = (toCaregiver[1] as (l: 'en') => { title: string; body: string })('en');
+      expect(words).toEqual({ title: 'Visits paused', body: `The office has paused the visits for booking ${b.reference}. Do not go until you hear they are back on.` });
+      expect(JSON.stringify(words)).not.toMatch(/invoice|pay/i);
+      expect(told(`visits paused ${b.id}`).some((c) => c[2] === `/invoices/${b.inv.id}`)).toBe(true);
+      const shifts = (await api().get('/me/shifts').set(bearer(b.cg.token)).expect(200)).body as { bookingReference: string; paused: boolean }[];
+      expect(shifts.filter((s) => s.bookingReference === b.reference).every((s) => s.paused)).toBe(true);
+      const mine = ((await api().get('/me/bookings').set(bearer(b.client.token)).expect(200)).body as { id: string; paymentHold: Record<string, unknown> | null }[]).find((x) => x.id === b.id)!;
+      expect(mine.paymentHold).toMatchObject({ id: b.inv.id, number: b.inv.number, balance: b.inv.total, canPayOnline: expect.any(Boolean) });
+      // No further month is billed while paused.
+      await mode('AUTO');
+      await agent.sweep(new Date(`${addDays(nextFirst, 25)}T06:00:00Z`), [b.id]);
+      expect((await invoicesFor(b.id)).length).toBe(1);
+
+      // Paid: visits resume and everyone is told.
+      await api().post(`/invoices/${b.inv.id}/payments`).set(bearer(staffToken)).send({ paymentType: 'CASH', paidOn: colomboToday(), notify: false, amount: b.inv.total }).expect(201);
+      await app.get(JobsService).runDue(new Date(), [INVOICE_PAID_JOB]);
+      expect((await booking(b.id)).paymentHold).toBeNull();
+      expect(told(`visits resumed ${b.id}`).length).toBeGreaterThanOrEqual(2);
+      expect(sendEmail.mock.calls.filter((c) => c[2] === `visits resumed ${b.inv.id}`)).toHaveLength(1);
+      const after = (await api().get('/me/shifts').set(bearer(b.cg.token)).expect(200)).body as { bookingReference: string; paused: boolean }[];
+      expect(after.filter((s) => s.bookingReference === b.reference).some((s) => s.paused)).toBe(false);
+    });
+
+    it('staff can resume visits without payment, with a reason; that invoice never pauses them again', async () => {
+      const b = await overdueBooking();
+      await hold().holdUnpaid(new Date(), [b.id]);
+      await api().post(`/bookings/${b.id}/resume-visits`).set(bearer(staffToken)).send({}).expect(400);
+      const resumed = (await api().post(`/bookings/${b.id}/resume-visits`).set(bearer(staffToken)).send({ reason: 'Daughter paying in cash tomorrow' }).expect(200)).body;
+      expect(resumed.paymentHold).toBeNull();
+      expect(resumed.events.some((e: { note: string | null }) => e.note === 'Visits resumed without payment: Daughter paying in cash tomorrow')).toBe(true);
+      await api().post(`/bookings/${b.id}/resume-visits`).set(bearer(staffToken)).send({ reason: 'Again' }).expect(400);
+      expect(await hold().holdUnpaid(new Date(), [b.id])).toBe(0);
+      // A caregiver cannot be refused at the door by a pause that was lifted.
+      expect((await booking(b.id)).paymentHold).toBeNull();
+    });
+
+    it('does not pause a booking billed after the work, or the first invoice staff confirmed without', async () => {
+      const b = await overdueBooking();
+      await api().patch(`/bookings/${b.id}`).set(bearer(staffToken)).send({ billingTiming: 'AFTER' }).expect(200);
+      expect(await hold().holdUnpaid(new Date(), [b.id])).toBe(0);
     });
   });
 

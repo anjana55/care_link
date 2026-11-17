@@ -41,6 +41,7 @@ const at = (ms: number) => new Date(Date.now() + ms).toISOString();
 
 const shift = (n: number, startsIn: number, over: Partial<CaregiverShift> = {}): CaregiverShift => ({
   id: `s-${n}`,
+  paused: false,
   startsAt: at(startsIn),
   endsAt: at(startsIn + 8 * HOUR),
   status: 'SCHEDULED',

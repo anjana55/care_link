@@ -502,12 +502,14 @@ export class InsightsService {
       .from(bookings)
       .innerJoin(invoices, and(eq(invoices.bookingId, bookings.id), eq(invoices.status, 'ISSUED')))
       .where(and(eq(bookings.status, 'DRAFT'), eq(bookings.billingTiming, 'ADVANCE')));
+    const [paused] = await this.db.select({ n: count() }).from(bookings).where(and(eq(bookings.status, 'CONFIRMED'), isNotNull(bookings.paymentHoldInvoiceId)));
     return {
       newRequestsOver24h: num(staleNew?.n),
       unassignedOpenRequests: num(unassigned?.n),
       draftBookings: num(draftBookings?.n),
       lateVisits,
       awaitingPayment: num(unpaidDrafts?.n),
+      pausedForPayment: num(paused?.n),
       unconfirmedShiftsNext7d: num(unconfirmed?.n),
       missedShiftsLast7d: num(missedShifts?.n),
       unbilledCompletedShifts: num(unbilledRows?.[0]?.n),

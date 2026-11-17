@@ -87,6 +87,7 @@ export class CoverAgentService implements OnApplicationBootstrap {
       .where(
         and(
           eq(bookings.status, 'CONFIRMED'),
+          isNull(bookings.paymentHoldInvoiceId),
           eq(bookingShifts.status, 'SCHEDULED'),
           lt(bookingShifts.startsAt, now),
           gt(bookingShifts.endsAt, now),

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { formatLkr, type ClientInvoice, type PayhereCheckout } from '@care-platform/shared';
@@ -33,7 +33,7 @@ export default function InvoiceScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const client = useClient();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, pay: payParam } = useLocalSearchParams<{ id?: string; pay?: string }>();
   // Opening the invoice clears its notices from the bell.
   useMarkPathsRead([id ? `/invoices/${id}` : null]);
   const [payment, setPayment] = useState<PayhereOutcome | null>(null);
@@ -41,6 +41,18 @@ export default function InvoiceScreen() {
   const start = useStartOnlinePayment(id ?? '');
   const [checkout, setCheckout] = useState<PayhereCheckout | null>(null);
   const [email, setEmail] = useState('');
+  // Opened from "Pay now": start the online payment once, when nothing more is needed (no email to ask for).
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (payParam !== '1' || !invoice?.canPayOnline || autoStarted.current) return;
+    if (!user?.email && !invoice.billTo.email) return;
+    autoStarted.current = true;
+    if (!webViewAvailable()) {
+      Linking.openURL(`${config.siteUrl}/account/invoices/${invoice.id}?pay=1`).catch(() => undefined);
+      return;
+    }
+    start.mutate(undefined, { onSuccess: setCheckout });
+  }, [payParam, invoice, user, start]);
 
   // A manual close only checks quietly for a while; a real return keeps waiting for PayHere.
   useEffect(() => {

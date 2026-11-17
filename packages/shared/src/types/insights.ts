@@ -142,6 +142,8 @@ export interface BusinessInsights {
     lateVisits: number;
     /** Drafts billed in advance whose first invoice has been sent and is not paid: not confirmed yet. */
     awaitingPayment: number;
+    /** Confirmed bookings billed in advance whose visits are paused for an unpaid month. */
+    pausedForPayment: number;
     unconfirmedShiftsNext7d: number;
     missedShiftsLast7d: number;
     unbilledCompletedShifts: number;

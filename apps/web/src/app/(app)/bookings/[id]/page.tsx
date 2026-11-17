@@ -18,6 +18,7 @@ import {
   useCompleteBooking,
   useConfirmBooking,
   useSendAdvanceInvoice,
+  useResumeVisits,
   useAskClient,
   useExtendBooking,
   useRemoveShift,
@@ -171,6 +172,7 @@ export default function BookingPage() {
       )}
       {booking.status === 'DRAFT' && <ClientCheck booking={booking} />}
       {booking.advancePayment.required && <PaymentHold booking={booking} />}
+      {booking.paymentHold && <VisitsPaused booking={booking} />}
       {booking.status === 'CANCELLED' && booking.cancelReason && (
         <p className="mb-4 rounded bg-ink/5 px-3 py-2 text-sm text-ink/70">{t('bookings.detail.cancelledBecause', { reason: booking.cancelReason })}</p>
       )}
@@ -235,6 +237,53 @@ export default function BookingPage() {
   );
 }
 
+
+/**
+ * Visits paused for an unpaid month: which invoice, since when, and the staff
+ * override - resume the visits without the payment, with a reason.
+ */
+function VisitsPaused({ booking }: { booking: BookingDetail }) {
+  const { t } = useTranslation();
+  const resume = useResumeVisits(booking.id);
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const h = booking.paymentHold!;
+  return (
+    <div className="mb-4 rounded border border-danger/40 bg-danger-light px-3 py-2" data-testid="visits-paused">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 text-sm">
+          <p className="font-medium text-danger">{t('bookings.paused.title', { number: h.invoiceNumber ?? '' })}</p>
+          <p className="mt-0.5 text-xs text-ink/70">{t('bookings.paused.hint', { due: h.dueDate ?? '', balance: formatLkr(h.balance) })}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/invoices/${h.invoiceId}`} className="self-center text-sm text-brand-dark hover:underline">
+            {t('bookings.payFirst.openInvoice')}
+          </Link>
+          {!open && (
+            <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+              {t('bookings.paused.resume')}
+            </Button>
+          )}
+        </div>
+      </div>
+      {open && (
+        <div className="mt-2 border-t border-danger/30 pt-2">
+          <Label htmlFor="resumeReason">{t('bookings.paused.reasonLabel')}</Label>
+          <Input id="resumeReason" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('bookings.payFirst.reasonPlaceholder')} />
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" disabled={resume.isPending || reason.trim().length < 3} onClick={() => resume.mutate(reason.trim(), { onSuccess: () => setOpen(false) })}>
+              {t('bookings.paused.resumeConfirm')}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </div>
+      )}
+      {resume.isError && <p className="mt-1 text-xs text-danger">{(resume.error as Error).message}</p>}
+    </div>
+  );
+}
 
 /**
  * Payment before confirmation, for a draft billed in advance: where the first
