@@ -91,6 +91,7 @@ export const AUTOMATION_ACTIONS = {
   'billing.draft_payout': { function: 'BILLING', tier: 1, label: 'Draft a caregiver payout' },
   'billing.record_payment': { function: 'BILLING', tier: 2, label: 'Match a received payment to an invoice' },
   'billing.approve_payout': { function: 'BILLING', tier: 2, label: 'Approve a payout under the limit' },
+  'billing.remind_payment': { function: 'BILLING', tier: 1, label: 'Remind a client that an invoice is due' },
   'billing.approve_large_payout': { function: 'BILLING', tier: 3, label: 'Approve a payout over the limit' },
   'billing.refund': { function: 'BILLING', tier: 3, label: 'Refund or write off an amount' },
   'billing.change_bank_details': { function: 'BILLING', tier: 3, label: "Change a caregiver's payout bank details" },

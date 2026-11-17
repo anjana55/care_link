@@ -8,6 +8,7 @@ import { AutomationService, type ActionExecutor } from '../automation/automation
 import { JobsService } from '../jobs/jobs.service';
 import { InvoicesService, MAX_INVOICE_DAYS } from './invoices.service';
 import { PayoutsService } from './payouts.service';
+import { PaymentRemindersService } from './payment-reminders.service';
 import { BillingSettingsService } from './billing-settings.service';
 import { BILLING_BOOKING_JOB } from './billing-agent-jobs';
 
@@ -124,6 +125,7 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
     private readonly invoicesService: InvoicesService,
     private readonly payouts: PayoutsService,
     private readonly billingSettings: BillingSettingsService,
+    private readonly reminders: PaymentRemindersService,
   ) {}
 
   onApplicationBootstrap() {
@@ -160,7 +162,14 @@ export class BillingAgentService implements OnApplicationBootstrap, OnModuleDest
     if (gate.mode === 'MANUAL') return run;
     run.scored = (await this.scoreShadows(only)) + (only ? 0 : await this.scorePayoutShadows());
     if (only && !only.length) return run;
-    if (!only) await this.sweepPayouts(now, run);
+    if (!only) {
+      await this.sweepPayouts(now, run);
+      // Payment reminders for issued invoices (their own action and dial).
+      const r = await this.reminders.sweep(now);
+      run.considered += r.considered;
+      run.decided += r.decided;
+      run.scored += r.scored;
+    }
 
     const today = colomboToday(now);
     const since = colomboToUtc(addDays(today, -LOOKBACK_DAYS), '00:00');

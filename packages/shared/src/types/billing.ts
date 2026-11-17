@@ -267,3 +267,29 @@ export interface CaregiverPayout {
   paymentMethod: PaymentMethod | null;
   paymentReference: string | null;
 }
+
+/** Payment reminders (billing agent): days before the due date, and days after it for an invoice billed after the work. */
+export const PAYMENT_REMINDER_DAYS_BEFORE = 3;
+export const PAYMENT_REMINDER_DAYS_OVERDUE = 3;
+export const PAYMENT_REMINDER_STAGES = ['BEFORE', 'DUE', 'OVERDUE'] as const;
+export type PaymentReminderStage = (typeof PAYMENT_REMINDER_STAGES)[number];
+
+/**
+ * Which reminder an issued, unpaid invoice is due for today, if any.
+ * - BEFORE: within the days before the due date - not on the day it was issued.
+ * - DUE: on the due date.
+ * - OVERDUE: the set days after it, up to 30 - only for work billed after it was done
+ *   (a month billed in advance past due pauses its visits instead, which tells the client).
+ * Each is sent once; a later stage replaces a missed earlier one.
+ */
+export function paymentReminderStage(
+  inv: { issueDate: string | null; dueDate: string; advance: boolean },
+  today: string,
+  sent: readonly PaymentReminderStage[],
+): PaymentReminderStage | null {
+  const days = Math.round((Date.parse(`${inv.dueDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  if (days === 0) return sent.includes('DUE') ? null : 'DUE';
+  if (days > 0 && days <= PAYMENT_REMINDER_DAYS_BEFORE) return sent.includes('BEFORE') || sent.includes('DUE') || inv.issueDate === today ? null : 'BEFORE';
+  if (days < 0 && !inv.advance && -days >= PAYMENT_REMINDER_DAYS_OVERDUE && -days <= 30) return sent.includes('OVERDUE') ? null : 'OVERDUE';
+  return null;
+}

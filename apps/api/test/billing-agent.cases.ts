@@ -5,7 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ThrottlerStorage } from '@nestjs/throttler';
 import { and, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
-import { addDays, colomboToday, isoWeekday, toColombo } from '@care-platform/shared';
+import { addDays, colomboToday, formatLkr, isoWeekday, toColombo } from '@care-platform/shared';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
 import { agentDecisions, bookings, caregivers, invoices, patients, payoutStatements, users } from '../src/database/schema';
@@ -13,6 +13,7 @@ import { AutomationService } from '../src/automation/automation.service';
 import { BillingAgentService, endOfPreviousMonth, monthStart } from '../src/billing/billing-agent.service';
 import { BILLING_BOOKING_JOB } from '../src/billing/billing-agent-jobs';
 import { INVOICE_PAID_JOB } from '../src/billing/advance-payment-jobs';
+import { PaymentRemindersService } from '../src/billing/payment-reminders.service';
 import { AdvancePaymentService } from '../src/billing/advance-payment.service';
 import { BookingAgentService } from '../src/bookings/booking-agent.service';
 import { EmailService } from '../src/email/email.service';
@@ -79,7 +80,7 @@ describe('Billing agent (e2e)', () => {
       .expect(201);
     const [row] = await db.select().from(patients).where(eq(patients.id, reg.body.patientId));
     const token = jwt.sign({ sub: row.userId, role: 'PATIENT_GUARDIAN', patientId: row.id }, { secret: accessSecret, expiresIn: '10m' });
-    return { patientId: row.id, token };
+    return { patientId: row.id, userId: row.userId, token };
   }
 
   /** A confirmed Mon-Fri, 08:00-17:00 booking in a past week, with its five shifts. */
@@ -870,4 +871,105 @@ describe('Billing agent (e2e)', () => {
     void automation;
     // "Run now" goes through every booking in the database, not just this suite's: allow for a full one.
   }, 60_000);
+
+  describe('payment reminders', () => {
+    let notify: jest.SpyInstance;
+    let sendEmail: jest.SpyInstance;
+    const REMIND = 'billing.remind_payment';
+    const reminders = () => app.get(PaymentRemindersService);
+    beforeEach(() => {
+      notify = jest.spyOn(app.get(NotificationsService), 'notify');
+      sendEmail = jest.spyOn(app.get(EmailService), 'sendNotificationEmail').mockResolvedValue();
+    });
+    afterEach(() => {
+      notify.mockRestore();
+      sendEmail.mockRestore();
+    });
+    /** An issued invoice for finished work, issued yesterday and due in `days`. */
+    async function issued(days: number, advance = false) {
+      const made = await finishedBooking(3);
+      const monday = made.monday;
+      const inv = (await billByHand(made.booking.id, monday)) as { id: string; number: string; total: string };
+      await db.update(invoices).set({ issueDate: addDays(colomboToday(), -1), dueDate: addDays(colomboToday(), days) }).where(eq(invoices.id, inv.id));
+      if (advance) await db.execute(sql`UPDATE bookings SET billing_timing = 'ADVANCE' WHERE id = ${made.booking.id}`);
+      return { ...inv, made, due: addDays(colomboToday(), days) };
+    }
+    const sentFor = (id: string) => notify.mock.calls.filter((c) => String(c[3]).startsWith(`payment reminder ${id} `));
+    const words = (call: unknown[]) => (call[1] as (l: 'en') => { title: string; body: string })('en');
+    const remindersOf = (id: string) => db.select().from(agentDecisions).where(and(eq(agentDecisions.caseId, id), eq(agentDecisions.action, REMIND))).orderBy(agentDecisions.createdAt);
+    const moveDue = (id: string, days: number) => db.update(invoices).set({ dueDate: addDays(colomboToday(), days) }).where(eq(invoices.id, id));
+
+    it('does nothing in Manual', async () => {
+      await mode('MANUAL');
+      const inv = await issued(2);
+      expect(await reminders().sweep(new Date(), [inv.id])).toEqual({ considered: 0, decided: 0, scored: 0 });
+      expect(sentFor(inv.id)).toHaveLength(0);
+    });
+
+    it('Auto: reminds before, on the day, and once late - each once, in the invoice language', async () => {
+      await mode('AUTO');
+      const inv = await issued(2);
+      expect(await reminders().sweep(new Date(), [inv.id])).toMatchObject({ considered: 1, decided: 1 });
+      const [first] = sentFor(inv.id);
+      expect(first[0]).toEqual([inv.made.client.userId]);
+      expect(first[2]).toBe(`/invoices/${inv.id}`);
+      expect(words(first)).toEqual({ title: `Invoice ${inv.number} is due on ${inv.due}`, body: `${formatLkr(inv.total)} is due on ${inv.due}. You can pay it online from the invoice.` });
+      // The invoice has the client's email: they get it there too.
+      expect(sendEmail.mock.calls.filter((c) => c[2] === `payment reminder ${inv.id} BEFORE`)).toHaveLength(1);
+      await reminders().sweep(new Date(), [inv.id]);
+      expect(sentFor(inv.id)).toHaveLength(1);
+
+      await moveDue(inv.id, 0);
+      await reminders().sweep(new Date(), [inv.id]);
+      expect(words(sentFor(inv.id)[1]).title).toBe(`Invoice ${inv.number} is due today`);
+      await moveDue(inv.id, -1);
+      await reminders().sweep(new Date(), [inv.id]);
+      expect(sentFor(inv.id)).toHaveLength(2);
+      await moveDue(inv.id, -4);
+      await reminders().sweep(new Date(), [inv.id]);
+      expect(words(sentFor(inv.id)[2]).title).toBe(`Invoice ${inv.number} is overdue`);
+      await reminders().sweep(new Date(), [inv.id]);
+      expect(sentFor(inv.id)).toHaveLength(3);
+      expect((await remindersOf(inv.id)).map((d) => d.outcome)).toEqual(['EXECUTED', 'EXECUTED', 'EXECUTED']);
+    });
+
+    it('tells a client billed in advance that visits pause, and does not remind them once late (the pause does)', async () => {
+      await mode('AUTO');
+      const inv = await issued(0, true);
+      await reminders().sweep(new Date(), [inv.id]);
+      expect(words(sentFor(inv.id)[0]).body).toBe(`${formatLkr(inv.total)} is due today. You can pay it online from the invoice. If it is not paid, visits pause from tomorrow until it is.`);
+      await moveDue(inv.id, -4);
+      await reminders().sweep(new Date(), [inv.id]);
+      expect(sentFor(inv.id)).toHaveLength(1);
+    });
+
+    it('never reminds about a paid invoice', async () => {
+      await mode('AUTO');
+      const inv = await issued(1);
+      await api().post(`/invoices/${inv.id}/payments`).set(bearer(staffToken)).send({ paymentType: 'CASH', paidOn: colomboToday(), notify: false, amount: inv.total }).expect(201);
+      await reminders().sweep(new Date(), [inv.id]);
+      expect(sentFor(inv.id)).toHaveLength(0);
+    });
+
+    it('Assist proposes; Shadow logs and is scored when the invoice is paid', async () => {
+      await mode('ASSIST');
+      const a = await issued(2);
+      await reminders().sweep(new Date(), [a.id]);
+      const [d] = await remindersOf(a.id);
+      expect(d).toMatchObject({ outcome: 'PROPOSED' });
+      expect(sentFor(a.id)).toHaveLength(0);
+      await api().post(`/automation/decisions/${d.id}/approve`).set(bearer(staffToken)).expect(200);
+      expect(sentFor(a.id)).toHaveLength(1);
+
+      await mode('SHADOW');
+      const b = await issued(2);
+      await reminders().sweep(new Date(), [b.id]);
+      expect(sentFor(b.id)).toHaveLength(0);
+      expect((await remindersOf(b.id))[0]).toMatchObject({ outcome: 'SHADOW', staffVerdict: null });
+      await api().post(`/invoices/${b.id}/payments`).set(bearer(staffToken)).send({ paymentType: 'CASH', paidOn: colomboToday(), notify: false, amount: b.total }).expect(201);
+      await reminders().sweep(new Date(), [b.id]);
+      expect((await remindersOf(b.id))[0]).toMatchObject({ staffVerdict: 'AGREED' });
+      await mode('MANUAL');
+    });
+  });
 });
