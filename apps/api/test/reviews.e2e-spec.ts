@@ -299,11 +299,16 @@ describe('Caregiver ratings and reviews (e2e)', () => {
     await setSettings({ minRatingsToShow: 0 }).expect(400);
     await setSettings({ minRatingsToShow: 1 }).expect(200);
 
-    const search = await api()
-      .post('/public/search')
-      .send({ careType: 'HOME_SHIFT', location: { districtId }, desiredStartDate: new Date(Date.now() + 60 * DAY).toISOString().slice(0, 10), page: 1, pageSize: 50 })
-      .expect(200);
-    const card = search.body.items.find((i: { publicId: string }) => i.publicId === cg.publicId);
+    // Earlier runs leave many caregivers in the district, so look through the pages for this one.
+    let card: { rating?: unknown } | undefined;
+    for (let page = 1; page <= 40 && !card; page++) {
+      const search = await api()
+        .post('/public/search')
+        .send({ careType: 'HOME_SHIFT', location: { districtId }, desiredStartDate: new Date(Date.now() + 60 * DAY).toISOString().slice(0, 10), page, pageSize: 50 })
+        .expect(200);
+      card = search.body.items.find((i: { publicId: string }) => i.publicId === cg.publicId);
+      if (search.body.items.length < 50) break;
+    }
     expect(card?.rating).toEqual({ average: 5, count: 1, topBadges: [{ badge: 'TRUSTWORTHY', count: 1 }] });
 
     await setSettings({ enabled: false }).expect(200);
