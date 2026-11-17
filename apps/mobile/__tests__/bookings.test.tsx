@@ -171,6 +171,38 @@ describe('bookings', () => {
     expect(screen.queryByText(en.account.bookingCheck.notBookedYet)).toBeNull();
   });
 
+  it('shows the arrival code for a visit about to start, and when the caregiver came and went', async () => {
+    await client();
+    const visit = (id: string, startsAt: string, v: { arrivalCode: string | null; checkedInAt: string | null; checkedOutAt: string | null } | null) => ({
+      id, startsAt, endsAt: startsAt.replace('T02:30', 'T11:30'), status: 'SCHEDULED' as const, isCover: false, visit: v,
+    });
+    serveApi({
+      'GET /me/bookings': () => ({
+        status: 200,
+        body: [
+          booking({
+            shifts: [
+              visit('s-in', '2026-11-04T02:30:00.000Z', { arrivalCode: null, checkedInAt: '2026-11-04T02:29:00.000Z', checkedOutAt: null }),
+              visit('s-done', '2026-11-05T02:30:00.000Z', { arrivalCode: null, checkedInAt: '2026-11-05T02:33:00.000Z', checkedOutAt: '2026-11-05T11:31:00.000Z' }),
+              visit('s-soon', '2026-11-06T02:30:00.000Z', { arrivalCode: '0482', checkedInAt: null, checkedOutAt: null }),
+              visit('s-off', '2026-11-07T02:30:00.000Z', null),
+            ],
+          }),
+        ],
+      }),
+      'GET /me/booking-proposals': () => ({ status: 200, body: [] }),
+      'GET /me/care': () => ({ status: 200, body: day({ hasCarePlans: false }) }),
+    });
+    await show();
+
+    expect(await screen.findByText('0482')).toBeTruthy();
+    expect(screen.getAllByText(en.checkIn.client.title)).toHaveLength(1);
+    expect(screen.getByText(en.checkIn.client.hint)).toBeTruthy();
+    expect(screen.getByText(/For the visit on .*6 Nov.*08:00–17:00/)).toBeTruthy();
+    expect(screen.getByText(en.checkIn.client.arrivedLeft.replace('{in}', '08:03').replace('{out}', '17:01'))).toBeTruthy();
+    expect(screen.getByText(en.checkIn.client.arrived.replace('{time}', '07:59'))).toBeTruthy();
+  });
+
   it('says when there are none yet, and points to the requests', async () => {
     await client();
     serveApi({

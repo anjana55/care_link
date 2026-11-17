@@ -15,6 +15,7 @@ import { ShiftRow } from '@/ui/ShiftRow';
 import { useCareOfferCount, useCaregiver, useMyShifts, useOwnCaregiver } from '@/caregiver/api';
 import { missingCore } from '@/caregiver/documents';
 import { ShiftCarePlan } from '@/caregiver/ShiftCarePlan';
+import { ShiftCheckIn } from '@/caregiver/ShiftCheckIn';
 import { remindersFor, useCareReminders } from '@/caregiver/reminders';
 import { useNotificationsSummary } from '@/notifications/api';
 import { NextForYou } from '@/notifications/NextForYou';
@@ -157,6 +158,7 @@ export default function Today() {
           {shifts.isSuccess && !upcoming.length ? <EmptyState icon="sunny-outline" body={t('portal.shifts.noBooked')} /> : null}
           {upcoming.map((s) => (
             <ShiftRow key={s.id} shift={s} coverLabel={t('portal.shifts.cover')} extra={[s.bookingReference, s.area].filter(Boolean).join(' · ')}>
+              <ShiftCheckIn shift={s} />
               {soon.includes(s) ? <ShiftCarePlan shiftId={s.id} /> : null}
             </ShiftRow>
           ))}

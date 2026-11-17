@@ -139,7 +139,8 @@
       "careCriticalUnconfirmed": "Critical care items nobody confirmed (7 days)",
       "reviewsPending": "Written reviews to approve",
       "accountDeletions": "Account deletion requests",
-      "overseasWaiting": "Overseas enquiries and approvals waiting"
+      "overseasWaiting": "Overseas enquiries and approvals waiting",
+      "lateVisits": "Visits started with nobody checked in"
     },
     "severity": {
       "act": "Act today",
@@ -1096,7 +1097,8 @@
     "reviews": "Reviews",
     "notifications": "Notifications",
     "automation": "Automation",
-    "pricing": "Rates and fees"
+    "pricing": "Rates and fees",
+    "checkIn": "Check-in"
   },
   "brandingAdmin": {
     "companyTitle": "Company",
@@ -1761,7 +1763,8 @@
       "needsRate": "Set the client's rate first: they are asked to agree to the price.",
       "askedAt": "Asked {when}. Changing the times, the caregiver or the client's rate withdraws the question.",
       "answeredAt": "Answered {when}. Changing the times, the caregiver or the client's rate clears their answer."
-    }
+    },
+    "todayVisits": "Today's visits"
   },
   "filters": {
     "button": "Filters",
@@ -4131,5 +4134,58 @@
     "by": "Sent by {name}",
     "error": "That did not work. Please try again.",
     "prefilled": "The rates are those the caregiver accepted in the offer. Change them only if you have agreed something different."
+  },
+  "visits": {
+    "title": "Today's visits",
+    "back": "Bookings",
+    "summary": "{total} visits · {here} with the caregiver there now · {late} late",
+    "off": "Shift check-in is switched off, so nothing is recorded here yet.",
+    "offLink": "Switch it on in Settings",
+    "none": "No visits on the roster today.",
+    "lateHeading": "Started with nobody checked in ({n})",
+    "careFor": "Care for {name}",
+    "cover": "cover",
+    "code": "Arrival code",
+    "recordIn": "Record check-in",
+    "recordOut": "Record check-out",
+    "arrivedAt": "Arrived at",
+    "leftAt": "Left at",
+    "noteLabel": "Note",
+    "notePlaceholder": "For example: the caregiver phoned from the house",
+    "timeHint": "Leave the time empty for now. Times are today, Sri Lanka time.",
+    "recordError": "That could not be saved. Please try again.",
+    "state": {
+      "UPCOMING": "Not due yet",
+      "DUE": "Due",
+      "LATE": "Late",
+      "IN": "Checked in",
+      "OUT": "Left",
+      "NOT_RECORDED": "No check-in",
+      "inAt": "Checked in {time}",
+      "outAt": "Left {time}",
+      "lateBy": "Late · {n} min"
+    },
+    "note": {
+      "inAndOut": "In {in}, out {out}",
+      "inByStaff": "Check-in recorded by {name}",
+      "outByStaff": "Check-out recorded by {name}",
+      "noPosition": "The phone gave no position",
+      "far": "{distance} from where earlier visits checked in",
+      "locked": "Code locked after too many wrong tries - record the check-in here",
+      "wrongCodes": "{n} wrong codes tried",
+      "map": "Show on a map"
+    },
+    "settings": {
+      "title": "Check-in",
+      "subtitle": "The caregiver arrives, asks the client for a four-digit code shown in the client's account, and enters it. They check out when they leave. Nothing here changes a shift or what is billed.",
+      "enabled": "Shift check-in is on",
+      "enabledHint": "Off: clients see no code and caregivers see no check-in button. Visits already recorded are kept.",
+      "early": "Check-in opens (minutes before the start)",
+      "earlyHint": "Between {min} and {max}.",
+      "late": "Late after (minutes past the start)",
+      "lateHint": "Between {min} and {max}. A visit with nobody checked in by then is listed for staff.",
+      "saved": "Saved",
+      "saveError": "The settings could not be saved."
+    }
   }
 }

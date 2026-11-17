@@ -5,13 +5,14 @@ import Link from 'next/link';
 import type { BookingStatus, ClientBooking, MyIssueReport } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n';
 import { useBookingProposals, useMyBookings, useMyIssueReports, useReportBookingIssue } from '@/lib/hooks/use-client-care';
-import { fmtDate } from '@/lib/colombo-time';
+import { fmtDate, fmtTime } from '@/lib/colombo-time';
 import { LoadingState, ErrorState } from '@/components/common/states';
 import { CaregiverSummary } from '@/components/care/caregiver-summary';
 import { ShiftList } from '@/components/care/shift-list';
 import { IssueReportList, ReportIssueForm } from '@/components/care/report-issue';
 import { TodaysCare } from '@/components/care/todays-care';
 import { BookingProposals } from '@/components/care/booking-proposals';
+import { ArrivalCodes } from '@/components/care/arrival-codes';
 import { BookingReviews, PendingReviewsBanner } from '@/components/reviews/booking-reviews';
 import { useMarkPathsRead } from '@/lib/hooks/use-notifications';
 
@@ -29,7 +30,7 @@ const TONE: Record<BookingStatus, string> = {
  * the care-plan checklist the client ticks off.
  */
 export default function MyBookingsPage() {
-  useMarkPathsRead(['/care']);
+  useMarkPathsRead(['/care', '/bookings']);
   const { t, locale } = useTranslation();
   const { data, isLoading, isError, refetch } = useMyBookings();
   const { data: reports } = useMyIssueReports();
@@ -42,6 +43,7 @@ export default function MyBookingsPage() {
       <div className="mt-6">
         {/* Caregivers waiting for a rating, then the care-plan checklist for today. */}
         {/* First, anything waiting for the client's answer: a booking we drafted for them to check. */}
+        <ArrivalCodes bookings={data ?? []} />
         <BookingProposals />
         <PendingReviewsBanner />
         <TodaysCare />
@@ -91,7 +93,17 @@ export default function MyBookingsPage() {
                   {b.shifts.length === 0 ? (
                     <p className="py-2 text-sm text-ink/50">{t('account.bookings.noShifts')}</p>
                   ) : (
-                    <ShiftList shifts={b.shifts} coverLabel={t('account.bookings.cover')} />
+                    <ShiftList
+                      shifts={b.shifts}
+                      coverLabel={t('account.bookings.cover')}
+                      extra={(s) =>
+                        s.visit?.checkedInAt
+                          ? s.visit.checkedOutAt
+                            ? t('checkIn.client.arrivedLeft', { in: fmtTime(s.visit.checkedInAt, locale), out: fmtTime(s.visit.checkedOutAt, locale) })
+                            : t('checkIn.client.arrived', { time: fmtTime(s.visit.checkedInAt, locale) })
+                          : null
+                      }
+                    />
                   )}
                 </div>
                 <BookingReviews reviews={b.reviews ?? []} />

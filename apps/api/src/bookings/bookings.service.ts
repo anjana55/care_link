@@ -49,6 +49,7 @@ import type { AuthenticatedUser } from '../common/decorators/current-user.decora
 import { PublicSearchService } from '../public-search/public-search.service';
 import { BookingNotifier } from './booking-notifier.service';
 import { JobsService } from '../jobs/jobs.service';
+import { CheckInService } from './check-in.service';
 import { AutomationService } from '../automation/automation.service';
 import { nudgeBookingConfirm } from './booking-agent-jobs';
 import { CarePlansService } from '../care-plans/care-plans.service';
@@ -145,6 +146,7 @@ export class BookingsService {
     private readonly reviewSettings: ReviewSettingsService,
     private readonly jobs: JobsService,
     private readonly automation: AutomationService,
+    private readonly checkIns: CheckInService,
   ) {}
 
   // --- pattern ---------------------------------------------------------------
@@ -319,6 +321,8 @@ export class BookingsService {
     for (const c of conflicts) byShift.set(c.shiftId, [...(byShift.get(c.shiftId) ?? []), c]);
 
     const billing = await this.billingRefs(shifts.map((s) => s.id));
+    // Where each visit's check-in stands (nothing when check-in is off, and never for a draft's shifts).
+    const checkIns = await this.checkIns.forStaff(shifts.filter((s) => s.status !== 'DRAFT' && s.status !== 'CANCELLED'));
 
     const actorIds = [booking.createdByUserId, booking.confirmedByUserId, ...events.map((e) => e.actorUserId), ...shifts.map((s) => s.updatedByUserId)];
     const names = await this.userNames(actorIds);
@@ -380,6 +384,7 @@ export class BookingsService {
         conflicts: byShift.get(s.id) ?? [],
         allowedStatuses: SHIFT_STATUS_TRANSITIONS[s.status],
         updatedBy: s.updatedByUserId ? (names.get(s.updatedByUserId) ?? null) : null,
+        checkIn: checkIns.get(s.id) ?? null,
       })),
       estimate: BookingsService.estimate('CLIENT', booking, shifts),
       // What the caregiver side comes to over the same shifts, and the difference.
@@ -1417,6 +1422,8 @@ export class BookingsService {
     ]);
     const reviewEntries = [...reviews.values()].flat();
     const profiles = await this.publicSearch.profilesFor([...rows.map((r) => r.caregiverId), ...reviewEntries.map((e) => e.caregiverId)], locale);
+    // The day's arrival code and when the caregiver came and went (nothing when check-in is off).
+    const visits = await this.checkIns.forClient(shifts);
     return rows.map((r) => ({
       id: r.id,
       reference: r.reference,
@@ -1437,6 +1444,7 @@ export class BookingsService {
           endsAt: new Date(s.endsAt).toISOString(),
           status: s.status,
           isCover: s.caregiverId !== r.caregiverId,
+          visit: visits.get(s.id) ?? null,
         })),
       reviews: (reviews.get(r.id) ?? []).map((e) => reviewableView(e, profiles.get(e.caregiverId) ?? null, reviewSettings.enabled)),
     }));
@@ -1480,6 +1488,7 @@ export class BookingsService {
       .limit(200);
     // Which shifts' care plans the caregiver can open now (a day before the shift until its cut-off).
     const withPlan = await this.carePlans.caregiverPlanShiftIds(user.caregiverId, rows.map((r) => r.id));
+    const checkIns = await this.checkIns.forCaregiver(rows);
     return rows.map((r) => ({
       id: r.id,
       startsAt: new Date(r.startsAt).toISOString(),
@@ -1490,6 +1499,7 @@ export class BookingsService {
       scheduleType: r.scheduleType,
       area: [r.city, r.district].filter(Boolean).join(', ') || null,
       hasCarePlan: withPlan.has(r.id),
+      checkIn: checkIns.get(r.id) ?? null,
     }));
   }
 }

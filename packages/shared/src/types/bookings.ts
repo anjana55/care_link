@@ -1,5 +1,6 @@
 import type { ReviewableCaregiver } from './reviews';
 import type { PublicCaregiverProfile } from './public-search';
+import type { CaregiverCheckIn, ClientVisit } from './check-in';
 
 /**
  * Bookings and shifts, shared by the API and both web apps.
@@ -193,6 +194,11 @@ export interface PortalShift {
   isCover: boolean;
 }
 
+/** A shift as the client sees it: with the day's arrival code and when the caregiver came and went, when check-in is on. */
+export interface ClientShift extends PortalShift {
+  visit: ClientVisit | null;
+}
+
 /** GET /me/bookings (client). */
 export interface ClientBooking {
   id: string;
@@ -207,7 +213,7 @@ export interface ClientBooking {
   /** Null when the caregiver is not shown on the public site. */
   caregiver: PublicCaregiverProfile | null;
   /** Upcoming and recent (last 7 days) shifts. */
-  shifts: PortalShift[];
+  shifts: ClientShift[];
   /** Each caregiver who has worked a shift on it - booked or cover - and the client's review of them. */
   reviews: ReviewableCaregiver[];
 }
@@ -250,4 +256,6 @@ export interface CaregiverShift extends PortalShift {
   area: string | null;
   /** The booking has a care plan the caregiver can open for this shift (GET /me/shifts/:id/care). */
   hasCarePlan: boolean;
+  /** Where check-in stands for this shift; null when check-in is switched off. */
+  checkIn: CaregiverCheckIn | null;
 }

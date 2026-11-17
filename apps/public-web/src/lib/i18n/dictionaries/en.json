@@ -2555,5 +2555,28 @@
       "saved": "Caregivers you liked",
       "requests": "Talk to the office"
     }
+  },
+  "checkIn": {
+    "client": {
+      "title": "Arrival code",
+      "forVisit": "For the visit on {day}, {start}–{end}",
+      "hint": "Read this code to your caregiver when they arrive at your door. Do not share it before then.",
+      "arrived": "Arrived {time}",
+      "arrivedLeft": "Arrived {in} · left {out}"
+    },
+    "caregiver": {
+      "checkIn": "Check in",
+      "checkOut": "Check out",
+      "codeLabel": "Arrival code",
+      "codeHint": "Ask the client for the 4-digit code shown in their account. Where your phone is will be recorded with the check-in, if you allow it.",
+      "submit": "Check in",
+      "cancel": "Cancel",
+      "opensAt": "Check-in opens at {time}",
+      "in": "Checked in {time}",
+      "out": "In {in} · out {out}",
+      "locked": "Too many wrong codes. Ask the office to check you in.",
+      "notRecorded": "No check-in was recorded. If you were there, tell the office.",
+      "failed": "That did not go through. Please try again."
+    }
   }
 }

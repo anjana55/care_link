@@ -28,6 +28,7 @@ import {
   payoutStatements,
 } from '../database/schema';
 import { fold, median, periodFor, ratio, round2, type DailyValue } from './periods';
+import { CheckInService } from '../bookings/check-in.service';
 import { CarePlansService } from '../care-plans/care-plans.service';
 
 /** A UTC datetime column as its Asia/Colombo calendar day (Sri Lanka has no DST). */
@@ -70,6 +71,7 @@ export class InsightsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly carePlans: CarePlansService,
+    private readonly checkIns: CheckInService,
   ) {}
 
   async overview(range: InsightRange, localeInput?: string): Promise<BusinessInsights> {
@@ -492,10 +494,13 @@ export class InsightsService {
 
     const unbilledRows = (Array.isArray(unbilledResult) ? unbilledResult[0] : unbilledResult) as unknown as { n: unknown }[];
 
+    // Visits that started a while ago with nobody checked in (zero while check-in is off).
+    const lateVisits = await this.checkIns.lateCount(now).catch(() => 0);
     return {
       newRequestsOver24h: num(staleNew?.n),
       unassignedOpenRequests: num(unassigned?.n),
       draftBookings: num(draftBookings?.n),
+      lateVisits,
       unconfirmedShiftsNext7d: num(unconfirmed?.n),
       missedShiftsLast7d: num(missedShifts?.n),
       unbilledCompletedShifts: num(unbilledRows?.[0]?.n),

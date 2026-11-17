@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CareChecklistShift, CareOfferDeclineReason, CareType, CaregiverCareOffer, CaregiverPayout, CaregiverRateCard, CaregiverShift, CreateIssueReportBody, MyIssueReport } from '@care-platform/shared';
+import type { CareChecklistShift, CareOfferDeclineReason, CareType, CaregiverCareOffer, CaregiverPayout, CaregiverRateCard, CaregiverShift, CheckInInput, CreateIssueReportBody, MyIssueReport } from '@care-platform/shared';
 import { api } from '../api/client';
 import { useAuth } from '../api/auth-context';
 import type {
@@ -196,6 +196,26 @@ export function useReportShiftIssue() {
   return useMutation({
     mutationFn: ({ shiftId, ...body }: CreateIssueReportBody & { shiftId: string }) => api.post<MyIssueReport>(`/me/shifts/${shiftId}/issues`, body),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portal', id, 'issues'] }),
+  });
+}
+
+/** Check in to one of the caregiver's own shifts with the client's arrival code. The phone's position goes along when it has one. */
+export function useShiftCheckIn() {
+  const id = useCaregiverId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ shiftId, ...body }: CheckInInput & { shiftId: string }) => api.post<{ ok: true }>(`/me/shifts/${shiftId}/check-in`, body),
+    // Also after a refusal: a wrong code may have locked it, and the list should say so.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['portal', id, 'booked-shifts'] }),
+  });
+}
+
+export function useShiftCheckOut() {
+  const id = useCaregiverId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ shiftId, ...body }: Omit<CheckInInput, 'code'> & { shiftId: string }) => api.post<{ ok: true }>(`/me/shifts/${shiftId}/check-out`, body),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['portal', id, 'booked-shifts'] }),
   });
 }
 

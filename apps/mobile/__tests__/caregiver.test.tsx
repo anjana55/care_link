@@ -49,6 +49,7 @@ const shift = (n: number, startsIn: number, over: Partial<CaregiverShift> = {}):
   scheduleType: 'DAILY' as never,
   area: 'Dehiwala',
   hasCarePlan: true,
+  checkIn: null,
   ...over,
 });
 
@@ -219,6 +220,70 @@ describe('Today', () => {
 });
 
 describe('Shifts', () => {
+  it('checks in with the code the client reads out, shows a wrong code’s reason, then checks out', async () => {
+    await signIn();
+    const open = { state: 'DUE' as const, opensAt: at(-HOUR), checkedInAt: null, checkedOutAt: null, codeLocked: false };
+    let current = shift(1, 10 * 60_000, { hasCarePlan: false, checkIn: open });
+    let tries = 0;
+    const calls = serveApi({
+      'GET /me/shifts': () => ({ status: 200, body: [current] }),
+      'GET /me/issues': () => ({ status: 200, body: [] }),
+      'POST /me/shifts/s-1/check-in': () => {
+        if (++tries === 1) return { status: 400, body: { message: 'That code is not right - ask the client to read it to you again' } };
+        current = shift(1, 10 * 60_000, { hasCarePlan: false, checkIn: { ...open, state: 'IN', checkedInAt: '2026-11-16T02:33:00.000Z' } });
+        return { status: 200, body: { ok: true } };
+      },
+      'POST /me/shifts/s-1/check-out': () => {
+        current = shift(1, 10 * 60_000, { hasCarePlan: false, checkIn: { ...open, state: 'OUT', checkedInAt: '2026-11-16T02:33:00.000Z', checkedOutAt: '2026-11-16T11:31:00.000Z' } });
+        return { status: 200, body: { ok: true } };
+      },
+    });
+    await show(<Shifts />);
+
+    await fireEvent.press(await screen.findByRole('button', { name: en.checkIn.caregiver.checkIn }));
+    const box = screen.getByLabelText(en.checkIn.caregiver.codeLabel);
+    // Digits only, four of them; nothing can be sent before that.
+    await fireEvent.changeText(box, '4a8');
+    expect(box.props.value).toBe('48');
+    expect(screen.getByRole('button', { name: en.checkIn.caregiver.submit })).toBeDisabled();
+    await fireEvent.changeText(box, '48219');
+    expect(box.props.value).toBe('4821');
+    await fireEvent.press(screen.getByRole('button', { name: en.checkIn.caregiver.submit }));
+    expect(await screen.findByText(/That code is not right/)).toBeTruthy();
+
+    await fireEvent.changeText(box, '4822');
+    await fireEvent.press(screen.getByRole('button', { name: en.checkIn.caregiver.submit }));
+    expect(await screen.findByText(en.checkIn.caregiver.in.replace('{time}', '08:03'))).toBeTruthy();
+    const sent = calls.filter((c) => c.route === 'POST /me/shifts/s-1/check-in').map((c) => c.body);
+    // The phone here has no position to give, so only the code travels.
+    expect(sent).toEqual([{ code: '4821' }, { code: '4822' }]);
+    expect(screen.queryByLabelText(en.checkIn.caregiver.codeLabel)).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: en.checkIn.caregiver.checkOut }));
+    expect(await screen.findByText(en.checkIn.caregiver.out.replace('{in}', '08:03').replace('{out}', '17:01'))).toBeTruthy();
+    expect(calls.find((c) => c.route === 'POST /me/shifts/s-1/check-out')!.body).toEqual({});
+    expect(screen.queryByRole('button', { name: en.checkIn.caregiver.checkOut })).toBeNull();
+  });
+
+  it('offers no check-in when it is too early, locked or switched off', async () => {
+    await signIn();
+    const base = { opensAt: at(HOUR), checkedInAt: null, checkedOutAt: null };
+    serveApi({
+      'GET /me/shifts': () => ({
+        status: 200,
+        body: [
+          shift(1, 5 * HOUR, { hasCarePlan: false, checkIn: { ...base, state: 'UPCOMING', codeLocked: false } }),
+          shift(2, -HOUR, { hasCarePlan: false, checkIn: { ...base, state: 'LATE', codeLocked: true } }),
+          shift(3, 10 * 60_000, { hasCarePlan: false, checkIn: null }),
+        ],
+      }),
+      'GET /me/issues': () => ({ status: 200, body: [] }),
+    });
+    await show(<Shifts />);
+    expect(await screen.findByText(en.checkIn.caregiver.locked)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: en.checkIn.caregiver.checkIn })).toBeNull();
+  });
+
   it('opens a shift’s care plan, and reports a problem only on a shift that has started', async () => {
     await signIn();
     const calls = serveApi({

@@ -46,6 +46,7 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
       { href: '/settings/ai', key: 'settings.ai', roles: ADMIN },
       { href: '/settings/automation', key: 'settings.automation', roles: ADMIN },
       { href: '/settings/reviews', key: 'settings.reviews', roles: ADMIN },
+      { href: '/settings/check-in', key: 'settings.checkIn', roles: ADMIN },
       { href: '/settings/notifications', key: 'settings.notifications', roles: ADMIN },
       { href: '/settings/ads', key: 'settings.adsAnalytics', roles: ADMIN },
     ],
