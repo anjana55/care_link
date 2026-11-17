@@ -362,6 +362,11 @@
       "nextDay": "(ends the next day)",
       "visits": "{n} visits",
       "price": "Price",
+      "billing": "How you are billed",
+      "billingTiming": {
+        "AFTER": "After the care. You get an invoice for each month once it has ended, and a last one when the booking finishes.",
+        "ADVANCE": "In advance. You get an invoice for the first month as soon as the booking is confirmed, then one a few days before each new month."
+      },
       "caregiverByTeam": "A caregiver chosen by our team.",
       "accept": "Accept this booking",
       "change": "Ask for a change",

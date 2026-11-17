@@ -1,3 +1,4 @@
+import type { BillingTiming } from './billing-timing';
 import type { ReviewableCaregiver } from './reviews';
 import type { PublicCaregiverProfile } from './public-search';
 import type { CaregiverCheckIn, ClientVisit } from './check-in';
@@ -240,6 +241,8 @@ export interface ClientBookingProposal {
   shiftCount: number;
   rateType: RateType | null;
   rateAmount: string | null;
+  /** When they will be invoiced: after the care, or in advance month by month. Part of what they accept. */
+  billingTiming: BillingTiming;
   /** Null when the caregiver is not shown on the public site. */
   caregiver: PublicCaregiverProfile | null;
   askedAt: string;
