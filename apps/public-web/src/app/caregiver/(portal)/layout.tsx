@@ -105,7 +105,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           })}
         </nav>
       </header>
-      <main className="mx-auto max-w-4xl px-4 py-6 print:max-w-none print:p-0">{children}</main>
+      <main className="mx-auto max-w-4xl px-4 py-6 print:max-w-none print:p-0">
+        {pathname !== '/caregiver/talk' && (
+          <p className="mb-3 text-right text-sm print:hidden">
+            <Link href="/caregiver/talk" className="font-medium text-brand hover:underline">{t('talk.link')}</Link>
+          </p>
+        )}
+        {children}
+      </main>
     </div>
   );
 }

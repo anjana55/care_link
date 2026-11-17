@@ -173,7 +173,7 @@ describe('Care requests and saved caregivers (e2e)', () => {
 
     it('refuses caregivers who are not publicly listed, with the same answer as an unknown one', async () => {
       const client = await newClient();
-      const hidden = await newCaregiver('REGISTERED');
+      const hidden = await newCaregiver('INACTIVE');
       const a = await send(client, hidden.publicId).expect(404);
       const b = await send(client, '00000000-0000-4000-8000-000000000000').expect(404);
       expect(a.body.message).toBe(b.body.message);
@@ -374,7 +374,7 @@ describe('Care requests and saved caregivers (e2e)', () => {
       const mine = own.body.find((r: { id: string }) => r.id === res.body.id);
       expect(mine.caregiverPublicId).toBeNull();
 
-      const unmatched = await api().get('/care-requests?unmatched=true&scope=open').set(bearer(staffToken)).expect(200);
+      const unmatched = await api().get(`/care-requests?unmatched=true&scope=open&search=${res.body.reference}`).set(bearer(staffToken)).expect(200);
       expect(unmatched.body.items.map((i: { id: string }) => i.id)).toContain(res.body.id);
       expect((await api().get('/care-requests/summary').set(bearer(staffToken))).body.unmatched).toBeGreaterThan(0);
 
@@ -384,7 +384,7 @@ describe('Care requests and saved caregivers (e2e)', () => {
       expect((await api().get(`/care-requests/${res.body.id}`).set(bearer(staffToken))).body.allowedNextStatuses).not.toContain('INTRODUCED');
 
       // Staff may attach a caregiver who is not on the public site.
-      const unlisted = await newCaregiver('VERIFIED');
+      const unlisted = await newCaregiver('INACTIVE');
       const attached = await api().patch(`/care-requests/${res.body.id}/caregiver`).set(bearer(staffToken)).send({ caregiverId: unlisted.id }).expect(200);
       expect(attached.body.caregiver.id).toBe(unlisted.id);
       expect(attached.body.events.at(-1)).toMatchObject({ type: 'CAREGIVER_CHANGED' });
@@ -508,7 +508,7 @@ describe('Care requests and saved caregivers (e2e)', () => {
     });
 
     it('will not save a caregiver who is not publicly listed', async () => {
-      const hidden = await newCaregiver('DOCUMENTS_PENDING');
+      const hidden = await newCaregiver('SUSPENDED');
       const client = await newClient();
       await api().put(`/me/saved-caregivers/${hidden.publicId}`).set(bearer(client.token)).expect(404);
     });

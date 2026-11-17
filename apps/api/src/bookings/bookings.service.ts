@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Inject, Inj
 import { randomInt, randomUUID as uuid } from 'crypto';
 import { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, like, lt, ne, or, sql, type SQL } from 'drizzle-orm';
 import {
+  ADVANCE_INVOICE_LEAD_DAYS,
   colomboLocalToIso,
   colomboToday,
   computeTotals,
@@ -202,9 +203,9 @@ export class BookingsService {
   }
 
   /** What a new booking starts with unless staff choose otherwise (Settings > Billing). */
-  async defaults(): Promise<{ billingTiming: BillingTiming }> {
-    const [row] = await this.db.select({ timing: billingSettings.defaultBillingTiming }).from(billingSettings).limit(1);
-    return { billingTiming: row?.timing ?? 'AFTER' };
+  async defaults(): Promise<{ billingTiming: BillingTiming; advanceLeadDays: number }> {
+    const [row] = await this.db.select({ timing: billingSettings.defaultBillingTiming, lead: billingSettings.advanceLeadDays }).from(billingSettings).limit(1);
+    return { billingTiming: row?.timing ?? 'AFTER', advanceLeadDays: row?.lead ?? ADVANCE_INVOICE_LEAD_DAYS };
   }
 
   // --- pattern ---------------------------------------------------------------
@@ -1574,6 +1575,8 @@ export class BookingsService {
         reference: bookings.reference,
         scheduleType: bookings.scheduleType,
         held: bookings.paymentHoldInvoiceId,
+        cantMakeAt: bookingShifts.cantMakeAt,
+        cantMakeNote: bookingShifts.cantMakeNote,
         city: cities.nameEn,
         district: districts.nameEn,
       })
@@ -1608,6 +1611,7 @@ export class BookingsService {
       hasCarePlan: withPlan.has(r.id),
       checkIn: checkIns.get(r.id) ?? null,
       paused: Boolean(r.held),
+      cantMake: r.cantMakeAt ? { at: r.cantMakeAt.toISOString(), note: r.cantMakeNote } : null,
     }));
   }
 }

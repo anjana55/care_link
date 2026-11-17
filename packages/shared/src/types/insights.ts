@@ -144,6 +144,10 @@ export interface BusinessInsights {
     awaitingPayment: number;
     /** Confirmed bookings billed in advance whose visits are paused for an unpaid month. */
     pausedForPayment: number;
+    /** Clients and caregivers who asked to talk to a person and have not been answered. */
+    peopleWaiting: number;
+    /** Applicants whose verification file the onboarding agent marked ready for staff to check. */
+    readyToVerify: number;
     unconfirmedShiftsNext7d: number;
     missedShiftsLast7d: number;
     unbilledCompletedShifts: number;

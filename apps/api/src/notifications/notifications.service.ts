@@ -13,7 +13,7 @@ import {
   type NotificationText,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
-import { caregivers, notifications, patients } from '../database/schema';
+import { caregivers, notifications, patients, users } from '../database/schema';
 import { PushService, type PushExtras, type PushLanguage, type PushText } from '../push/push.service';
 import { BrandingSettingsService } from '../branding/branding-settings.service';
 import { withBrand } from '../common/branding/brand-text';
@@ -95,6 +95,23 @@ export class NotificationsService {
 
   notify(userIds: (string | null | undefined)[], build: (lang: PushLanguage) => PushText, path: string, label: string, opts: NotifyOptions = {}): void {
     void this.deliver(userIds, build, path, label, opts);
+  }
+
+  /**
+   * The staff bell: a notice for every active admin and staff member, in the
+   * staff app (English; no push - staff are at a desk). `path` is a staff app
+   * path. Used next to the agents' staff emails, so nothing is missed when an
+   * email is. Fire and forget, never throws.
+   */
+  notifyStaff(title: string, body: string, path: string, label: string): void {
+    void (async () => {
+      try {
+        const staff = await this.db.select({ id: users.id }).from(users).where(and(inArray(users.role, ['ADMIN', 'STAFF']), eq(users.isActive, true)));
+        await this.deliver(staff.map((u) => u.id), () => ({ title, body }), path, label, { category: 'OTHER', push: false });
+      } catch (err) {
+        this.logger.warn(`Staff notice (${label}) not kept: ${(err as Error).message}`);
+      }
+    })();
   }
 
   /** notify(), awaitable: resolves to the ids of the rows written (by user). Never throws. */

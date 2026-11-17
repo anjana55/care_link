@@ -495,9 +495,10 @@ describe('Care Platform API (e2e)', () => {
       expect(payload.caregiverId).toBe(selfCaregiverId);
     });
 
-    it('rejects reusing an already-used verification token', async () => {
+    it('a used verification link only says the address is already verified - no sign-in', async () => {
       const token = new URL(verificationUrl).searchParams.get('token')!;
-      await request(app.getHttpServer()).post('/auth/verify-email').send({ token }).expect(401);
+      const res = await request(app.getHttpServer()).post('/auth/verify-email').send({ token }).expect(201);
+      expect(res.body).toEqual({ alreadyVerified: true, role: 'CAREGIVER' });
     });
 
     it('allows login once verified', async () => {

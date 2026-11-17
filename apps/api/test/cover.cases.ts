@@ -5,7 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ThrottlerStorage } from '@nestjs/throttler';
 import { and, eq, isNotNull, like, or } from 'drizzle-orm';
 import request from 'supertest';
-import { addDays, colomboToday, isoWeekday, toColombo, type CaregiverCareOffer, type CaregiverShift, type ShiftCover, type StaffCheckIn } from '@care-platform/shared';
+import { addDays, colomboToday, isoWeekday, toColombo, type CaregiverCareOffer, type CaregiverShift, type ShiftCover, type StaffCheckIn, type BookingStandby } from '@care-platform/shared';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
 import { agentDecisions, bookingShifts, bookings, caregivers, cities, invoices, patients, preferredLocations, requestOffers } from '../src/database/schema';
@@ -17,6 +17,7 @@ import type { CoverProposal } from '../src/cover/cover-agent.service';
 import { NotificationsService } from '../src/notifications/notifications.service';
 import { EmailService } from '../src/email/email.service';
 import { WhatsappProviderService } from '../src/whatsapp/whatsapp-provider.service';
+import { ShiftDropoutsService } from '../src/cover/shift-dropouts.service';
 import { SEED_PASSWORD } from './seed-password';
 
 /**
@@ -502,5 +503,128 @@ describe('Cover for a no-show (e2e)', () => {
       const [b] = await db.select().from(bookings).where(eq(bookings.id, v.bookingId));
       expect(b.caregiverId).toBe(v.booked.id);
     });
+  });
+
+  describe("can't make a shift, and a standby caregiver", () => {
+    const REPLACE = 'live_care.replace_caregiver';
+    const STANDBY = 'booking.line_up_understudy';
+    const cantMake = (p: Person, v: Visit, body: object = {}) => api().post(`/me/shifts/${v.id}/cant-make`).set(bearer(p.token)).send(body);
+    const myShift = async (p: Person, v: Visit) => ((await api().get('/me/shifts').set(bearer(p.token)).expect(200)).body as CaregiverShift[]).find((x) => x.id === v.id);
+    const setStandby = (v: Visit, caregiverId: string | null) => api().put(`/bookings/${v.bookingId}/standby`).set(bearer(staffToken)).send({ caregiverId });
+    const standbyOf = async (v: Visit) => (await api().get(`/bookings/${v.bookingId}/standby`).set(bearer(staffToken)).expect(200)).body as BookingStandby;
+    const bookingMode = (m: string) => api().patch('/settings/automation/functions/BOOKING').set(bearer(adminToken)).send({ mode: m }).expect(200);
+    const DAY_MIN = 24 * 60;
+    /** Cover has a record good enough to act alone (as in "once earned" above). */
+    const earned = async () => {
+      await api().patch('/settings/automation').set(bearer(adminToken)).send({ cases: 10 }).expect(200);
+      for (let i = 0; i < 10; i++) {
+        const d = await app.get(AutomationService).decide({ action: REPLACE, reason: 'Offer the visit as cover' });
+        await api().post(`/automation/decisions/${d.decisionId}/review`).set(bearer(staffToken)).send({ verdict: 'AGREED' }).expect(200);
+      }
+      await policy({ autoAllowed: true }).expect(200);
+    };
+
+    it('says so days ahead: staff are told, and cover is offered at once - the standby first, alone', async () => {
+      await mode('AUTO');
+      await earned();
+      const v = await visit(3 * DAY_MIN);
+      const [sb, a, b] = [await standIn(), await standIn(), await standIn()];
+      expect((await setStandby(v, sb.id).expect(200)).body).toMatchObject({ standby: { caregiverId: sb.id, registrationNumber: sb.reg }, setBy: 'STAFF' });
+      expect((await setStandby(v, v.booked.id).expect(400)).body.message).toBe('The booked caregiver cannot be their own standby');
+
+      // Only the shift's own caregiver can say it; the note is kept short.
+      await cantMake(a, v).expect(404);
+      expect((await cantMake(v.booked, v, { note: 'x'.repeat(201) }).expect(400)).body.message).toEqual(['Keep the note under 200 characters']);
+      await cantMake(v.booked, v, { note: '  My mother is in hospital  ' }).expect(200);
+      await cantMake(v.booked, v).expect(200); // pressed twice
+      expect((await myShift(v.booked, v))!.cantMake).toMatchObject({ note: 'My mother is in hospital', at: expect.any(String) });
+      const mail = emails(`cant make ${v.id}`);
+      expect(mail).toHaveLength(1);
+      expect(mail[0][1].subject).toBe(`Can't make a shift: ${v.reference} ${toColombo(v.startsAt).date} ${v.time}`);
+      expect(JSON.stringify(mail[0][1])).toContain('My mother is in hospital');
+
+      // Nobody is late yet, but cover is looked for now: the standby alone first.
+      await sweep(new Date(), v);
+      expect((await offerRows(v)).map((o) => o.caregiverId)).toEqual([sb.id]);
+      const [first] = await decisionsFor(v, REPLACE);
+      expect(first.reason).toBe(`Offer the ${v.time} visit as cover to ${sb.reg} (the booking's standby): ${v.booked.reg} said they cannot make it`);
+      // The late-caregiver chase leaves them alone.
+      expect(told(`check-in chase ${v.id}`)).toHaveLength(0);
+
+      // The standby says no: the next round goes to the best-placed others.
+      await decline(sb, (await myOffer(sb, v)).id).expect(200);
+      await sweep(new Date(), v);
+      expect((await offerRows(v)).slice(1).map((o) => o.caregiverId).sort()).toEqual([a.id, b.id].sort());
+      await accept(a, (await myOffer(a, v)).id).expect(200);
+      expect(await shiftRow(v)).toMatchObject({ caregiverId: a.id, cantMakeAt: null, cantMakeNote: null });
+      expect(await myShift(v.booked, v)).toBeUndefined();
+    }, 30_000);
+
+    it('takes it back while nobody has taken the shift; staff can record that too', async () => {
+      await mode('AUTO');
+      await earned();
+      const v = await visit(2 * DAY_MIN);
+      await standIn();
+      await cantMake(v.booked, v).expect(200);
+      await sweep(new Date(), v);
+      expect(await offerRows(v)).toHaveLength(1);
+      await api().delete(`/me/shifts/${v.id}/cant-make`).set(bearer(v.booked.token)).expect(200);
+      expect((await myShift(v.booked, v))!.cantMake).toBeNull();
+      expect((await offerRows(v)).map((o) => o.status)).toEqual(['WITHDRAWN']);
+
+      await cantMake(v.booked, v).expect(200);
+      await api().delete(`/visits/${v.id}/cant-make`).set(bearer(v.booked.token)).expect(403);
+      await api().delete(`/visits/${v.id}/cant-make`).set(bearer(staffToken)).expect(200);
+      expect((await shiftRow(v)).cantMakeAt).toBeNull();
+    }, 30_000);
+
+    it('with Live care on Manual, staff are told to find cover themselves - and it works with check-in off', async () => {
+      await mode('MANUAL');
+      const v = await visit(2 * DAY_MIN);
+      await standIn();
+      await cantMake(v.booked, v).expect(200);
+      expect(JSON.stringify(emails(`cant make ${v.id}`)[0][1])).toContain('Live care is on Manual');
+      await sweep(new Date(), v);
+      expect(await offerRows(v)).toHaveLength(0);
+
+      await mode('AUTO');
+      await earned();
+      await api().patch('/settings/check-in').set(bearer(adminToken)).send({ enabled: false, earlyMinutes: 60, lateAfterMinutes: 15 }).expect(200);
+      try {
+        await sweep(new Date(), v);
+        expect(await offerRows(v)).toHaveLength(1);
+      } finally {
+        await api().patch('/settings/check-in').set(bearer(adminToken)).send({ enabled: true, earlyMinutes: 60, lateAfterMinutes: 15 }).expect(200);
+      }
+    }, 30_000);
+
+    it('the booking agent lines up a standby once; Shadow is scored by whom staff choose', async () => {
+      const dropouts = app.get(ShiftDropoutsService);
+      await bookingMode('AUTO');
+      try {
+        const v = await visit(2 * DAY_MIN);
+        const best = await standIn();
+        await dropouts.proposeStandbys(new Date(), [v.bookingId]);
+        expect(await standbyOf(v)).toMatchObject({ standby: { caregiverId: best.id }, setBy: 'AGENT' });
+        const [d] = await db.select().from(agentDecisions).where(and(eq(agentDecisions.caseId, v.bookingId), eq(agentDecisions.action, STANDBY)));
+        expect(d).toMatchObject({ outcome: 'EXECUTED', tier: 1 });
+        await dropouts.proposeStandbys(new Date(), [v.bookingId]);
+        expect(await db.select().from(agentDecisions).where(and(eq(agentDecisions.caseId, v.bookingId), eq(agentDecisions.action, STANDBY)))).toHaveLength(1);
+
+        await bookingMode('SHADOW');
+        const w = await visit(2 * DAY_MIN);
+        await standIn();
+        await dropouts.proposeStandbys(new Date(), [w.bookingId]);
+        expect((await standbyOf(w)).standby).toBeNull();
+        const [logged] = await db.select().from(agentDecisions).where(and(eq(agentDecisions.caseId, w.bookingId), eq(agentDecisions.action, STANDBY)));
+        await setStandby(w, (logged.proposal as { caregiverId: string }).caregiverId).expect(200);
+        await dropouts.scoreShadows([w.bookingId]);
+        const [s] = await db.select().from(agentDecisions).where(and(eq(agentDecisions.caseId, w.bookingId), eq(agentDecisions.action, STANDBY)));
+        expect(s).toMatchObject({ outcome: 'SHADOW', staffVerdict: 'AGREED' });
+        expect((await setStandby(w, null).expect(200)).body).toMatchObject({ standby: null, setBy: null });
+      } finally {
+        await bookingMode('MANUAL');
+      }
+    }, 30_000);
   });
 });

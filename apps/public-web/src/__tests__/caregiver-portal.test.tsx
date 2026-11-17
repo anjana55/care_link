@@ -339,6 +339,37 @@ describe('shifts', () => {
     expect(screen.queryByRole('button', { name: 'Check out' })).not.toBeInTheDocument();
   });
 
+  it("tells the office it can't make a shift, with a note, and can take it back", async () => {
+    serve();
+    const base = get.getMockImplementation()!;
+    let current: Record<string, unknown> = {
+      id: 'sh8', startsAt: '2099-01-03T02:30:00.000Z', endsAt: '2099-01-03T10:30:00.000Z', status: 'SCHEDULED', isCover: false, bookingReference: 'BK-CANT01', scheduleType: 'DAY',
+      area: 'Dehiwala', hasCarePlan: false, paused: false, checkIn: null, cantMake: null,
+    };
+    get.mockImplementation((path: string) => {
+      if (path === '/me/shifts') return Promise.resolve([current]);
+      if (path === '/me/issues') return Promise.resolve([]);
+      return base(path);
+    });
+    renderPage(<ShiftsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: "I can't make this shift" }));
+    fireEvent.change(screen.getByLabelText(/A short note for the office/), { target: { value: '  Sick  ' } });
+    post.mockImplementationOnce(async () => {
+      current = { ...current, cantMake: { at: '2099-01-01T00:00:00.000Z', note: 'Sick' } };
+      return { ok: true };
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Tell the office' }));
+    expect(await screen.findByText(/You told the office you can't make it/)).toBeInTheDocument();
+    expect(post).toHaveBeenLastCalledWith('/me/shifts/sh8/cant-make', { note: 'Sick' });
+    del.mockImplementationOnce(async () => {
+      current = { ...current, cantMake: null };
+      return { ok: true };
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'I can make it after all' }));
+    expect(await screen.findByRole('button', { name: "I can't make this shift" })).toBeInTheDocument();
+    expect(del).toHaveBeenLastCalledWith('/me/shifts/sh8/cant-make');
+  });
+
   it('offers no check-in when it is too early, locked, or switched off', async () => {
     serve();
     const base = get.getMockImplementation()!;

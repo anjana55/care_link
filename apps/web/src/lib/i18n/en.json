@@ -34,7 +34,8 @@
       "overseas": "Overseas",
       "office": "Office"
     },
-    "account": "Account"
+    "account": "Account",
+    "peopleWaiting": "People waiting"
   },
   "login": {
     "title": "Sign in",
@@ -142,7 +143,9 @@
       "overseasWaiting": "Overseas enquiries and approvals waiting",
       "lateVisits": "Visits started with nobody checked in",
       "awaitingPayment": "Bookings not confirmed: first invoice unpaid",
-      "pausedForPayment": "Bookings with visits paused: unpaid invoice"
+      "pausedForPayment": "Bookings with visits paused: unpaid invoice",
+      "peopleWaiting": "People who asked to talk to someone",
+      "readyToVerify": "Caregivers ready to verify (file complete)"
     },
     "severity": {
       "act": "Act today",
@@ -492,6 +495,96 @@
       "copy": "Copy caregiver ID",
       "viewPublic": "View public profile",
       "notListed": "Not visible to customers"
+    },
+    "verificationFile": {
+      "title": "Verification file",
+      "recommendation": {
+        "READY": "Ready for your check: everything is in",
+        "NOT_READY": "Not ready yet: something is missing or awaited",
+        "CONCERNS": "Read before deciding: a referee or a document raised a concern"
+      },
+      "staffDecide": "Assembled by the onboarding agent {when}. You decide on verification.",
+      "checks": {
+        "IDENTITY": "Identity document",
+        "POLICE": "Police clearance",
+        "GN": "Grama Niladhari certificate",
+        "PROFILE": "Profile",
+        "REFERENCES": "References"
+      },
+      "states": {
+        "OK": "Confirmed",
+        "TO_CHECK": "In, to check",
+        "MISSING": "Missing",
+        "EXPIRED": "Expired",
+        "REJECTED": "Rejected",
+        "WAITING": "Waiting",
+        "CONCERN": "Concern",
+        "UNCLEAR": "Unclear - asked again"
+      },
+      "gaps": {
+        "DATE_OF_BIRTH": "date of birth",
+        "ADDRESS": "address",
+        "ID_NUMBER": "NIC or passport number",
+        "AREA": "district",
+        "EMERGENCY_CONTACT": "emergency contact"
+      },
+      "documents": {
+        "identity": "identity document",
+        "police": "police clearance",
+        "gn": "Grama Niladhari certificate"
+      },
+      "documentsAsked": "The caregiver was asked for {what} on {when}.",
+      "referees": "What referees said",
+      "answer": "Knows them: yes · {years} · would trust them: {trust}",
+      "doesNotKnow": "Says they do not know this person.",
+      "years": {
+        "UNDER_1": "less than a year",
+        "ONE_TO_THREE": "1 to 3 years",
+        "OVER_3": "more than 3 years"
+      },
+      "trust": {
+        "YES": "yes",
+        "UNSURE": "not sure",
+        "NO": "no"
+      },
+      "waiting": "Asked by {channel} on {when}; no answer yet.",
+      "notAsked": "Not asked yet.",
+      "channel": {
+        "EMAIL": "email",
+        "WHATSAPP": "WhatsApp"
+      },
+      "profileComplete": "Complete",
+      "readings": "What the AI read on the documents",
+      "documentTypes": {
+        "NIC": "NIC",
+        "PASSPORT": "Passport",
+        "POLICE_CLEARANCE": "Police clearance",
+        "GRAMA_NILADHARI_CERTIFICATE": "Grama Niladhari certificate"
+      },
+      "readingOutcome": {
+        "OK": "Matches the profile",
+        "CHECK": "Partly shown - check it",
+        "MISMATCH": "Does not match the profile",
+        "EXPIRED": "Expired",
+        "UNREADABLE": "Could not be read"
+      },
+      "readingCheck": {
+        "TYPE": "Kind",
+        "NAME": "Name",
+        "ID_NUMBER": "Number",
+        "DATE_OF_BIRTH": "Date of birth",
+        "EXPIRY": "Expiry"
+      },
+      "readingResult": {
+        "MATCH": "matches",
+        "PARTIAL": "partly matches",
+        "MISMATCH": "does not match",
+        "NOT_SHOWN": "not shown",
+        "VALID": "valid",
+        "EXPIRED": "expired"
+      },
+      "readExpiry": "expires {date}",
+      "readBy": "Read by {model} {when}. A check to help you, not a verification."
     }
   },
   "clients": {
@@ -1420,7 +1513,24 @@
       "needFields": "{count} required details still missing.",
       "careTypeNotSaid": "Not said yet"
     },
-    "notNotified": "Not notified"
+    "notNotified": "Not notified",
+    "intake": {
+      "schedule": "Time of day",
+      "schedules": {
+        "DAY": "Day",
+        "NIGHT": "Night",
+        "LIVE_IN_24H": "24-hour live-in",
+        "NOT_SURE": "Not sure yet"
+      },
+      "missing": "Still needed before matching and booking: {what}.",
+      "asked": "The client was asked for {what} on {when} and has not answered yet.",
+      "gaps": {
+        "CARE_TYPE": "the kind of care",
+        "AREA": "the area",
+        "SCHEDULE": "the time of day",
+        "START_DATE": "the start date"
+      }
+    }
   },
   "bookings": {
     "title": "Bookings",
@@ -1774,7 +1884,7 @@
       "ADVANCE": "In advance, month by month",
       "hint": {
         "AFTER": "Invoiced for the work done: month by month once each month has ended, and in full when the booking finishes.",
-        "ADVANCE": "Invoiced for the work booked: the first month when the booking is confirmed, then each month 5 days before it begins. A shift that does not happen is credited with a correction."
+        "ADVANCE": "Invoiced for the work booked: the first month when the booking is confirmed, then each month {days} days before it begins. A shift that does not happen is credited with a correction."
       },
       "changeNote": "Applies from now on; what is already invoiced stays as it is."
     },
@@ -1802,6 +1912,15 @@
       "resume": "Resume visits without payment",
       "reasonLabel": "Why do visits resume without payment?",
       "resumeConfirm": "Resume visits"
+    },
+    "standby": {
+      "title": "Standby caregiver",
+      "about": "Asked first, on their own, whenever one of this booking's shifts needs cover. Being standby is not a promise - they can say no.",
+      "none": "No standby yet.",
+      "byAgent": "Lined up by the booking agent",
+      "choose": "Make standby",
+      "remove": "Remove",
+      "suggestions": "Good fits for the next shift"
     }
   },
   "filters": {
@@ -2245,7 +2364,9 @@
       "deleteMessage": "{name} will be removed. If payments have been recorded against it, turn it off instead."
     },
     "defaultTiming": "New bookings are billed",
-    "defaultTimingHint": "This is only the starting choice: staff can change it on any booking, and the billing agent follows the booking."
+    "defaultTimingHint": "This is only the starting choice: staff can change it on any booking, and the billing agent follows the booking.",
+    "leadDays": "Advance invoices go out (days before the month)",
+    "leadDaysHint": "Each month's invoice goes out {days} days before the month begins. With payment terms of {terms} days it falls due {terms} days after that; visits pause if it is still unpaid then."
   },
   "adsAdmin": {
     "title": "Google AdSense",
@@ -4250,6 +4371,38 @@
       },
       "billed": "This shift is already on {doc}. Cover still works: when someone accepts, the change of caregiver is recorded as a correction on the booking, and the client's bill does not change."
     },
-    "paused": "Paused: unpaid invoice - nobody is sent"
+    "paused": "Paused: unpaid invoice - nobody is sent",
+    "cantMake": {
+      "said": "Can't make it (told us at {when})",
+      "afterAll": "They can come after all"
+    },
+    "truncated": "Showing the first {n} visits of the day, by start time."
+  },
+  "peopleWaiting": {
+    "title": "People waiting",
+    "subtitle": "Clients and caregivers who asked to talk to a person. Reach them the way they asked, then mark it handled. A case they named is with staff until you hand it back on that case.",
+    "none": "Nobody is waiting.",
+    "handledTab": "Handled",
+    "openTab": "Waiting",
+    "client": "Client",
+    "caregiver": "Caregiver",
+    "about": "About {ref}",
+    "contact": {
+      "CALL": "Wants a phone call",
+      "WHATSAPP": "Wants WhatsApp",
+      "EMAIL": "Wants an email"
+    },
+    "waitingSince": "Asked {when}",
+    "note": "Note (optional)",
+    "handle": "Mark handled",
+    "handledBy": "Handled by {name} {when}",
+    "count": "{count} waiting to hear from us"
+  },
+  "staffBell": {
+    "label": "Alerts",
+    "labelUnread": "Alerts, {n} unread",
+    "title": "Alerts",
+    "markAll": "Mark all read",
+    "none": "No alerts yet."
   }
 }

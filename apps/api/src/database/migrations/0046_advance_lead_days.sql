@@ -1,0 +1,1 @@
+ALTER TABLE `billing_settings` ADD `advance_lead_days` int DEFAULT 5 NOT NULL;

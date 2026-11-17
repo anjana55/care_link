@@ -1,3 +1,4 @@
+import { colomboToday } from '@care-platform/shared';
 import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -145,7 +146,7 @@ describe('AI features (e2e)', () => {
     staffToken = (await login('staff@care-platform.local')).body.accessToken;
     adminToken = (await login('admin@care-platform.local')).body.accessToken;
     const tree = (await api().get('/public/meta/locations/tree?locale=en').expect(200)).body as { districts: { id: number }[] }[];
-    districtId = tree.flatMap((p) => p.districts).at(-1)!.id;
+    districtId = tree.flatMap((p) => p.districts).at(-5)!.id; // Its own district: the matching agent cases use the last two.
     cityId = (await api().get(`/public/meta/locations/cities?districtId=${districtId}&locale=en`).expect(200)).body[0].id;
     const allSkills = await db.select().from(skills).orderBy(skills.name);
     skillId = allSkills[0].id;
@@ -197,29 +198,35 @@ describe('AI features (e2e)', () => {
     expect(r.location).toEqual({ districtId }); // unknown city dropped
     expect(r.optionalSkillIds).toEqual([skillId]);
     expect(r.mandatorySkillIds).toBeUndefined(); // S999 does not exist
-    expect(r.desiredStartDate).toBeUndefined(); // in the past
+    expect(r.desiredStartDate).toBe(colomboToday()); // the model's date was in the past: dropped, and today assumed
     expect(r.shift).toBe('NIGHT');
     expect(r.caregiverGenderPreference).toBe('FEMALE');
-    expect(r.budget).toEqual({ dailyRate: 4500 });
     expect(r.patient).toEqual({ age: 81, gender: 'FEMALE', medicalConditions: ['dementia'] });
     expect(res.body.summary.care).toContain('Night care');
 
-    await api().post('/public/ai/extract').send({ query: 'short' }).expect(400);
+    await api().post('/public/ai/extract').send({ query: 'x' }).expect(400); // a bare town name is enough, one letter is not
   });
 
   it('re-ranks only the hard-filtered pool, with reasons, and pages without asking the model again', async () => {
     const a = await newCaregiver();
     const b = await newCaregiver();
-    const today = new Date().toISOString().slice(0, 10);
-    const body = { request: { location: { districtId }, desiredStartDate: today, page: 1, pageSize: 50, locale: 'en' }, query: 'Night care for my father' };
+    const today = colomboToday();
+    const body = { request: { careType: 'HOME_SHIFT', location: { districtId }, desiredStartDate: today, page: 1, pageSize: 50, locale: 'en' }, query: 'Night care for my father' };
 
     const plain = await api().post('/public/search').send(body.request).expect(200);
     const res = await api().post('/public/ai/search').send(body).expect(200);
     expect(res.body.aiRanked).toBe(true);
     expect(res.body.total).toBe(plain.body.total);
-    const ids = res.body.items.map((i: { publicId: string }) => i.publicId);
-    expect(ids).toEqual(expect.arrayContaining([a.publicId, b.publicId]));
     expect(res.body.items[0].aiReason).toMatch(/^Good fit C\d+$/);
+    // Earlier runs leave many caregivers in the district: look across the pages (the order is cached, so the model is not asked again).
+    const before = seen.length;
+    const ids: string[] = res.body.items.map((i: { publicId: string }) => i.publicId);
+    for (let page = 2; (page - 1) * 50 < res.body.total && page <= 40; page++) {
+      const more = await api().post('/public/ai/search').send({ ...body, request: { ...body.request, page } }).expect(200);
+      ids.push(...more.body.items.map((i: { publicId: string }) => i.publicId));
+    }
+    expect(ids).toEqual(expect.arrayContaining([a.publicId, b.publicId]));
+    expect(seen.length).toBe(before);
     // Nothing reached the model that the public card does not show.
     const rerank = seen.filter((s) => s.messages[0]?.content?.includes('order a shortlist')).at(-1)!;
     expect(JSON.stringify(rerank)).not.toContain(a.fullName);

@@ -795,7 +795,16 @@
       "careTypesTitle": "Types of care you take on",
       "careTypesHint": "Families search by the type of care they need. Untick anything you don't do and you won't be shown for it.",
       "careTypesRequired": "Choose at least one type of care.",
-      "paused": "Visits paused by the office - do not go"
+      "paused": "Visits paused by the office - do not go",
+      "cantMake": {
+        "button": "I can't make this shift",
+        "title": "Can't make this shift?",
+        "why": "We'll tell the office and find someone to cover it. The sooner you tell us, the better for the family.",
+        "note": "A short note for the office (optional)",
+        "send": "Tell the office",
+        "told": "You told the office you can't make it - we're finding someone to cover.",
+        "afterAll": "I can make it after all"
+      }
     },
     "documents": {
       "title": "Your documents",
@@ -1346,7 +1355,20 @@
       "noCaregiverLabel": "Caregiver",
       "matching": "Our team is finding a caregiver for you",
       "newRequest": "Find a caregiver for me",
-      "startsOn": "Starting {date}"
+      "startsOn": "Starting {date}",
+      "details": {
+        "title": "A few details, please",
+        "why": "We need these to find your caregiver and set up the booking.",
+        "careType": "Kind of care",
+        "schedule": "When in the day",
+        "send": "Send details",
+        "fillAll": "Please fill in each detail.",
+        "schedules": {
+          "DAY": "Day",
+          "NIGHT": "Night",
+          "LIVE_IN_24H": "24-hour live-in"
+        }
+      }
     },
     "saved": {
       "title": "Saved caregivers",
@@ -2604,5 +2626,61 @@
     "whyFirst": "Your booking is confirmed as soon as this is paid.",
     "whyPaused": "Your visits resume as soon as this is paid.",
     "pausedTitle": "Visits paused: an invoice is past its due date"
+  },
+  "reference": {
+    "title": "Hello {name}",
+    "intro": "{caregiver} has applied to work as a caregiver with us and gave your name as a reference. Three short questions - it takes a minute.",
+    "knows": "Do you know {caregiver}, as their {relationship}?",
+    "yesNo": {
+      "YES": "Yes",
+      "NO": "No"
+    },
+    "years": "How long have you known them?",
+    "yearsOptions": {
+      "UNDER_1": "Less than a year",
+      "ONE_TO_THREE": "1 to 3 years",
+      "OVER_3": "More than 3 years"
+    },
+    "trust": "Would you trust them to care for someone in your family?",
+    "trustOptions": {
+      "YES": "Yes",
+      "UNSURE": "Not sure",
+      "NO": "No"
+    },
+    "comment": "Anything you would like to add (optional)",
+    "send": "Send my answers",
+    "privacy": "Your answers go only to our office, to help check this application.",
+    "error": "Your answers could not be sent. Please try again.",
+    "invalidTitle": "This link does not work",
+    "invalidBody": "It may have expired. If you were expecting it, please contact our office.",
+    "doneTitle": "Thank you",
+    "doneBody": "Your answers have been sent to our office."
+  },
+  "talk": {
+    "link": "Need help? Talk to a person",
+    "title": "Talk to a person",
+    "intro": "Tell us what you need and how to reach you. Someone from our team will contact you - usually the same working day.",
+    "message": "What do you need?",
+    "about": "Is it about one of these?",
+    "aboutNone": "Something else",
+    "aboutHint": "If you choose one, our team takes it over from the automatic helpers until they have spoken to you.",
+    "aboutRequest": "Request {ref}",
+    "aboutBooking": "Booking {ref} (from {date})",
+    "aboutShift": "Shift on {date} ({ref})",
+    "contact": "How should we contact you?",
+    "contactMethods": {
+      "CALL": "Phone call",
+      "WHATSAPP": "WhatsApp",
+      "EMAIL": "Email"
+    },
+    "send": "Send to our team",
+    "sentTitle": "Thank you - we have your message",
+    "sentBody": "Someone from our team will contact you soon.",
+    "another": "Send another message",
+    "mine": "Your messages",
+    "status": {
+      "OPEN": "Waiting for our team",
+      "HANDLED": "Answered"
+    }
   }
 }

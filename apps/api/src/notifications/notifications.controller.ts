@@ -44,6 +44,33 @@ export class MyNotificationsController {
   }
 }
 
+/** Staff: the bell in the staff app - alerts from the agents and from clients and caregivers asking for a person. */
+@ApiTags('notifications')
+@ApiBearerAuth()
+@Roles('ADMIN', 'STAFF')
+@Controller('staff/notifications')
+export class StaffNotificationsController {
+  constructor(private readonly notices: NotificationsService) {}
+
+  @Get('summary')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  async summary(@CurrentUser() user: AuthenticatedUser): Promise<{ unread: number }> {
+    const unreadBy = await this.notices.unreadByCategory(user.userId);
+    return { unread: Object.values(unreadBy).reduce((a, b) => a + (b ?? 0), 0) };
+  }
+
+  @Get()
+  page(@CurrentUser() user: AuthenticatedUser, @Query() q: NotificationsQueryDto) {
+    return this.notices.page(user.userId, 'en', q.before);
+  }
+
+  @Post('read')
+  @HttpCode(200)
+  async read(@CurrentUser() user: AuthenticatedUser, @Body() dto: MarkReadDto) {
+    return { marked: await this.notices.markRead(user.userId, dto) };
+  }
+}
+
 /** Staff: messages to every client, every caregiver, or both. */
 @ApiTags('announcements')
 @ApiBearerAuth()

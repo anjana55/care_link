@@ -1,4 +1,5 @@
 import { mysqlTable, varchar, datetime, date, int, mysqlEnum, text, index, uniqueIndex, primaryKey } from 'drizzle-orm/mysql-core';
+import { REQUEST_SCHEDULES } from '@care-platform/shared';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -92,6 +93,16 @@ export const careRequests = mysqlTable(
     districtId: int('district_id'),
     cityId: int('city_id'),
     desiredStartDate: date('desired_start_date', { mode: 'string' }),
+    // The time of day care is needed, for this request. Null: fall back to what the client said at sign-up.
+    schedule: mysqlEnum('schedule', REQUEST_SCHEDULES),
+    // Intake: what the client was asked to add (comma-separated gaps), when, when they answered,
+    // and when it went back to staff for lack of an answer.
+    detailsAsked: varchar('details_asked', { length: 80 }),
+    detailsAskedAt: datetime('details_asked_at'),
+    detailsAnsweredAt: datetime('details_answered_at'),
+    detailsEscalatedAt: datetime('details_escalated_at'),
+    /** The one reminder, sent halfway to handing the request back to staff. */
+    detailsRemindedAt: datetime('details_reminded_at'),
     // When the attached caregiver was last told about this request - straight
     // away for caregivers set to auto-notify, otherwise when staff press
     // "Notify caregiver". Null = the caregiver has not been told yet.

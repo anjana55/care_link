@@ -51,6 +51,9 @@ import { PricingModule } from './pricing/pricing.module';
 import { OffersModule } from './offers/offers.module';
 import { MatchingModule } from './matching/matching.module';
 import { CoverModule } from './cover/cover.module';
+import { IntakeModule } from './intake/intake.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
+import { TalkModule } from './talk/talk.module';
 import { InternationalModule } from './international/international.module';
 import { PushModule } from './push/push.module';
 import { MobileAppModule } from './mobile-app/mobile-app.module';
@@ -121,6 +124,9 @@ import { NotificationsCoreModule, NotificationsModule } from './notifications/no
     OffersModule,
     MatchingModule,
     CoverModule,
+    IntakeModule,
+    OnboardingModule,
+    TalkModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

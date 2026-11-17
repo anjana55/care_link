@@ -8,7 +8,7 @@ import { NotificationSettingsService } from './notification-settings.service';
 import { TodosService } from './todos.service';
 import { AnnouncementsService } from './announcements.service';
 import { ReminderSweepService } from './reminder-sweep.service';
-import { AnnouncementsController, MyNotificationsController, NotificationSettingsController } from './notifications.controller';
+import { AnnouncementsController, MyNotificationsController, NotificationSettingsController, StaffNotificationsController } from './notifications.controller';
 
 /**
  * The bell's store and its settings. Global and depending only on the
@@ -26,7 +26,7 @@ export class NotificationsCoreModule {}
 /** The bell's endpoints, the To do list, reminders, and staff announcements. */
 @Module({
   imports: [EmailModule, WhatsappModule, CarePlansModule, ReviewsModule],
-  controllers: [MyNotificationsController, AnnouncementsController, NotificationSettingsController],
+  controllers: [MyNotificationsController, StaffNotificationsController, AnnouncementsController, NotificationSettingsController],
   providers: [TodosService, AnnouncementsService, ReminderSweepService],
 })
 export class NotificationsModule {}

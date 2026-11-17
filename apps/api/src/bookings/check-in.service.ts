@@ -71,6 +71,9 @@ const ARRIVED = {
  * With check-in switched off (the default) the caregiver and client views
  * carry nothing, and both check-in routes refuse.
  */
+/** Today's visits shown at most; a bigger day says so on the page. */
+const TODAY_MAX = 2000;
+
 @Injectable()
 export class CheckInService {
   private readonly logger = new Logger(CheckInService.name);
@@ -237,6 +240,8 @@ export class CheckInService {
         bookingId: bookings.id,
         reference: bookings.reference,
         paused: bookings.paymentHoldInvoiceId,
+        cantMakeAt: bookingShifts.cantMakeAt,
+        cantMakeNote: bookingShifts.cantMakeNote,
         startsAt: bookingShifts.startsAt,
         endsAt: bookingShifts.endsAt,
         status: bookingShifts.status,
@@ -259,7 +264,10 @@ export class CheckInService {
       .leftJoin(districts, eq(patients.districtId, districts.id))
       .where(and(inArray(bookingShifts.status, ['SCHEDULED', 'COMPLETED', 'MISSED']), ne(bookings.status, 'DRAFT'), lt(bookingShifts.startsAt, to), gt(bookingShifts.endsAt, from)))
       .orderBy(asc(bookingShifts.startsAt), asc(bookings.reference))
-      .limit(500);
+      // One more than shown, to know whether the day had more (said on the page rather than dropped quietly).
+      .limit(TODAY_MAX + 1);
+    const truncated = rows.length > TODAY_MAX;
+    if (truncated) rows.length = TODAY_MAX;
     // With check-in off the page still lists the day; each visit simply has nothing recorded.
     const views = await this.forStaff(rows.map((r) => ({ id: r.shiftId, startsAt: r.startsAt, endsAt: r.endsAt })), now, { ...settings, enabled: true });
     const waiting = rows.length
@@ -273,6 +281,7 @@ export class CheckInService {
     return {
       settings,
       date,
+      truncated,
       visits: rows.map((r) => {
         const checkIn = views.get(r.shiftId)!;
         return {
@@ -289,6 +298,7 @@ export class CheckInService {
           checkIn,
           coverWaiting: coverWaiting.get(r.shiftId) ?? 0,
           paused: Boolean(r.paused),
+          cantMake: r.cantMakeAt ? { at: r.cantMakeAt.toISOString(), note: r.cantMakeNote } : null,
         };
       }),
     };

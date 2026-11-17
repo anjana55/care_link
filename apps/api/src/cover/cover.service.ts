@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { and, desc, eq, gt, inArray, isNull, lt, ne, sql } from 'drizzle-orm';
 import {
   MAX_OPEN_COVER_OFFERS,
+  PUBLIC_CAREGIVER_STATUSES,
   coverOfferMinutes,
   effectiveCareOfferStatus,
   toColombo,
@@ -69,6 +70,10 @@ type ShiftRow = {
   districtId: number | null;
   cityId: number | null;
   checkedInAt: Date | string | null;
+  /** Asked first, alone, when this booking needs cover. */
+  standbyCaregiverId: string | null;
+  /** The caregiver on the shift said they cannot make it. */
+  cantMakeAt: Date | string | null;
 };
 
 /**
@@ -144,6 +149,8 @@ export class CoverService implements OnApplicationBootstrap {
         districtId: sql<number | null>`COALESCE(${careRequests.districtId}, ${patients.districtId})`,
         cityId: sql<number | null>`COALESCE(${careRequests.cityId}, ${patients.cityId})`,
         checkedInAt: shiftCheckins.checkedInAt,
+        standbyCaregiverId: bookings.standbyCaregiverId,
+        cantMakeAt: bookingShifts.cantMakeAt,
       })
       .from(bookingShifts)
       .innerJoin(bookings, eq(bookings.id, bookingShifts.bookingId))
@@ -223,6 +230,25 @@ export class CoverService implements OnApplicationBootstrap {
     // The shift pays what it pays, and having other bookings is no drawback for someone free at this time:
     // neither the caregiver's own rate nor their running bookings should move them up or down.
     return rankMatches(request, pool.map((c) => ({ ...c, ownRate: null, runningBookings: 0, availableFrom: null })));
+  }
+
+  /**
+   * The booking's standby, when they can be asked for this shift: not the
+   * caregiver on it or the booked one, not already asked, free at the time,
+   * and still listed with an account. Asked first, on their own.
+   */
+  async standbyFirst(row: ShiftRow): Promise<RankedMatch | null> {
+    const id = row.standbyCaregiverId;
+    if (!id || id === row.caregiverId || id === row.bookedCaregiverId) return null;
+    const [asked, busy] = await Promise.all([this.offersFor(row.shiftId), this.busy(row, [id])]);
+    if (asked.some((o) => o.caregiverId === id) || busy.size) return null;
+    const [cg] = await this.db
+      .select({ registrationNumber: caregivers.registrationNumber, status: caregivers.status, userId: caregivers.userId, deletedAt: caregivers.deletedAt })
+      .from(caregivers)
+      .where(eq(caregivers.id, id))
+      .limit(1);
+    if (!cg || cg.deletedAt || !cg.userId || !(PUBLIC_CAREGIVER_STATUSES as readonly string[]).includes(cg.status)) return null;
+    return { caregiverId: id, registrationNumber: cg.registrationNumber, score: 100, reasons: ['Standby for this booking'] } as RankedMatch;
   }
 
   async forShift(shiftId: string, now = new Date()): Promise<ShiftCover> {
@@ -423,6 +449,8 @@ export class CoverService implements OnApplicationBootstrap {
       throw new ConflictException('This job is no longer open');
     }
     await this.jobs.cancel(offerExpiryKey(offer.id));
+    // Covered: whoever said they could not make it is off the shift now.
+    await this.db.update(bookingShifts).set({ cantMakeAt: null, cantMakeNote: null, cantMakeCaregiverId: null }).where(eq(bookingShifts.id, shiftId));
     await this.closeFor(shiftId, offer.id);
     await this.afterAccepted(row, offer).catch((e) => this.logger.error(`Cover offer ${offer.id} accepted, but not everyone could be told: ${(e as Error).message}`));
   };
@@ -446,9 +474,10 @@ export class CoverService implements OnApplicationBootstrap {
     );
 
     // The office: whoever sent the offer, or - when the agent sent it - the alert list.
+    const subject = `Cover found: ${row.reference}`;
+    this.notices.notifyStaff(subject, `${cover?.registrationNumber ?? 'A caregiver'} accepted the ${when.time} visit on ${when.date} in place of ${row.registration}.`, `/bookings/${row.bookingId}`, `cover found ${offer.id}`);
     const to = await this.officeRecipients(offer.sentByUserId);
     if (!to.length) return;
-    const subject = `Cover found: ${row.reference}`;
     await this.email.sendNotificationEmail(
       to,
       {

@@ -256,7 +256,8 @@ describe('Bookings and shifts (e2e)', () => {
       .expect(200);
     expect(live.body.shifts).toHaveLength(7);
     expect(live.body.shifts[0].hours).toBe(24);
-    expect(live.body.estimate.total).toBe('21000.00');
+    // A part-month is days/30 with the quantity to two places (as on an invoice): 7/30 = 0.23 of a month.
+    expect(live.body.estimate.total).toBe('20700.00');
 
     const id = draft.body.id;
     const shift = live.body.shifts[0].id;
@@ -288,13 +289,19 @@ describe('Bookings and shifts (e2e)', () => {
     const client = await newClient();
     const monday = freshMonday();
     const b = await book({ patientId: client.patientId, caregiverId: cg.id, ...pattern(monday, { endDate: monday }) }).expect(201);
-    const search = (date: string) =>
+    const search = (date: string, page: number) =>
       api()
         .post('/public/search')
-        .send({ location: { districtId: (intake as { districtId: number }).districtId, cityId: (intake as { cityId: number }).cityId }, desiredStartDate: date, page: 1, pageSize: 50 });
+        .send({ careType: 'HOME_SHIFT', location: { districtId: (intake as { districtId: number }).districtId, cityId: (intake as { cityId: number }).cityId }, desiredStartDate: date, page, pageSize: 50 });
+    // Every page: earlier runs leave many caregivers in the town.
     const ids = async (date: string) => {
-      const res = await search(date).expect(200);
-      return res.body.items.map((i: { publicId: string }) => i.publicId);
+      const all: string[] = [];
+      for (let page = 1; page <= 40; page++) {
+        const res = await search(date, page).expect(200);
+        all.push(...res.body.items.map((i: { publicId: string }) => i.publicId));
+        if (page * 50 >= res.body.total) break;
+      }
+      return all;
     };
     // Make sure they'd otherwise match on location.
     await db.execute(sql`UPDATE caregivers SET district_id = ${(intake as { districtId: number }).districtId}, city_id = ${(intake as { cityId: number }).cityId} WHERE id = ${cg.id}`);
@@ -302,7 +309,7 @@ describe('Bookings and shifts (e2e)', () => {
     await confirm(b.body.id).expect(200);
     expect(await ids(monday)).not.toContain(cg.publicId);
     expect(await ids(addDays(monday, 1))).toContain(cg.publicId);
-  });
+  }, 60_000);
 
   it("removes a client's bookings with the client", async () => {
     const cg = await newCaregiver();

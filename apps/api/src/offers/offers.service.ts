@@ -19,6 +19,7 @@ import { CareRequestsService } from '../care-requests/care-requests.service';
 import { PricingService } from '../pricing/pricing.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
+import { StaffAlertsService } from '../email/staff-alerts.service';
 import { JobsService } from '../jobs/jobs.service';
 import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
 import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
@@ -92,6 +93,7 @@ export class OffersService implements OnApplicationBootstrap {
     private readonly whatsapp: WhatsappProviderService,
     private readonly config: ConfigService,
     private readonly automation: AutomationService,
+    private readonly staffAlerts: StaffAlertsService,
   ) {}
 
   private coverAccept: CoverAccept | null = null;
@@ -425,7 +427,7 @@ export class OffersService implements OnApplicationBootstrap {
     return this.forCaregiver(user, now);
   }
 
-  /** The request gets its caregiver and a note, and the staff member who sent the offer is told. */
+  /** The request gets its caregiver and a note, and the staff member who sent the offer is told - or, for an offer the matching agent sent, staff (bell and email). */
   private async afterAccepted(offer: OfferRow, user: AuthenticatedUser) {
     const actor = { ...user };
     const requestId = offer.requestId!;
@@ -435,6 +437,24 @@ export class OffersService implements OnApplicationBootstrap {
     // The booking agent, when it is switched on, drafts the booking.
     await nudgeBooking(this.jobs, this.automation, requestId);
     if (!offer.sentByUserId) return;
+    if (offer.sentByUserId === (await this.automation.agentActor('MATCHING')).userId) {
+      const [[request], [caregiver]] = await Promise.all([
+        this.db.select({ reference: careRequests.reference }).from(careRequests).where(eq(careRequests.id, requestId)).limit(1),
+        this.db.select({ registrationNumber: caregivers.registrationNumber }).from(caregivers).where(eq(caregivers.id, offer.caregiverId)).limit(1),
+      ]);
+      const drafts = (await this.automation.gate('booking.create_draft', { caseType: 'REQUEST', caseId: requestId })).outcome;
+      await this.staffAlerts.tell({
+        subject: `Offer accepted: ${request?.reference ?? 'a request'}`,
+        paragraphs: [
+          `${caregiver?.registrationNumber ?? 'A caregiver'} accepted the job offer the matching agent sent, and is now attached to the request.`,
+          drafts === 'EXECUTE' ? 'The booking agent is drafting the booking: check it and confirm.' : drafts === 'PROPOSE' ? 'The booking agent will propose a draft booking for you to approve.' : 'Open the request to make the booking; the agreed rates are filled in for you.',
+        ],
+        path: `/requests/${requestId}`,
+        cta: 'Open the request',
+        label: `offer accepted ${offer.id}`,
+      });
+      return;
+    }
     const [[sender], [request], [caregiver]] = await Promise.all([
       this.db.select({ email: users.email, isActive: users.isActive }).from(users).where(eq(users.id, offer.sentByUserId)).limit(1),
       this.db.select({ reference: careRequests.reference }).from(careRequests).where(eq(careRequests.id, requestId)).limit(1),

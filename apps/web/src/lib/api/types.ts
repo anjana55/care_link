@@ -1,4 +1,4 @@
-import type { AdvancePayment, BillingTiming, CareType, PaymentHold, StaffCheckIn } from '@care-platform/shared';
+import type { AdvancePayment, BillingTiming, CareType, PaymentHold, RequestIntake, RequestSchedule, StaffCheckIn } from '@care-platform/shared';
 import type {
   BillingAdjustmentView as SharedBillingAdjustmentView,
   BookingAmendmentView as SharedBookingAmendmentView,
@@ -538,6 +538,10 @@ export interface CareRequestDetail {
   requestDistrict: string | null;
   requestCity: string | null;
   desiredStartDate: string | null;
+  /** The time of day this request asks for; null = what the client said at sign-up. */
+  schedule: RequestSchedule | null;
+  /** What the request still lacks, and what the client was asked (intake agent). */
+  intake: RequestIntake;
   client: {
     id: string;
     fullName: string;
@@ -1070,6 +1074,8 @@ export interface BillingSettings {
   paymentTermsDays: number;
   /** What a new booking starts with: billed after the work, or in advance. */
   defaultBillingTiming: BillingTiming;
+  /** Billed in advance: days before a month begins that its invoice goes out. */
+  advanceLeadDays: number;
   invoiceFooter: string | null;
   payhereEnabled: boolean;
   payhereMode: 'SANDBOX' | 'LIVE';

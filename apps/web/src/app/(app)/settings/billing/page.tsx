@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Copy } from 'lucide-react';
-import { BILLING_TIMINGS, type BillingTiming } from '@care-platform/shared';
+import { ADVANCE_INVOICE_LEAD_LIMITS, BILLING_TIMINGS, type BillingTiming } from '@care-platform/shared';
 import { useAuth } from '@/lib/api/auth-context';
 import { useTranslation } from '@/lib/i18n/provider';
 import { ApiError } from '@/lib/api/client';
@@ -28,6 +28,7 @@ type Draft = {
   nextInvoiceNumber: number;
   paymentTermsDays: number;
   defaultBillingTiming: BillingTiming;
+  advanceLeadDays: number;
   invoiceFooter: string;
   payhereEnabled: boolean;
   payhereMode: 'SANDBOX' | 'LIVE';
@@ -52,6 +53,7 @@ function toDraft(s: BillingSettings): Draft {
     nextInvoiceNumber: s.nextInvoiceNumber,
     paymentTermsDays: s.paymentTermsDays,
     defaultBillingTiming: s.defaultBillingTiming,
+    advanceLeadDays: s.advanceLeadDays,
     invoiceFooter: s.invoiceFooter ?? '',
     payhereEnabled: s.payhereEnabled,
     payhereMode: s.payhereMode,
@@ -173,7 +175,23 @@ export default function BillingSettingsPage() {
               ))}
             </Select>
             <p id="defaultTimingHint" className="mt-1 text-xs text-ink/50">
-              {t(`bookings.billingTiming.hint.${draft.defaultBillingTiming}`)} {t('billingAdmin.defaultTimingHint')}
+              {t(`bookings.billingTiming.hint.${draft.defaultBillingTiming}`, { days: draft.advanceLeadDays })} {t('billingAdmin.defaultTimingHint')}
+            </p>
+          </div>
+          <div className="sm:col-span-3">
+            <Label htmlFor="leadDays">{t('billingAdmin.leadDays')}</Label>
+            <Input
+              id="leadDays"
+              type="number"
+              className="sm:max-w-[8rem]"
+              min={ADVANCE_INVOICE_LEAD_LIMITS.min}
+              max={ADVANCE_INVOICE_LEAD_LIMITS.max}
+              value={draft.advanceLeadDays}
+              aria-describedby="leadDaysHint"
+              onChange={(e) => set('advanceLeadDays', Number(e.target.value))}
+            />
+            <p id="leadDaysHint" className="mt-1 text-xs text-ink/50">
+              {t('billingAdmin.leadDaysHint', { days: draft.advanceLeadDays, terms: draft.paymentTermsDays })}
             </p>
           </div>
           <div className="sm:col-span-3">

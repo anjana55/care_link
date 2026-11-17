@@ -267,4 +267,18 @@ export interface CaregiverShift extends PortalShift {
   checkIn: CaregiverCheckIn | null;
   /** Visits on this booking are paused until the client pays: do not go. */
   paused: boolean;
+  /** The caregiver told the office they cannot make this shift; the office is finding cover. Null otherwise. */
+  cantMake: ShiftCantMake | null;
+}
+
+/** "I can't make this shift": when the caregiver said so, and their note. */
+export interface ShiftCantMake {
+  at: string;
+  note: string | null;
+}
+export const CANT_MAKE_NOTE_MAX = 200;
+
+/** POST /me/shifts/:id/cant-make (caregiver). */
+export interface CantMakeShiftInput {
+  note?: string;
 }

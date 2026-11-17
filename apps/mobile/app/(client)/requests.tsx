@@ -11,6 +11,7 @@ import { PageHeader } from '@/ui/PageHeader';
 import { formatDate } from '@/ui/dates';
 import { useCancelRequest, useClient, useMyRequests } from '@/care/api';
 import { RequestSheet } from '@/care/RequestSheet';
+import { RequestDetails } from '@/care/RequestDetails';
 import { useMarkPathsRead } from '@/notifications/api';
 import { SignInPrompt } from '@/care/SignInPrompt';
 import { shortId } from '@/search/ResultCard';
@@ -104,7 +105,10 @@ function RequestCard({ request }: { request: ClientCareRequest }) {
       <Text style={{ fontSize: 13, color: colors.muted }}>
         {t('account.requests.reference', { reference: request.reference })} · {t('account.requests.sentOn', { date: formatDate(request.createdAt, locale) })}
         {request.desiredStartDate ? ` · ${t('account.requests.startsOn', { date: formatDate(request.desiredStartDate, locale) })}` : ''}
+        {request.schedule ? ` · ${t(`account.requests.details.schedules.${request.schedule}`)}` : ''}
       </Text>
+
+      <RequestDetails request={request} />
 
       {request.caregiver ? (
         <Button

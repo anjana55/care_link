@@ -186,7 +186,8 @@ export class MatchingAgentService implements OnApplicationBootstrap, OnModuleDes
         cityId: sql<number | null>`IF(${careRequests.districtId} IS NULL, ${patients.cityId}, ${careRequests.cityId})`,
         desiredStartDate: careRequests.desiredStartDate,
         assignedToUserId: careRequests.assignedToUserId,
-        schedule: patients.careSchedule,
+        // The request's own time of day (intake asks for it), else what the client said at sign-up.
+        schedule: sql<(typeof patients.careSchedule)['_']['data'] | null>`COALESCE(${careRequests.schedule}, ${patients.careSchedule})`,
         urgency: patients.careStart,
         genderPreference: patients.preferredCaregiverGender,
       })

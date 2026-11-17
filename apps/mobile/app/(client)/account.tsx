@@ -59,6 +59,8 @@ export default function Account() {
             <MenuRow icon="heart-outline" tone="accent" label={t('account.nav.saved')} onPress={() => router.navigate('/saved')} />
             <Divider />
             <MenuRow icon="receipt-outline" label={t('account.nav.invoices')} count={toPay} countLabel={said(toPay)} onPress={() => router.navigate('/invoices')} />
+            <Divider />
+            <MenuRow icon="call-outline" label={t('talk.title')} onPress={() => router.push('/talk')} />
           </Card>
         ) : null}
 

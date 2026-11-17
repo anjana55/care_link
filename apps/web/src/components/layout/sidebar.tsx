@@ -3,7 +3,10 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, Settings, ReceiptText, Wallet, Globe2, GraduationCap, Star, Megaphone, type LucideIcon } from 'lucide-react';
+import { X, LayoutDashboard, Users, HeartHandshake, Inbox, CalendarDays, Settings, ReceiptText, Wallet, Globe2, GraduationCap, Star, Megaphone, Phone, type LucideIcon } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import type { StaffTalkRequest } from '@care-platform/shared';
+import { api } from '@/lib/api/client';
 import { useCareRequestSummary } from '@/lib/hooks/use-care-requests';
 import { useInternationalSummary } from '@/lib/hooks/use-international';
 import { useAccountDeletionSummary } from '@/lib/hooks/use-account-deletions';
@@ -54,6 +57,8 @@ function useNavGroups(): NavGroup[] {
   const { data: overseas } = useInternationalSummary(office);
   const { data: deletions } = useAccountDeletionSummary(office);
   const { data: reviewCounts } = useReviewCounts(office);
+  // People who asked to talk to a person and are still waiting (the same list the page shows).
+  const { data: talk } = useQuery({ queryKey: ['talk-requests', 'OPEN'], queryFn: () => api.get<StaffTalkRequest[]>('/talk-requests?status=OPEN'), enabled: office, refetchInterval: 60_000 });
 
   if (!office) return [{ items: [DASHBOARD, CAREGIVERS, SETTINGS] }];
 
@@ -71,6 +76,7 @@ function useNavGroups(): NavGroup[] {
         // Requests lead: they are the day's worklist.
         { href: '/requests', key: 'nav.requests', icon: Inbox, badge: requestsNew, badgeLabel: t('requests.newCount', { count: requestsNew }) },
         { href: '/bookings', key: 'nav.bookings', icon: CalendarDays, also: ['/care-plans'] },
+        { href: '/people-waiting', key: 'nav.peopleWaiting', icon: Phone, badge: talk?.length ?? 0, badgeLabel: t('peopleWaiting.count', { count: talk?.length ?? 0 }) },
       ],
     },
     {

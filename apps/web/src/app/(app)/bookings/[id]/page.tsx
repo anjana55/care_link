@@ -18,6 +18,7 @@ import {
   useCompleteBooking,
   useConfirmBooking,
   useSendAdvanceInvoice,
+  useBookingDefaults,
   useResumeVisits,
   useAskClient,
   useExtendBooking,
@@ -38,6 +39,7 @@ import { EditBookingPanel } from '@/components/bookings/edit-booking-panel';
 import { CorrectBookingPanel } from '@/components/bookings/correct-booking-panel';
 import { BookingCorrections } from '@/components/bookings/booking-corrections';
 import { BookingCarePlan } from '@/components/bookings/booking-care-plan';
+import { StandbyCard } from '@/components/bookings/standby-card';
 import { BookingCareLog } from '@/components/bookings/booking-care-log';
 import { BookingRatingsCard } from '@/components/reviews/rating-panels';
 import {
@@ -215,6 +217,12 @@ export default function BookingPage() {
       </div>
 
       <Roster booking={booking} />
+
+      {booking.status === 'CONFIRMED' && (
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <StandbyCard bookingId={booking.id} editable />
+        </div>
+      )}
 
       {/* What the caregiver does on each shift, and what the client ticked off. */}
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
@@ -495,6 +503,8 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
   const [payRateType, setPayRateType] = useState<RateType | ''>(booking.payRateType ?? '');
   const [payRateAmount, setPayRateAmount] = useState(booking.payRateAmount ?? '');
   const [billingTiming, setBillingTiming] = useState<BillingTiming>(booking.billingTiming);
+  // For the hint: how many days before each month its advance invoice goes out (Settings > Billing).
+  const { data: defaults } = useBookingDefaults();
   const e = booking.estimate;
   const pay = booking.payEstimate;
   const margin = e.total && pay.total ? Number(e.total) - Number(pay.total) : null;
@@ -548,7 +558,7 @@ function RateCard({ booking, editable }: { booking: BookingDetail; editable: boo
               ))}
             </Select>
             <p id="billingTimingEditHint" className="text-xs text-ink/60">
-              {t(`bookings.billingTiming.hint.${billingTiming}`)}
+              {t(`bookings.billingTiming.hint.${billingTiming}`, { days: defaults?.advanceLeadDays ?? 5 })}
               {billingTiming !== booking.billingTiming && ` ${t('bookings.billingTiming.changeNote')}`}
             </p>
             <div className="flex gap-2">

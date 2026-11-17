@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
-import { and, eq, gt, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 import type {
   CareType,
   CaregiverHomeLocation,
@@ -359,6 +359,17 @@ export class PublicSearchService {
       })
       .from(caregivers)
       .where(whereClause)
+      // When more than the cap match, keep the ones ranking would put first: the
+      // searched town, then its district, then checked caregivers. Without an
+      // order the database returned any 500, and a caregiver in the client's
+      // own town could be left out of the results altogether.
+      .orderBy(
+        ...(request.location?.cityId || request.location?.districtId || origin?.districtId
+          ? [sql`CASE WHEN ${caregivers.cityId} = ${request.location?.cityId ?? 0} THEN 0 WHEN ${caregivers.districtId} = ${request.location?.districtId ?? origin?.districtId ?? 0} THEN 1 ELSE 2 END`]
+          : []),
+        sql`CASE WHEN ${inArray(caregivers.status, [...VERIFIED_CAREGIVER_STATUSES])} THEN 0 ELSE 1 END`,
+        asc(caregivers.id),
+      )
       .limit(MAX_CANDIDATE_POOL);
 
     if (!rows.length) return EMPTY_POOL(origin);

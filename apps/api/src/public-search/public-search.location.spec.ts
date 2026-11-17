@@ -221,6 +221,15 @@ describe('PublicSearchService location filtering', () => {
     expect(preferredQuery(queries)?.params).toEqual(expect.arrayContaining([340, 1, 654]));
   });
 
+  it('keeps the searched town first when more match than the pool holds', async () => {
+    // The pool is capped; without an order the database may return any of the matches.
+    const { db, queries } = stubDb(REFERENCE);
+    await serviceWith(db).search({ ...base, location: { districtId: 1, cityId: 340 }, radiusKm: 10 } as SearchRequestDto);
+    const pool = queries.find((q) => q.sql.includes('from `caregivers`') && q.sql.includes('limit'))!;
+    expect(pool.sql).toMatch(/order by CASE WHEN `caregivers`.`city_id` = \? THEN 0 WHEN `caregivers`.`district_id` = \? THEN 1 ELSE 2 END, CASE WHEN `caregivers`.`status` in .* limit \?$/);
+    expect(pool.params).toEqual(expect.arrayContaining([340, 1, 500]));
+  });
+
   it('does not narrow by location at all when no location is given', async () => {
     // The distinction `search()` depends on: an absent filter must not become
     // an empty id set, which would return nobody instead of everybody.

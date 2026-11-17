@@ -97,6 +97,17 @@ export function useShiftCheckIn() {
   });
 }
 
+/** "I can't make this shift" - and taking it back while nobody has taken it. */
+export function useCantMake() {
+  const qc = useQueryClient();
+  const me = useCaregiver();
+  return useMutation({
+    mutationFn: ({ shiftId, note, undo }: { shiftId: string; note?: string; undo?: boolean }) =>
+      undo ? api.delete<{ ok: true }>(`/me/shifts/${encodeURIComponent(shiftId)}/cant-make`) : api.post<{ ok: true }>(`/me/shifts/${encodeURIComponent(shiftId)}/cant-make`, note ? { note } : {}),
+    onSettled: () => qc.invalidateQueries({ queryKey: [...key(me?.userId), 'shifts'] }),
+  });
+}
+
 export function useShiftCheckOut() {
   const queryClient = useQueryClient();
   const me = useCaregiver();

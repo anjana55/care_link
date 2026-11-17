@@ -14,8 +14,7 @@ import type {
   PayhereCheckout,
   CareChecklistShift,
   CareRecordInput,
-  ClientCareDay,
-} from '@care-platform/shared';
+  ClientCareDay, ClientRequestDetailsInput} from '@care-platform/shared';
 import { api } from '../api/client';
 import { useAuth } from '../api/auth-context';
 import { useTranslation } from '../i18n';
@@ -92,6 +91,15 @@ export function useCancelRequest() {
   const invalidate = useInvalidateClient();
   return useMutation({
     mutationFn: (id: string) => api.post<ClientCareRequest>(`/me/care-requests/${id}/cancel`, {}),
+    onSuccess: () => invalidate(),
+  });
+}
+
+/** Fill in what the intake agent asked for on an open request. */
+export function useAddRequestDetails() {
+  const invalidate = useInvalidateClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: ClientRequestDetailsInput }) => api.patch<ClientCareRequest>(`/me/care-requests/${id}/details`, body),
     onSuccess: () => invalidate(),
   });
 }

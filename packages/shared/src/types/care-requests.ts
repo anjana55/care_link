@@ -1,5 +1,6 @@
 import type { PublicCaregiverProfile } from './public-search';
 import type { CareType } from './care-types';
+import type { IntakeGap, RequestSchedule } from './intake';
 
 /**
  * The client-facing contract for "Contact this caregiver" and "Save this
@@ -45,6 +46,10 @@ export interface ClientCareRequest {
   district: string | null;
   city: string | null;
   desiredStartDate: string | null;
+  /** The time of day asked for on this request, when given. */
+  schedule: RequestSchedule | null;
+  /** We asked the client for these details and they have not answered yet. Empty otherwise. */
+  detailsNeeded: IntakeGap[];
 }
 
 /**

@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, eq, gte, inArray, lte, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
 import { toColombo } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { bookingShifts, bookings, reviewRequests } from '../database/schema';
@@ -22,6 +22,8 @@ const LAST_HOUR = 19;
  */
 const ASK_RECENT_DAYS = 14;
 const BOOKINGS_PER_TICK = 300;
+/** At most this many pages a run (3,000 bookings with work in a fortnight). */
+const MAX_PAGES = 10;
 
 const isDuplicate = (err: unknown) => {
   const e = err as { code?: string; cause?: { code?: string } };
@@ -83,21 +85,42 @@ export class ReviewRequestSweepService implements OnApplicationBootstrap, OnModu
   }
 
   /** One pass: every booking with work that ended recently. Returns the messages sent. */
-  async run(now: Date, windowDays: number): Promise<number> {
+  /** `only`: just these bookings (tests and targeted runs), still within the fortnight. */
+  async run(now: Date, windowDays: number, only?: string[]): Promise<number> {
     const since = new Date(now.getTime() - ASK_RECENT_DAYS * 86_400_000);
-    const recent = await this.db
-      .selectDistinct({ bookingId: bookings.id, patientId: bookings.patientId, reference: bookings.reference, language: bookings.language })
-      .from(bookingShifts)
-      .innerJoin(bookings, eq(bookingShifts.bookingId, bookings.id))
-      .where(
-        and(
-          ne(bookings.status, 'DRAFT'),
-          inArray(bookingShifts.status, ['SCHEDULED', 'COMPLETED']),
-          lte(bookingShifts.endsAt, now),
-          gte(bookingShifts.endsAt, since),
-        ),
-      )
-      .limit(BOOKINGS_PER_TICK);
+    // Every booking with work in the last fortnight, a page at a time (newest work first), so a
+    // busy fortnight never leaves a just-finished booking out. Capped per run as a safety net.
+    let sent = 0;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const recent = await this.db
+        .select({ bookingId: bookings.id, patientId: bookings.patientId, reference: bookings.reference, language: bookings.language })
+        .from(bookingShifts)
+        .innerJoin(bookings, eq(bookingShifts.bookingId, bookings.id))
+        .where(
+          and(
+            ne(bookings.status, 'DRAFT'),
+            inArray(bookingShifts.status, ['SCHEDULED', 'COMPLETED']),
+            lte(bookingShifts.endsAt, now),
+            gte(bookingShifts.endsAt, since),
+            only ? inArray(bookings.id, only.length ? only : ['-']) : undefined,
+          ),
+        )
+        .groupBy(bookings.id, bookings.patientId, bookings.reference, bookings.language)
+        .orderBy(desc(sql`MAX(${bookingShifts.endsAt})`), bookings.id)
+        .limit(BOOKINGS_PER_TICK)
+        .offset(page * BOOKINGS_PER_TICK);
+      sent += await this.page(recent, now, since, windowDays);
+      if (recent.length < BOOKINGS_PER_TICK) break;
+    }
+    return sent;
+  }
+
+  private async page(
+    recent: { bookingId: string; patientId: string; reference: string; language: (typeof bookings.$inferSelect)["language"] }[],
+    now: Date,
+    since: Date,
+    windowDays: number,
+  ): Promise<number> {
     if (!recent.length) return 0;
 
     const asked = await this.db.select().from(reviewRequests).where(inArray(reviewRequests.bookingId, recent.map((b) => b.bookingId)));

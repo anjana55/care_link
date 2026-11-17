@@ -53,6 +53,7 @@ import { AutoNotifyToggle } from '@/components/caregivers/auto-notify-toggle';
 import { CaregiverRef } from '@/components/caregivers/caregiver-ref';
 import { CaregiverResultsCard } from '@/components/international/caregiver-results-card';
 import { ExperienceCard } from '@/components/caregivers/experience-card';
+import { VerificationFileCard } from '@/components/caregivers/verification-file-card';
 import type { CaregiverStatus } from '@/lib/api/types';
 import { Input, Select, RequiredLegend } from '@/components/ui/input';
 import { PersonalInfoFields } from '@/components/caregivers/personal-info-fields';
@@ -847,6 +848,7 @@ export default function CaregiverProfilePage() {
         </TabsContent>
 
         <TabsContent value="checks">
+          <VerificationFileCard caregiverId={id} />
           <h3 className="mb-3 text-sm font-semibold text-ink">{t('caregivers.profile.tabs.references')}</h3>
           <Card>
             <CardContent className="divide-y divide-border py-5">

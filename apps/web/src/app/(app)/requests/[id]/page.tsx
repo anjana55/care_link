@@ -133,7 +133,23 @@ export default function RequestDetailPage() {
                 <dt className="text-xs text-ink/50">{t('requests.detail.careFrom')}</dt>
                 <dd className="text-ink">{request.desiredStartDate ?? '—'}</dd>
               </div>
+              {request.schedule && (
+                <div>
+                  <dt className="text-xs text-ink/50">{t('requests.intake.schedule')}</dt>
+                  <dd className="text-ink">{t(`requests.intake.schedules.${request.schedule}`)}</dd>
+                </div>
+              )}
             </dl>
+          )}
+          {request.intake.gaps.length > 0 && (
+            <p className="mb-3 rounded border border-accent/30 bg-accent-light px-3 py-2 text-sm text-ink" data-testid="intake-gaps">
+              {t('requests.intake.missing', { what: request.intake.gaps.map((g) => t(`requests.intake.gaps.${g}`)).join(', ') })}
+              {request.intake.asked && !request.intake.answeredAt && (
+                <span className="block text-xs text-ink/60">
+                  {t('requests.intake.asked', { what: request.intake.asked.gaps.map((g) => t(`requests.intake.gaps.${g}`)).join(', '), when: new Date(request.intake.asked.at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) })}
+                </span>
+              )}
+            </p>
           )}
           {request.message ? (
             <p className="whitespace-pre-wrap text-sm text-ink">{request.message}</p>

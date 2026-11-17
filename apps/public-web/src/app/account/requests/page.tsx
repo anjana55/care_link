@@ -12,6 +12,7 @@ import { LoadingState, ErrorState } from '@/components/common/states';
 import { CaregiverSummary } from '@/components/care/caregiver-summary';
 import { Button } from '@/components/ui/button';
 import { ContactDialog } from '@/components/care/contact-dialog';
+import { RequestDetailsForm } from '@/components/care/request-details-form';
 
 const TONE: Record<CareRequestStatus, string> = {
   NEW: 'bg-amber-100 text-amber-800',
@@ -114,13 +115,16 @@ function RequestRow({ request }: { request: ClientCareRequest }) {
         </span>
       </div>
 
-      {(request.careType || request.district || request.desiredStartDate) && (
+      {(request.careType || request.district || request.desiredStartDate || request.schedule) && (
         <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink/70">
           {request.careType && <span className="font-medium text-ink">{t(`careTypes.${request.careType}`)}</span>}
           {request.district && <span>{[request.city, request.district].filter(Boolean).join(', ')}</span>}
           {request.desiredStartDate && <span>{t('account.requests.startsOn', { date: request.desiredStartDate })}</span>}
+          {request.schedule && <span>{t(`account.requests.details.schedules.${request.schedule}`)}</span>}
         </p>
       )}
+
+      <RequestDetailsForm request={request} />
 
       <p className="mt-3 text-sm text-ink/70">{t(`account.requests.statusHelp.${request.status}`)}</p>
 

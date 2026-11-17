@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { buildRequest, parseResponse, type ChatRequest, type ChatResult } from './ai-protocol';
+import { AttachmentNotSupportedError, buildRequest, parseResponse, type ChatRequest, type ChatResult } from './ai-protocol';
 import type { ResolvedAiSettings } from './ai-settings.service';
 
 /** The model could not be reached or answered with an error. Features fall back rather than fail. */
@@ -58,10 +58,17 @@ export class AiProviderService {
     // At most two parameters to learn, so at most three attempts.
     for (let attempt = 0; ; attempt++) {
       const temperature = quirks.noTemperature ? null : (req.temperature !== undefined ? req.temperature : settings.temperature);
-      const call = buildRequest(
-        { provider: settings.provider, baseUrl: settings.baseUrl, model: settings.model, apiKey: settings.apiKey },
-        { maxTokens: settings.maxTokens, ...req, temperature, tokenField: quirks.maxCompletionTokens ? 'max_completion_tokens' : 'max_tokens' },
-      );
+      let call: ReturnType<typeof buildRequest>;
+      try {
+        call = buildRequest(
+          { provider: settings.provider, baseUrl: settings.baseUrl, model: settings.model, apiKey: settings.apiKey },
+          { maxTokens: settings.maxTokens, ...req, temperature, tokenField: quirks.maxCompletionTokens ? 'max_completion_tokens' : 'max_tokens' },
+        );
+      } catch (err) {
+        // Nothing was sent: this provider cannot take the file.
+        if (err instanceof AttachmentNotSupportedError) throw new AiUnavailableError(err.message);
+        throw err;
+      }
       const { status, text } = await this.post(settings, call);
 
       if (status >= 200 && status < 300) {

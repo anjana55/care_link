@@ -206,7 +206,14 @@ describe('Portal-bound sign-in and message language (e2e)', () => {
     let intake: Record<string, unknown>;
     const e164 = (p: string) => `+94${p.replace(/^0/, '')}`;
     let counter = 0;
-    const newPhone = () => `076${String((run % 1000) * 10_000 + ++counter + 5000).padStart(7, '0')}`;
+    /** A number nobody holds yet: other suites (and earlier runs) use 076 too. */
+    const newPhone = async () => {
+      for (;;) {
+        const p = `076${String((run % 1000) * 10_000 + ++counter + 5000).padStart(7, '0')}`;
+        const [taken] = (await db.execute(sql`SELECT id FROM users WHERE phone = ${e164(p)} LIMIT 1`)) as unknown as [unknown[]];
+        if (!taken.length) return p;
+      }
+    };
     let adminToken: string;
 
     const requestOtp = (phone: string, portal?: string) =>
@@ -232,7 +239,7 @@ describe('Portal-bound sign-in and message language (e2e)', () => {
         careNeeds: 'Needs help with bathing, meals and medication reminders.', careSchedule: 'DAY', careStart: 'WITHIN_WEEK',
       };
 
-      caregiverPhone = newPhone();
+      caregiverPhone = (await newPhone());
       const reg = await api().post('/auth/whatsapp/register-caregiver').send({
         whatsappNumber: caregiverPhone, consentAccepted: true, fullName: 'WA Portal Caregiver', permanentAddress: '12 Temple Road, Colombo',
         dateOfBirth: '1992-06-15', gender: 'FEMALE', civilStatus: 'SINGLE', emergencyContactName: 'EC Person',
@@ -272,7 +279,7 @@ describe('Portal-bound sign-in and message language (e2e)', () => {
     });
 
     it('treats a client\'s number the same way on the caregiver portal', async () => {
-      const phone = newPhone();
+      const phone = (await newPhone());
       const reg = await api().post('/auth/whatsapp/register-patient').send({ whatsappNumber: phone, consentAccepted: true, fullName: 'WA Portal Client', ...intake }).expect(201);
       await api().post('/auth/whatsapp/verify-otp').send({ phone, purpose: 'REGISTER', code: reg.body.devOtp }).expect(201);
 

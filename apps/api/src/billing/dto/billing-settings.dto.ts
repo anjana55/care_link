@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, ValidateIf } from 'class-validator';
-import { BILLING_TIMINGS, type BillingTiming } from '@care-platform/shared';
+import { ADVANCE_INVOICE_LEAD_LIMITS, BILLING_TIMINGS, type BillingTiming } from '@care-platform/shared';
 import { payhereModeEnum } from '../../database/schema';
 
 /**
@@ -64,6 +64,13 @@ export class UpdateBillingSettingsDto {
   @IsOptional()
   @IsIn(BILLING_TIMINGS, { message: 'Choose when clients are billed' })
   defaultBillingTiming?: BillingTiming;
+
+  @ApiPropertyOptional({ example: 5, minimum: ADVANCE_INVOICE_LEAD_LIMITS.min, maximum: ADVANCE_INVOICE_LEAD_LIMITS.max, description: 'Billed in advance: days before a month begins that its invoice goes out' })
+  @IsOptional()
+  @IsInt({ message: 'Enter the number of days before the month' })
+  @Min(ADVANCE_INVOICE_LEAD_LIMITS.min, { message: 'Enter between 1 and 28 days' })
+  @Max(ADVANCE_INVOICE_LEAD_LIMITS.max, { message: 'Enter between 1 and 28 days' })
+  advanceLeadDays?: number;
 
   @ApiPropertyOptional({ description: 'Printed at the foot of every invoice, e.g. bank details' })
   @IsOptional() @IsString() @MaxLength(2000)

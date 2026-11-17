@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CaregiverRelation, ClientCareRequest, CreateCareRequestBody, SavedCaregiverItem } from '@care-platform/shared';
+import type { CaregiverRelation, ClientCareRequest, ClientRequestDetailsInput, CreateCareRequestBody, SavedCaregiverItem } from '@care-platform/shared';
 import { api } from '@/api';
 import { useAuth } from '@/auth/AuthProvider';
 import { useTranslation } from '@/i18n';
@@ -67,6 +67,15 @@ export function useSendRequest() {
   return useMutation({
     mutationFn: (body: CreateCareRequestBody) => api.post<ClientCareRequest>('/me/care-requests', body),
     onSuccess: refresh,
+  });
+}
+
+/** Fill in what the intake agent asked for on an open request. */
+export function useAddRequestDetails() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: ClientRequestDetailsInput }) => api.patch<ClientCareRequest>(`/me/care-requests/${encodeURIComponent(id)}/details`, body),
+    onSettled: refresh,
   });
 }
 

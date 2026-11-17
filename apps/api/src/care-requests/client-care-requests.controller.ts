@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Put, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -7,6 +7,7 @@ import type { RequestWithLanguage } from '../common/i18n/language.middleware';
 import { CareRequestsService } from './care-requests.service';
 import { SavedCaregiversService } from './saved-caregivers.service';
 import { CreateCareRequestDto } from './dto/create-care-request.dto';
+import { RequestDetailsDto } from './dto/request-details.dto';
 
 /**
  * The signed-in client's own requests and shortlist, on the public site.
@@ -35,6 +36,12 @@ export class ClientCareRequestsController {
   @Post('care-requests')
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateCareRequestDto, @Req() req: RequestWithLanguage) {
     return this.requests.create(user, dto, req.lang ?? 'en');
+  }
+
+  /** The client fills in what we asked them for (see the intake agent). */
+  @Patch('care-requests/:id/details')
+  addDetails(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: RequestDetailsDto) {
+    return this.requests.addDetailsByClient(user, id, dto);
   }
 
   @Post('care-requests/:id/cancel')

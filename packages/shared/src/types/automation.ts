@@ -29,7 +29,7 @@ export const ACTION_LIMITS: Partial<Record<string, { key: string; default: numbe
 };
 
 /** The agents that exist so far. The others have a dial, but nothing behind it yet. */
-export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING', 'MATCHING', 'BOOKING', 'LIVE_CARE'];
+export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING', 'MATCHING', 'BOOKING', 'LIVE_CARE', 'INTAKE', 'ONBOARDING'];
 
 /**
  * The dial, lowest to highest.
@@ -71,6 +71,7 @@ export const AUTOMATION_ACTIONS = {
   'intake.draft_request': { function: 'INTAKE', tier: 0, label: 'Draft a care request from what the client said' },
   'intake.answer_question': { function: 'INTAKE', tier: 0, label: 'Answer a common question' },
   'intake.create_request': { function: 'INTAKE', tier: 1, label: 'Create the care request' },
+  'intake.ask_client': { function: 'INTAKE', tier: 1, label: 'Ask the client for what a request is missing' },
 
   // Matching and dispatch
   'matching.rank_caregivers': { function: 'MATCHING', tier: 0, label: 'Rank matching caregivers, with reasons' },
@@ -90,6 +91,7 @@ export const AUTOMATION_ACTIONS = {
   'billing.draft_payout': { function: 'BILLING', tier: 1, label: 'Draft a caregiver payout' },
   'billing.record_payment': { function: 'BILLING', tier: 2, label: 'Match a received payment to an invoice' },
   'billing.approve_payout': { function: 'BILLING', tier: 2, label: 'Approve a payout under the limit' },
+  'billing.remind_payment': { function: 'BILLING', tier: 1, label: 'Remind a client that an invoice is due' },
   'billing.approve_large_payout': { function: 'BILLING', tier: 3, label: 'Approve a payout over the limit' },
   'billing.refund': { function: 'BILLING', tier: 3, label: 'Refund or write off an amount' },
   'billing.change_bank_details': { function: 'BILLING', tier: 3, label: "Change a caregiver's payout bank details" },

@@ -134,6 +134,7 @@ export class BillingSettingsService {
       nextInvoiceNumber: dto.nextInvoiceNumber ?? current.nextInvoiceNumber,
       paymentTermsDays: dto.paymentTermsDays ?? current.paymentTermsDays,
       defaultBillingTiming: dto.defaultBillingTiming ?? current.defaultBillingTiming,
+      advanceLeadDays: dto.advanceLeadDays ?? current.advanceLeadDays,
       invoiceFooter: dto.invoiceFooter === undefined ? current.invoiceFooter : dto.invoiceFooter.trim() || null,
       payhereEnabled: dto.payhereEnabled ?? current.payhereEnabled,
       payhereMode: dto.payhereMode ?? current.payhereMode,

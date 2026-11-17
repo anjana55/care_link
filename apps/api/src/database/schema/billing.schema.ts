@@ -1,6 +1,6 @@
-import { mysqlTable, varchar, datetime, date, mysqlEnum, text, index, decimal, boolean, int, uniqueIndex } from 'drizzle-orm/mysql-core';
+import { mysqlTable, varchar, datetime, date, mysqlEnum, text, index, decimal, boolean, int, uniqueIndex, primaryKey } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
-import { BILLING_TIMINGS } from '@care-platform/shared';
+import { BILLING_TIMINGS, PAYMENT_REMINDER_STAGES } from '@care-platform/shared';
 import { careRequestLanguageEnum } from './care-requests.schema';
 
 /**
@@ -70,6 +70,8 @@ export const billingSettings = mysqlTable('billing_settings', {
   paymentTermsDays: int('payment_terms_days').notNull().default(7),
   // What a new booking starts with: billed AFTER the work, or in ADVANCE. Staff can change it on any booking.
   defaultBillingTiming: mysqlEnum('default_billing_timing', BILLING_TIMINGS).notNull().default('AFTER'),
+  // Billed in advance: how many days before a month begins its invoice goes out.
+  advanceLeadDays: int('advance_lead_days').notNull().default(5),
   // Printed at the foot of every invoice: bank details, thank-you line.
   invoiceFooter: text('invoice_footer'),
 
@@ -408,5 +410,18 @@ export const billingAdjustments = mysqlTable(
     patientIdx: index('billing_adjustments_patient_idx').on(table.patientId, table.status),
     caregiverIdx: index('billing_adjustments_caregiver_idx').on(table.caregiverId, table.status),
     bookingIdx: index('billing_adjustments_booking_idx').on(table.bookingId),
+  }),
+);
+
+/** One row per payment reminder sent for an invoice (billing agent), so each stage goes once. */
+export const invoiceReminders = mysqlTable(
+  'invoice_reminders',
+  {
+    invoiceId: varchar('invoice_id', { length: 36 }).notNull(),
+    stage: mysqlEnum('stage', PAYMENT_REMINDER_STAGES).notNull(),
+    sentAt: datetime('sent_at').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.invoiceId, table.stage] }),
   }),
 );

@@ -12,8 +12,24 @@ export interface ChatToolCall {
   arguments: Record<string, unknown>;
 }
 
+/**
+ * A file shown to the model with a user message: an image (JPEG, PNG, WEBP)
+ * or a PDF. Base64, never a URL - the model gets the bytes, not a link it
+ * could share or fetch again.
+ */
+export interface ChatAttachment {
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf';
+  base64: string;
+  filename: string;
+}
+export const ATTACHMENT_MEDIA_TYPES: readonly ChatAttachment['mediaType'][] = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+/** The provider cannot take this kind of file (Ollama reads images only). Nothing was sent. */
+export class AttachmentNotSupportedError extends Error {}
+
 export type ChatMessage =
-  | { role: 'system' | 'user'; content: string }
+  | { role: 'system'; content: string }
+  | { role: 'user'; content: string; attachments?: ChatAttachment[] }
   | { role: 'assistant'; content: string; toolCalls?: ChatToolCall[] }
   | { role: 'tool'; content: string; toolCallId: string; name: string };
 
@@ -101,6 +117,10 @@ function buildOllama(cfg: ProviderConfig, req: ChatRequest): HttpCall {
       };
     }
     if (m.role === 'tool') return { role: 'tool', content: m.content, tool_name: m.name };
+    if (m.role === 'user' && m.attachments?.length) {
+      if (m.attachments.some((a) => a.mediaType === 'application/pdf')) throw new AttachmentNotSupportedError('This model reads images only, not PDF files');
+      return { role: 'user', content: m.content, images: m.attachments.map((a) => a.base64) };
+    }
     return { role: m.role, content: m.content };
   });
   const headers: Record<string, string> = { 'content-type': 'application/json' };
@@ -135,6 +155,20 @@ function buildOpenAi(cfg: ProviderConfig, req: ChatRequest): HttpCall {
       };
     }
     if (m.role === 'tool') return { role: 'tool', tool_call_id: m.toolCallId, content: m.content };
+    if (m.role === 'user' && m.attachments?.length) {
+      // Images as data URLs; PDFs as a file part (OpenAI's chat format for documents).
+      return {
+        role: 'user',
+        content: [
+          { type: 'text', text: m.content },
+          ...m.attachments.map((a) =>
+            a.mediaType === 'application/pdf'
+              ? { type: 'file', file: { filename: a.filename, file_data: `data:${a.mediaType};base64,${a.base64}` } }
+              : { type: 'image_url', image_url: { url: `data:${a.mediaType};base64,${a.base64}` } },
+          ),
+        ],
+      };
+    }
     return { role: m.role, content: m.content };
   });
   const headers: Record<string, string> = { 'content-type': 'application/json' };
@@ -168,7 +202,15 @@ function buildAnthropic(cfg: ProviderConfig, req: ChatRequest): HttpCall {
   };
   for (const m of req.messages) {
     if (m.role === 'system') continue;
-    if (m.role === 'user') push('user', [{ type: 'text', text: m.content }]);
+    if (m.role === 'user') {
+      // Files first, then the question about them.
+      const files: Block[] = (m.attachments ?? []).map((a) =>
+        a.mediaType === 'application/pdf'
+          ? { type: 'document', source: { type: 'base64', media_type: a.mediaType, data: a.base64 } }
+          : { type: 'image', source: { type: 'base64', media_type: a.mediaType, data: a.base64 } },
+      );
+      push('user', [...files, { type: 'text', text: m.content }]);
+    }
     else if (m.role === 'tool') push('user', [{ type: 'tool_result', tool_use_id: m.toolCallId, content: m.content }]);
     else if (m.role === 'assistant') {
       const blocks: Block[] = [];
