@@ -18,6 +18,7 @@ import { SEED_PASSWORD } from './seed-password';
 // suites move the same dials, and separate files would run at the same time.
 import './billing-agent.cases';
 import './matching-agent.cases';
+import './booking-agent.cases';
 
 /**
  * The automation rail over real HTTP and MySQL: everything starts Manual, the

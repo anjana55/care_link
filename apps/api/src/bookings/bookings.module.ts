@@ -5,13 +5,14 @@ import { WhatsappModule } from '../whatsapp/whatsapp.module';
 import { CarePlansModule } from '../care-plans/care-plans.module';
 import { BookingsService } from './bookings.service';
 import { BookingNotifier } from './booking-notifier.service';
+import { BookingAgentService } from './booking-agent.service';
 import { BookingsController, MyBookingsController } from './bookings.controller';
 
 @Module({
   imports: [PublicSearchModule, EmailModule, WhatsappModule, CarePlansModule],
   controllers: [BookingsController, MyBookingsController],
-  providers: [BookingsService, BookingNotifier],
+  providers: [BookingsService, BookingNotifier, BookingAgentService],
   // The assistant runs approved booking changes through BookingsService; corrections also tell people through BookingNotifier.
-  exports: [BookingsService, BookingNotifier],
+  exports: [BookingsService, BookingNotifier, BookingAgentService],
 })
 export class BookingsModule {}

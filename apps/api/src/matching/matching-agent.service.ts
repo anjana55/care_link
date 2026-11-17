@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, eq, exists, gte, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, eq, exists, gte, inArray, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import {
   CARE_OFFER_MINUTES,
   MAX_OPEN_CARE_OFFERS,
@@ -238,6 +238,9 @@ export class MatchingAgentService implements OnApplicationBootstrap, OnModuleDes
     // Someone has the job (an offer was accepted, or staff chose a caregiver): the agent's part is over.
     if (request.caregiverId || !OPEN_CARE_REQUEST_STATUSES.includes(request.status)) {
       if (request.caregiverId && agentOffered && offerRows.some((o) => o.status === 'ACCEPTED')) {
+        // Once the booking exists (drafted by the booking agent, or made by staff) the note about it is theirs to write.
+        const [booked] = await this.db.select({ id: bookings.id }).from(bookings).where(and(eq(bookings.careRequestId, request.id), ne(bookings.status, 'CANCELLED'))).limit(1);
+        if (booked || ['EXECUTE', 'PROPOSE'].includes((await this.automation.gate('booking.create_draft', ref)).outcome)) return 'nothing';
         await this.automation.setHandoverNote(ref, {
           done: 'A caregiver accepted the job offer and is attached to the request',
           waiting: 'Staff to make the booking; the agreed rates are filled in',

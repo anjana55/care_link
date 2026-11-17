@@ -29,7 +29,7 @@ export const ACTION_LIMITS: Partial<Record<string, { key: string; default: numbe
 };
 
 /** The agents that exist so far. The others have a dial, but nothing behind it yet. */
-export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING', 'MATCHING'];
+export const BUILT_AGENTS: readonly AutomationFunction[] = ['BILLING', 'MATCHING', 'BOOKING'];
 
 /**
  * The dial, lowest to highest.
@@ -134,7 +134,8 @@ export type AutomationCaseType = (typeof AUTOMATION_CASE_TYPES)[number];
  * history), so with everything in Manual the pages look exactly as before.
  */
 export const CASE_TYPE_FUNCTIONS: Record<AutomationCaseType, readonly AutomationFunction[]> = {
-  REQUEST: ['INTAKE', 'MATCHING'],
+  // The booking agent drafts a request's booking, so it works on the request until the booking exists.
+  REQUEST: ['INTAKE', 'MATCHING', 'BOOKING'],
   BOOKING: ['BOOKING', 'LIVE_CARE', 'BILLING'],
   SHIFT: ['LIVE_CARE'],
   INVOICE: ['BILLING'],
