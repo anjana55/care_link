@@ -43,7 +43,7 @@ describe('Onboarding agent (e2e)', () => {
   const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
   const run = (Math.floor(Date.now() / 1000) + 7300) % 10_000;
   let n = 0;
-  const newPhone = () => `079${String(run * 1000 + ++n).padStart(7, '0')}`; // 079: no other suite uses it
+  const newPhone = () => `078${String(run * 1000 + ++n).padStart(7, '0')}`; // 078: every number is valid, and no other suite uses it
   const DAY = 86_400_000;
 
   /** An applicant who has registered: profile complete, no documents, two referees with email addresses. */

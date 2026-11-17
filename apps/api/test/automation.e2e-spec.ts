@@ -369,7 +369,9 @@ describe('Automation rail (e2e)', () => {
 
       // Copying Settings > AI needs only a name.
       const copied = (await ep.create({ name: 'Same as search', copyDefault: true }).expect(201)).body as AutomationOverview;
-      expect(copied.endpoints.find((e) => e.name === 'Same as search')).toMatchObject({ provider: 'OLLAMA', clearedFor: 'PUBLIC' });
+      // It takes whatever Settings > AI uses now (other suites change it), cleared for public data only.
+      const current = (await api().get('/settings/ai').set(bearer(adminToken)).expect(200)).body as { provider: string };
+      expect(copied.endpoints.find((e) => e.name === 'Same as search')).toMatchObject({ provider: current.provider, clearedFor: 'PUBLIC' });
     });
 
     it('assigns a main and a backup model to an agent, and will not delete one in use', async () => {

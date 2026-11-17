@@ -256,7 +256,8 @@ describe('Bookings and shifts (e2e)', () => {
       .expect(200);
     expect(live.body.shifts).toHaveLength(7);
     expect(live.body.shifts[0].hours).toBe(24);
-    expect(live.body.estimate.total).toBe('21000.00');
+    // A part-month is days/30 with the quantity to two places (as on an invoice): 7/30 = 0.23 of a month.
+    expect(live.body.estimate.total).toBe('20700.00');
 
     const id = draft.body.id;
     const shift = live.body.shifts[0].id;
@@ -291,7 +292,7 @@ describe('Bookings and shifts (e2e)', () => {
     const search = (date: string) =>
       api()
         .post('/public/search')
-        .send({ location: { districtId: (intake as { districtId: number }).districtId, cityId: (intake as { cityId: number }).cityId }, desiredStartDate: date, page: 1, pageSize: 50 });
+        .send({ careType: 'HOME_SHIFT', location: { districtId: (intake as { districtId: number }).districtId, cityId: (intake as { cityId: number }).cityId }, desiredStartDate: date, page: 1, pageSize: 50 });
     const ids = async (date: string) => {
       const res = await search(date).expect(200);
       return res.body.items.map((i: { publicId: string }) => i.publicId);

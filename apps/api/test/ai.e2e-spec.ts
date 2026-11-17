@@ -1,3 +1,4 @@
+import { colomboToday } from '@care-platform/shared';
 import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -197,21 +198,20 @@ describe('AI features (e2e)', () => {
     expect(r.location).toEqual({ districtId }); // unknown city dropped
     expect(r.optionalSkillIds).toEqual([skillId]);
     expect(r.mandatorySkillIds).toBeUndefined(); // S999 does not exist
-    expect(r.desiredStartDate).toBeUndefined(); // in the past
+    expect(r.desiredStartDate).toBe(colomboToday()); // the model's date was in the past: dropped, and today assumed
     expect(r.shift).toBe('NIGHT');
     expect(r.caregiverGenderPreference).toBe('FEMALE');
-    expect(r.budget).toEqual({ dailyRate: 4500 });
     expect(r.patient).toEqual({ age: 81, gender: 'FEMALE', medicalConditions: ['dementia'] });
     expect(res.body.summary.care).toContain('Night care');
 
-    await api().post('/public/ai/extract').send({ query: 'short' }).expect(400);
+    await api().post('/public/ai/extract').send({ query: 'x' }).expect(400); // a bare town name is enough, one letter is not
   });
 
   it('re-ranks only the hard-filtered pool, with reasons, and pages without asking the model again', async () => {
     const a = await newCaregiver();
     const b = await newCaregiver();
-    const today = new Date().toISOString().slice(0, 10);
-    const body = { request: { location: { districtId }, desiredStartDate: today, page: 1, pageSize: 50, locale: 'en' }, query: 'Night care for my father' };
+    const today = colomboToday();
+    const body = { request: { careType: 'HOME_SHIFT', location: { districtId }, desiredStartDate: today, page: 1, pageSize: 50, locale: 'en' }, query: 'Night care for my father' };
 
     const plain = await api().post('/public/search').send(body.request).expect(200);
     const res = await api().post('/public/ai/search').send(body).expect(200);

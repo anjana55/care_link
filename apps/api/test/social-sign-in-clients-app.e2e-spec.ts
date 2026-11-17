@@ -43,7 +43,7 @@ describe('Social sign-in for clients and the app (e2e)', () => {
   const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
   const run = Math.floor(Date.now() / 1000) % 10_000;
   let n = 0;
-  const newPhone = () => `074${String(run * 1000 + ++n).padStart(7, '0')}`;
+  const newPhone = () => `076${String(run * 1000 + ++n).padStart(7, '0')}`; // 076: every number is valid, and no other suite uses it
   const newEmail = () => `social-${run}-${++n}@example.com`;
   const nonce = () => randomBytes(12).toString('hex');
   const verifierAndChallenge = () => {

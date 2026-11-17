@@ -321,31 +321,35 @@ describe('Caregiver ratings and reviews (e2e)', () => {
     // Still working, but only since yesterday: not yet.
     const ongoing = await booking(client.patientId, cg.id, [{ from: -20 }, { from: 30 }]);
     const sweep = app.get(ReviewRequestSweepService);
+    // Only this test's bookings: a shared database can hold many others from the last fortnight.
+    const mine: string[] = [done, ongoing];
     const asked = async (bookingId: string) => (await db.select().from(reviewRequests).where(eq(reviewRequests.bookingId, bookingId))).map((r) => r.stage).sort();
 
     const now = new Date();
-    await sweep.run(now, 90);
+    await sweep.run(now, 90, mine);
     expect(await asked(done)).toEqual(['ASK']);
     expect(await asked(ongoing)).toEqual([]);
-    await sweep.run(now, 90);
+    await sweep.run(now, 90, mine);
     expect(await asked(done)).toEqual(['ASK']);
 
-    await sweep.run(new Date(now.getTime() + 2 * DAY), 90);
+    await sweep.run(new Date(now.getTime() + 2 * DAY), 90, mine);
     expect(await asked(done)).toEqual(['ASK']);
-    await sweep.run(new Date(now.getTime() + 3 * DAY + HOUR), 90);
+    await sweep.run(new Date(now.getTime() + 3 * DAY + HOUR), 90, mine);
     expect(await asked(done)).toEqual(['ASK', 'REMINDER']);
-    await sweep.run(new Date(now.getTime() + 6 * DAY), 90);
+    await sweep.run(new Date(now.getTime() + 6 * DAY), 90, mine);
     expect(await asked(done)).toEqual(['ASK', 'REMINDER']);
 
     // A long booking is asked about after the first week, even while it carries on.
     const long = await booking(client.patientId, cg.id, [{ from: -8 * 24 }, { from: -30 }, { from: 30 }]);
-    await sweep.run(new Date(), 90);
+    mine.push(long);
+    await sweep.run(new Date(), 90, mine);
     expect(await asked(long)).toEqual(['ASK']);
 
     // Rated: nothing more.
     const rated = await booking(client.patientId, cg.id, [{ from: -30 }]);
+    mine.push(rated);
     await rate(client.token, rated, cg.publicId, { rating: 5 }).expect(200);
-    await sweep.run(new Date(), 90);
+    await sweep.run(new Date(), 90, mine);
     expect(await asked(rated)).toEqual([]);
   });
 });
