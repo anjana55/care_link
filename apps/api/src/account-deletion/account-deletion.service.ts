@@ -1,6 +1,6 @@
 import { ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID as uuid } from 'crypto';
-import { and, desc, eq, gt, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, lte, or, sql } from 'drizzle-orm';
 import {
   ACCOUNT_DELETION_GRACE_DAYS,
   type AccountDeletionReceipt,
@@ -91,6 +91,10 @@ const NO_OPEN_ITEMS: AccountOpenItems = {
  * tax records. Records of what happened abroad (offers, placements, welfare
  * reports, certificates issued) are kept for the same reason.
  */
+const ERASE_BATCH = 50;
+/** At most 5,000 due requests are looked at in one pass, oldest first. */
+const ERASE_MAX_BATCHES = 100;
+
 @Injectable()
 export class AccountDeletionService {
   private readonly logger = new Logger(AccountDeletionService.name);
@@ -338,16 +342,33 @@ export class AccountDeletionService {
 
   /** Erases every request past its grace period with nothing left open. Returns how many were erased. */
   async eraseDue(now = new Date()): Promise<number> {
-    const due = await this.db
-      .select()
-      .from(accountDeletionRequests)
-      .where(and(eq(accountDeletionRequests.status, 'PENDING'), lte(accountDeletionRequests.eraseAfter, now)))
-      .limit(50);
     let erased = 0;
-    for (const r of due) {
-      const open = await this.openItems(r, now);
-      if (Object.values(open).some((n) => n > 0)) continue; // waits for staff to settle it
-      if (await this.erase(r, now)) erased += 1;
+    // In batches, oldest first, past every request still held: one held for an
+    // unpaid payout must not keep the ones behind it waiting.
+    let after: { eraseAfter: Date; id: string } | null = null;
+    for (let batch = 0; batch < ERASE_MAX_BATCHES; batch++) {
+      const due: Request[] = await this.db
+        .select()
+        .from(accountDeletionRequests)
+        .where(
+          and(
+            eq(accountDeletionRequests.status, 'PENDING'),
+            lte(accountDeletionRequests.eraseAfter, now),
+            after
+              ? or(gt(accountDeletionRequests.eraseAfter, after.eraseAfter), and(eq(accountDeletionRequests.eraseAfter, after.eraseAfter), gt(accountDeletionRequests.id, after.id)))
+              : undefined,
+          ),
+        )
+        .orderBy(asc(accountDeletionRequests.eraseAfter), asc(accountDeletionRequests.id))
+        .limit(ERASE_BATCH);
+      for (const r of due) {
+        const open = await this.openItems(r, now);
+        if (Object.values(open).some((n) => n > 0)) continue; // waits for staff to settle it
+        if (await this.erase(r, now)) erased += 1;
+      }
+      if (due.length < ERASE_BATCH) break;
+      const last = due[due.length - 1]!;
+      after = { eraseAfter: last.eraseAfter, id: last.id };
     }
     return erased;
   }

@@ -217,9 +217,16 @@ describe('AI features (e2e)', () => {
     const res = await api().post('/public/ai/search').send(body).expect(200);
     expect(res.body.aiRanked).toBe(true);
     expect(res.body.total).toBe(plain.body.total);
-    const ids = res.body.items.map((i: { publicId: string }) => i.publicId);
-    expect(ids).toEqual(expect.arrayContaining([a.publicId, b.publicId]));
     expect(res.body.items[0].aiReason).toMatch(/^Good fit C\d+$/);
+    // Earlier runs leave many caregivers in the district: look across the pages (the order is cached, so the model is not asked again).
+    const before = seen.length;
+    const ids: string[] = res.body.items.map((i: { publicId: string }) => i.publicId);
+    for (let page = 2; (page - 1) * 50 < res.body.total && page <= 40; page++) {
+      const more = await api().post('/public/ai/search').send({ ...body, request: { ...body.request, page } }).expect(200);
+      ids.push(...more.body.items.map((i: { publicId: string }) => i.publicId));
+    }
+    expect(ids).toEqual(expect.arrayContaining([a.publicId, b.publicId]));
+    expect(seen.length).toBe(before);
     // Nothing reached the model that the public card does not show.
     const rerank = seen.filter((s) => s.messages[0]?.content?.includes('order a shortlist')).at(-1)!;
     expect(JSON.stringify(rerank)).not.toContain(a.fullName);
