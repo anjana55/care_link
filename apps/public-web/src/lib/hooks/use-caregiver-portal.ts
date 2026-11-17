@@ -169,6 +169,17 @@ export function useMyShifts() {
   });
 }
 
+/** "I can't make this shift" - and taking it back while nobody has taken the shift. */
+export function useCantMake() {
+  const id = useCaregiverId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ shiftId, note, undo }: { shiftId: string; note?: string; undo?: boolean }) =>
+      undo ? api.delete(`/me/shifts/${shiftId}/cant-make`) : api.post(`/me/shifts/${shiftId}/cant-make`, note ? { note } : {}),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['portal', id, 'booked-shifts'] }),
+  });
+}
+
 /** The caregiver's approved and paid payout statements (GET /me/payouts). */
 export function useMyPayouts() {
   const id = useCaregiverId();

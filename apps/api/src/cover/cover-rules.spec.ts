@@ -82,4 +82,14 @@ describe('coverOfferMinutes', () => {
     expect(coverOfferMinutes(visit, at(352))).toBe(8);
     expect(coverOfferMinutes(visit, at(400))).toBe(1);
   });
+
+  it('looks for cover at once for a shift the caregiver cannot make - days ahead, or already started', () => {
+    const now = new Date('2026-11-17T04:00:00Z');
+    const ahead = { startsAt: '2026-11-20T02:30:00Z', endsAt: '2026-11-20T11:30:00Z', status: 'SCHEDULED', checkedInAt: null, cantMakeAt: '2026-11-17T03:50:00Z' };
+    expect(coverStep(ahead, { earlyMinutes: 60, lateAfterMinutes: 15 }, [], now)).toEqual({ step: 'offer', wave: 1, minutesLate: 0, minutesLeft: Math.floor((Date.parse(ahead.endsAt) - now.getTime()) / 60_000) });
+    expect(coverStep({ ...ahead, cantMakeAt: null }, { earlyMinutes: 60, lateAfterMinutes: 15 }, [], now)).toEqual({ step: 'none' });
+    // Someone is deciding: wait. Over: nothing.
+    expect(coverStep(ahead, { earlyMinutes: 60, lateAfterMinutes: 15 }, [{ status: 'OFFERED', expiresAt: '2026-11-17T08:00:00Z' }], now)).toEqual({ step: 'none' });
+    expect(coverStep({ ...ahead, endsAt: '2026-11-17T03:00:00Z', startsAt: '2026-11-16T18:00:00Z' }, { earlyMinutes: 60, lateAfterMinutes: 15 }, [], now)).toEqual({ step: 'none' });
+  });
 });

@@ -22,6 +22,8 @@ export interface CoverVisit {
   /** Only scheduled shifts are covered. */
   status: string;
   checkedInAt: Date | string | null;
+  /** The caregiver said they cannot make it: cover is looked for now, before the visit, without waiting for it to be late. */
+  cantMakeAt?: Date | string | null;
 }
 
 export type CoverStep =
@@ -40,11 +42,12 @@ export function coverStep(
   now: Date = new Date(),
 ): CoverStep {
   if (visit.status !== 'SCHEDULED' || visit.checkedInAt) return { step: 'none' };
-  // Late means started, not over, and nobody checked in.
-  if (visitState({ ...visit, checkedInAt: null, checkedOutAt: null }, settings, now) !== 'LATE') return { step: 'none' };
   const t = now.getTime();
-  const minutesLate = Math.floor((t - ms(visit.startsAt)) / 60_000);
-  if (minutesLate < settings.lateAfterMinutes + COVER_AFTER_LATE_MINUTES) return { step: 'none' };
+  if (ms(visit.endsAt) <= t) return { step: 'none' };
+  // Late means started, not over, and nobody checked in. A shift the caregiver cannot make needs no waiting.
+  if (!visit.cantMakeAt && visitState({ ...visit, checkedInAt: null, checkedOutAt: null }, settings, now) !== 'LATE') return { step: 'none' };
+  const minutesLate = Math.max(0, Math.floor((t - ms(visit.startsAt)) / 60_000));
+  if (!visit.cantMakeAt && minutesLate < settings.lateAfterMinutes + COVER_AFTER_LATE_MINUTES) return { step: 'none' };
 
   const states = offers.map((o) => effectiveCareOfferStatus(o.status, o.expiresAt, now));
   // Someone took it (they are on their way), or someone is still deciding.

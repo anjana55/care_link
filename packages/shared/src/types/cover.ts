@@ -94,3 +94,13 @@ export interface SendCoverOffersInput {
   expiresInMinutes?: number;
   note?: string | null;
 }
+
+/** GET /bookings/:id/standby (staff): who is asked first when one of this booking's shifts needs cover. */
+export interface BookingStandby {
+  bookingId: string;
+  standby: { caregiverId: string; fullName: string; registrationNumber: string; phone: string | null } | null;
+  /** Who chose them: staff, or the booking agent. */
+  setBy: 'STAFF' | 'AGENT' | null;
+  /** Good fits for the booking's next shift, best first (not the booked caregiver). Empty when nothing is coming up. */
+  suggestions: CoverSuggestion[];
+}

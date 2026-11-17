@@ -87,6 +87,9 @@ export const bookings = mysqlTable(
     paymentHoldAt: datetime('payment_hold_at'),
     // An invoice staff have chosen not to pause visits for (confirmed or resumed without payment).
     paymentHoldWaivedInvoiceId: varchar('payment_hold_waived_invoice_id', { length: 36 }),
+    // Asked first, alone, whenever one of this booking's shifts needs cover. Set by staff or the booking agent.
+    standbyCaregiverId: varchar('standby_caregiver_id', { length: 36 }),
+    standbySetBy: mysqlEnum('standby_set_by', ['STAFF', 'AGENT']),
     notes: text('notes'),
 
     createdByUserId: varchar('created_by_user_id', { length: 36 }),
@@ -152,6 +155,11 @@ export const bookingShifts = mysqlTable(
     rateAmount: decimal('rate_amount', { precision: 10, scale: 2 }),
     payRateType: mysqlEnum('pay_rate_type', shiftRateTypeEnum),
     payRateAmount: decimal('pay_rate_amount', { precision: 10, scale: 2 }),
+    // "I can't make this shift": the caregiver on it at the time said so. Cleared when cover takes it or staff
+    // hear they can come after all.
+    cantMakeAt: datetime('cant_make_at'),
+    cantMakeNote: varchar('cant_make_note', { length: 200 }),
+    cantMakeCaregiverId: varchar('cant_make_caregiver_id', { length: 36 }),
     updatedByUserId: varchar('updated_by_user_id', { length: 36 }),
     createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),

@@ -795,7 +795,16 @@
       "careTypesTitle": "Types of care you take on",
       "careTypesHint": "Families search by the type of care they need. Untick anything you don't do and you won't be shown for it.",
       "careTypesRequired": "Choose at least one type of care.",
-      "paused": "Visits paused by the office - do not go"
+      "paused": "Visits paused by the office - do not go",
+      "cantMake": {
+        "button": "I can't make this shift",
+        "title": "Can't make this shift?",
+        "why": "We'll tell the office and find someone to cover it. The sooner you tell us, the better for the family.",
+        "note": "A short note for the office (optional)",
+        "send": "Tell the office",
+        "told": "You told the office you can't make it - we're finding someone to cover.",
+        "afterAll": "I can make it after all"
+      }
     },
     "documents": {
       "title": "Your documents",

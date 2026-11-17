@@ -1909,6 +1909,15 @@
       "resume": "Resume visits without payment",
       "reasonLabel": "Why do visits resume without payment?",
       "resumeConfirm": "Resume visits"
+    },
+    "standby": {
+      "title": "Standby caregiver",
+      "about": "Asked first, on their own, whenever one of this booking's shifts needs cover. Being standby is not a promise - they can say no.",
+      "none": "No standby yet.",
+      "byAgent": "Lined up by the booking agent",
+      "choose": "Make standby",
+      "remove": "Remove",
+      "suggestions": "Good fits for the next shift"
     }
   },
   "filters": {
@@ -4359,6 +4368,10 @@
       },
       "billed": "This shift is already on {doc}. Cover still works: when someone accepts, the change of caregiver is recorded as a correction on the booking, and the client's bill does not change."
     },
-    "paused": "Paused: unpaid invoice - nobody is sent"
+    "paused": "Paused: unpaid invoice - nobody is sent",
+    "cantMake": {
+      "said": "Can't make it (told us at {when})",
+      "afterAll": "They can come after all"
+    }
   }
 }

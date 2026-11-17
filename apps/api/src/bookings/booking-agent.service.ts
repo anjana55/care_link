@@ -83,6 +83,7 @@ type Candidate = {
 export class BookingAgentService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(BookingAgentService.name);
   private timer?: NodeJS.Timeout;
+  private readonly parts: ((now: Date) => Promise<Pick<AgentRunResult, 'considered' | 'decided' | 'scored' | 'leftToStaff'>>)[] = [];
 
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
@@ -119,7 +120,30 @@ export class BookingAgentService implements OnApplicationBootstrap, OnModuleDest
   }
 
   /** One pass over requests whose caregiver accepted an offer and that have no booking yet - all, or just `only`. */
+  /** Other parts of the booking agent that live in modules above this one (a standby caregiver, in cover), registered at start-up. */
+  registerPart(part: (now: Date) => Promise<Pick<AgentRunResult, 'considered' | 'decided' | 'scored' | 'leftToStaff'>>) {
+    this.parts.push(part);
+  }
+
+  /** One pass: drafting bookings for accepted offers - or just the requests in `only` - then, on a full pass, every other part. */
   async sweep(now = new Date(), only?: string[]): Promise<AgentRunResult> {
+    const run = await this.sweepDrafts(now, only);
+    if (run.mode === 'MANUAL' || only) return run;
+    for (const part of this.parts) {
+      try {
+        const more = await part(now);
+        run.considered += more.considered;
+        run.decided += more.decided;
+        run.scored += more.scored;
+        run.leftToStaff += more.leftToStaff;
+      } catch (err) {
+        this.logger.warn(`Booking agent part failed: ${(err as Error).message}`);
+      }
+    }
+    return run;
+  }
+
+  private async sweepDrafts(now: Date, only?: string[]): Promise<AgentRunResult> {
     const gate = await this.automation.gate(DRAFT);
     const run: AgentRunResult = { function: 'BOOKING', mode: gate.mode, considered: 0, decided: 0, scored: 0, leftToStaff: 0 };
     if (gate.mode === 'MANUAL') return run;

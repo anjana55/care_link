@@ -138,6 +138,8 @@ export interface TodayVisit {
   coverWaiting: number;
   /** Visits on this booking are paused until the client pays: nobody should go. */
   paused: boolean;
+  /** The caregiver said they cannot make it. */
+  cantMake: { at: string; note: string | null } | null;
 }
 
 export interface TodayVisits {

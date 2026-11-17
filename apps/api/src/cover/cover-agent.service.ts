@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { and, eq, gt, inArray, isNull, lt } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm';
 import { toColombo, type AgentRunResult } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { agentDecisions, bookingShifts, bookings, caregivers, requestOffers, shiftCheckins } from '../database/schema';
@@ -17,6 +17,8 @@ const FLAG = 'live_care.flag_visit' as const;
 export interface CoverProposal extends VisitProposal {
   endsAt: string;
   wave: number;
+  /** The caregiver said they cannot make it (rather than being late). */
+  cantMake?: boolean;
   candidates: { caregiverId: string; registrationNumber: string; score: number; reasons: string[] }[];
 }
 
@@ -64,7 +66,7 @@ export class CoverAgentService implements OnApplicationBootstrap {
     const gate = await this.automation.gate(REPLACE);
     if (gate.mode === 'MANUAL') return run;
     const settings = await this.checkIns.settings();
-    if (!settings.enabled) return run;
+    // With check-in off nobody is "late", but a caregiver can still say they cannot make a shift.
     run.scored = await this.scoreShadows(now, only);
     if (only && !only.length) return run;
 
@@ -79,6 +81,7 @@ export class CoverAgentService implements OnApplicationBootstrap {
         caregiverId: bookingShifts.caregiverId,
         registration: caregivers.registrationNumber,
         checkedInAt: shiftCheckins.checkedInAt,
+        cantMakeAt: bookingShifts.cantMakeAt,
       })
       .from(bookingShifts)
       .innerJoin(bookings, eq(bookingShifts.bookingId, bookings.id))
@@ -89,7 +92,8 @@ export class CoverAgentService implements OnApplicationBootstrap {
           eq(bookings.status, 'CONFIRMED'),
           isNull(bookings.paymentHoldInvoiceId),
           eq(bookingShifts.status, 'SCHEDULED'),
-          lt(bookingShifts.startsAt, now),
+          // Started, or the caregiver said they cannot make it (cover is looked for ahead of time then).
+          settings.enabled ? or(lt(bookingShifts.startsAt, now), isNotNull(bookingShifts.cantMakeAt)) : isNotNull(bookingShifts.cantMakeAt),
           gt(bookingShifts.endsAt, now),
           only ? inArray(bookingShifts.id, only) : undefined,
         ),
@@ -141,7 +145,9 @@ export class CoverAgentService implements OnApplicationBootstrap {
         if (await this.seen(REPLACE, key)) continue;
         const shift = await this.cover.shift(row.shiftId);
         if (this.cover.blocked(shift, now)) continue;
-        const ranked = (await this.cover.rank(shift, now)).slice(0, COVER_WAVE);
+        // The booking's standby is asked first, on their own; then the best-placed caregivers, a few at a time.
+        const standby = await this.cover.standbyFirst(shift);
+        const ranked = standby ? [standby] : (await this.cover.rank(shift, now)).filter((r) => r.caregiverId !== shift.standbyCaregiverId).slice(0, COVER_WAVE);
         if (!ranked.length) {
           await giveUp(flagReason('NO_COVER', { minutes: asked }, row.registration, time), asked);
           continue;
@@ -151,13 +157,14 @@ export class CoverAgentService implements OnApplicationBootstrap {
           ...base,
           endsAt: new Date(row.endsAt).toISOString(),
           wave: step.wave,
+          cantMake: Boolean(row.cantMakeAt),
           minutes: step.minutesLate,
           candidates: ranked.map((r) => ({ caregiverId: r.caregiverId, registrationNumber: r.registrationNumber, score: r.score, reasons: r.reasons })),
         };
         const decision = await this.automation.decide({
           action: REPLACE,
           case: ref,
-          reason: `Offer the ${time} visit as cover to ${ranked.map((r) => r.registrationNumber).join(', ')}: ${row.registration} is ${step.minutesLate} min late, was asked to check in, and has not${step.wave > 1 ? ` (round ${step.wave}: nobody asked so far took it)` : ''}`,
+          reason: `Offer the ${time} visit as cover to ${ranked.map((r) => r.registrationNumber).join(', ')}${standby ? ' (the booking\'s standby)' : ''}: ${row.cantMakeAt ? `${row.registration} said they cannot make it` : `${row.registration} is ${step.minutesLate} min late, was asked to check in, and has not`}${step.wave > 1 ? ` (round ${step.wave}: nobody asked so far took it)` : ''}`,
           proposal,
           dedupeKey: key,
         });
@@ -197,7 +204,7 @@ export class CoverAgentService implements OnApplicationBootstrap {
     await this.automation.setHandoverNote(
       { caseType: 'BOOKING', caseId: p.bookingId },
       {
-        done: `Offered the ${time} visit as cover to ${result.sent.length} caregiver${result.sent.length === 1 ? '' : 's'} (${p.caregiverRegistration} has not checked in)`,
+        done: `Offered the ${p.cantMake ? `${toColombo(p.startsAt).date} ` : ''}${time} visit as cover to ${result.sent.length} caregiver${result.sent.length === 1 ? '' : 's'} (${p.caregiverRegistration} ${p.cantMake ? 'cannot make it' : 'has not checked in'})`,
         waiting: `One of them to accept by ${toColombo(result.expiresAt).time}`,
         next: 'Put the first to accept on the shift; if nobody does, ask the next caregivers, then tell staff',
       },

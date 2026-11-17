@@ -8,7 +8,7 @@ import { CHECK_IN_NOTE_MAX, colomboLocalToIso, type TodayVisit } from '@care-pla
 import { useTranslation } from '@/lib/i18n/provider';
 import { useAuth } from '@/lib/api/auth-context';
 import { ApiError } from '@/lib/api/client';
-import { useRecordVisit, useTodayVisits } from '@/lib/hooks/use-check-in';
+import { useClearCantMake, useRecordVisit, useTodayVisits } from '@/lib/hooks/use-check-in';
 import { fmtDate, fmtTime } from '@/lib/colombo-time';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
@@ -87,6 +87,22 @@ export default function TodayVisitsPage() {
   );
 }
 
+/** The caregiver said they cannot make it: when, their note, and "Can come after all" for when they phone back. */
+function CantMakeNote({ visit: v }: { visit: TodayVisit }) {
+  const { t, locale } = useTranslation();
+  const clear = useClearCantMake(v.shiftId);
+  if (!v.cantMake) return null;
+  return (
+    <div className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900" data-testid="cant-make">
+      <p className="font-medium">{t('visits.cantMake.said', { when: fmtTime(v.cantMake.at, locale) })}</p>
+      {v.cantMake.note && <p>“{v.cantMake.note}”</p>}
+      <button type="button" className="font-medium text-brand hover:underline disabled:opacity-50" disabled={clear.isPending} onClick={() => clear.mutate()}>
+        {t('visits.cantMake.afterAll')}
+      </button>
+    </div>
+  );
+}
+
 function VisitRow({ visit: v, date, on }: { visit: TodayVisit; date: string; on: boolean }) {
   const { t, locale } = useTranslation();
   const [recording, setRecording] = useState<'check-in' | 'check-out' | null>(null);
@@ -118,6 +134,7 @@ function VisitRow({ visit: v, date, on }: { visit: TodayVisit; date: string; on:
           </Link>
           {v.isCover && <span className="ml-1 text-xs text-accent">({t('visits.cover')})</span>}
           {v.paused && <p className="text-xs font-medium text-danger">{t('visits.paused')}</p>}
+          {v.cantMake && <CantMakeNote visit={v} />}
           {v.coverWaiting > 0 && <p className="text-xs font-medium text-accent">{t('visits.coverPanel.waiting', { n: v.coverWaiting })}</p>}
           <p className="text-xs text-ink/50">{v.caregiver.registrationNumber}</p>
           {v.caregiver.phone && (

@@ -185,6 +185,8 @@ export class LiveCareAgentService implements OnApplicationBootstrap, OnModuleDes
           // Visits paused for payment: nobody is meant to come, so there is nothing to chase.
           isNull(bookings.paymentHoldInvoiceId),
           eq(bookingShifts.status, 'SCHEDULED'),
+          // The caregiver said they cannot make it: there is nobody to chase; the cover part takes it from there.
+          isNull(bookingShifts.cantMakeAt),
           only ? inArray(bookingShifts.id, only) : and(lt(bookingShifts.startsAt, now), gt(bookingShifts.endsAt, new Date(now.getTime() - LIVE_WINDOW_HOURS * 3_600_000))),
         ),
       )

@@ -7,6 +7,8 @@ import { CorrectionsModule } from '../corrections/corrections.module';
 import { CoverService } from './cover.service';
 import { CoverAgentService } from './cover-agent.service';
 import { CoverController } from './cover.controller';
+import { ShiftDropoutsService } from './shift-dropouts.service';
+import { MyCantMakeController, StaffCantMakeController, StandbyController } from './dropouts.controller';
 
 /**
  * Cover for a shift whose caregiver cannot come. It sits above offers (the
@@ -15,8 +17,8 @@ import { CoverController } from './cover.controller';
  */
 @Module({
   imports: [OffersModule, BookingsModule, CorrectionsModule, EmailModule, CandidatePoolModule],
-  controllers: [CoverController],
-  providers: [CoverService, CoverAgentService],
-  exports: [CoverService, CoverAgentService],
+  controllers: [CoverController, MyCantMakeController, StaffCantMakeController, StandbyController],
+  providers: [CoverService, CoverAgentService, ShiftDropoutsService],
+  exports: [CoverService, CoverAgentService, ShiftDropoutsService],
 })
 export class CoverModule {}

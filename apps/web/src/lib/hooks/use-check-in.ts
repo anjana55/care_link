@@ -25,6 +25,18 @@ export function useRecordVisit(shiftId: string, what: 'check-in' | 'check-out') 
   });
 }
 
+/** Staff: the caregiver who said they cannot make a shift can after all (waiting cover offers are withdrawn). */
+export function useClearCantMake(shiftId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.delete<{ ok: true }>(`/visits/${shiftId}/cant-make`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: KEY });
+      queryClient.invalidateQueries({ queryKey: ['bookings', 'detail'] });
+    },
+  });
+}
+
 export function useCheckInSettings() {
   return useQuery({ queryKey: [...KEY, 'settings'], queryFn: () => api.get<AdminCheckInSettings>('/settings/check-in') });
 }

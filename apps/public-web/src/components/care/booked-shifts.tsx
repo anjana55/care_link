@@ -7,6 +7,7 @@ import { ShiftList } from './shift-list';
 import { IssueReportList, ReportIssueForm } from './report-issue';
 import { ShiftCarePlan } from './shift-care-plan';
 import { CheckInAction, CheckInForm, CheckInStatus } from './shift-check-in';
+import { CantMakeForm, CantMakeStatus, canSayCantMake } from './cant-make';
 
 /**
  * The caregiver's confirmed work, read-only: staff arrange bookings and any
@@ -31,6 +32,7 @@ export function BookedShifts() {
   const [reporting, setReporting] = useState<string | null>(null);
   const [planFor, setPlanFor] = useState<string | null>(null);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
+  const [cantMakeFor, setCantMakeFor] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const now = Date.now();
 
@@ -52,12 +54,17 @@ export function BookedShifts() {
               <>
                 {s.bookingReference}
                 {s.area && ` · ${s.area}`}
-                {s.paused ? <span className="block font-medium text-danger">{t('portal.shifts.paused')}</span> : <CheckInStatus shift={s} />}
+                {s.paused ? <span className="block font-medium text-danger">{t('portal.shifts.paused')}</span> : s.cantMake ? <CantMakeStatus shift={s} /> : <CheckInStatus shift={s} />}
               </>
             )}
             action={(s) => (
               <>
-                {checkingIn !== s.id && !s.paused && <CheckInAction shift={s} onOpen={() => setCheckingIn(s.id)} />}
+                {checkingIn !== s.id && !s.paused && !s.cantMake && <CheckInAction shift={s} onOpen={() => setCheckingIn(s.id)} />}
+                {!s.cantMake && cantMakeFor !== s.id && checkingIn !== s.id && canSayCantMake(s, now) && (
+                  <button type="button" className="text-xs font-medium text-brand hover:underline" onClick={() => setCantMakeFor(s.id)}>
+                    {t('portal.shifts.cantMake.button')}
+                  </button>
+                )}
                 {s.hasCarePlan && (
                   <button
                     type="button"
@@ -83,8 +90,9 @@ export function BookedShifts() {
               </>
             )}
             below={(s) =>
-              planFor === s.id || reporting === s.id || checkingIn === s.id ? (
+              planFor === s.id || reporting === s.id || checkingIn === s.id || cantMakeFor === s.id ? (
                 <>
+                  {cantMakeFor === s.id && <CantMakeForm shift={s} onDone={() => setCantMakeFor(null)} />}
                   {checkingIn === s.id && <CheckInForm shift={s} onDone={() => setCheckingIn(null)} />}
                   {planFor === s.id && <ShiftCarePlan shiftId={s.id} />}
                   {reporting === s.id && (

@@ -39,6 +39,7 @@ import { EditBookingPanel } from '@/components/bookings/edit-booking-panel';
 import { CorrectBookingPanel } from '@/components/bookings/correct-booking-panel';
 import { BookingCorrections } from '@/components/bookings/booking-corrections';
 import { BookingCarePlan } from '@/components/bookings/booking-care-plan';
+import { StandbyCard } from '@/components/bookings/standby-card';
 import { BookingCareLog } from '@/components/bookings/booking-care-log';
 import { BookingRatingsCard } from '@/components/reviews/rating-panels';
 import {
@@ -216,6 +217,12 @@ export default function BookingPage() {
       </div>
 
       <Roster booking={booking} />
+
+      {booking.status === 'CONFIRMED' && (
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <StandbyCard bookingId={booking.id} editable />
+        </div>
+      )}
 
       {/* What the caregiver does on each shift, and what the client ticked off. */}
       <div className="mt-4 grid gap-4 xl:grid-cols-2">

@@ -237,6 +237,8 @@ export class CheckInService {
         bookingId: bookings.id,
         reference: bookings.reference,
         paused: bookings.paymentHoldInvoiceId,
+        cantMakeAt: bookingShifts.cantMakeAt,
+        cantMakeNote: bookingShifts.cantMakeNote,
         startsAt: bookingShifts.startsAt,
         endsAt: bookingShifts.endsAt,
         status: bookingShifts.status,
@@ -289,6 +291,7 @@ export class CheckInService {
           checkIn,
           coverWaiting: coverWaiting.get(r.shiftId) ?? 0,
           paused: Boolean(r.paused),
+          cantMake: r.cantMakeAt ? { at: r.cantMakeAt.toISOString(), note: r.cantMakeNote } : null,
         };
       }),
     };

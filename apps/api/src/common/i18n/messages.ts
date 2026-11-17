@@ -142,6 +142,15 @@ const ENTRIES: Triple[] = [
   ['Fill in at least one detail', 'අවම වශයෙන් එක් විස්තරයක් පුරවන්න', 'குறைந்தது ஒரு விவரத்தையாவது நிரப்பவும்'],
   ['This request is no longer open', 'මෙම ඉල්ලීම තවදුරටත් විවෘත නැත', 'இந்தக் கோரிக்கை இனி திறந்திருக்கவில்லை'],
   ['Choose the town', 'නගරය තෝරන්න', 'நகரத்தைத் தேர்ந்தெடுக்கவும்'],
+  // "I can't make this shift" and the standby caregiver
+  ['Keep the note under 200 characters', 'සටහන අක්ෂර 200කට අඩුවෙන් තබන්න', 'குறிப்பை 200 எழுத்துகளுக்குள் வைக்கவும்'],
+  ['This shift is not going ahead', 'මෙම සේවා කාලය සිදු නොවේ', 'இந்த ஷிப்ட் நடைபெறாது'],
+  ['You have checked in for this shift - please call the office', 'ඔබ මෙම සේවා කාලයට පැමිණීම සටහන් කර ඇත - කරුණාකර කාර්යාලය අමතන්න', 'இந்த ஷிப்டுக்கு நீங்கள் வருகை பதிவு செய்துள்ளீர்கள் - அலுவலகத்தை அழைக்கவும்'],
+  ['This booking is closed', 'මෙම වෙන්කිරීම වසා ඇත', 'இந்த முன்பதிவு மூடப்பட்டுள்ளது'],
+  ['The booked caregiver cannot be their own standby', 'වෙන්කළ සත්කාරකයාට තමාගේම විකල්පයා විය නොහැක', 'முன்பதிவு செய்த பராமரிப்பாளர் தனக்குத் தானே மாற்றாக இருக்க முடியாது'],
+  ['This caregiver cannot be offered shifts', 'මෙම සත්කාරකයාට සේවා කාල ලබා දිය නොහැක', 'இந்தப் பராமரிப்பாளருக்கு ஷிப்டுகளை வழங்க முடியாது'],
+  ['This proposal has no booking', 'මෙම යෝජනාවට වෙන්කිරීමක් නැත', 'இந்த முன்மொழிவில் முன்பதிவு இல்லை'],
+  ['This booking has a standby already', 'මෙම වෙන්කිරීමට දැනටමත් විකල්පයෙක් සිටී', 'இந்த முன்பதிவுக்கு ஏற்கனவே ஒரு மாற்று உள்ளார்'],
   // A referee's confirmation page (onboarding agent)
   ['This link is not valid or has expired', 'මෙම සබැඳිය වලංගු නැත හෝ කල් ඉකුත් වී ඇත', 'இந்த இணைப்பு செல்லாது அல்லது காலாவதியாகிவிட்டது'],
   ['Thank you - this has already been answered', 'ස්තූතියි - මෙයට දැනටමත් පිළිතුරු දී ඇත', 'நன்றி - இதற்கு ஏற்கனவே பதில் அளிக்கப்பட்டுள்ளது'],

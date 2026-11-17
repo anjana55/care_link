@@ -42,6 +42,7 @@ const at = (ms: number) => new Date(Date.now() + ms).toISOString();
 const shift = (n: number, startsIn: number, over: Partial<CaregiverShift> = {}): CaregiverShift => ({
   id: `s-${n}`,
   paused: false,
+  cantMake: null,
   startsAt: at(startsIn),
   endsAt: at(startsIn + 8 * HOUR),
   status: 'SCHEDULED',
@@ -264,6 +265,31 @@ describe('Shifts', () => {
     expect(await screen.findByText(en.checkIn.caregiver.out.replace('{in}', '08:03').replace('{out}', '17:01'))).toBeTruthy();
     expect(calls.find((c) => c.route === 'POST /me/shifts/s-1/check-out')!.body).toEqual({});
     expect(screen.queryByRole('button', { name: en.checkIn.caregiver.checkOut })).toBeNull();
+  });
+
+  it("tells the office it can't make a shift, with a note, and can take it back", async () => {
+    await signIn();
+    let current = shift(1, 48 * HOUR, { hasCarePlan: false, checkIn: null });
+    const calls = serveApi({
+      'GET /me/shifts': () => ({ status: 200, body: [current] }),
+      'GET /me/issues': () => ({ status: 200, body: [] }),
+      'POST /me/shifts/s-1/cant-make': () => {
+        current = { ...current, cantMake: { at: at(0), note: 'Sick' } };
+        return { status: 200, body: { ok: true } };
+      },
+      'DELETE /me/shifts/s-1/cant-make': () => {
+        current = { ...current, cantMake: null };
+        return { status: 200, body: { ok: true } };
+      },
+    });
+    await show(<Shifts />);
+    await fireEvent.press(await screen.findByRole('link', { name: en.portal.shifts.cantMake.button }));
+    await fireEvent.changeText(screen.getByLabelText(en.portal.shifts.cantMake.note), '  Sick  ');
+    await fireEvent.press(screen.getByRole('button', { name: en.portal.shifts.cantMake.send }));
+    expect(await screen.findByText(en.portal.shifts.cantMake.told)).toBeTruthy();
+    expect(calls.find((c) => c.route === 'POST /me/shifts/s-1/cant-make')!.body).toEqual({ note: 'Sick' });
+    await fireEvent.press(screen.getByRole('link', { name: en.portal.shifts.cantMake.afterAll }));
+    expect(await screen.findByRole('link', { name: en.portal.shifts.cantMake.button })).toBeTruthy();
   });
 
   it('offers no check-in when it is too early, locked or switched off', async () => {

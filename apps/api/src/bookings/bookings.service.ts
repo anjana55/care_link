@@ -1575,6 +1575,8 @@ export class BookingsService {
         reference: bookings.reference,
         scheduleType: bookings.scheduleType,
         held: bookings.paymentHoldInvoiceId,
+        cantMakeAt: bookingShifts.cantMakeAt,
+        cantMakeNote: bookingShifts.cantMakeNote,
         city: cities.nameEn,
         district: districts.nameEn,
       })
@@ -1609,6 +1611,7 @@ export class BookingsService {
       hasCarePlan: withPlan.has(r.id),
       checkIn: checkIns.get(r.id) ?? null,
       paused: Boolean(r.held),
+      cantMake: r.cantMakeAt ? { at: r.cantMakeAt.toISOString(), note: r.cantMakeNote } : null,
     }));
   }
 }
