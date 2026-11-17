@@ -1,9 +1,11 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, like } from 'drizzle-orm';
 import { createHash, randomBytes } from 'crypto';
 import {
+  DOCUMENT_READ_TRIES,
   ONBOARDING_DOCUMENT_DAYS,
+  ONBOARDING_DOCUMENT_REMIND_DAYS,
   ONBOARDING_STATUSES,
   REFERENCE_ANSWER_DAYS,
   REFERENCE_LINK_DAYS,
@@ -92,6 +94,16 @@ const DOC_TEXT: Record<Lang, { title: string; body: string }> = {
   ta: { title: 'உங்கள் பதிவுக்கு ஆவணங்கள் தேவை', body: 'உங்கள் பதிவைச் சரிபார்த்து முடிக்க எங்களுக்குத் தேவை: {what}. அவற்றை ஆவணங்கள் பகுதியில் பதிவேற்றவும்.' },
 };
 
+const DOC_REMIND_TEXT: Record<Lang, { title: string; body: string }> = {
+  en: { title: 'Reminder: documents for your registration', body: 'We still need {what} to finish checking your registration. Please upload them under Documents.' },
+  si: { title: 'මතක් කිරීම: ඔබගේ ලියාපදිංචියට ලේඛන', body: 'ඔබගේ ලියාපදිංචිය පරීක්ෂා කිරීම අවසන් කිරීමට අපට තවමත් {what} අවශ්‍යයි. කරුණාකර ඒවා ලේඛන යටතේ උඩුගත කරන්න.' },
+  ta: { title: 'நினைவூட்டல்: உங்கள் பதிவுக்கான ஆவணங்கள்', body: 'உங்கள் பதிவைச் சரிபார்த்து முடிக்க எங்களுக்கு இன்னும் {what} தேவை. அவற்றை ஆவணங்கள் பகுதியில் பதிவேற்றவும்.' },
+};
+
+/** Errors that another try would not fix: the file itself, not the model. */
+const READ_FINAL_ERRORS = ['This document has been removed', 'This kind of file cannot be read', 'The model set up reads images only'];
+const READ_RETRY_MS = 60 * 60 * 1000;
+
 /** The referee's message: who gave their name, and the link. Nothing else about the caregiver. */
 const REFEREE_TEXT: Record<Lang, string> = {
   en: '{caregiver} gave your name as a reference ({relationship}) when applying to work as a caregiver with us. Could you answer three short questions? {url}',
@@ -159,7 +171,9 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name;
  *   proposed in Assist, only logged in Shadow.
  * - It never marks anyone verified or rejected (tier 3), and never changes a
  *   document's or a reference's verification.
- * - Unanswered for 5 days (documents) or 7 (a referee): staff are told, once.
+ * - Documents: one reminder after 3 days; still nothing after 5, staff are
+ *   told, once. A referee unanswered for 7 days: staff are told, once.
+ * - A document the model could not read is tried again, up to 3 tries.
  */
 @Injectable()
 export class OnboardingAgentService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -296,7 +310,7 @@ export class OnboardingAgentService implements OnApplicationBootstrap, OnModuleD
       if (!(ONBOARDING_STATUSES as readonly string[]).includes(item.cg.status)) continue;
       try {
         // Documents are read first, so the file below already counts what they say.
-        if (readable && item.unread.length && (await this.readDocuments(item))) item = (await this.load([item.cg.id]))[0] ?? item;
+        if (readable && item.unread.length && (await this.readDocuments(item, now))) item = (await this.load([item.cg.id]))[0] ?? item;
         const r = await this.consider(item, now);
         if (r.considered) run.considered++;
         run.decided += r.decided;
@@ -313,25 +327,57 @@ export class OnboardingAgentService implements OnApplicationBootstrap, OnModuleD
    * for SENSITIVE data is set up for onboarding: without one nothing is
    * logged and nothing is sent. Returns whether anything was read.
    */
-  private async readDocuments({ cg, unread }: Loaded): Promise<boolean> {
+  private async readDocuments({ cg, unread }: Loaded, now: Date): Promise<boolean> {
     const ref = { caseType: 'CAREGIVER' as const, caseId: cg.id };
     if ((await this.automation.gate(READ, ref)).outcome === 'NONE') return false;
     let read = false;
     for (const d of unread) {
+      const tryNo = await this.nextReadTry(d.id, now);
+      if (!tryNo) continue;
+      const kind = d.type.toLowerCase().replace(/_/g, ' ');
       const decision = await this.automation.decide({
         action: READ,
         case: ref,
-        reason: `Read ${cg.registrationNumber}'s ${d.type.toLowerCase().replace(/_/g, ' ')} and compare it with the profile`,
+        reason: `${tryNo > 1 ? `Try again (${tryNo} of ${DOCUMENT_READ_TRIES}): read` : 'Read'} ${cg.registrationNumber}'s ${kind} and compare it with the profile`,
         proposal: { caregiverId: cg.id, registrationNumber: cg.registrationNumber, documentId: d.id, documentType: d.type } satisfies ReadProposal,
-        dedupeKey: `read|${d.id}`,
+        dedupeKey: tryNo > 1 ? `read|${d.id}|${tryNo}` : `read|${d.id}`,
       });
       if (decision.decisionId && decision.outcome === 'EXECUTE') {
         const result = await this.automation.execute(decision.decisionId);
         if (result.ok) read = true;
-        else this.logger.warn(`Onboarding agent: reading a document of ${cg.registrationNumber} failed - ${result.error}`);
+        else {
+          this.logger.warn(`Onboarding agent: reading a document of ${cg.registrationNumber} failed - ${result.error}`);
+          const final = tryNo >= DOCUMENT_READ_TRIES || READ_FINAL_ERRORS.some((e) => result.error?.startsWith(e));
+          if (final) {
+            await this.automation.setHandoverNote(ref, {
+              done: `Could not read ${cg.registrationNumber}'s ${kind}${tryNo > 1 ? ` after ${tryNo} tries` : ''}`,
+              waiting: `Staff: check the ${kind} by eye`,
+              next: 'Keep the verification file up to date',
+            });
+          }
+        }
       }
     }
     return read;
+  }
+
+  /**
+   * Which try this would be, or null for none: read already, a failure another
+   * try would not fix, all tries used, or the last try less than an hour ago.
+   * Only tries that were carried out count (a Shadow or proposed read is not a try).
+   */
+  private async nextReadTry(documentId: string, now: Date): Promise<number | null> {
+    const tries = await this.db
+      .select({ createdAt: agentDecisions.createdAt, executedAt: agentDecisions.executedAt, error: agentDecisions.executionError })
+      .from(agentDecisions)
+      .where(and(eq(agentDecisions.action, READ), like(agentDecisions.dedupeKey, `read|${documentId}%`), eq(agentDecisions.outcome, 'EXECUTED')))
+      .orderBy(desc(agentDecisions.createdAt));
+    if (!tries.length) return 1;
+    if (tries.some((t) => t.executedAt)) return null;
+    const last = tries[0]!;
+    if (!last.error || READ_FINAL_ERRORS.some((e) => last.error!.startsWith(e))) return null;
+    if (tries.length >= DOCUMENT_READ_TRIES || now.getTime() - last.createdAt.getTime() < READ_RETRY_MS) return null;
+    return tries.length + 1;
   }
 
   /**
@@ -425,6 +471,10 @@ export class OnboardingAgentService implements OnApplicationBootstrap, OnModuleD
           out.decided++;
           if (decision.outcome === 'EXECUTE') await this.runOrLog(decision.decisionId, cg);
         }
+      } else if (stillMissing.length && saved?.documentsRequestedAt && !saved.documentsEscalatedAt && !saved.documentsRemindedAt && now.getTime() - saved.documentsRequestedAt.getTime() >= ONBOARDING_DOCUMENT_REMIND_DAYS * DAY && now.getTime() - saved.documentsRequestedAt.getTime() < ONBOARDING_DOCUMENT_DAYS * DAY) {
+        // One reminder first. It follows an ask already sent, so it is not a new decision.
+        await this.remindDocuments(cg, stillMissing, unclear, now);
+        out.decided++;
       } else if (stillMissing.length && saved?.documentsRequestedAt && !saved.documentsEscalatedAt && now.getTime() - saved.documentsRequestedAt.getTime() >= ONBOARDING_DOCUMENT_DAYS * DAY) {
         await this.db.update(onboardingFiles).set({ documentsEscalatedAt: now }).where(eq(onboardingFiles.caregiverId, cg.id));
         await this.automation.setHandoverNote(ref, {
@@ -433,7 +483,7 @@ export class OnboardingAgentService implements OnApplicationBootstrap, OnModuleD
           next: 'Update the verification file when they upload',
         });
         await this.tellStaff(`Documents not received: ${cg.registrationNumber}`, [
-          `${cg.registrationNumber} was asked ${ONBOARDING_DOCUMENT_DAYS} days ago for ${listDocs(asked)} and has not uploaded ${listDocs(stillMissing)}.`,
+          `${cg.registrationNumber} was asked ${ONBOARDING_DOCUMENT_DAYS} days ago for ${listDocs(asked)}${saved.documentsRemindedAt ? ', and reminded once,' : ''} and has not uploaded ${listDocs(stillMissing)}.`,
           'Phone the caregiver. The onboarding agent will not ask again.',
         ], cg.id, `onboarding docs ${cg.id}`);
         out.staff++;
@@ -524,30 +574,54 @@ export class OnboardingAgentService implements OnApplicationBootstrap, OnModuleD
     const now = new Date();
     const [saved] = await this.db.select({ id: onboardingFiles.caregiverId }).from(onboardingFiles).where(eq(onboardingFiles.caregiverId, p.caregiverId)).limit(1);
     const unclear = p.unclear ?? [];
-    const set = { documentsRequested: (p.entries ?? p.documents.map((d) => `${d}:MISSING`)).join(','), documentsRequestedAt: now, documentsEscalatedAt: null };
+    const set = { documentsRequested: (p.entries ?? p.documents.map((d) => `${d}:MISSING`)).join(','), documentsRequestedAt: now, documentsEscalatedAt: null, documentsRemindedAt: null };
     if (saved) await this.db.update(onboardingFiles).set(set).where(eq(onboardingFiles.caregiverId, p.caregiverId));
     else await this.db.insert(onboardingFiles).values({ caregiverId: p.caregiverId, recommendation: 'NOT_READY', checks: [], assembledAt: now, ...set });
 
-    const what = (lang: Lang) => p.documents.map((d) => (unclear.includes(d) ? CLEARER[lang].replace('{doc}', DOC_WORDS[lang][d]) : DOC_WORDS[lang][d])).join(', ');
-    const words = (lang: Lang) => ({ title: DOC_TEXT[lang].title, body: DOC_TEXT[lang].body.replace('{what}', what(lang)) });
-    this.notices.notify([cg.userId], words, '/documents', `onboarding docs ${p.caregiverId}`);
-    const told = ['bell'];
-    try {
-      const wa = await this.whatsappSettings.getResolved();
-      const phone = cg.accountPhone ?? normalizePhone(cg.phone, await this.whatsappSettings.getDefaultCountryCode());
-      if (phone && cg.preferred !== 'PHONE_CALL' && this.whatsapp.canSendUpdates(wa)) {
-        await this.whatsapp.sendUpdate(wa, phone, 'en', `{brand}: ${LANGS.map((l) => `${words(l).title}. ${words(l).body}`).join(' / ')}`);
-        told.push('whatsapp');
-      }
-    } catch (err) {
-      this.logger.warn(`Onboarding agent: WhatsApp to ${p.registrationNumber} failed - ${(err as Error).message}`);
-    }
+    const told = await this.tellCaregiver({ userId: cg.userId, phone: cg.accountPhone ?? cg.phone, normalized: !!cg.accountPhone, preferred: cg.preferred }, p.registrationNumber, p.documents, unclear, DOC_TEXT, `onboarding docs ${p.caregiverId}`);
     await this.automation.setHandoverNote(
       { caseType: 'CAREGIVER', caseId: p.caregiverId },
       { done: `Asked ${p.registrationNumber} for ${listDocs(p.documents)} (${told.join(' and ')})`, waiting: `The caregiver to upload (up to ${ONBOARDING_DOCUMENT_DAYS} days)`, next: 'Update the verification file; staff if nothing comes' },
     );
     return { told };
   };
+
+  private async remindDocuments(cg: Cg, documents: CoreDocumentLabel[], unclear: CoreDocumentLabel[], now: Date) {
+    if (!cg.userId) return;
+    const [acct] = await this.db.select({ phone: users.phone }).from(users).where(eq(users.id, cg.userId)).limit(1);
+    await this.db.update(onboardingFiles).set({ documentsRemindedAt: now }).where(eq(onboardingFiles.caregiverId, cg.id));
+    const told = await this.tellCaregiver({ userId: cg.userId, phone: acct?.phone ?? cg.phone, normalized: !!acct?.phone, preferred: cg.preferred }, cg.registrationNumber, documents, unclear, DOC_REMIND_TEXT, `onboarding remind ${cg.id}`);
+    await this.automation.setHandoverNote(
+      { caseType: 'CAREGIVER', caseId: cg.id },
+      { done: `Asked ${cg.registrationNumber} for ${listDocs(documents)}, and reminded them once (${told.join(' and ')})`, waiting: `The caregiver to upload (staff are told after ${ONBOARDING_DOCUMENT_DAYS} days)`, next: 'Update the verification file; staff if nothing comes' },
+    );
+  }
+
+  /** Bell and push, and WhatsApp in all three languages when updates can go that way. */
+  private async tellCaregiver(
+    to: { userId: string; phone: string | null; normalized: boolean; preferred: string | null },
+    registrationNumber: string,
+    documents: CoreDocumentLabel[],
+    unclear: CoreDocumentLabel[],
+    text: Record<Lang, { title: string; body: string }>,
+    label: string,
+  ): Promise<string[]> {
+    const what = (lang: Lang) => documents.map((d) => (unclear.includes(d) ? CLEARER[lang].replace('{doc}', DOC_WORDS[lang][d]) : DOC_WORDS[lang][d])).join(', ');
+    const words = (lang: Lang) => ({ title: text[lang].title, body: text[lang].body.replace('{what}', what(lang)) });
+    this.notices.notify([to.userId], words, '/documents', label);
+    const told = ['bell'];
+    try {
+      const wa = await this.whatsappSettings.getResolved();
+      const phone = to.normalized ? to.phone : normalizePhone(to.phone, await this.whatsappSettings.getDefaultCountryCode());
+      if (phone && to.preferred !== 'PHONE_CALL' && this.whatsapp.canSendUpdates(wa)) {
+        await this.whatsapp.sendUpdate(wa, phone, 'en', `{brand}: ${LANGS.map((l) => `${words(l).title}. ${words(l).body}`).join(' / ')}`);
+        told.push('whatsapp');
+      }
+    } catch (err) {
+      this.logger.warn(`Onboarding agent: WhatsApp to ${registrationNumber} failed - ${(err as Error).message}`);
+    }
+    return told;
+  }
 
   /** Sends the referee a one-time link to three questions: WhatsApp when it can, else email. */
   private readonly followUp: ActionExecutor = async (decision) => {

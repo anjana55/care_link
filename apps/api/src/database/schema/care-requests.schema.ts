@@ -101,6 +101,8 @@ export const careRequests = mysqlTable(
     detailsAskedAt: datetime('details_asked_at'),
     detailsAnsweredAt: datetime('details_answered_at'),
     detailsEscalatedAt: datetime('details_escalated_at'),
+    /** The one reminder, sent halfway to handing the request back to staff. */
+    detailsRemindedAt: datetime('details_reminded_at'),
     // When the attached caregiver was last told about this request - straight
     // away for caregivers set to auto-notify, otherwise when staff press
     // "Notify caregiver". Null = the caregiver has not been told yet.

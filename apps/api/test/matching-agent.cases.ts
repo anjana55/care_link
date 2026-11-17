@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ThrottlerStorage } from '@nestjs/throttler';
 import { and, eq, like, sql } from 'drizzle-orm';
 import request from 'supertest';
+import { StaffAlertsService } from '../src/email/staff-alerts.service';
 import type { AutomationOverview, CaregiverCareOffer, StaffCareOffer } from '@care-platform/shared';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
@@ -202,7 +203,14 @@ describe('Matching agent (e2e)', () => {
 
     // One accepts: they get the job, the others are told it is gone, and the agent hands the booking to staff.
     const [theirs] = await mine(near);
+    const alerts = jest.spyOn(app.get(StaffAlertsService), 'tell').mockResolvedValue(undefined);
     await api().post(`/me/care-offers/${theirs.id}/accept`).set(bearer(near.token)).expect(200);
+    // Staff are told (bell and email): nobody else would be, since the agent sent the offer.
+    expect(alerts).toHaveBeenCalledTimes(1);
+    expect(alerts.mock.calls[0][0]).toMatchObject({ subject: `Offer accepted: ${req.reference}`, path: `/requests/${req.id}`, label: `offer accepted ${theirs.id}` });
+    expect(alerts.mock.calls[0][0].paragraphs[0]).toBe(`${near.reg} accepted the job offer the matching agent sent, and is now attached to the request.`);
+    for (const secret of ['Nimal', 'Perera', 'Sunil', 'surgery', req.phone]) expect(JSON.stringify(alerts.mock.calls[0][0])).not.toContain(secret);
+    alerts.mockRestore();
     const [after] = await db.select().from(careRequests).where(eq(careRequests.id, req.id));
     expect(after.caregiverId).toBe(near.id);
     expect(await offered(req.id)).toEqual([]);

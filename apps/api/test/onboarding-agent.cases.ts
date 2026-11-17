@@ -194,10 +194,24 @@ describe('Onboarding agent (e2e)', () => {
     await mode('AUTO');
     const c = await newApplicant();
     await sweep(c);
+    const reminded = () => notify.mock.calls.filter((x) => x[3] === `onboarding remind ${c.id}`);
+    await sweep(c, new Date(Date.now() + 2 * DAY));
+    expect(reminded()).toHaveLength(0);
+    // Three days: one reminder to the caregiver, naming only the documents.
+    await sweep(c, new Date(Date.now() + 3 * DAY + 3_600_000));
+    expect(reminded()).toHaveLength(1);
+    expect(reminded()[0][0]).toEqual([c.userId]);
+    expect((reminded()[0][1] as (l: 'en') => { title: string; body: string })('en')).toEqual({
+      title: 'Reminder: documents for your registration',
+      body: 'We still need your NIC or passport, a police clearance certificate, a Grama Niladhari certificate to finish checking your registration. Please upload them under Documents.',
+    });
     expect(await sweep(c, new Date(Date.now() + 4 * DAY))).toMatchObject({ leftToStaff: 0 });
+    expect(reminded()).toHaveLength(1);
+    expect(staffMail(`Documents not received: ${c.reg}`)).toHaveLength(0);
     // Five days: the documents; seven: both referees.
     expect(await sweep(c, new Date(Date.now() + 6 * DAY))).toMatchObject({ leftToStaff: 1 });
     expect(staffMail(`Documents not received: ${c.reg}`)).toHaveLength(1);
+    expect((staffMail(`Documents not received: ${c.reg}`)[0][1] as { blocks: { paragraphs: string[] }[] }).blocks[0].paragraphs[0]).toContain('and reminded once,');
     expect(await sweep(c, new Date(Date.now() + 8 * DAY))).toMatchObject({ leftToStaff: 2 });
     expect(await sweep(c, new Date(Date.now() + 9 * DAY))).toMatchObject({ leftToStaff: 0 });
     expect((await api().get(`/automation/cases/CAREGIVER/${c.id}`).set(bearer(staffToken)).expect(200)).body.handoverNote).toMatchObject({ waiting: expect.stringMatching(/^Staff: no answer from Referee[01] and Referee[01] - phone each of them$/) });
@@ -346,6 +360,51 @@ describe('Onboarding agent (e2e)', () => {
       expect(bodies.at(-1)).toBe('To finish checking your registration we need: a clearer copy of your NIC or passport, a police clearance certificate, a Grama Niladhari certificate. Please upload them under Documents.');
     });
 
+    it('tries a failed read again, an hour or more apart, three tries in all', async () => {
+      await mode('AUTO');
+      await useModel('SENSITIVE');
+      const c = await newApplicant();
+      await upload(c, 'NIC');
+      chat.mockRejectedValue(new Error('The model timed out'));
+      const t0 = Date.now();
+      await sweep(c, new Date(t0));
+      expect(chat).toHaveBeenCalledTimes(1);
+      // Not again within the hour.
+      await sweep(c, new Date(t0 + 30 * 60_000));
+      expect(chat).toHaveBeenCalledTimes(1);
+      // decide() stamps the real time, so the next try is judged against it: move the first one back.
+      const back = async () => {
+        for (const d of await decisions(c, READ)) await db.update(agentDecisions).set({ createdAt: new Date(d.createdAt.getTime() - 2 * 3_600_000) }).where(eq(agentDecisions.id, d.id));
+      };
+      await back();
+      await sweep(c);
+      expect(chat).toHaveBeenCalledTimes(2);
+      expect((await decisions(c, READ)).map((d) => d.reason)).toEqual([`Read ${c.reg}'s nic and compare it with the profile`, `Try again (2 of 3): read ${c.reg}'s nic and compare it with the profile`]);
+      // The third try works.
+      chat.mockResolvedValue(answer({ documentType: 'NIC', fullName: c.name.toUpperCase(), idNumber: c.nic, dateOfBirth: '1988-01-20' }));
+      await back();
+      await sweep(c);
+      expect(chat).toHaveBeenCalledTimes(3);
+      expect(await reads(c)).toHaveLength(1);
+      await back();
+      await sweep(c);
+      expect(chat).toHaveBeenCalledTimes(3);
+
+      // Three failures: no fourth try, and staff are asked to look.
+      const c2 = await newApplicant();
+      await upload(c2, 'NIC');
+      chat.mockRejectedValue(new Error('The model timed out'));
+      const back2 = async () => {
+        for (const d of await decisions(c2, READ)) await db.update(agentDecisions).set({ createdAt: new Date(d.createdAt.getTime() - 2 * 3_600_000) }).where(eq(agentDecisions.id, d.id));
+      };
+      for (let i = 0; i < 4; i++) {
+        await sweep(c2);
+        await back2();
+      }
+      expect(await decisions(c2, READ)).toHaveLength(3);
+      expect((await api().get(`/automation/cases/CAREGIVER/${c2.id}`).set(bearer(staffToken)).expect(200)).body.handoverNote).toMatchObject({ done: `Could not read ${c2.reg}'s nic after 3 tries`, waiting: 'Staff: check the nic by eye' });
+    });
+
     it('leaves a PDF to staff when the model reads images only, and does nothing in Shadow', async () => {
       await mode('AUTO');
       await useModel('SENSITIVE', 'OLLAMA');
@@ -354,6 +413,10 @@ describe('Onboarding agent (e2e)', () => {
       await sweep(c);
       expect(chat).not.toHaveBeenCalled();
       expect((await decisions(c, READ))[0]).toMatchObject({ outcome: 'EXECUTED', executionError: 'The model set up reads images only, not PDF files - staff to check this one' });
+      // Another try would not change that.
+      await db.update(agentDecisions).set({ createdAt: new Date(Date.now() - 2 * 3_600_000) }).where(eq(agentDecisions.caseId, c.id));
+      await sweep(c);
+      expect(await decisions(c, READ)).toHaveLength(1);
 
       await mode('SHADOW');
       const s2 = await newApplicant();

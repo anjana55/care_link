@@ -2,7 +2,7 @@ import { BadRequestException, Inject, Injectable, Logger, OnApplicationBootstrap
 import { ConfigService } from '@nestjs/config';
 import { and, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
 import { randomUUID as uuid } from 'crypto';
-import { INTAKE_ANSWER_HOURS, requestGaps, type AgentRunResult, type IntakeGap } from '@care-platform/shared';
+import { INTAKE_ANSWER_HOURS, INTAKE_REMIND_HOURS, requestGaps, type AgentRunResult, type IntakeGap } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { OPEN_CARE_REQUEST_STATUSES, agentDecisions, careRequestEvents, careRequests, patients } from '../database/schema';
 import { AutomationService, type ActionExecutor } from '../automation/automation.service';
@@ -10,6 +10,7 @@ import { JobsService } from '../jobs/jobs.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappSettingsService } from '../whatsapp/whatsapp-settings.service';
 import { WhatsappProviderService } from '../whatsapp/whatsapp-provider.service';
+import { StaffAlertsService } from '../email/staff-alerts.service';
 import { normalizePhone } from '../common/utils/phone.util';
 import { nudgeMatching } from '../matching/matching-jobs';
 import { INTAKE_REQUEST_JOB, INTAKE_SWEEP_JOB } from './intake-jobs';
@@ -23,6 +24,11 @@ const ASK_TEXT = {
   en: { title: 'A few details for your request', body: 'To find your caregiver we need: {what}. It takes a minute - open your request {reference}.' },
   si: { title: 'ඔබගේ ඉල්ලීමට විස්තර කිහිපයක්', body: 'ඔබට සත්කාරකයෙකු සොයා ගැනීමට අපට අවශ්‍යයි: {what}. එයට මිනිත්තුවක් ගත වේ - ඔබගේ {reference} ඉල්ලීම විවෘත කරන්න.' },
   ta: { title: 'உங்கள் கோரிக்கைக்குச் சில விவரங்கள்', body: 'உங்களுக்கான பராமரிப்பாளரைக் கண்டுபிடிக்க எங்களுக்குத் தேவை: {what}. ஒரு நிமிடம் போதும் - உங்கள் கோரிக்கை {reference} ஐத் திறக்கவும்.' },
+} as const;
+const REMIND_TEXT = {
+  en: { title: 'Reminder: details for your request', body: 'We still need {what} to find your caregiver. Open your request {reference} - it takes a minute.' },
+  si: { title: 'මතක් කිරීම: ඔබගේ ඉල්ලීමට විස්තර', body: 'ඔබට සත්කාරකයෙකු සොයා ගැනීමට අපට තවමත් {what} අවශ්‍යයි. ඔබගේ {reference} ඉල්ලීම විවෘත කරන්න - එයට මිනිත්තුවක් ගත වේ.' },
+  ta: { title: 'நினைவூட்டல்: உங்கள் கோரிக்கைக்கான விவரங்கள்', body: 'உங்கள் பராமரிப்பாளரைக் கண்டுபிடிக்க எங்களுக்கு இன்னும் {what} தேவை. உங்கள் கோரிக்கை {reference} ஐத் திறக்கவும் - ஒரு நிமிடம் போதும்.' },
 } as const;
 const GAP_WORDS: Record<'en' | 'si' | 'ta', Record<IntakeGap, string>> = {
   en: { CARE_TYPE: 'the kind of care', AREA: 'where care is needed', SCHEDULE: 'the time of day', START_DATE: 'the start date' },
@@ -51,6 +57,7 @@ type Row = {
   detailsAsked: string | null;
   detailsAskedAt: Date | null;
   detailsAnsweredAt: Date | null;
+  detailsRemindedAt: Date | null;
   detailsEscalatedAt: Date | null;
 };
 
@@ -62,8 +69,8 @@ type Row = {
  *
  * - Asking the client is a tier 1 step: done in Auto, proposed in Assist,
  *   only logged in Shadow (then scored by whether staff filled the same gaps).
- * - One question per request. No answer within two days: it goes back to
- *   staff with a note, once.
+ * - One question per request, and one reminder after a day. No answer within
+ *   two days: it goes back to staff (bell and email), once.
  * - A client who said they are just exploring is not chased; a request staff
  *   took over is left alone.
  */
@@ -80,6 +87,7 @@ export class IntakeAgentService implements OnApplicationBootstrap, OnModuleDestr
     private readonly notices: NotificationsService,
     private readonly whatsappSettings: WhatsappSettingsService,
     private readonly whatsapp: WhatsappProviderService,
+    private readonly staffAlerts: StaffAlertsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -125,6 +133,7 @@ export class IntakeAgentService implements OnApplicationBootstrap, OnModuleDestr
         detailsAskedAt: careRequests.detailsAskedAt,
         detailsAnsweredAt: careRequests.detailsAnsweredAt,
         detailsEscalatedAt: careRequests.detailsEscalatedAt,
+        detailsRemindedAt: careRequests.detailsRemindedAt,
       })
       .from(careRequests)
       .innerJoin(patients, eq(patients.id, careRequests.patientId))
@@ -171,16 +180,32 @@ export class IntakeAgentService implements OnApplicationBootstrap, OnModuleDestr
       return 'nothing';
     }
 
-    // Asked and waiting: after two days with no answer, back to staff - once.
+    // Asked and waiting: one reminder halfway, then after two days with no answer, back to staff - once.
     if (r.detailsAskedAt && !r.detailsAnsweredAt) {
-      if (r.detailsEscalatedAt || now.getTime() - r.detailsAskedAt.getTime() < INTAKE_ANSWER_HOURS * 3_600_000) return 'nothing';
+      if (r.detailsEscalatedAt) return 'nothing';
+      const waited = now.getTime() - r.detailsAskedAt.getTime();
+      if (waited < INTAKE_REMIND_HOURS * 3_600_000) return 'nothing';
+      if (waited < INTAKE_ANSWER_HOURS * 3_600_000) {
+        if (r.detailsRemindedAt) return 'nothing';
+        await this.remind(r, now);
+        return 'decided';
+      }
       await this.db.update(careRequests).set({ detailsEscalatedAt: now }).where(eq(careRequests.id, r.id));
       await this.automation.setHandoverNote(ref, {
         done: `Asked the client for ${listGaps((r.detailsAsked?.split(',') ?? []) as IntakeGap[])} ${INTAKE_ANSWER_HOURS} hours ago`,
         waiting: `Staff: no answer - phone the client for ${listGaps(gaps)}`,
         next: 'Nothing more from the intake agent until the client answers',
       });
-      this.notices.notifyStaff(`No answer on request ${r.reference}`, `The client was asked for ${listGaps(gaps)} two days ago and has not answered - phone them.`, `/requests/${r.id}`, `intake staff ${r.id}`);
+      await this.staffAlerts.tell({
+        subject: `No answer on request ${r.reference}`,
+        paragraphs: [
+          `The client was asked for ${listGaps(gaps)} two days ago${r.detailsRemindedAt ? ', and reminded once,' : ''} and has not answered - phone them.`,
+          'The intake agent will not ask again. Matching starts once the request is complete.',
+        ],
+        path: `/requests/${r.id}`,
+        cta: 'Open the request',
+        label: `intake staff ${r.id}`,
+      });
       return 'staff';
     }
     // They answered but something is still missing (they could only give part): staff take it from here.
@@ -188,7 +213,13 @@ export class IntakeAgentService implements OnApplicationBootstrap, OnModuleDestr
       if (r.detailsEscalatedAt) return 'nothing';
       await this.db.update(careRequests).set({ detailsEscalatedAt: now }).where(eq(careRequests.id, r.id));
       await this.automation.setHandoverNote(ref, { done: 'The client answered', waiting: `Staff: still missing ${listGaps(gaps)}`, next: 'Nothing more from the intake agent' });
-      this.notices.notifyStaff(`Request ${r.reference} still incomplete`, `The client answered, but ${listGaps(gaps)} is still missing.`, `/requests/${r.id}`, `intake staff ${r.id}`);
+      await this.staffAlerts.tell({
+        subject: `Request ${r.reference} still incomplete`,
+        paragraphs: [`The client answered, but ${listGaps(gaps)} is still missing.`, 'Phone the client to fill it in. The intake agent will not ask again.'],
+        path: `/requests/${r.id}`,
+        cta: 'Open the request',
+        label: `intake staff ${r.id}`,
+      });
       return 'staff';
     }
 
@@ -233,30 +264,66 @@ export class IntakeAgentService implements OnApplicationBootstrap, OnModuleDestr
     if (!r || !OPEN_CARE_REQUEST_STATUSES.includes(r.status as (typeof OPEN_CARE_REQUEST_STATUSES)[number])) throw new BadRequestException('This request is no longer open');
     if (r.asked) throw new BadRequestException('The client has already been asked');
     const now = new Date();
-    await this.db.update(careRequests).set({ detailsAsked: p.gaps.join(','), detailsAskedAt: now, detailsAnsweredAt: null, detailsEscalatedAt: null }).where(eq(careRequests.id, p.requestId));
+    await this.db.update(careRequests).set({ detailsAsked: p.gaps.join(','), detailsAskedAt: now, detailsAnsweredAt: null, detailsEscalatedAt: null, detailsRemindedAt: null }).where(eq(careRequests.id, p.requestId));
     await this.db.insert(careRequestEvents).values({ id: uuid(), requestId: p.requestId, type: 'NOTE', note: `Asked the client for ${listGaps(p.gaps)}`, actorUserId: (await this.automation.agentActor('INTAKE')).userId });
 
-    const words = (lang: 'en' | 'si' | 'ta') => ({ title: ASK_TEXT[lang].title, body: ASK_TEXT[lang].body.replace('{what}', p.gaps.map((g) => GAP_WORDS[lang][g]).join(', ')).replace('{reference}', p.requestReference) });
-    this.notices.notify([r.userId], words, `/requests/${p.requestId}`, `intake ask ${p.requestId}`);
-    const told = ['bell'];
-    try {
-      const wa = await this.whatsappSettings.getResolved();
-      const phone = normalizePhone(r.phone, await this.whatsappSettings.getDefaultCountryCode());
-      if (phone && r.preferred !== 'PHONE_CALL' && this.whatsapp.canSendUpdates(wa)) {
-        const lang = (r.language ?? 'en') as 'en' | 'si' | 'ta';
-        const w = words(lang);
-        await this.whatsapp.sendUpdate(wa, phone, lang, `{brand}: ${w.title}. ${w.body}`);
-        told.push('whatsapp');
-      }
-    } catch (err) {
-      this.logger.warn(`Intake agent: WhatsApp for ${p.requestReference} failed - ${(err as Error).message}`);
-    }
+    const told = await this.tellClient(r, p.requestId, p.requestReference, p.gaps, ASK_TEXT, `intake ask ${p.requestId}`);
     await this.automation.setHandoverNote(
       { caseType: 'REQUEST', caseId: p.requestId },
       { done: `Asked the client for ${listGaps(p.gaps)}`, waiting: `The client to answer (up to ${INTAKE_ANSWER_HOURS} hours)`, next: 'Hand the complete request to matching; staff if there is no answer' },
     );
     return { told };
   };
+
+  /**
+   * The one reminder, halfway to handing back. It follows an ask that was
+   * already sent (approved or automatic), so it is not a new decision; it
+   * stops if staff took the request over (the gate says NONE) or the client answered.
+   */
+  private async remind(r: Row, now: Date) {
+    const [c] = await this.db
+      .select({ language: careRequests.language, userId: patients.userId, phone: patients.phone, preferred: patients.preferredContactMethod })
+      .from(careRequests)
+      .innerJoin(patients, eq(patients.id, careRequests.patientId))
+      .where(eq(careRequests.id, r.id))
+      .limit(1);
+    if (!c) return;
+    const gaps = (r.detailsAsked?.split(',') ?? []) as IntakeGap[];
+    await this.db.update(careRequests).set({ detailsRemindedAt: now }).where(eq(careRequests.id, r.id));
+    await this.tellClient(c, r.id, r.reference, gaps, REMIND_TEXT, `intake remind ${r.id}`);
+    await this.db.insert(careRequestEvents).values({ id: uuid(), requestId: r.id, type: 'NOTE', note: `Reminded the client about ${listGaps(gaps)}`, actorUserId: (await this.automation.agentActor('INTAKE')).userId });
+    await this.automation.setHandoverNote(
+      { caseType: 'REQUEST', caseId: r.id },
+      { done: `Asked the client for ${listGaps(gaps)}, and reminded them once`, waiting: `The client to answer (staff are told after ${INTAKE_ANSWER_HOURS} hours)`, next: 'Hand the complete request to matching; staff if there is no answer' },
+    );
+  }
+
+  /** Bell and push, and WhatsApp when updates can go that way (not to someone who asked for phone calls). */
+  private async tellClient(
+    c: { language: string | null; userId: string; phone: string | null; preferred: string | null },
+    requestId: string,
+    reference: string,
+    gaps: IntakeGap[],
+    text: Record<'en' | 'si' | 'ta', { title: string; body: string }>,
+    label: string,
+  ): Promise<string[]> {
+    const words = (lang: 'en' | 'si' | 'ta') => ({ title: text[lang].title, body: text[lang].body.replace('{what}', gaps.map((g) => GAP_WORDS[lang][g]).join(', ')).replace('{reference}', reference) });
+    this.notices.notify([c.userId], words, `/requests/${requestId}`, label);
+    const told = ['bell'];
+    try {
+      const wa = await this.whatsappSettings.getResolved();
+      const phone = normalizePhone(c.phone, await this.whatsappSettings.getDefaultCountryCode());
+      if (phone && c.preferred !== 'PHONE_CALL' && this.whatsapp.canSendUpdates(wa)) {
+        const lang = (c.language ?? 'en') as 'en' | 'si' | 'ta';
+        const w = words(lang);
+        await this.whatsapp.sendUpdate(wa, phone, lang, `{brand}: ${w.title}. ${w.body}`);
+        told.push('whatsapp');
+      }
+    } catch (err) {
+      this.logger.warn(`Intake agent: WhatsApp for ${reference} failed - ${(err as Error).message}`);
+    }
+    return told;
+  }
 
   /**
    * "Ask the client" logged in Shadow is scored once the request has moved

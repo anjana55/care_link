@@ -12,6 +12,10 @@ export const ONBOARDING_STATUSES = ['REGISTERED', 'DOCUMENTS_PENDING', 'UNDER_VE
 export const ONBOARDING_REFERENCES_WANTED = 2;
 /** Days the caregiver has to upload what was asked for before staff are told. */
 export const ONBOARDING_DOCUMENT_DAYS = 5;
+/** One reminder to the caregiver this many days after asking, before staff are told. */
+export const ONBOARDING_DOCUMENT_REMIND_DAYS = 3;
+/** A document the model could not read (it timed out, say) is tried this many times in all, an hour or more apart. */
+export const DOCUMENT_READ_TRIES = 3;
 /** Days a referee has to answer before staff are told; the link itself lasts longer. */
 export const REFERENCE_ANSWER_DAYS = 7;
 export const REFERENCE_LINK_DAYS = 21;

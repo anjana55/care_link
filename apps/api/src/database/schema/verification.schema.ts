@@ -74,6 +74,8 @@ export const onboardingFiles = mysqlTable('onboarding_files', {
   documentsRequested: varchar('documents_requested', { length: 60 }),
   documentsRequestedAt: datetime('documents_requested_at'),
   documentsEscalatedAt: datetime('documents_escalated_at'),
+  /** The one reminder to the caregiver, before staff are told. */
+  documentsRemindedAt: datetime('documents_reminded_at'),
   updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 

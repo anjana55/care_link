@@ -12,6 +12,7 @@ import { agentDecisions, careRequests, patients } from '../src/database/schema';
 import { IntakeAgentService } from '../src/intake/intake-agent.service';
 import { INTAKE_REQUEST_JOB } from '../src/intake/intake-jobs';
 import { JobsService } from '../src/jobs/jobs.service';
+import { StaffAlertsService } from '../src/email/staff-alerts.service';
 import { NotificationsService } from '../src/notifications/notifications.service';
 import { SEED_PASSWORD } from './seed-password';
 
@@ -153,11 +154,38 @@ describe('Intake agent (e2e)', () => {
   it('goes back to staff, once, when the client does not answer in two days', async () => {
     await mode('AUTO');
     const r = await newRequest();
+    const alerts = jest.spyOn(app.get(StaffAlertsService), 'tell');
+    const reminded = () => notify.mock.calls.filter((c) => c[3] === `intake remind ${r.id}`);
     await sweep(r);
+    expect(await sweep(r, new Date(Date.now() + 23 * 3_600_000))).toMatchObject({ leftToStaff: 0 });
+    expect(reminded()).toHaveLength(0);
+    // One reminder after a day.
+    await sweep(r, new Date(Date.now() + 25 * 3_600_000));
+    expect(reminded()).toHaveLength(1);
+    expect(reminded()[0][0]).toEqual([r.userId]);
+    expect((reminded()[0][1] as (l: 'en') => { title: string; body: string })('en')).toEqual({
+      title: 'Reminder: details for your request',
+      body: `We still need the time of day, the start date to find your caregiver. Open your request ${r.reference} - it takes a minute.`,
+    });
+    expect(await note(r)).toMatchObject({ done: 'Asked the client for the time of day, the start date, and reminded them once' });
+    expect((await staffView(r)).events.some((e: { note: string | null }) => e.note === 'Reminded the client about the time of day, the start date')).toBe(true);
+    await sweep(r, new Date(Date.now() + 30 * 3_600_000));
+    expect(reminded()).toHaveLength(1);
     expect(await sweep(r, new Date(Date.now() + 47 * 3_600_000))).toMatchObject({ leftToStaff: 0 });
+    expect(alerts).not.toHaveBeenCalled();
+    // Then staff, by bell and email, once.
     expect(await sweep(r, new Date(Date.now() + 49 * 3_600_000))).toMatchObject({ leftToStaff: 1 });
     expect(await note(r)).toMatchObject({ waiting: 'Staff: no answer - phone the client for the time of day, the start date' });
+    expect(alerts).toHaveBeenCalledTimes(1);
+    expect(alerts.mock.calls[0][0]).toMatchObject({
+      subject: `No answer on request ${r.reference}`,
+      paragraphs: ['The client was asked for the time of day, the start date two days ago, and reminded once, and has not answered - phone them.', expect.any(String)],
+      path: `/requests/${r.id}`,
+    });
+    expect(JSON.stringify(alerts.mock.calls[0][0])).not.toMatch(/bathing|meals|Sunil|Nimal/);
     expect(await sweep(r, new Date(Date.now() + 60 * 3_600_000))).toMatchObject({ leftToStaff: 0 });
+    expect(alerts).toHaveBeenCalledTimes(1);
+    alerts.mockRestore();
     // The client can still answer later.
     await answer(r, { schedule: 'DAY', desiredStartDate: inDays(5) }).expect(200);
   });

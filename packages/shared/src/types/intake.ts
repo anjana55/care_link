@@ -17,6 +17,8 @@ export type RequestSchedule = (typeof REQUEST_SCHEDULES)[number];
 
 /** Hours the client has to answer before the request goes back to staff. */
 export const INTAKE_ANSWER_HOURS = 48;
+/** One reminder to the client this long after asking, before staff are told. */
+export const INTAKE_REMIND_HOURS = 24;
 /** How far ahead a start date can be. */
 export const INTAKE_MAX_START_DAYS = 365;
 
