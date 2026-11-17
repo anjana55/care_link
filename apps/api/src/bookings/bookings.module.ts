@@ -8,13 +8,14 @@ import { BookingNotifier } from './booking-notifier.service';
 import { BookingAgentService } from './booking-agent.service';
 import { BookingsController, MyBookingsController } from './bookings.controller';
 import { CheckInService } from './check-in.service';
+import { LiveCareAgentService } from './live-care-agent.service';
 import { CheckInSettingsController, MyCheckInController, VisitsController } from './check-in.controller';
 
 @Module({
   imports: [PublicSearchModule, EmailModule, WhatsappModule, CarePlansModule],
   controllers: [BookingsController, MyBookingsController, MyCheckInController, VisitsController, CheckInSettingsController],
-  providers: [BookingsService, BookingNotifier, BookingAgentService, CheckInService],
+  providers: [BookingsService, BookingNotifier, BookingAgentService, CheckInService, LiveCareAgentService],
   // The assistant runs approved booking changes through BookingsService; corrections also tell people through BookingNotifier.
-  exports: [BookingsService, BookingNotifier, BookingAgentService, CheckInService],
+  exports: [BookingsService, BookingNotifier, BookingAgentService, CheckInService, LiveCareAgentService],
 })
 export class BookingsModule {}
