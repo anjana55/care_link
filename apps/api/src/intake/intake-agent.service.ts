@@ -180,6 +180,7 @@ export class IntakeAgentService implements OnApplicationBootstrap, OnModuleDestr
         waiting: `Staff: no answer - phone the client for ${listGaps(gaps)}`,
         next: 'Nothing more from the intake agent until the client answers',
       });
+      this.notices.notifyStaff(`No answer on request ${r.reference}`, `The client was asked for ${listGaps(gaps)} two days ago and has not answered - phone them.`, `/requests/${r.id}`, `intake staff ${r.id}`);
       return 'staff';
     }
     // They answered but something is still missing (they could only give part): staff take it from here.
@@ -187,6 +188,7 @@ export class IntakeAgentService implements OnApplicationBootstrap, OnModuleDestr
       if (r.detailsEscalatedAt) return 'nothing';
       await this.db.update(careRequests).set({ detailsEscalatedAt: now }).where(eq(careRequests.id, r.id));
       await this.automation.setHandoverNote(ref, { done: 'The client answered', waiting: `Staff: still missing ${listGaps(gaps)}`, next: 'Nothing more from the intake agent' });
+      this.notices.notifyStaff(`Request ${r.reference} still incomplete`, `The client answered, but ${listGaps(gaps)} is still missing.`, `/requests/${r.id}`, `intake staff ${r.id}`);
       return 'staff';
     }
 

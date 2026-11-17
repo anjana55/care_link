@@ -34,7 +34,8 @@
       "overseas": "Overseas",
       "office": "Office"
     },
-    "account": "Account"
+    "account": "Account",
+    "peopleWaiting": "People waiting"
   },
   "login": {
     "title": "Sign in",
@@ -4393,6 +4394,14 @@
     "waitingSince": "Asked {when}",
     "note": "Note (optional)",
     "handle": "Mark handled",
-    "handledBy": "Handled by {name} {when}"
+    "handledBy": "Handled by {name} {when}",
+    "count": "{count} waiting to hear from us"
+  },
+  "staffBell": {
+    "label": "Alerts",
+    "labelUnread": "Alerts, {n} unread",
+    "title": "Alerts",
+    "markAll": "Mark all read",
+    "none": "No alerts yet."
   }
 }

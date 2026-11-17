@@ -9,6 +9,7 @@ import type { AuthenticatedUser } from '../common/decorators/current-user.decora
 import { AutomationService } from '../automation/automation.service';
 import { EmailService } from '../email/email.service';
 import { EmailSettingsService } from '../email/email-settings.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import type { TalkRequestDto } from './dto/talk.dto';
 
 type CaseRef = { caseType: 'REQUEST' | 'BOOKING'; caseId: string };
@@ -35,6 +36,7 @@ export class TalkService {
     private readonly automation: AutomationService,
     private readonly email: EmailService,
     private readonly emailSettings: EmailSettingsService,
+    private readonly notices: NotificationsService,
   ) {}
 
   private role(user: AuthenticatedUser): 'CLIENT' | 'CAREGIVER' {
@@ -174,6 +176,12 @@ export class TalkService {
   }
 
   private async tellStaff(role: 'CLIENT' | 'CAREGIVER', reference: string | null, contact: string) {
+    this.notices.notifyStaff(
+      `${role === 'CLIENT' ? 'A client' : 'A caregiver'} asked to talk to a person`,
+      `${reference ? `About ${reference}. ` : ''}They would like ${contact === 'CALL' ? 'a phone call' : contact === 'WHATSAPP' ? 'WhatsApp' : 'an email'}.`,
+      '/people-waiting',
+      'talk to a person',
+    );
     const settings = await this.emailSettings.getResolved();
     const to = settings.requestAlertsTo
       ? settings.requestAlertsTo.split(',').map((a) => a.trim()).filter(Boolean)

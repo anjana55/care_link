@@ -474,9 +474,10 @@ export class CoverService implements OnApplicationBootstrap {
     );
 
     // The office: whoever sent the offer, or - when the agent sent it - the alert list.
+    const subject = `Cover found: ${row.reference}`;
+    this.notices.notifyStaff(subject, `${cover?.registrationNumber ?? 'A caregiver'} accepted the ${when.time} visit on ${when.date} in place of ${row.registration}.`, `/bookings/${row.bookingId}`, `cover found ${offer.id}`);
     const to = await this.officeRecipients(offer.sentByUserId);
     if (!to.length) return;
-    const subject = `Cover found: ${row.reference}`;
     await this.email.sendNotificationEmail(
       to,
       {

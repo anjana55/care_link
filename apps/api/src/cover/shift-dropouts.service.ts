@@ -12,6 +12,7 @@ import { JobsService } from '../jobs/jobs.service';
 import { nudgeLiveCare } from '../bookings/live-care-jobs';
 import { EmailService } from '../email/email.service';
 import { CoverService } from './cover.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const STANDBY = 'booking.line_up_understudy' as const;
 /** Bookings with a shift this soon get a standby proposed. */
@@ -53,6 +54,7 @@ export class ShiftDropoutsService implements OnApplicationBootstrap {
     private readonly jobs: JobsService,
     private readonly email: EmailService,
     private readonly cover: CoverService,
+    private readonly notices: NotificationsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -296,6 +298,7 @@ export class ShiftDropoutsService implements OnApplicationBootstrap {
   }
 
   private async tellStaff(subject: string, paragraphs: string[], bookingId: string, label: string) {
+    this.notices.notifyStaff(subject, paragraphs[0] ?? '', `/bookings/${bookingId}`, label);
     const to = await this.cover.staffRecipients();
     if (!to.length) return;
     try {

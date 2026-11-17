@@ -115,6 +115,19 @@ describe('Talk to a person (e2e)', () => {
     expect(row).toMatchObject({ role: 'CLIENT', person: { name: 'Nimal Kumara Perera', patientId: c.patientId }, about: { type: 'REQUEST', reference: c.reference, requestId: c.requestId } });
     expect((await api().get('/insights/overview').set(bearer(staffToken)).expect(200)).body.attention.peopleWaiting).toBeGreaterThanOrEqual(1);
 
+    // The staff bell has it too (written in the background), and only staff can read it.
+    let bell: { items: { title: string; path: string; readAt: string | null; id: string }[] } = { items: [] };
+    for (let i = 0; i < 20 && !bell.items.some((x) => x.path === '/people-waiting'); i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      bell = (await api().get('/staff/notifications').set(bearer(staffToken)).expect(200)).body;
+    }
+    const notice = bell.items.find((x) => x.path === '/people-waiting')!;
+    expect(notice.title).toBe('A client asked to talk to a person');
+    expect(JSON.stringify(notice)).not.toMatch(/hospital/);
+    expect((await api().get('/staff/notifications/summary').set(bearer(staffToken)).expect(200)).body.unread).toBeGreaterThanOrEqual(1);
+    await api().post('/staff/notifications/read').set(bearer(staffToken)).send({ ids: [notice.id] }).expect(200);
+    await api().get('/staff/notifications').set(bearer(c.token)).expect(403);
+
     // Staff answer it.
     await api().get('/talk-requests').set(bearer(c.token)).expect(403);
     const done = (await api().post(`/talk-requests/${mine.id}/handled`).set(bearer(staffToken)).send({ note: ' Phoned; moved the start ' }).expect(200)).body as StaffTalkRequest;

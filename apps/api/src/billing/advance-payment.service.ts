@@ -297,6 +297,7 @@ export class AdvancePaymentService implements OnApplicationBootstrap, OnModuleDe
   }
 
   private async tellStaff(subject: string, paragraphs: string[], bookingId: string, label: string) {
+    this.notices.notifyStaff(subject, paragraphs[0] ?? '', `/bookings/${bookingId}`, label);
     const to = await this.staffRecipients();
     if (!to.length) return void this.logger.warn(`${subject} - but there is nobody to email`);
     const base = (this.config.get<string>('CAREGIVER_WEB_URL') ?? 'http://localhost:3000/staff').replace(/\/+$/, '');

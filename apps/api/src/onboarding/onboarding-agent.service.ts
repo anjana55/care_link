@@ -609,6 +609,7 @@ export class OnboardingAgentService implements OnApplicationBootstrap, OnModuleD
   }
 
   private async tellStaff(subject: string, paragraphs: string[], caregiverId: string, label: string): Promise<number> {
+    this.notices.notifyStaff(subject, paragraphs[0] ?? '', `/caregivers/${caregiverId}`, label);
     const to = await this.staffRecipients();
     if (!to.length) return 0;
     try {

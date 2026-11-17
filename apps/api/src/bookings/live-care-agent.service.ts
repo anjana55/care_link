@@ -365,6 +365,10 @@ export class LiveCareAgentService implements OnApplicationBootstrap, OnModuleDes
     );
     // Nobody could even be asked to cover: staff have just been told about the visit itself, so the note is enough.
     if (p.kind === 'NO_COVER' && !p.minutes) return { staffEmailed: 0 };
+    {
+      const title = p.kind === 'LEFT_EARLY' ? `Visit cut short: ${p.bookingReference}` : p.kind === 'NO_COVER' ? `No cover found: ${p.bookingReference}` : `Visit not checked in: ${p.bookingReference}`;
+      this.notices.notifyStaff(title, `${decision.reason}.`, '/bookings/today', `visit ${p.shiftId} ${p.kind}`);
+    }
     const to = await this.staffRecipients();
     if (!to.length) {
       this.logger.warn(`Live-care agent: ${p.bookingReference} needs a person and there is no staff email address to alert - it is on Today's visits.`);

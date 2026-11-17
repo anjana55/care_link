@@ -274,6 +274,12 @@ export class CareRequestNotifier {
   }
 
   private async alertStaff(ctx: NoticeContext) {
+    this.notices.notifyStaff(
+      `New care request ${ctx.reference}`,
+      ctx.caregiver ? `A client asked to be put in touch with ${ctx.caregiver.registrationNumber}.` : 'A client asked us to find a caregiver.',
+      `/requests/${ctx.id}`,
+      `new request ${ctx.reference}`,
+    );
     const to = await this.staffRecipients();
     if (!to.length) {
       this.logger.warn(`New care request ${ctx.reference}: no staff email address to alert - it is waiting in the Requests queue.`);
