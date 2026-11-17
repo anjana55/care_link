@@ -6,7 +6,7 @@ import { CurrentUser, type AuthenticatedUser } from '../common/decorators/curren
 import type { RequestWithLanguage } from '../common/i18n/language.middleware';
 import { AddCareRequestNoteDto } from '../care-requests/dto/update-care-request-status.dto';
 import { BookingsService } from './bookings.service';
-import { AddShiftDto, BookingQueryDto, CancelBookingDto, CreateBookingDto, ExtendBookingDto, UpdateBookingDto, UpdateShiftDto } from './dto/booking.dto';
+import { AddShiftDto, BookingQueryDto, CancelBookingDto, CreateBookingDto, ExtendBookingDto, RequestBookingChangesDto, UpdateBookingDto, UpdateShiftDto } from './dto/booking.dto';
 
 /** Staff booking management. ADMIN and STAFF, like Requests and Clients. */
 @ApiTags('bookings')
@@ -49,6 +49,14 @@ export class BookingsController {
   @Audit({ action: 'CONFIRM_BOOKING', entityType: 'Booking' })
   confirm(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.bookings.confirm(id, user);
+  }
+
+  /** Puts a draft in front of the client to accept or ask for changes. Nothing is booked by asking. */
+  @Post(':id/ask-client')
+  @HttpCode(200)
+  @Audit({ action: 'ASK_CLIENT_TO_CHECK_BOOKING', entityType: 'Booking' })
+  askClient(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.bookings.askClient(id, user);
   }
 
   @Post(':id/cancel')
@@ -113,6 +121,29 @@ export class MyBookingsController {
   @Roles('PATIENT_GUARDIAN')
   clientBookings(@CurrentUser() user: AuthenticatedUser, @Req() req: RequestWithLanguage) {
     return this.bookings.listForClient(user, req.lang);
+  }
+
+  /** Draft bookings the office has asked this client to check. */
+  @Get('booking-proposals')
+  @Roles('PATIENT_GUARDIAN')
+  proposals(@CurrentUser() user: AuthenticatedUser, @Req() req: RequestWithLanguage) {
+    return this.bookings.proposalsForClient(user, req.lang);
+  }
+
+  @Post('booking-proposals/:id/accept')
+  @HttpCode(200)
+  @Roles('PATIENT_GUARDIAN')
+  @Audit({ action: 'CLIENT_ACCEPT_BOOKING', entityType: 'Booking' })
+  acceptProposal(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser, @Req() req: RequestWithLanguage) {
+    return this.bookings.answerAsClient(user, id, 'ACCEPTED', null, req.lang);
+  }
+
+  @Post('booking-proposals/:id/request-changes')
+  @HttpCode(200)
+  @Roles('PATIENT_GUARDIAN')
+  @Audit({ action: 'CLIENT_REQUEST_BOOKING_CHANGES', entityType: 'Booking' })
+  requestChanges(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RequestBookingChangesDto, @CurrentUser() user: AuthenticatedUser, @Req() req: RequestWithLanguage) {
+    return this.bookings.answerAsClient(user, id, 'CHANGES_REQUESTED', dto.note, req.lang);
   }
 
   @Get('shifts')

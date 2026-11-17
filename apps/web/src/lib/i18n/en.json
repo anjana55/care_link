@@ -1749,6 +1749,18 @@
       "notePlaceholder": "What to tell them",
       "send": "Send answer",
       "sentTo": "They are told by email or WhatsApp."
+    },
+    "clientCheck": {
+      "NONE": "The client has not been asked to check this draft",
+      "ASKED": "Waiting for the client to check this draft",
+      "ACCEPTED": "The client accepted this draft - it is ready to confirm",
+      "CHANGES_REQUESTED": "The client asked for changes",
+      "ask": "Ask the client to check",
+      "askAgain": "Ask the client again",
+      "hint": "They see the times, the caregiver and the price in their account, and accept or say what to change. Nothing is booked until you confirm.",
+      "needsRate": "Set the client's rate first: they are asked to agree to the price.",
+      "askedAt": "Asked {when}. Changing the times, the caregiver or the client's rate withdraws the question.",
+      "answeredAt": "Answered {when}. Changing the times, the caregiver or the client's rate clears their answer."
     }
   },
   "filters": {
