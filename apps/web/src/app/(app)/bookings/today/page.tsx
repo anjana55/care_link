@@ -60,6 +60,7 @@ export default function TodayVisitsPage() {
         </p>
       )}
 
+      {data.truncated && <p role="status" className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">{t('visits.truncated', { n: data.visits.length })}</p>}
       {data.visits.length === 0 ? (
         <p className="rounded border border-dashed border-border bg-white px-4 py-10 text-center text-sm text-ink/50">{t('visits.none')}</p>
       ) : (

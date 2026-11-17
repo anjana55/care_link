@@ -4375,7 +4375,8 @@
     "cantMake": {
       "said": "Can't make it (told us at {when})",
       "afterAll": "They can come after all"
-    }
+    },
+    "truncated": "Showing the first {n} visits of the day, by start time."
   },
   "peopleWaiting": {
     "title": "People waiting",

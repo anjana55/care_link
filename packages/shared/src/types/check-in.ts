@@ -147,6 +147,8 @@ export interface TodayVisits {
   /** Today in Sri Lanka, YYYY-MM-DD. */
   date: string;
   visits: TodayVisit[];
+  /** The day had more visits than are shown (the first 2,000 by start time). */
+  truncated?: boolean;
 }
 
 /** POST /me/shifts/:id/check-in (caregiver). The position is optional: a phone that cannot give one still checks in. */
