@@ -53,3 +53,23 @@ export function advancePeriods(booking: { startDate: string; endDate: string }, 
   }
   return out;
 }
+
+/**
+ * Payment before confirmation. A booking billed in advance is confirmed once
+ * its first invoice is paid; staff can confirm it without, giving a reason.
+ * - NOT_BILLED  the first invoice has not been sent
+ * - UNPAID      it has been sent (or is still a draft) and is not fully paid
+ * - PAID        it is paid: the booking can be confirmed
+ */
+export type AdvancePaymentState = 'NOT_BILLED' | 'UNPAID' | 'PAID';
+
+export interface AdvancePayment {
+  /** True for a draft billed in advance: confirming it needs the payment, or a staff override. */
+  required: boolean;
+  state: AdvancePaymentState;
+  /** The first invoice, once there is one. `number` is null while it is a draft. */
+  invoice: { id: string; number: string | null; status: 'DRAFT' | 'ISSUED' | 'PAID'; total: string; dueDate: string | null } | null;
+}
+
+/** How close to its first day an unpaid booking is brought to staff, whatever the invoice's due date. */
+export const UNPAID_ALERT_DAYS_BEFORE_START = 2;

@@ -18,6 +18,7 @@ import {
   type ClientBooking,
   type ClientBookingProposal,
   type IsoWeekday,
+  type AdvancePayment,
   type BillingTiming,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
@@ -151,6 +152,23 @@ export class BookingsService {
     private readonly automation: AutomationService,
     private readonly checkIns: CheckInService,
   ) {}
+
+  /**
+   * Where a booking stands on payment before confirmation. Only a draft billed
+   * in advance needs it. Its first invoice is the earliest one made for the
+   * booking that has not been voided.
+   */
+  async advancePayment(booking: Pick<typeof bookings.$inferSelect, 'id' | 'status' | 'billingTiming'>): Promise<AdvancePayment> {
+    const required = booking.status === 'DRAFT' && booking.billingTiming === 'ADVANCE';
+    const [inv] = await this.db
+      .select({ id: invoices.id, number: invoices.number, status: invoices.status, total: invoices.total, dueDate: invoices.dueDate })
+      .from(invoices)
+      .where(and(eq(invoices.bookingId, booking.id), ne(invoices.status, 'VOID')))
+      .orderBy(asc(invoices.createdAt))
+      .limit(1);
+    if (!inv) return { required, state: 'NOT_BILLED', invoice: null };
+    return { required, state: inv.status === 'PAID' ? 'PAID' : 'UNPAID', invoice: { ...inv, status: inv.status as 'DRAFT' | 'ISSUED' | 'PAID' } };
+  }
 
   /** What a new booking starts with unless staff choose otherwise (Settings > Billing). */
   async defaults(): Promise<{ billingTiming: BillingTiming }> {
@@ -352,6 +370,8 @@ export class BookingsService {
 
     return {
       ...booking,
+      // Payment before confirmation: where a draft billed in advance stands.
+      advancePayment: await this.advancePayment(booking),
       daysOfWeek: booking.daysOfWeek.split(',').map(Number),
       createdBy: booking.createdByUserId ? (names.get(booking.createdByUserId) ?? null) : null,
       confirmedBy: booking.confirmedByUserId ? (names.get(booking.confirmedByUserId) ?? null) : null,
@@ -806,10 +826,9 @@ export class BookingsService {
         const plan = planRoster(existing, generated, booking.caregiverId, newBooked);
         const moved = plan.keep.filter((k) => k.caregiverId !== k.shift.caregiverId);
 
-        if (!draft) {
-          await this.lockCaregivers(t, [newBooked, booking.caregiverId, ...existing.map((s) => s.caregiverId)]);
-          await this.assertNotBilled(t, plan.drop.map((s) => s.id), moved.map((m) => m.shift.id));
-        }
+        if (!draft) await this.lockCaregivers(t, [newBooked, booking.caregiverId, ...existing.map((s) => s.caregiverId)]);
+        // Drafts too: a draft billed in advance may already have its first invoice out.
+        await this.assertNotBilled(t, plan.drop.map((s) => s.id), draft ? [] : moved.map((m) => m.shift.id));
         if (plan.drop.length) {
           const ids = plan.drop.map((s) => s.id);
           if (draft) await tx.delete(bookingShifts).where(inArray(bookingShifts.id, ids));
@@ -930,9 +949,22 @@ export class BookingsService {
    * them overlaps a shift the caregiver (or a cover) already holds. The
    * request it came from is closed as PLACED. Client and caregiver are told.
    */
-  async confirm(id: string, actor: AuthenticatedUser) {
+  async confirm(id: string, actor: AuthenticatedUser, opts: { withoutPayment?: boolean; reason?: string | null } = {}) {
     const booking = await this.bookingOrThrow(id);
     if (booking.status !== 'DRAFT') throw new BadRequestException('Only a draft booking can be confirmed');
+    // Billed in advance: the first invoice is paid before anything is booked - unless a staff member decides otherwise.
+    const payment = await this.advancePayment(booking);
+    const overridden = payment.required && payment.state !== 'PAID';
+    if (overridden) {
+      if (!opts.withoutPayment) {
+        throw new ConflictException(
+          payment.state === 'NOT_BILLED'
+            ? 'This booking is billed in advance and its first invoice has not been sent. Send the invoice, or confirm without payment'
+            : 'This booking is billed in advance and its first invoice has not been paid. Confirm without payment only if you have agreed that with the client',
+        );
+      }
+      if (!opts.reason?.trim() || opts.reason.trim().length < 3) throw new BadRequestException('Say why the booking is confirmed without payment');
+    }
 
     await this.db.transaction(async (tx) => {
       const t = tx as unknown as Tx;
@@ -955,7 +987,7 @@ export class BookingsService {
         throw new ConflictException('This booking was just changed by someone else - reload and try again');
       }
       await tx.update(bookingShifts).set({ status: 'SCHEDULED', updatedAt: now }).where(and(eq(bookingShifts.bookingId, id), eq(bookingShifts.status, 'DRAFT')));
-      await this.event(t, id, 'CONFIRMED', actor, `${drafts.length} shifts scheduled`);
+      await this.event(t, id, 'CONFIRMED', actor, `${drafts.length} shifts scheduled${overridden ? `; confirmed without payment: ${opts.reason!.trim()}` : ''}`);
 
       if (booking.careRequestId) {
         const [req] = await tx
@@ -1090,6 +1122,8 @@ export class BookingsService {
     void this.notifier.clientAnswered(id, answer, text);
     // The booking agent, when it is switched on, takes an accepted draft from here.
     if (answer === 'ACCEPTED') await nudgeBookingConfirm(this.jobs, this.automation, id);
+    // Billed in advance: accepting is what makes the first invoice due. The billing agent, when it is on, sends it.
+    if (answer === 'ACCEPTED') await nudgeBilling(this.jobs, this.automation, id);
     return this.proposalsForClient(user, locale);
   }
 
@@ -1100,6 +1134,11 @@ export class BookingsService {
     if (!reason?.trim()) throw new BadRequestException('Say why the booking is being cancelled');
     const now = new Date();
     if (booking.status === 'CONFIRMED') await this.assertUpcomingNotBilled(id, now);
+    // A draft waiting for payment has an invoice out: it is voided (and any payment refunded) before the draft goes.
+    if (booking.status === 'DRAFT') {
+      const { invoice } = await this.advancePayment(booking);
+      if (invoice) throw new ConflictException('This booking has its first invoice out - void the invoice first');
+    }
     await this.db.transaction(async (tx) => {
       await tx.update(bookings).set({ status: 'CANCELLED', cancelledAt: now, cancelReason: reason.trim(), updatedAt: now }).where(eq(bookings.id, id));
       await tx

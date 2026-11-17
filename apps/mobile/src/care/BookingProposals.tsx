@@ -45,7 +45,7 @@ function Proposal({ proposal: p }: { proposal: ClientBookingProposal }) {
       <Text accessibilityRole="header" style={[styles.title, { color: colors.ink }]}>
         {t(`account.bookingCheck.title.${p.status}`)}
       </Text>
-      <Text style={{ color: colors.muted }}>{t(`account.bookingCheck.intro.${p.status}`)}</Text>
+      <Text style={{ color: colors.muted }}>{t(`account.bookingCheck.intro.${p.status === 'ACCEPTED' && p.billingTiming === 'ADVANCE' ? 'ACCEPTED_ADVANCE' : p.status}`)}</Text>
 
       {p.caregiver ? (
         <Button

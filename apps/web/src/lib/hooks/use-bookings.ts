@@ -98,7 +98,15 @@ export function useCreateBooking() {
   });
 }
 
-export const useConfirmBooking = (id: string) => useBookingWrite(id, () => api.post<BookingDetail>(`/bookings/${id}/confirm`, {}));
+/** Confirms a draft. `withoutPayment` (with a reason) is the staff override for a booking billed in advance whose first invoice is not paid. */
+export const useConfirmBooking = (id: string) =>
+  useBookingWrite(id, (v: { withoutPayment: true; reason: string } | undefined) => api.post<BookingDetail>(`/bookings/${id}/confirm`, v ?? {}));
+/** Makes and issues the first invoice of a draft billed in advance; the client is told how to pay. */
+export const useSendAdvanceInvoice = (id: string) =>
+  useBookingWrite(id, async () => {
+    await api.post<{ id: string }>(`/bookings/${id}/advance-invoice`, {});
+    return api.get<BookingDetail>(`/bookings/${id}`);
+  });
 /** Puts a draft in front of the client to accept or ask for changes. */
 export const useAskClient = (id: string) => useBookingWrite(id, () => api.post<BookingDetail>(`/bookings/${id}/ask-client`, {}));
 export const useCancelBooking = (id: string) => useBookingWrite(id, (reason: string) => api.post<BookingDetail>(`/bookings/${id}/cancel`, { reason }));

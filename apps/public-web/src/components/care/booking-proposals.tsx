@@ -41,7 +41,7 @@ function Proposal({ proposal: p }: { proposal: ClientBookingProposal }) {
       <h2 id={`check-${p.id}`} className="text-base font-semibold text-ink">
         {t(`account.bookingCheck.title.${p.status}`)}
       </h2>
-      <p className="mt-1 text-sm text-ink/70">{t(`account.bookingCheck.intro.${p.status}`)}</p>
+      <p className="mt-1 text-sm text-ink/70">{t(`account.bookingCheck.intro.${p.status === 'ACCEPTED' && p.billingTiming === 'ADVANCE' ? 'ACCEPTED_ADVANCE' : p.status}`)}</p>
 
       <div className="mt-4">
         {p.caregiver ? (

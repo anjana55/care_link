@@ -8,10 +8,14 @@ import request from 'supertest';
 import { addDays, colomboToday, isoWeekday, toColombo } from '@care-platform/shared';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/database.module';
-import { agentDecisions, caregivers, invoices, patients, payoutStatements, users } from '../src/database/schema';
+import { agentDecisions, bookings, caregivers, invoices, patients, payoutStatements, users } from '../src/database/schema';
 import { AutomationService } from '../src/automation/automation.service';
 import { BillingAgentService, endOfPreviousMonth, monthStart } from '../src/billing/billing-agent.service';
 import { BILLING_BOOKING_JOB } from '../src/billing/billing-agent-jobs';
+import { INVOICE_PAID_JOB } from '../src/billing/advance-payment-jobs';
+import { AdvancePaymentService } from '../src/billing/advance-payment.service';
+import { BookingAgentService } from '../src/bookings/booking-agent.service';
+import { EmailService } from '../src/email/email.service';
 import { JobsService } from '../src/jobs/jobs.service';
 import { SEED_PASSWORD } from './seed-password';
 
@@ -102,6 +106,7 @@ describe('Billing agent (e2e)', () => {
   const invoicesFor = (bookingId: string) => db.select().from(invoices).where(eq(invoices.bookingId, bookingId));
   /** Sweeps only this suite's bookings: other suites run at the same time and own theirs. */
   const sweep = (...made: { booking: { id: string } }[]) => agent.sweep(new Date(), made.map((m) => m.booking.id));
+  const bookingRow = async (id: string) => (await db.select().from(bookings).where(eq(bookings.id, id)))[0];
   const panel = async (bookingId: string) => (await api().get(`/automation/cases/BOOKING/${bookingId}`).set(bearer(staffToken)).expect(200)).body;
 
   /** A finished booking: five completed shifts at LKR 3,500 a day = LKR 17,500. */
@@ -329,7 +334,16 @@ describe('Billing agent (e2e)', () => {
           startDate: addDays(first, 9), endDate: addDays(nextFirst, 19), rateType: 'DAILY', rateAmount: '3500.00', payRateType: 'DAILY', payRateAmount: '2500.00', ...extra,
         })
         .expect(201);
-      const booking = (await api().post(`/bookings/${created.body.id}/confirm`).set(bearer(staffToken)).expect(200)).body as { id: string; reference: string; billingTiming: string; shifts: { id: string; startsAt: string }[] };
+      // Billed in advance, a booking is confirmed once its first invoice is paid. These cases are about the billing
+      // that follows confirmation, so staff confirm without payment; the hold itself has cases of its own below.
+      const advance = created.body.billingTiming === 'ADVANCE';
+      const booking = (
+        await api()
+          .post(`/bookings/${created.body.id}/confirm`)
+          .set(bearer(staffToken))
+          .send(advance ? { withoutPayment: true, reason: 'Agreed with the client by phone' } : {})
+          .expect(200)
+      ).body as { id: string; reference: string; billingTiming: string; shifts: { id: string; startsAt: string }[] };
       const inMonth = (from: string) => booking.shifts.filter((s) => toColombo(s.startsAt).date.slice(0, 7) === from.slice(0, 7)).length;
       return { cg, client, booking, firstMonth: inMonth(first), secondMonth: inMonth(nextFirst) };
     }
@@ -459,6 +473,143 @@ describe('Billing agent (e2e)', () => {
     });
   });
 
+  describe('payment before confirmation (billed in advance)', () => {
+    const first = monthStart(addDays(colomboToday(), 520));
+    const nextFirst = monthStart(addDays(first, 35));
+
+    /** A draft Mon-Fri booking billed in advance, from the 10th of a month well ahead, that the client has accepted. */
+    async function acceptedDraft() {
+      const cg = await newCaregiver();
+      const client = await newClient();
+      const created = (
+        await api()
+          .post('/bookings')
+          .set(bearer(staffToken))
+          .send({
+            patientId: client.patientId, caregiverId: cg.id, scheduleType: 'DAY', daysOfWeek: [1, 2, 3, 4, 5], shiftStartTime: '08:00', shiftEndTime: '17:00',
+            startDate: addDays(first, 9), endDate: addDays(nextFirst, 19), rateType: 'DAILY', rateAmount: '3500.00', payRateType: 'DAILY', payRateAmount: '2500.00', billingTiming: 'ADVANCE',
+          })
+          .expect(201)
+      ).body as { id: string; reference: string; shifts: { startsAt: string }[] };
+      await api().post(`/bookings/${created.id}/ask-client`).set(bearer(staffToken)).expect(200);
+      await api().post(`/me/booking-proposals/${created.id}/accept`).set(bearer(client.token)).expect(200);
+      const firstMonth = created.shifts.filter((s) => toColombo(s.startsAt).date.slice(0, 7) === first.slice(0, 7)).length;
+      return { id: created.id, reference: created.reference, client, firstMonth };
+    }
+    const detail = async (id: string) => (await api().get(`/bookings/${id}`).set(bearer(staffToken)).expect(200)).body;
+    const confirm = (id: string, body: object = {}) => api().post(`/bookings/${id}/confirm`).set(bearer(staffToken)).send(body);
+    const payInFull = async (invoiceId: string) => {
+      const inv = (await api().get(`/invoices/${invoiceId}`).set(bearer(staffToken)).expect(200)).body as { balance: string };
+      return api().post(`/invoices/${invoiceId}/payments`).set(bearer(staffToken)).send({ paymentType: 'CASH', paidOn: colomboToday(), notify: false, amount: inv.balance }).expect(201);
+    };
+    const advance = () => app.get(AdvancePaymentService);
+    const emailsLabelled = (prefix: string) => sendEmail.mock.calls.filter((c) => String(c[2]).startsWith(prefix));
+    let sendEmail: jest.SpyInstance;
+    beforeEach(() => {
+      sendEmail = jest.spyOn(app.get(EmailService), 'sendNotificationEmail').mockResolvedValue();
+    });
+    afterEach(() => sendEmail.mockRestore());
+
+    it('by hand: will not confirm until the first invoice is paid; staff send the invoice, the payment frees it, and staff are told', async () => {
+      await mode('MANUAL');
+      const b = await acceptedDraft();
+      expect((await detail(b.id)).advancePayment).toEqual({ required: true, state: 'NOT_BILLED', invoice: null });
+
+      // Not billed yet: confirming is refused, and says what to do.
+      expect((await confirm(b.id).expect(409)).body.message).toBe('This booking is billed in advance and its first invoice has not been sent. Send the invoice, or confirm without payment');
+
+      // Staff send the first invoice: the first month, for the work booked, issued to the client.
+      const sent = (await api().post(`/bookings/${b.id}/advance-invoice`).set(bearer(staffToken)).expect(201)).body as { id: string; number: string; status: string; basis: string; subtotal: string; periodStart: string; periodEnd: string };
+      expect(sent).toMatchObject({ status: 'ISSUED', basis: 'SCHEDULED', subtotal: (b.firstMonth * 3500).toFixed(2), periodStart: addDays(first, 9), periodEnd: addDays(nextFirst, -1) });
+      await api().post(`/bookings/${b.id}/advance-invoice`).set(bearer(staffToken)).expect(409);
+      const mine = (await api().get('/me/invoices').set(bearer(b.client.token)).expect(200)).body as { number: string }[];
+      expect(mine.some((i) => i.number === sent.number)).toBe(true);
+
+      // Sent and not paid: still refused. The shifts are still drafts, so no caregiver is booked.
+      expect((await detail(b.id)).advancePayment).toMatchObject({ state: 'UNPAID', invoice: { id: sent.id, number: sent.number, status: 'ISSUED' } });
+      expect((await confirm(b.id).expect(409)).body.message).toBe('This booking is billed in advance and its first invoice has not been paid. Confirm without payment only if you have agreed that with the client');
+      expect((await bookingRow(b.id)).status).toBe('DRAFT');
+      // Its shifts cannot be dropped from under the invoice, and the draft cannot be thrown away while it is out.
+      expect((await api().post(`/bookings/${b.id}/cancel`).set(bearer(staffToken)).send({ reason: 'Client changed their mind' }).expect(409)).body.message).toBe('This booking has its first invoice out - void the invoice first');
+
+      // Paid in full: staff are told it can be confirmed, and then it can.
+      await payInFull(sent.id);
+      await app.get(JobsService).runDue(new Date(), [INVOICE_PAID_JOB]);
+      const told = emailsLabelled(`advance paid ${sent.id}`);
+      expect(told).toHaveLength(1);
+      expect((told[0][1] as { subject: string }).subject).toBe(`Paid, ready to confirm: ${b.reference}`);
+      expect((await detail(b.id)).advancePayment).toMatchObject({ required: true, state: 'PAID' });
+      const confirmed = (await confirm(b.id).expect(200)).body;
+      expect(confirmed).toMatchObject({ status: 'CONFIRMED', advancePayment: { required: false, state: 'PAID' } });
+      // The shifts it billed stay on that invoice: the billing agent does not bill them again.
+      await mode('AUTO');
+      await agent.sweep(new Date(`${addDays(first, 12)}T06:00:00Z`), [b.id]);
+      expect((await invoicesFor(b.id)).filter((i) => i.periodStart === addDays(first, 9))).toHaveLength(1);
+    });
+
+    it('staff can confirm without payment, with a reason that stays in the history', async () => {
+      await mode('MANUAL');
+      const b = await acceptedDraft();
+      await confirm(b.id, { withoutPayment: true }).expect(400);
+      await confirm(b.id, { withoutPayment: true, reason: '  ' }).expect(400);
+      const done = (await confirm(b.id, { withoutPayment: true, reason: 'Client pays by bank transfer on Friday' }).expect(200)).body as { status: string; events: { type: string; note: string | null }[] };
+      expect(done.status).toBe('CONFIRMED');
+      expect(done.events.find((e) => e.type === 'CONFIRMED')?.note).toContain('confirmed without payment: Client pays by bank transfer on Friday');
+    });
+
+    it('alerts staff once when the first invoice is overdue or the booking is about to start, and not before', async () => {
+      await mode('MANUAL');
+      const b = await acceptedDraft();
+      const inv = (await api().post(`/bookings/${b.id}/advance-invoice`).set(bearer(staffToken)).expect(201)).body as { id: string; number: string; dueDate: string };
+      // Before it is due and well before the booking starts: nothing.
+      expect(await advance().alertUnpaid(new Date(`${inv.dueDate}T06:00:00Z`), [b.id])).toBe(0);
+      // The day after it was due: one email, and a line in the booking's history.
+      const late = new Date(`${addDays(inv.dueDate, 1)}T06:00:00Z`);
+      expect(await advance().alertUnpaid(late, [b.id])).toBe(1);
+      const mail = emailsLabelled(`advance unpaid ${inv.id}`);
+      expect(mail).toHaveLength(1);
+      expect((mail[0][1] as { subject: string }).subject).toBe(`Not paid, not confirmed: ${b.reference}`);
+      expect(JSON.stringify(mail[0][1])).toContain(`invoice ${inv.number} was due on ${inv.dueDate}`);
+      expect(((await detail(b.id)).events as { note: string | null }[]).some((e) => e.note?.startsWith('Staff alerted: the first invoice is not paid'))).toBe(true);
+      // Once only, even as it gets closer to the start.
+      expect(await advance().alertUnpaid(new Date(`${addDays(first, 8)}T06:00:00Z`), [b.id])).toBe(0);
+      expect(emailsLabelled(`advance unpaid ${inv.id}`)).toHaveLength(1);
+      // Counted on the dashboard's Needs attention.
+      const insights = (await api().get('/insights/overview').set(bearer(adminToken)).expect(200)).body;
+      expect(insights.attention.awaitingPayment).toBeGreaterThanOrEqual(1);
+    });
+
+    it('with the agents on: the invoice goes out when the client accepts, and the booking is confirmed once it is paid', async () => {
+      await mode('AUTO');
+      await api().patch('/settings/automation/functions/BOOKING').set(bearer(adminToken)).send({ mode: 'AUTO' }).expect(200);
+      await api().patch('/settings/automation/actions/booking.confirm').set(bearer(adminToken)).send({ autoAllowed: true });
+      try {
+        const b = await acceptedDraft();
+        // Accepting queued the billing agent: it sends the first month, and nothing more while it is a draft.
+        await app.get(JobsService).runDue(new Date(), [BILLING_BOOKING_JOB]);
+        const [inv] = await invoicesFor(b.id);
+        expect(inv).toMatchObject({ status: 'ISSUED', basis: 'SCHEDULED', subtotal: (b.firstMonth * 3500).toFixed(2) });
+        await agent.sweep(new Date(`${addDays(nextFirst, -3)}T06:00:00Z`), [b.id]);
+        expect(await invoicesFor(b.id)).toHaveLength(1);
+
+        // The booking agent waits for the payment.
+        await app.get(BookingAgentService).answers(new Date(), [b.id]);
+        expect((await bookingRow(b.id)).status).toBe('DRAFT');
+        expect((await panel(b.id)).handoverNote).toMatchObject({ waiting: `The client to pay invoice ${inv.number}` });
+
+        // Paid: staff are told, and the booking agent confirms it (or proposes it, if it has not earned that yet).
+        await payInFull(inv.id);
+        await app.get(JobsService).runDue(new Date(), [INVOICE_PAID_JOB]);
+        await app.get(BookingAgentService).answers(new Date(), [b.id]);
+        const [decision] = (await decisionsFor(b.id)).filter((d) => d.action === 'booking.confirm');
+        expect(decision).toBeDefined();
+        expect(['EXECUTED', 'PROPOSED']).toContain(decision.outcome);
+      } finally {
+        await api().patch('/settings/automation/functions/BOOKING').set(bearer(adminToken)).send({ mode: 'MANUAL' }).expect(200);
+      }
+    });
+  });
+
   describe('caregiver pay statements', () => {
     const HOURS = 3_600_000;
     const later = () => new Date(Date.now() + 2 * HOURS);
@@ -540,6 +691,8 @@ describe('Billing agent (e2e)', () => {
 
     it('Auto: drafts alone, but approves alone only once that has been earned, and never over the limit', async () => {
       await mode('AUTO');
+      // Earning is counted from the record; start it fresh so earlier runs on the same database do not count.
+      await policy({ resetRecord: true }).expect(200);
       const first = await workedLastMonth();
       await paySweep(new Date(), first);
       const [agentUser] = await db.select().from(users).where(eq(users.email, 'billing-agent@agents.invalid'));
