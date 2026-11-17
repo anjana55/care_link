@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import type { CareChecklistItem, CareChecklistShift, ClientBooking, ClientCareDay } from '@care-platform/shared';
+import type { CareChecklistItem, CareChecklistShift, ClientBooking, ClientBookingProposal, ClientCareDay } from '@care-platform/shared';
 import en from '../src/i18n/en.json';
 import Bookings from '../app/(client)/bookings';
 import { AppProviders, serveApi } from '../test-utils/app';
@@ -90,6 +90,7 @@ describe('bookings', () => {
     await client();
     serveApi({
       'GET /me/bookings': () => ({ status: 200, body: [booking()] }),
+      'GET /me/booking-proposals': () => ({ status: 200, body: [] }),
       'GET /me/care': () => ({ status: 200, body: day({ hasCarePlans: false }) }),
     });
     await show();
@@ -103,6 +104,71 @@ describe('bookings', () => {
     expect(screen.getByText(en.account.requests.notOnline)).toBeTruthy();
     // No care plan: no checklist.
     expect(screen.queryByText(en.carePlan.todayTitle)).toBeNull();
+  });
+
+  it('shows a draft the office asked the client to check, and sends their answer', async () => {
+    await client();
+    const proposal = (over: Partial<ClientBookingProposal> = {}): ClientBookingProposal => ({
+      id: 'p-1', reference: 'BK-CHECK', status: 'ASKED', scheduleType: 'DAY', daysOfWeek: [1, 2, 3, 4, 5], shiftStartTime: '08:00', shiftEndTime: '17:00',
+      startDate: '2026-11-16', endDate: '2026-11-29', shiftCount: 10, rateType: 'DAILY', rateAmount: '3450.00', caregiver: null,
+      askedAt: '2026-11-12T10:00:00.000Z', answeredAt: null, note: null, ...over,
+    });
+    let list = [proposal()];
+    const calls = serveApi({
+      'GET /me/bookings': () => ({ status: 200, body: [] }),
+      'GET /me/booking-proposals': () => ({ status: 200, body: list }),
+      'GET /me/care': () => ({ status: 200, body: day({ hasCarePlans: false }) }),
+      'POST /me/booking-proposals/p-1/request-changes': () => {
+        list = [proposal({ status: 'CHANGES_REQUESTED', note: 'Could the carer come at 9?', answeredAt: '2026-11-12T11:00:00.000Z' })];
+        return { status: 200, body: list };
+      },
+    });
+    await show();
+
+    expect(await screen.findByText(en.account.bookingCheck.title.ASKED)).toBeTruthy();
+    expect(screen.getByText('Mon, Tue, Wed, Thu, Fri')).toBeTruthy();
+    expect(screen.getByText('08:00 – 17:00')).toBeTruthy();
+    expect(screen.getByText(`16 Nov 2026 – 29 Nov 2026 (${en.account.bookingCheck.visits.replace('{n}', '10')})`)).toBeTruthy();
+    expect(screen.getByText(`LKR 3,450.00 ${en.account.bookings.rateUnit.DAILY}`)).toBeTruthy();
+    expect(screen.getByText(en.account.bookingCheck.notBookedYet)).toBeTruthy();
+
+    // Too short a note cannot be sent; a real one goes to the office and the card says so.
+    await fireEvent.press(screen.getByRole('button', { name: en.account.bookingCheck.change }));
+    const box = screen.getByLabelText(en.account.bookingCheck.changeLabel);
+    await fireEvent.changeText(box, 'no');
+    expect(screen.getByRole('button', { name: en.account.bookingCheck.send })).toBeDisabled();
+    await fireEvent.changeText(box, ' Could the carer come at 9? ');
+    await fireEvent.press(screen.getByRole('button', { name: en.account.bookingCheck.send }));
+    await waitFor(() => expect(calls.find((c) => c.route === 'POST /me/booking-proposals/p-1/request-changes')?.body).toEqual({ note: 'Could the carer come at 9?' }));
+    expect(await screen.findByText(en.account.bookingCheck.title.CHANGES_REQUESTED)).toBeTruthy();
+    expect(screen.getByText('Could the carer come at 9?')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: en.account.bookingCheck.accept })).toBeNull();
+  });
+
+  it('records the client accepting a draft, and shows an overnight plan the right way', async () => {
+    await client();
+    let list: ClientBookingProposal[] = [{
+      id: 'p-2', reference: 'BK-NIGHT', status: 'ASKED', scheduleType: 'NIGHT', daysOfWeek: [1, 2, 3, 4, 5, 6, 7], shiftStartTime: '20:00', shiftEndTime: '08:00',
+      startDate: '2026-11-13', endDate: '2026-11-26', shiftCount: 14, rateType: null, rateAmount: null, caregiver: null,
+      askedAt: '2026-11-12T10:00:00.000Z', answeredAt: null, note: null,
+    }];
+    const calls = serveApi({
+      'GET /me/bookings': () => ({ status: 200, body: [] }),
+      'GET /me/booking-proposals': () => ({ status: 200, body: list }),
+      'GET /me/care': () => ({ status: 200, body: day({ hasCarePlans: false }) }),
+      'POST /me/booking-proposals/p-2/accept': () => {
+        list = [{ ...list[0], status: 'ACCEPTED', answeredAt: '2026-11-12T11:00:00.000Z' }];
+        return { status: 200, body: list };
+      },
+    });
+    await show();
+    expect(await screen.findByText(en.account.bookingCheck.everyDay)).toBeTruthy();
+    expect(screen.getByText(`20:00 – 08:00 ${en.account.bookingCheck.nextDay}`)).toBeTruthy();
+    expect(screen.getByText(en.account.bookingCheck.caregiverByTeam)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: en.account.bookingCheck.accept }));
+    await waitFor(() => expect(calls.some((c) => c.route === 'POST /me/booking-proposals/p-2/accept')).toBe(true));
+    expect(await screen.findByText(en.account.bookingCheck.title.ACCEPTED)).toBeTruthy();
+    expect(screen.queryByText(en.account.bookingCheck.notBookedYet)).toBeNull();
   });
 
   it('says when there are none yet, and points to the requests', async () => {
@@ -130,6 +196,7 @@ describe('today’s care', () => {
     let current = shift();
     const calls = serveApi({
       'GET /me/bookings': () => ({ status: 200, body: [booking()] }),
+      'GET /me/booking-proposals': () => ({ status: 200, body: [] }),
       'GET /me/care': () => ({ status: 200, body: day({ shifts: [current] }) }),
       'PUT /me/care/records': (body) => {
         current = {
@@ -167,6 +234,7 @@ describe('today’s care', () => {
     await client();
     serveApi({
       'GET /me/bookings': () => ({ status: 200, body: [booking()] }),
+      'GET /me/booking-proposals': () => ({ status: 200, body: [] }),
       'GET /me/care': () => ({
         status: 200,
         body: day({
@@ -193,6 +261,7 @@ describe('today’s care', () => {
     // The API answers for the day asked about.
     const calls = serveApi({
       'GET /me/bookings': () => ({ status: 200, body: [booking()] }),
+      'GET /me/booking-proposals': () => ({ status: 200, body: [] }),
       'GET /me/care': (_, query) => {
         const date = query.date ?? '2026-11-02';
         return { status: 200, body: day({ date, shifts: date === '2026-11-02' ? [shift()] : [] }) };
