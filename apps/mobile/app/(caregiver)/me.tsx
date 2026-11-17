@@ -59,6 +59,8 @@ export default function Me() {
           <MenuRow icon="document-text-outline" tone="accent" label={t('portal.nav.documents')} count={documents} countLabel={said(documents)} onPress={() => router.navigate('/documents')} />
           <Divider />
           <MenuRow icon="star-outline" label={t('portal.nav.ratings')} onPress={() => router.navigate('/ratings')} />
+          <Divider />
+          <MenuRow icon="call-outline" label={t('talk.title')} onPress={() => router.push('/talk')} />
         </Card>
 
         <View style={styles.section}>

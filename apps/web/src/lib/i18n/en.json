@@ -142,7 +142,9 @@
       "overseasWaiting": "Overseas enquiries and approvals waiting",
       "lateVisits": "Visits started with nobody checked in",
       "awaitingPayment": "Bookings not confirmed: first invoice unpaid",
-      "pausedForPayment": "Bookings with visits paused: unpaid invoice"
+      "pausedForPayment": "Bookings with visits paused: unpaid invoice",
+      "peopleWaiting": "People who asked to talk to someone",
+      "readyToVerify": "Caregivers ready to verify (file complete)"
     },
     "severity": {
       "act": "Act today",
@@ -4373,5 +4375,24 @@
       "said": "Can't make it (told us at {when})",
       "afterAll": "They can come after all"
     }
+  },
+  "peopleWaiting": {
+    "title": "People waiting",
+    "subtitle": "Clients and caregivers who asked to talk to a person. Reach them the way they asked, then mark it handled. A case they named is with staff until you hand it back on that case.",
+    "none": "Nobody is waiting.",
+    "handledTab": "Handled",
+    "openTab": "Waiting",
+    "client": "Client",
+    "caregiver": "Caregiver",
+    "about": "About {ref}",
+    "contact": {
+      "CALL": "Wants a phone call",
+      "WHATSAPP": "Wants WhatsApp",
+      "EMAIL": "Wants an email"
+    },
+    "waitingSince": "Asked {when}",
+    "note": "Note (optional)",
+    "handle": "Mark handled",
+    "handledBy": "Handled by {name} {when}"
   }
 }

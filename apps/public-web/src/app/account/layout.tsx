@@ -74,6 +74,11 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
             </div>
           </nav>
           <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 print:max-w-none print:p-0">
+            {pathname !== '/account/talk' && (
+              <p className="mb-3 text-right text-sm print:hidden">
+                <Link href="/account/talk" className="font-medium text-brand hover:underline">{t('talk.link')}</Link>
+              </p>
+            )}
             {children}
           </main>
         </>

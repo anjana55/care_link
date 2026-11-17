@@ -1553,5 +1553,32 @@
     "invalidBody": "It may have expired. If you were expecting it, please contact our office.",
     "doneTitle": "Thank you",
     "doneBody": "Your answers have been sent to our office."
+  },
+  "talk": {
+    "link": "Need help? Talk to a person",
+    "title": "Talk to a person",
+    "intro": "Tell us what you need and how to reach you. Someone from our team will contact you - usually the same working day.",
+    "message": "What do you need?",
+    "about": "Is it about one of these?",
+    "aboutNone": "Something else",
+    "aboutHint": "If you choose one, our team takes it over from the automatic helpers until they have spoken to you.",
+    "aboutRequest": "Request {ref}",
+    "aboutBooking": "Booking {ref} (from {date})",
+    "aboutShift": "Shift on {date} ({ref})",
+    "contact": "How should we contact you?",
+    "contactMethods": {
+      "CALL": "Phone call",
+      "WHATSAPP": "WhatsApp",
+      "EMAIL": "Email"
+    },
+    "send": "Send to our team",
+    "sentTitle": "Thank you - we have your message",
+    "sentBody": "Someone from our team will contact you soon.",
+    "another": "Send another message",
+    "mine": "Your messages",
+    "status": {
+      "OPEN": "Waiting for our team",
+      "HANDLED": "Answered"
+    }
   }
 }

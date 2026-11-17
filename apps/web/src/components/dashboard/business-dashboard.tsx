@@ -26,7 +26,7 @@ import {
   UserPlus,
   UserX,
   Wallet,
-  type LucideIcon, Bot } from 'lucide-react';
+  type LucideIcon, Bot, Phone, BadgeCheck } from 'lucide-react';
 import { formatLkr, type BusinessInsights, type InsightKpi, type InsightRange, type InsightRatio } from '@care-platform/shared';
 import { useTranslation } from '@/lib/i18n/provider';
 import { useBusinessInsights } from '@/lib/hooks/use-insights';
@@ -293,6 +293,7 @@ function DashboardBody({ data }: { data: BusinessInsights }) {
   const { data: proposals } = useAwaitingProposals();
   const overseasWaiting = overseas ? overseas.new + overseas.pendingProfiles + overseas.pendingEmployers + overseas.interviewRequests : 0;
   const attention: AttentionItem[] = [
+    { key: 'peopleWaiting', count: a.peopleWaiting ?? 0, label: t('dashboard.attention.peopleWaiting'), href: '/people-waiting', severity: 'act', Icon: Phone },
     { key: 'proposals', count: proposals?.length ?? 0, label: t('automation.proposals.attention'), href: '/agent-proposals', severity: 'act', Icon: Bot },
     { key: 'overdue', count: a.overdueInvoices, label: t('dashboard.attention.overdueInvoices'), detail: formatLkr(a.overdueAmount), href: '/invoices?tab=overdue', severity: 'act', Icon: ReceiptText },
     { key: 'stale', count: a.newRequestsOver24h, label: t('dashboard.attention.newRequestsOver24h'), href: '/requests?tab=open', severity: 'act', Icon: Inbox },
@@ -307,6 +308,7 @@ function DashboardBody({ data }: { data: BusinessInsights }) {
     { key: 'payouts', count: a.payoutsAwaitingPayment, label: t('dashboard.attention.payoutsAwaiting'), detail: formatLkr(a.payoutsAwaitingAmount), href: '/payouts?tab=APPROVED', severity: 'watch', Icon: Wallet },
     { key: 'careUnconfirmed', count: a.careCriticalUnconfirmed, label: t('dashboard.attention.careCriticalUnconfirmed'), href: '/bookings?tab=care', severity: 'watch', Icon: ClipboardList },
     { key: 'drafts', count: a.draftBookings, label: t('dashboard.attention.draftBookings'), href: '/bookings?tab=DRAFT', severity: 'watch', Icon: CalendarClock },
+    { key: 'readyToVerify', count: a.readyToVerify ?? 0, label: t('dashboard.attention.readyToVerify'), href: '/caregivers?status=UNDER_VERIFICATION', severity: 'act', Icon: BadgeCheck },
     { key: 'verify', count: a.caregiversAwaitingVerification, label: t('dashboard.attention.caregiversAwaiting'), href: '/caregivers?status=UNDER_VERIFICATION', severity: 'watch', Icon: ShieldCheck },
     { key: 'docs', count: a.documentsPending, label: t('dashboard.attention.documentsPending'), href: '/caregivers?status=DOCUMENTS_PENDING', severity: 'watch', Icon: FileWarning },
     { key: 'clients', count: a.clientsPendingReview, label: t('dashboard.attention.clientsPending'), href: '/clients?status=PENDING_REVIEW', severity: 'watch', Icon: UserPlus },

@@ -11,6 +11,7 @@ import {
   type InsightDistrictRow,
   type InsightRange,
   type Locale,
+  ONBOARDING_STATUSES,
 } from '@care-platform/shared';
 import { DRIZZLE, type Database } from '../database/database.module';
 import {
@@ -26,6 +27,8 @@ import {
   invoices,
   patients,
   payoutStatements,
+  onboardingFiles,
+  talkRequests,
 } from '../database/schema';
 import { fold, median, periodFor, ratio, round2, type DailyValue } from './periods';
 import { CheckInService } from '../bookings/check-in.service';
@@ -503,6 +506,12 @@ export class InsightsService {
       .innerJoin(invoices, and(eq(invoices.bookingId, bookings.id), eq(invoices.status, 'ISSUED')))
       .where(and(eq(bookings.status, 'DRAFT'), eq(bookings.billingTiming, 'ADVANCE')));
     const [paused] = await this.db.select({ n: count() }).from(bookings).where(and(eq(bookings.status, 'CONFIRMED'), isNotNull(bookings.paymentHoldInvoiceId)));
+    const [waiting] = await this.db.select({ n: count() }).from(talkRequests).where(eq(talkRequests.status, 'OPEN'));
+    const [ready] = await this.db
+      .select({ n: count() })
+      .from(onboardingFiles)
+      .innerJoin(caregivers, eq(caregivers.id, onboardingFiles.caregiverId))
+      .where(and(eq(onboardingFiles.recommendation, 'READY'), inArray(caregivers.status, [...ONBOARDING_STATUSES]), isNull(caregivers.deletedAt)));
     return {
       newRequestsOver24h: num(staleNew?.n),
       unassignedOpenRequests: num(unassigned?.n),
@@ -510,6 +519,8 @@ export class InsightsService {
       lateVisits,
       awaitingPayment: num(unpaidDrafts?.n),
       pausedForPayment: num(paused?.n),
+      peopleWaiting: num(waiting?.n),
+      readyToVerify: num(ready?.n),
       unconfirmedShiftsNext7d: num(unconfirmed?.n),
       missedShiftsLast7d: num(missedShifts?.n),
       unbilledCompletedShifts: num(unbilledRows?.[0]?.n),

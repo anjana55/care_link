@@ -7,6 +7,7 @@ import AccountLayout from '@/app/account/layout';
 import MyRequestsPage from '@/app/account/requests/page';
 import SavedCaregiversPage from '@/app/account/saved/page';
 import MyBookingsPage from '@/app/account/bookings/page';
+import ClientTalkPage from '@/app/account/talk/page';
 
 /**
  * Contact and Save on the public site, and the client's account pages. The API
@@ -248,6 +249,30 @@ describe('client account', () => {
       </AccountLayout>,
     );
     expect(replace).toHaveBeenCalledWith('/caregiver/dashboard');
+  });
+
+  it('talks to a person: names a request, says how to be reached, and lists what was sent', async () => {
+    auth = { user: CLIENT, loading: false };
+    pathname = '/account/talk';
+    const sent: unknown[] = [];
+    get.mockImplementation((path: string) => {
+      if (path === '/me/care-requests') return Promise.resolve([{ id: 'r1', reference: 'CR-TALK01', status: 'IN_PROGRESS' }]);
+      if (path === '/me/bookings') return Promise.resolve([]);
+      if (path === '/me/talk-to-a-person') return Promise.resolve(sent);
+      return Promise.resolve([]);
+    });
+    post.mockImplementation(async (_path: string, body: { message: string }) => {
+      sent.unshift({ id: 't1', createdAt: '2026-11-17T05:00:00Z', message: body.message, contact: 'WHATSAPP', status: 'OPEN', handledAt: null });
+      return sent[0];
+    });
+    renderUi(<ClientTalkPage />);
+    fireEvent.change(await screen.findByLabelText(/What do you need/), { target: { value: '  Please call about the start date  ' } });
+    fireEvent.change(await screen.findByLabelText(/Is it about one of these/), { target: { value: 'REQUEST:r1' } });
+    fireEvent.click(screen.getByLabelText('WhatsApp'));
+    fireEvent.click(screen.getByRole('button', { name: 'Send to our team' }));
+    expect(await screen.findByText('Thank you - we have your message')).toBeInTheDocument();
+    expect(post).toHaveBeenCalledWith('/me/talk-to-a-person', { message: 'Please call about the start date', contact: 'WHATSAPP', about: { type: 'REQUEST', id: 'r1' } });
+    expect(await screen.findByText('Waiting for our team')).toBeInTheDocument();
   });
 
   it('asks for the missing details on a request, only those, and sends them', async () => {
