@@ -14,13 +14,12 @@ export function randomCode(length: number, alphabet = READABLE_ALPHABET): string
 export const shortReference = (prefix: string) => `${prefix}-${randomCode(6)}`;
 
 /**
- * The address a request came from, for signature records. nginx sets
- * X-Real-IP itself (overwriting anything the client sent); without nginx in
- * front, the socket address.
+ * The address a request came from, for signature records. Express works it
+ * out from X-Forwarded-For, believing only the proxies TRUST_PROXY names
+ * (nginx), so a visitor cannot put another address in the header.
  */
 export function clientIp(req: Request): string | null {
-  const real = req.headers['x-real-ip'];
-  const ip = (Array.isArray(real) ? real[0] : real) || req.ip || req.socket?.remoteAddress || null;
+  const ip = req.ip || req.socket?.remoteAddress || null;
   return ip ? ip.slice(0, 45) : null;
 }
 

@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, boolean, datetime, mysqlEnum, index } from 'drizzle-orm/mysql-core';
+import { mysqlTable, varchar, boolean, datetime, mysqlEnum, index, int } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
 
 // EMPLOYER: an overseas employer's account (international path). Verified by
@@ -31,6 +31,10 @@ export const users = mysqlTable(
     // CAREGIVER accounts, which start unverified.
     emailVerifiedAt: datetime('email_verified_at'),
     lastLoginAt: datetime('last_login_at'),
+    /** Wrong passwords in a row; reset by a good one or a password reset. */
+    failedLogins: int('failed_logins').notNull().default(0),
+    /** Password sign-in refused until then, after too many wrong passwords. */
+    loginLockedUntil: datetime('login_locked_until'),
     createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   },

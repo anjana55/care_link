@@ -31,6 +31,8 @@ export class AuthController {
   ) {}
 
   @Public()
+  // Per address. Each account also pauses after 10 wrong passwords (AuthService.validateUser).
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     let tokens;

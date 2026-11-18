@@ -3,11 +3,21 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { trustProxy } from './common/trust-proxy';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
+
+  // nginx sits in front and passes the visitor's address in X-Forwarded-For.
+  // Without this, every request looked like it came from nginx, so the rate
+  // limits (sign-in, sign-up, codes, AI search) were one bucket shared by the
+  // whole site: one person could use them up for everyone, and the per-person
+  // limits did not apply per person. Only the proxies trusted here may set the
+  // address; anything a visitor writes in the header themselves is ignored.
+  app.set('trust proxy', trustProxy(config.get<string>('TRUST_PROXY')));
 
   app.use(helmet());
 
@@ -58,12 +68,15 @@ async function bootstrap() {
   // /api/ and strips that prefix (see deploy/nginx.conf), so a path that
   // repeats it - "api/docs" - is only reachable at the double-prefixed
   // /api/api/docs and 404s at the /api/docs every other client assumes.
-  SwaggerModule.setup('docs', app, document);
+  // The docs list every route and its inputs: useful in development, a map for
+  // anyone probing a live site. Off in production unless asked for.
+  const docs = config.get<string>('NODE_ENV') !== 'production' || config.get<string>('API_DOCS_ENABLED') === 'true';
+  if (docs) SwaggerModule.setup('docs', app, document);
 
   const port = config.get<number>('PORT') ?? 3001;
   await app.listen(port);
   console.log(`Care Platform API listening on port ${port}`);
-  console.log(`Swagger docs available at http://localhost:${port}/docs`);
+  if (docs) console.log(`Swagger docs available at http://localhost:${port}/docs`);
 }
 
 bootstrap();

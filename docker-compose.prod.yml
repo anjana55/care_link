@@ -67,6 +67,10 @@ services:
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env.production}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      # Off unless set to true: the API docs list every route (see .env.production.example).
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
+      # Which proxies may pass on the visitor's address; blank = nginx on the private network.
+      TRUST_PROXY: ${TRUST_PROXY:-}
       STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
       STORAGE_LOCAL_ROOT: /storage/caregiver-documents
       STORAGE_MAX_FILE_SIZE_BYTES: ${STORAGE_MAX_FILE_SIZE_BYTES:-10485760}

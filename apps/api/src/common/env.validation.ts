@@ -7,7 +7,7 @@ enum NodeEnv {
   Test = 'test',
 }
 
-class EnvironmentVariables {
+export class EnvironmentVariables {
   @IsEnum(NodeEnv)
   NODE_ENV: NodeEnv = NodeEnv.Development;
 
@@ -85,6 +85,20 @@ class EnvironmentVariables {
   @IsOptional()
   @IsBooleanString()
   WHATSAPP_ENABLED?: string;
+
+  /** The API docs (/docs) are off in production unless this is "true". */
+  @IsOptional()
+  @IsBooleanString()
+  API_DOCS_ENABLED?: string;
+
+  /**
+   * Which proxies may tell the API the visitor's address (Express "trust
+   * proxy"). The default trusts the local and private networks, which is
+   * where nginx sits in the Docker setup. Set "false" with no proxy in front.
+   */
+  @IsOptional()
+  @IsString()
+  TRUST_PROXY?: string;
 
   @IsOptional()
   @IsEnum({ META_CLOUD: 'META_CLOUD', CONSOLE: 'CONSOLE' })
@@ -171,5 +185,31 @@ export function validateEnv(config: Record<string, unknown>) {
   if (errors.length > 0) {
     throw new Error(`Invalid environment configuration: ${errors.toString()}`);
   }
+  if (validated.NODE_ENV === NodeEnv.Production) {
+    const weak = weakSecrets(validated);
+    if (weak.length) throw new Error(`Invalid environment configuration: ${weak.join('; ')}`);
+  }
   return validated;
+}
+
+/** Placeholder values from .env.example, and anything else too short to sign tokens safely. */
+const PLACEHOLDER = /change-?me|your-?secret|replace-?(this|me)/i;
+const MIN_SECRET_LENGTH = 32;
+
+/**
+ * In production the token-signing keys must be long, distinct and not the
+ * examples: anyone who knows a key can sign themselves in as anybody.
+ * setup.sh generates 64-character random keys, so a real install passes.
+ */
+export function weakSecrets(env: Pick<EnvironmentVariables, 'JWT_ACCESS_SECRET' | 'JWT_REFRESH_SECRET' | 'SETTINGS_ENCRYPTION_KEY'>): string[] {
+  const out: string[] = [];
+  for (const name of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'SETTINGS_ENCRYPTION_KEY'] as const) {
+    const v = env[name];
+    // Optional (a key is derived from the refresh secret when it is blank).
+    if (!v && name === 'SETTINGS_ENCRYPTION_KEY') continue;
+    if (!v || v.length < MIN_SECRET_LENGTH) out.push(`${name} must be at least ${MIN_SECRET_LENGTH} characters (try: openssl rand -base64 48)`);
+    else if (PLACEHOLDER.test(v)) out.push(`${name} is still the example value - generate a new one (openssl rand -base64 48)`);
+  }
+  if (env.JWT_ACCESS_SECRET && env.JWT_ACCESS_SECRET === env.JWT_REFRESH_SECRET) out.push('JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be different');
+  return out;
 }

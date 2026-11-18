@@ -83,7 +83,7 @@ export class PasswordResetService {
       if (!affected(claimed)) throw new UnauthorizedException(INVALID_LINK);
       await tx
         .update(users)
-        .set({ passwordHash, ...(user.emailVerified ? {} : { emailVerifiedAt: new Date() }) })
+        .set({ passwordHash, failedLogins: 0, loginLockedUntil: null, ...(user.emailVerified ? {} : { emailVerifiedAt: new Date() }) })
         .where(eq(users.id, user.id));
       await this.voidEverything(tx as unknown as Database, user.id);
     });

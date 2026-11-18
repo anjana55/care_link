@@ -1,9 +1,9 @@
-import { BadRequestException, ConflictException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomUUID as uuid } from 'crypto';
-import { and, eq, gt } from 'drizzle-orm';
+import { and, eq, gt, sql } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../database/database.module';
 import { refreshTokens, users, caregivers, patients, employers, emailVerificationTokens, type UserRole } from '../database/schema';
 import { JwtPayload } from './strategies/jwt.strategy';
@@ -29,6 +29,17 @@ import { generateUniquePublicId } from '../caregivers/caregiver-ref.util';
 // and are auto-verified at creation (see UsersService.create).
 const SELF_REGISTERED_ROLES: UserRole[] = ['CAREGIVER', 'PATIENT_GUARDIAN', 'EMPLOYER'];
 
+/** Wrong passwords in a row before password sign-in is paused for the account. */
+export const LOGIN_MAX_FAILURES = 10;
+export const LOGIN_LOCK_MINUTES = 15;
+export const LOGIN_LOCKED_MESSAGE = 'Too many wrong passwords. Try again in 15 minutes, or reset your password.';
+/**
+ * Checked against when there is no account (or no password), so an unknown
+ * email takes as long to refuse as a wrong password: the timing must not tell
+ * anyone which emails have accounts. Same cost as the stored hashes (12).
+ */
+const NO_ACCOUNT_HASH = bcrypt.hashSync(randomBytes(16).toString('hex'), 12);
+
 const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 @Injectable()
@@ -43,16 +54,34 @@ export class AuthService {
     private readonly whatsappSettings: WhatsappSettingsService,
   ) {}
 
-  async validateUser(email: string, password: string) {
+  async validateUser(email: string, password: string, now = new Date()) {
     const [user] = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
     // A WhatsApp-registered account has no password hash; it can only sign in
     // with an OTP, so the email/password path always rejects it.
     if (!user || !user.isActive || !user.passwordHash) {
+      await bcrypt.compare(password, NO_ACCOUNT_HASH);
       throw new UnauthorizedException('Invalid credentials');
+    }
+    // Paused after too many wrong passwords in a row, whoever is trying and from
+    // wherever: per-address limits alone let someone spread guesses over many
+    // addresses. WhatsApp, social sign-in and a password reset still work.
+    if (user.loginLockedUntil && user.loginLockedUntil.getTime() > now.getTime()) {
+      throw new HttpException(LOGIN_LOCKED_MESSAGE, HttpStatus.TOO_MANY_REQUESTS);
     }
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatches) {
+      // One statement, so parallel guesses all count. The lock is set before the
+      // count is reset (MySQL applies SET left to right).
+      const lockUntil = new Date(now.getTime() + LOGIN_LOCK_MINUTES * 60_000);
+      await this.db.execute(sql`
+        UPDATE users SET
+          login_locked_until = IF(failed_logins + 1 >= ${LOGIN_MAX_FAILURES}, ${lockUntil}, login_locked_until),
+          failed_logins = IF(failed_logins + 1 >= ${LOGIN_MAX_FAILURES}, 0, failed_logins + 1)
+        WHERE id = ${user.id}`);
       throw new UnauthorizedException('Invalid credentials');
+    }
+    if (user.failedLogins || user.loginLockedUntil) {
+      await this.db.update(users).set({ failedLogins: 0, loginLockedUntil: null }).where(eq(users.id, user.id));
     }
     return user;
   }
